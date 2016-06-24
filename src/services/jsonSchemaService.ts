@@ -336,12 +336,15 @@ export class JSONSchemaService implements IJSONSchemaService {
 	}
 
 	public loadSchema(url: string): Thenable<UnresolvedSchema> {
+		if (!this.requestService) {
+			let errorMessage = localize('json.schema.norequestservice', 'Unable to load schema from \'{0}\'. No request service available', toDisplayString(url));
+			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [errorMessage]));
+		}
 		if (this.telemetryService && url.indexOf('//schema.management.azure.com/') !== -1) {
 			this.telemetryService.log('json.schema', {
 				schemaURL: url
 			});
 		}
-
 		return this.requestService({ url: url, followRedirects: 5 }).then(
 			request => {
 				let content = request.responseText;

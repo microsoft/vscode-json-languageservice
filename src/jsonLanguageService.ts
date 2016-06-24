@@ -103,7 +103,7 @@ export interface Thenable<R> {
 }
 
 export interface LanguageServiceParams {
-	request: RequestService;
+	request?: RequestService;
 	workspaceContext?: WorkspaceContextService;
 	telemetry?: TelemetryService;
 	contributions?: JSONWorkerContribution[];
