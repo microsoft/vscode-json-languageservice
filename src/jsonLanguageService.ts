@@ -25,7 +25,7 @@ export {TextDocument, Position, CompletionItem, CompletionList, Hover, Range, Sy
 	TextEdit, FormattingOptions};
 
 export interface LanguageService {
-	configure(schemaConfiguration: JSONSchemaConfiguration[]): void;
+	configure(settings: LanguageSettings): void;
 	doValidation(document: TextDocument, jsonDocument: JSONDocument): Thenable<Diagnostic[]>;
 	parseJSONDocument(document: TextDocument): JSONDocument;
 	resetSchema(uri: string): boolean;
@@ -36,7 +36,12 @@ export interface LanguageService {
 	format(document: TextDocument, range: Range, options: FormattingOptions): Thenable<TextEdit[]>;
 }
 
-export interface JSONSchemaConfiguration {
+export interface LanguageSettings {
+	validate?: boolean;
+	schemas?: SchemaConfiguration[];
+}
+
+export interface SchemaConfiguration {
 	uri: string;
 	fileMatch?: string[];
 	schema?: JSONSchema;
@@ -106,19 +111,24 @@ export interface LanguageServiceParams {
 }
 
 export function getLanguageService(params: LanguageServiceParams): LanguageService {
-	let jsonSchemaService = new JSONSchemaService(params.request, params.workspaceContext, params.telemetry, params.promiseConstructor);
+	let promise = params.promiseConstructor || Promise;
+
+	let jsonSchemaService = new JSONSchemaService(params.request, params.workspaceContext, params.telemetry, promise);
 	jsonSchemaService.setSchemaContributions(schemaContributions);
 
-	let jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions);
-	let jsonHover = new JSONHover(jsonSchemaService, params.contributions, params.promiseConstructor);
+	let jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise);
+	let jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
 	let jsonDocumentSymbols = new JSONDocumentSymbols();
-	let jsonValidation = new JSONValidation(jsonSchemaService);
+	let jsonValidation = new JSONValidation(jsonSchemaService, promise);
 
 	return {
-		configure: (schemaConf: JSONSchemaConfiguration[]) => {
-			schemaConf.forEach(settings => {
-				jsonSchemaService.registerExternalSchema(settings.uri, settings.fileMatch, settings.schema);
-			});
+		configure: (settings: LanguageSettings) => {
+			jsonSchemaService.clearExternalSchemas();
+			if (settings.schemas) {
+				settings.schemas.forEach(settings => {
+					jsonSchemaService.registerExternalSchema(settings.uri, settings.fileMatch, settings.schema);
+				});
+			}
 		},
 		resetSchema: (uri: string) => {
 			return jsonSchemaService.onResourceChange(uri);
@@ -129,6 +139,6 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		doComplete: jsonCompletion.doComplete.bind(jsonCompletion),
 		findDocumentSymbols: jsonDocumentSymbols.findDocumentSymbols.bind(jsonDocumentSymbols),
 		doHover: jsonHover.doHover.bind(jsonHover),
-		format: (document, range, options) => Promise.resolve(formatJSON(document, range, options))
+		format: (document, range, options) => promise.resolve(formatJSON(document, range, options))
 	};
 }

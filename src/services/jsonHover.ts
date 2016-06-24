@@ -16,17 +16,13 @@ export class JSONHover {
 
 	private schemaService: SchemaService.IJSONSchemaService;
 	private contributions: JSONWorkerContribution[];
-	private promiseConstructor: PromiseConstructor;
+	private promise: PromiseConstructor;
 
-	constructor(schemaService: SchemaService.IJSONSchemaService, contributions: JSONWorkerContribution[] = [], promiseConstructor?: PromiseConstructor) {
+	constructor(schemaService: SchemaService.IJSONSchemaService, contributions: JSONWorkerContribution[] = [], promiseConstructor: PromiseConstructor) {
 		this.schemaService = schemaService;
 		this.contributions = contributions;
-		this.promiseConstructor = promiseConstructor || Promise;
+		this.promise = promiseConstructor || Promise;
 	}
-
-	public get promise() {
-		return this.promiseConstructor;
-	}	
 
 	public doHover(document: TextDocument, position: Position, doc: Parser.JSONDocument): Thenable<Hover> {
 

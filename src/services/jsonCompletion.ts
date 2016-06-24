@@ -21,17 +21,13 @@ export class JSONCompletion {
 
 	private schemaService: SchemaService.IJSONSchemaService;
 	private contributions: JSONWorkerContribution[];
-	private promiseConstructor: PromiseConstructor;
+	private promise: PromiseConstructor;
 
 	constructor(schemaService: SchemaService.IJSONSchemaService, contributions: JSONWorkerContribution[] = [], promiseConstructor?: PromiseConstructor) {
 		this.schemaService = schemaService;
 		this.contributions = contributions;
-		this.promiseConstructor = promiseConstructor || Promise;
+		this.promise = promiseConstructor || Promise;
 	}
-
-	public get promise() {
-		return this.promiseConstructor;
-	}	
 
 	public doResolve(item: CompletionItem) : Thenable<CompletionItem> {
 		for (let i = this.contributions.length - 1; i >= 0; i--) {

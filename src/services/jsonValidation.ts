@@ -7,16 +7,31 @@
 import {JSONSchemaService} from './jsonSchemaService';
 import {JSONDocument, ObjectASTNode} from '../parser/jsonParser';
 import {TextDocument, Diagnostic, DiagnosticSeverity} from 'vscode-languageserver-types';
+import {LanguageSettings} from '../jsonLanguageService';
+import {PromiseConstructor, Thenable} from '../jsonLanguageService';
 
 export class JSONValidation {
 
 	private jsonSchemaService: JSONSchemaService;
+	private promise: PromiseConstructor;
 
-	public constructor(jsonSchemaService: JSONSchemaService) {
+	private validationEnabled: boolean;
+
+	public constructor(jsonSchemaService: JSONSchemaService, promiseConstructor: PromiseConstructor) {
 		this.jsonSchemaService = jsonSchemaService;
+		this.promise = promiseConstructor;
 	}
 
-	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument) : Thenable<Diagnostic[]>{
+	public configure(raw: LanguageSettings) {
+		if (raw) {
+			this.validationEnabled = raw.validate;
+		}
+	}
+
+	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument) : Thenable<Diagnostic[]> {
+		if (!this.validationEnabled) {
+			return this.promise.resolve([]);
+		}
 		return this.jsonSchemaService.getSchemaForResource(textDocument.uri, jsonDocument).then(schema => {
 			if (schema) {
 				if (schema.errors.length && jsonDocument.root) {

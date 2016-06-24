@@ -20,7 +20,7 @@ suite('JSON Hover', () => {
 		var uri = 'test://test.json';
 
 		var schemaService = new SchemaService.JSONSchemaService(requestService);
-		var hoverProvider = new JSONHover(schemaService);
+		var hoverProvider = new JSONHover(schemaService, [], Promise);
 		var id = "http://myschemastore/test1";
 		schemaService.registerExternalSchema(id, ["*.json"], schema);
 
