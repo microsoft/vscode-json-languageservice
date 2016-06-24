@@ -1,0 +1,37 @@
+{
+    "name": "vscode-json-languageservice",
+    "version": "0.0.1",
+    "description": "Language service for JSON",
+    "main": "./lib/jsonLanguageService.js",
+    "typings": "./lib/jsonLanguageService",
+    "author": "Microsoft Corporation",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Microsoft/vscode-json-languageservice"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/Microsoft/vscode-json-languageservice"
+    },
+    "devDependencies": {
+        "mocha": "^2.4.5",
+        "typescript": "^1.8.9",
+        "gulp": "^3.9.1",
+        "gulp-tsb": "^1.10.4",
+        "merge-stream": "^1.0.0",
+        "object-assign": "^4.1.0",
+        "rimraf": "^2.5.2",
+        "request-light": "^0.1.0"
+    },
+    "dependencies": {
+        "vscode-languageserver-types": "^1.0.1",
+        "vscode-nls": "^1.0.4",
+        "jsonc-parser": "^0.2.2"
+    },
+    "scripts": {
+        "prepublish": "gulp compile",
+        "compile": "gulp compile",
+        "watch": "gulp watch",
+        "test": "gulp compile && mocha"
+    }
+}
