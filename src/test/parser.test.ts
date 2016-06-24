@@ -7,7 +7,7 @@
 import assert = require('assert');
 import Parser = require('../parser/jsonParser');
 import SchemaService = require('../services/jsonSchemaService');
-import JsonSchema = require('../parser/jsonSchema');
+import JsonSchema = require('../jsonSchema');
 
 suite('JSON Parser', () => {
 
@@ -608,7 +608,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			allOf: [
 				{
@@ -649,7 +649,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			anyOf: [
 				{
@@ -694,7 +694,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			oneOf: [
 				{
@@ -740,7 +740,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			not: {
 				properties: {
@@ -769,7 +769,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			minProperties: 2
 		};
 
@@ -797,7 +797,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			maxProperties: 2
 		};
 
@@ -825,7 +825,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": 42}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			patternProperties: {
 				'^prop\\d$': {
@@ -858,7 +858,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": 42}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			additionalProperties: {
 				type: 'number'
 			}
@@ -923,7 +923,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"prop": "harmonica"}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			properties: {
 				'prop': {
 					enum: ['violin', 'harmonica', 'banjo']
@@ -967,7 +967,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('[1, 2, 3]');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			uniqueItems: true
 		};
@@ -994,7 +994,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('[1, true, "string"]');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			items: [
 				{
@@ -1031,7 +1031,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('[1, true, "string"]');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			items: [
 				{
@@ -1063,7 +1063,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('[42]');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			items: {
 				type: 'integer',
@@ -1087,7 +1087,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"a":true, "b":42}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				a: {
@@ -1121,7 +1121,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"a":true, "b":42}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				a: {
@@ -1167,7 +1167,7 @@ suite('JSON Parser', () => {
 
 		var doc = Parser.parse('{"prop": 42}');
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop': {
@@ -1212,7 +1212,7 @@ suite('JSON Parser', () => {
 		var result = Parser.parse('{"key":42}');
 		assert.strictEqual(result.errors.length, 0);
 
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'key': {

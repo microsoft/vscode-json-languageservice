@@ -7,7 +7,7 @@
 import assert = require('assert');
 import Parser = require('../parser/jsonParser');
 import SchemaService = require('../services/jsonSchemaService');
-import JsonSchema = require('../parser/jsonSchema');
+import JsonSchema = require('../jsonSchema');
 import {JSONCompletion} from '../services/jsonCompletion';
 import {JSONDocumentSymbols} from '../services/jsonDocumentSymbols';
 

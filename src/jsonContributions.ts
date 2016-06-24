@@ -8,15 +8,15 @@ import {JSONLocation} from './parser/jsonLocation';
 
 import {MarkedString, CompletionItem} from 'vscode-languageserver-types';
 
-export interface IJSONWorkerContribution {
+export interface JSONWorkerContribution {
 	getInfoContribution(resource: string, location: JSONLocation) : Thenable<MarkedString[]>;
-	collectPropertySuggestions(resource: string, location: JSONLocation, currentWord: string, addValue: boolean, isLast:boolean, result: ISuggestionsCollector) : Thenable<any>;
-	collectValueSuggestions(resource: string, location: JSONLocation, propertyKey: string, result: ISuggestionsCollector): Thenable<any>;
-	collectDefaultSuggestions(resource: string, result: ISuggestionsCollector): Thenable<any>;
-	resolveSuggestion?(item: CompletionItem): Thenable<CompletionItem>;
+	collectPropertyCompletions(resource: string, location: JSONLocation, currentWord: string, addValue: boolean, isLast:boolean, result: CompletionsCollector) : Thenable<any>;
+	collectValueCompletions(resource: string, location: JSONLocation, propertyKey: string, result: CompletionsCollector): Thenable<any>;
+	collectDefaultCompletions(resource: string, result: CompletionsCollector): Thenable<any>;
+	resolveCompletion?(item: CompletionItem): Thenable<CompletionItem>;
 }
 
-export interface ISuggestionsCollector {
+export interface CompletionsCollector {
 	add(suggestion: CompletionItem): void;
 	error(message:string): void;
 	log(message:string): void;

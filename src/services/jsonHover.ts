@@ -7,7 +7,7 @@
 
 import Parser = require('../parser/jsonParser');
 import SchemaService = require('./jsonSchemaService');
-import {IJSONWorkerContribution} from '../jsonContributions';
+import {JSONWorkerContribution} from '../jsonContributions';
 import {PromiseConstructor, Thenable} from '../jsonLanguageService';
 
 import {Hover, TextDocument, Position, Range, MarkedString} from 'vscode-languageserver-types';
@@ -15,10 +15,10 @@ import {Hover, TextDocument, Position, Range, MarkedString} from 'vscode-languag
 export class JSONHover {
 
 	private schemaService: SchemaService.IJSONSchemaService;
-	private contributions: IJSONWorkerContribution[];
+	private contributions: JSONWorkerContribution[];
 	private promiseConstructor: PromiseConstructor;
 
-	constructor(schemaService: SchemaService.IJSONSchemaService, contributions: IJSONWorkerContribution[] = [], promiseConstructor?: PromiseConstructor) {
+	constructor(schemaService: SchemaService.IJSONSchemaService, contributions: JSONWorkerContribution[] = [], promiseConstructor?: PromiseConstructor) {
 		this.schemaService = schemaService;
 		this.contributions = contributions;
 		this.promiseConstructor = promiseConstructor || Promise;

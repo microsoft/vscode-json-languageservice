@@ -7,8 +7,8 @@
 
 import Parser = require('../parser/jsonParser');
 import SchemaService = require('./jsonSchemaService');
-import {IJSONSchema} from '../parser/jsonSchema';
-import {IJSONWorkerContribution, ISuggestionsCollector} from '../jsonContributions';
+import {JSONSchema} from '../jsonSchema';
+import {JSONWorkerContribution, CompletionsCollector} from '../jsonContributions';
 import {PromiseConstructor, Thenable} from '../jsonLanguageService';
 
 import {CompletionItem, CompletionItemKind, CompletionList, TextDocument, Position, Range, TextEdit} from 'vscode-languageserver-types';
@@ -20,10 +20,10 @@ const localize = nls.loadMessageBundle();
 export class JSONCompletion {
 
 	private schemaService: SchemaService.IJSONSchemaService;
-	private contributions: IJSONWorkerContribution[];
+	private contributions: JSONWorkerContribution[];
 	private promiseConstructor: PromiseConstructor;
 
-	constructor(schemaService: SchemaService.IJSONSchemaService, contributions: IJSONWorkerContribution[] = [], promiseConstructor?: PromiseConstructor) {
+	constructor(schemaService: SchemaService.IJSONSchemaService, contributions: JSONWorkerContribution[] = [], promiseConstructor?: PromiseConstructor) {
 		this.schemaService = schemaService;
 		this.contributions = contributions;
 		this.promiseConstructor = promiseConstructor || Promise;
@@ -35,8 +35,8 @@ export class JSONCompletion {
 
 	public doResolve(item: CompletionItem) : Thenable<CompletionItem> {
 		for (let i = this.contributions.length - 1; i >= 0; i--) {
-			if (this.contributions[i].resolveSuggestion) {
-				let resolver = this.contributions[i].resolveSuggestion(item);
+			if (this.contributions[i].resolveCompletion) {
+				let resolver = this.contributions[i].resolveCompletion(item);
 				if (resolver) {
 					return resolver;
 				}
@@ -64,7 +64,7 @@ export class JSONCompletion {
 		}
 
 		let proposed: { [key: string]: boolean } = {};
-		let collector: ISuggestionsCollector = {
+		let collector: CompletionsCollector = {
 			add: (suggestion: CompletionItem) => {
 				if (!proposed[suggestion.label]) {
 					proposed[suggestion.label] = true;
@@ -133,7 +133,7 @@ export class JSONCompletion {
 
 				let location = node.getNodeLocation();
 				this.contributions.forEach((contribution) => {
-					let collectPromise = contribution.collectPropertySuggestions(document.uri, location, currentWord, addValue, isLast, collector);
+					let collectPromise = contribution.collectPropertyCompletions(document.uri, location, currentWord, addValue, isLast, collector);
 					if (collectPromise) {
 						collectionPromises.push(collectPromise);
 					}
@@ -156,7 +156,7 @@ export class JSONCompletion {
 
 			if (!node) {
 				this.contributions.forEach((contribution) => {
-					let collectPromise = contribution.collectDefaultSuggestions(document.uri, collector);
+					let collectPromise = contribution.collectDefaultCompletions(document.uri, collector);
 					if (collectPromise) {
 						collectionPromises.push(collectPromise);
 					}
@@ -169,7 +169,7 @@ export class JSONCompletion {
 					if (!valueNode || offset <= valueNode.end) {
 						let location = node.parent.getNodeLocation();
 						this.contributions.forEach((contribution) => {
-							let collectPromise = contribution.collectValueSuggestions(document.uri, location, parentKey, collector);
+							let collectPromise = contribution.collectValueCompletions(document.uri, location, parentKey, collector);
 							if (collectPromise) {
 								collectionPromises.push(collectPromise);
 							}
@@ -181,7 +181,7 @@ export class JSONCompletion {
 		});
 	}
 
-	private getPropertySuggestions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: Parser.ASTNode, addValue: boolean, isLast: boolean, collector: ISuggestionsCollector): void {
+	private getPropertySuggestions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: Parser.ASTNode, addValue: boolean, isLast: boolean, collector: CompletionsCollector): void {
 		let matchingSchemas: Parser.IApplicableSchema[] = [];
 		doc.validate(schema.schema, matchingSchemas, node.start);
 
@@ -198,7 +198,7 @@ export class JSONCompletion {
 		});
 	}
 
-	private getSchemaLessPropertySuggestions(doc: Parser.JSONDocument, node: Parser.ASTNode, currentKey: string, currentWord: string, isLast: boolean, collector: ISuggestionsCollector): void {
+	private getSchemaLessPropertySuggestions(doc: Parser.JSONDocument, node: Parser.ASTNode, currentKey: string, currentWord: string, isLast: boolean, collector: CompletionsCollector): void {
 		let collectSuggestionsForSimilarObject = (obj: Parser.ObjectASTNode) => {
 			obj.properties.forEach((p) => {
 				let key = p.key.value;
@@ -229,7 +229,7 @@ export class JSONCompletion {
 		}
 	}
 
-	private getSchemaLessValueSuggestions(doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, document: TextDocument, collector: ISuggestionsCollector): void {
+	private getSchemaLessValueSuggestions(doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, document: TextDocument, collector: CompletionsCollector): void {
 		let collectSuggestionsForValues = (value: Parser.ASTNode) => {
 			if (!value.contains(offset)) {
 				let content = this.getTextForMatchingNode(value, document);
@@ -281,7 +281,7 @@ export class JSONCompletion {
 	}
 
 
-	private getValueSuggestions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, collector: ISuggestionsCollector): void {
+	private getValueSuggestions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, collector: CompletionsCollector): void {
 
 		if (!node) {
 			this.addDefaultSuggestion(schema.schema, collector);
@@ -319,15 +319,15 @@ export class JSONCompletion {
 		}
 	}
 
-	private addBooleanSuggestion(value: boolean, collector: ISuggestionsCollector): void {
+	private addBooleanSuggestion(value: boolean, collector: CompletionsCollector): void {
 		collector.add({ kind: this.getSuggestionKind('boolean'), label: value ? 'true' : 'false', insertText: this.getTextForValue(value), documentation: '' });
 	}
 
-	private addNullSuggestion(collector: ISuggestionsCollector): void {
+	private addNullSuggestion(collector: CompletionsCollector): void {
 		collector.add({ kind: this.getSuggestionKind('null'), label: 'null', insertText: 'null', documentation: '' });
 	}
 
-	private addEnumSuggestion(schema: IJSONSchema, collector: ISuggestionsCollector): void {
+	private addEnumSuggestion(schema: JSONSchema, collector: CompletionsCollector): void {
 		if (Array.isArray(schema.enum)) {
 			schema.enum.forEach((enm) => collector.add({ kind: this.getSuggestionKind(schema.type), label: this.getLabelForValue(enm), insertText: this.getTextForValue(enm), documentation: '' }));
 		} else {
@@ -350,14 +350,14 @@ export class JSONCompletion {
 		}
 	}
 
-	private isType(schema: IJSONSchema, type: string) {
+	private isType(schema: JSONSchema, type: string) {
 		if (Array.isArray(schema.type)) {
 			return schema.type.indexOf(type) !== -1;
 		}
 		return schema.type === type;
 	}
 
-	private addDefaultSuggestion(schema: IJSONSchema, collector: ISuggestionsCollector): void {
+	private addDefaultSuggestion(schema: JSONSchema, collector: CompletionsCollector): void {
 		if (schema.default) {
 			collector.add({
 				kind: this.getSuggestionKind(schema.type),
@@ -460,7 +460,7 @@ export class JSONCompletion {
 		}
 	}
 
-	private getTextForProperty(key: string, propertySchema: IJSONSchema, addValue: boolean, isLast: boolean): string {
+	private getTextForProperty(key: string, propertySchema: JSONSchema, addValue: boolean, isLast: boolean): string {
 
 		let result = this.getTextForValue(key);
 		if (!addValue) {

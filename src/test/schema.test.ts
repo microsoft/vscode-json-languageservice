@@ -6,7 +6,7 @@
 
 import assert = require('assert');
 import SchemaService = require('../services/jsonSchemaService');
-import JsonSchema = require('../parser/jsonSchema');
+import JsonSchema = require('../jsonSchema');
 import Json = require('jsonc-parser');
 import Parser = require('../parser/jsonParser');
 import fs = require('fs');
@@ -254,7 +254,7 @@ suite('JSON Schema', () => {
 	test('Preloaded Schema', function(testDone) {
 		var service = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);
 		var id = 'https://myschemastore/test1';
-		var schema : JsonSchema.IJSONSchema = {
+		var schema : JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				child: {
@@ -282,7 +282,7 @@ suite('JSON Schema', () => {
 	test('External Schema', function(testDone) {
 		var service = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);
 		var id = 'https://myschemastore/test1';
-		var schema : JsonSchema.IJSONSchema = {
+		var schema : JsonSchema.JSONSchema = {
 				type: 'object',
 				properties: {
 					child: {
@@ -312,7 +312,7 @@ suite('JSON Schema', () => {
 		var service = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);
 		var id = 'https://myschemastore/test1';
 
-		var schema:JsonSchema.IJSONSchema = {
+		var schema:JsonSchema.JSONSchema = {
 			id: 'main',
 			type: 'object',
 			definitions: {
@@ -349,7 +349,7 @@ suite('JSON Schema', () => {
 	test('Resolving in-line $refs automatically for external schemas', function(testDone) {
 		var service = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);
 		var id = 'https://myschemastore/test1';
-		var schema:JsonSchema.IJSONSchema = {
+		var schema:JsonSchema.JSONSchema = {
 			id: 'main',
 			type: 'object',
 			definitions: {
@@ -386,7 +386,7 @@ suite('JSON Schema', () => {
 	test('Clearing External Schemas', function(testDone) {
 		var service = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);
 		var id1 = 'http://myschemastore/test1';
-		var schema1:JsonSchema.IJSONSchema = {
+		var schema1:JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				child: {
@@ -396,7 +396,7 @@ suite('JSON Schema', () => {
 		};
 
 		var id2 = 'http://myschemastore/test2';
-		var schema2:JsonSchema.IJSONSchema = {
+		var schema2:JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				child: {
@@ -442,7 +442,7 @@ suite('JSON Schema', () => {
 		}});
 
 		var id2 = 'http://myschemastore/myschemafoo';
-		var schema2:JsonSchema.IJSONSchema = {
+		var schema2:JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				child: {

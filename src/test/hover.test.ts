@@ -7,7 +7,7 @@
 import assert = require('assert');
 import Parser = require('../parser/jsonParser');
 import SchemaService = require('../services/jsonSchemaService');
-import JsonSchema = require('../parser/jsonSchema');
+import JsonSchema = require('../jsonSchema');
 import {JSONCompletion} from '../services/jsonCompletion';
 import {XHROptions, XHRResponse} from 'request-light';
 import {JSONHover} from '../services/jsonHover';
@@ -16,7 +16,7 @@ import {Hover, TextDocument, TextDocumentIdentifier, Range, Position, TextEdit} 
 
 suite('JSON Hover', () => {
 
-	function testComputeInfo(value: string, schema: JsonSchema.IJSONSchema, position: Position): Thenable<Hover> {
+	function testComputeInfo(value: string, schema: JsonSchema.JSONSchema, position: Position): Thenable<Hover> {
 		var uri = 'test://test.json';
 
 		var schemaService = new SchemaService.JSONSchemaService(requestService);
@@ -36,7 +36,7 @@ suite('JSON Hover', () => {
 	test('Simple schema', function(testDone) {
 
 		var content = '{"a": 42, "b": "hello", "c": false}';
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			description: 'a very special object',
 			properties: {
@@ -73,7 +73,7 @@ suite('JSON Hover', () => {
 	test('Nested schema', function(testDone) {
 
 		var content = '{"a": 42, "b": "hello"}';
-		var schema: JsonSchema.IJSONSchema = {
+		var schema: JsonSchema.JSONSchema = {
 			oneOf: [{
 				type: 'object',
 				description: 'a very special object',

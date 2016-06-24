@@ -10,16 +10,19 @@ import {TextDocument, Position, CompletionItem, CompletionList, Hover, Range, Sy
 import {JSONCompletion} from './services/jsonCompletion';
 import {JSONHover} from './services/jsonHover';
 import {JSONValidation} from './services/jsonValidation';
-import {IJSONSchema} from './parser/jsonSchema';
+import {JSONSchema} from './jsonSchema';
 import {JSONDocumentSymbols} from './services/jsonDocumentSymbols';
 import {parse as parseJSON, JSONDocument} from './parser/jsonParser';
 import {schemaContributions} from './services/configuration';
 import {XHROptions, XHRResponse} from 'request-light';
 import {JSONSchemaService} from './services/jsonSchemaService';
-import {IJSONWorkerContribution} from './jsonContributions';
+import {JSONWorkerContribution} from './jsonContributions';
 import {format as formatJSON} from './services/jsonFormatter';
 
 export type JSONDocument = {};
+export {JSONSchema, JSONWorkerContribution, XHROptions, XHRResponse};
+export {TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
+	TextEdit, FormattingOptions};
 
 export interface LanguageService {
 	configure(schemaConfiguration: JSONSchemaConfiguration[]): void;
@@ -36,7 +39,7 @@ export interface LanguageService {
 export interface JSONSchemaConfiguration {
 	uri: string;
 	fileMatch?: string[];
-	schema?: IJSONSchema;
+	schema?: JSONSchema;
 }
 
 export interface TelemetryService {
@@ -58,7 +61,7 @@ export interface PromiseConstructor {
      * a resolve callback used resolve the promise with a value or the result of another promise,
      * and a reject callback used to reject the promise with a provided reason or error.
      */
-    new <T>(executor: (resolve: (value?: T | Thenable<T>) => void, reject: (reason?: any) => void) => void): Promise<T>;
+    new <T>(executor: (resolve: (value?: T | Thenable<T>) => void, reject: (reason?: any) => void) => void): Thenable<T>;
 
     /**
      * Creates a Promise that is resolved with an array of results when all of the provided Promises
@@ -66,20 +69,20 @@ export interface PromiseConstructor {
      * @param values An array of Promises.
      * @returns A new Promise.
      */
-    all<T>(values: Array<T | Thenable<T>>): Promise<T[]>;
+    all<T>(values: Array<T | Thenable<T>>): Thenable<T[]>;
     /**
      * Creates a new rejected promise for the provided reason.
      * @param reason The reason the promise was rejected.
      * @returns A new rejected Promise.
      */
-    reject<T>(reason: any): Promise<T>;
+    reject<T>(reason: any): Thenable<T>;
 
     /**
       * Creates a new resolved promise for the provided value.
       * @param value A promise.
       * @returns A promise whose internal state matches the provided promise.
       */
-    resolve<T>(value: T | Thenable<T>): Promise<T>;
+    resolve<T>(value: T | Thenable<T>): Thenable<T>;
 
 }
 
@@ -98,7 +101,7 @@ export interface LanguageServiceParams {
 	request: RequestService;
 	workspaceContext?: WorkspaceContextService;
 	telemetry?: TelemetryService;
-	contributions?: IJSONWorkerContribution[];
+	contributions?: JSONWorkerContribution[];
 	promiseConstructor?: PromiseConstructor;
 }
 

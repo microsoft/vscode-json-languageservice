@@ -7,7 +7,7 @@
 import assert = require('assert');
 import Parser = require('../parser/jsonParser');
 import SchemaService = require('../services/jsonSchemaService');
-import JsonSchema = require('../parser/jsonSchema');
+import JsonSchema = require('../jsonSchema');
 import {JSONCompletion} from '../services/jsonCompletion';
 import {XHROptions, XHRResponse} from 'request-light';
 
@@ -31,7 +31,7 @@ suite('JSON Completion', () => {
 	};
 
 
-	let testCompletionsFor = function(value: string, stringAfter: string, schema: JsonSchema.IJSONSchema, test: (items: CompletionItem[], document: TextDocument) => void) : Thenable<void> {
+	let testCompletionsFor = function(value: string, stringAfter: string, schema: JsonSchema.JSONSchema, test: (items: CompletionItem[], document: TextDocument) => void) : Thenable<void> {
 		let uri = 'test://test.json';
 		let idx = stringAfter ? value.indexOf(stringAfter) : 0;
 
@@ -111,7 +111,7 @@ suite('JSON Completion', () => {
 	});
 
 	test('Complete keys with schema', function(testDone) {
-		let schema: JsonSchema.IJSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'a': {
@@ -160,7 +160,7 @@ suite('JSON Completion', () => {
 
 	test('Complete value with schema', function(testDone) {
 
-		let schema: JsonSchema.IJSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'a': {
@@ -191,7 +191,7 @@ suite('JSON Completion', () => {
 
 	test('Complete value with schema: booleans, null', function(testDone) {
 
-		let schema: JsonSchema.IJSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'a': {
@@ -220,7 +220,7 @@ suite('JSON Completion', () => {
 	test('Complete with nested schema', function(testDone) {
 
 		let content = '{/**/}';
-		let schema: JsonSchema.IJSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			oneOf: [{
 				type: 'object',
 				properties: {
@@ -248,7 +248,7 @@ suite('JSON Completion', () => {
 
 	test('Complete with required anyOf', function(testDone) {
 
-		let schema: JsonSchema.IJSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			anyOf: [{
 				type: 'object',
 				required: ['a', 'b'],
@@ -294,7 +294,7 @@ suite('JSON Completion', () => {
 
 	test('Complete with anyOf', function(testDone) {
 
-		let schema: JsonSchema.IJSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			anyOf: [{
 				type: 'object',
 				properties: {
@@ -333,7 +333,7 @@ suite('JSON Completion', () => {
 
 	test('Complete with oneOf', function(testDone) {
 
-		let schema: JsonSchema.IJSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			oneOf: [{
 				type: 'object',
 				allOf: [{
@@ -394,7 +394,7 @@ suite('JSON Completion', () => {
 
 	test('Complete with oneOf and enums', function(testDone) {
 
-		let schema: JsonSchema.IJSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			oneOf: [{
 				type: 'object',
 				properties: {
@@ -492,7 +492,7 @@ suite('JSON Completion', () => {
 	});
 
 	test('Escaping with schema', function(testDone) {
-		let schema: JsonSchema.IJSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'{\\}': {

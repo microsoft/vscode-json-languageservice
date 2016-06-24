@@ -5,7 +5,7 @@
 'use strict';
 
 import Json = require('jsonc-parser');
-import JsonSchema = require('./jsonSchema');
+import {JSONSchema} from '../jsonSchema';
 import {JSONLocation} from './jsonLocation';
 
 import * as nls from 'vscode-nls';
@@ -97,7 +97,7 @@ export class ASTNode {
 		return findNode(this);
 	}
 
-	public validate(schema: JsonSchema.IJSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
 		if (offset !== -1 && !this.contains(offset)) {
 			return;
 		}
@@ -141,11 +141,11 @@ export class ASTNode {
 			}
 		}
 
-		let testAlternatives = (alternatives: JsonSchema.IJSONSchema[], maxOneMatch: boolean) => {
+		let testAlternatives = (alternatives: JSONSchema[], maxOneMatch: boolean) => {
 			let matches = [];
 
 			// remember the best match that is used for error messages
-			let bestMatch: { schema: JsonSchema.IJSONSchema; validationResult: ValidationResult; matchingSchemas: IApplicableSchema[]; } = null;
+			let bestMatch: { schema: JSONSchema; validationResult: ValidationResult; matchingSchemas: IApplicableSchema[]; } = null;
 			alternatives.forEach((subSchema) => {
 				let subValidationResult = new ValidationResult();
 				let subMatchingSchemas: IApplicableSchema[] = [];
@@ -273,14 +273,14 @@ export class ArrayASTNode extends ASTNode {
 		return ctn;
 	}
 
-	public validate(schema: JsonSchema.IJSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
 		if (offset !== -1 && !this.contains(offset)) {
 			return;
 		}
 		super.validate(schema, validationResult, matchingSchemas, offset);
 
 		if (Array.isArray(schema.items)) {
-			let subSchemas = <JsonSchema.IJSONSchema[]> schema.items;
+			let subSchemas = <JSONSchema[]>schema.items;
 			subSchemas.forEach((subSchema, index) => {
 				let itemValidationResult = new ValidationResult();
 				let item = this.items[index];
@@ -355,7 +355,7 @@ export class NumberASTNode extends ASTNode {
 		return this.value;
 	}
 
-	public validate(schema: JsonSchema.IJSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
 		if (offset !== -1 && !this.contains(offset)) {
 			return;
 		}
@@ -429,7 +429,7 @@ export class StringASTNode extends ASTNode {
 		return this.value;
 	}
 
-	public validate(schema: JsonSchema.IJSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
 		if (offset !== -1 && !this.contains(offset)) {
 			return;
 		}
@@ -488,7 +488,7 @@ export class PropertyASTNode extends ASTNode {
 		return visitor(this) && this.key.visit(visitor) && this.value && this.value.visit(visitor);
 	}
 
-	public validate(schema: JsonSchema.IJSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
 		if (offset !== -1 && !this.contains(offset)) {
 			return;
 		}
@@ -551,7 +551,7 @@ export class ObjectASTNode extends ASTNode {
 		return ctn;
 	}
 
-	public validate(schema: JsonSchema.IJSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
 		if (offset !== -1 && !this.contains(offset)) {
 			return;
 		}
@@ -679,7 +679,7 @@ export class ObjectASTNode extends ASTNode {
 							}
 						});
 					} else if (schema.dependencies[key]) {
-						let valueAsSchema: JsonSchema.IJSONSchema = schema.dependencies[key];
+						let valueAsSchema: JSONSchema = schema.dependencies[key];
 						let propertyvalidationResult = new ValidationResult();
 						this.validate(valueAsSchema, propertyvalidationResult, matchingSchemas, offset);
 						validationResult.mergePropertyMatch(propertyvalidationResult);
@@ -701,7 +701,7 @@ export class JSONDocumentConfig {
 export interface IApplicableSchema {
 	node: ASTNode;
 	inverted?: boolean;
-	schema: JsonSchema.IJSONSchema;
+	schema: JSONSchema;
 }
 
 export class ValidationResult {
@@ -792,7 +792,7 @@ export class JSONDocument {
 		}
 	}
 
-	public validate(schema: JsonSchema.IJSONSchema, matchingSchemas: IApplicableSchema[] = null, offset: number = -1): void {
+	public validate(schema: JSONSchema, matchingSchemas: IApplicableSchema[] = null, offset: number = -1): void {
 		if (this.root) {
 			this.root.validate(schema, this.validationResult, matchingSchemas, offset);
 		}
