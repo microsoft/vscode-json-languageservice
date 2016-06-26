@@ -127,7 +127,7 @@ export class JSONCompletion {
 					this.getSchemaLessPropertySuggestions(doc, node, currentKey, currentWord, isLast, collector);
 				}
 
-				let location = node.getNodeLocation();
+				let location = node.getPath();
 				this.contributions.forEach((contribution) => {
 					let collectPromise = contribution.collectPropertyCompletions(document.uri, location, currentWord, addValue, isLast, collector);
 					if (collectPromise) {
@@ -163,7 +163,7 @@ export class JSONCompletion {
 
 					let valueNode = (<Parser.PropertyASTNode> node).value;
 					if (!valueNode || offset <= valueNode.end) {
-						let location = node.parent.getNodeLocation();
+						let location = node.parent.getPath();
 						this.contributions.forEach((contribution) => {
 							let collectPromise = contribution.collectValueCompletions(document.uri, location, parentKey, collector);
 							if (collectPromise) {

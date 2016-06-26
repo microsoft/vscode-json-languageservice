@@ -6,11 +6,9 @@
 
 import Json = require('jsonc-parser');
 import {JSONSchema} from '../jsonSchema';
-import {JSONLocation} from './jsonLocation';
 
 import * as nls from 'vscode-nls';
 const localize = nls.loadMessageBundle();
-
 
 export interface IRange {
 	start: number;
@@ -27,20 +25,21 @@ export class ASTNode {
 	public end: number;
 	public type: string;
 	public parent: ASTNode;
-	public name: string;
+	
+	public location: Json.Segment;
 
-	constructor(parent: ASTNode, type: string, name: string, start: number, end?: number) {
+	constructor(parent: ASTNode, type: string, location: Json.Segment, start: number, end?: number) {
 		this.type = type;
-		this.name = name;
+		this.location = location;
 		this.start = start;
 		this.end = end;
 		this.parent = parent;
 	}
 
-	public getNodeLocation(): JSONLocation {
-		let path = this.parent ? this.parent.getNodeLocation() : new JSONLocation([]);
-		if (this.name) {
-			path = path.append(this.name);
+	public getPath(): Json.JSONPath {
+		let path = this.parent ? this.parent.getPath() : [];
+		if (this.location !== null) {
+			path.push(this.location);
 		}
 		return path;
 	}
@@ -216,7 +215,7 @@ export class ASTNode {
 
 export class NullASTNode extends ASTNode {
 
-	constructor(parent: ASTNode, name: string, start: number, end?: number) {
+	constructor(parent: ASTNode, name: Json.Segment, start: number, end?: number) {
 		super(parent, 'null', name, start, end);
 	}
 
@@ -229,7 +228,7 @@ export class BooleanASTNode extends ASTNode {
 
 	private value: boolean;
 
-	constructor(parent: ASTNode, name: string, value: boolean, start: number, end?: number) {
+	constructor(parent: ASTNode, name: Json.Segment, value: boolean, start: number, end?: number) {
 		super(parent, 'boolean', name, start, end);
 		this.value = value;
 	}
@@ -244,7 +243,7 @@ export class ArrayASTNode extends ASTNode {
 
 	public items: ASTNode[];
 
-	constructor(parent: ASTNode, name: string, start: number, end?: number) {
+	constructor(parent: ASTNode, name: Json.Segment, start: number, end?: number) {
 		super(parent, 'array', name, start, end);
 		this.items = [];
 	}
@@ -345,7 +344,7 @@ export class NumberASTNode extends ASTNode {
 	public isInteger: boolean;
 	public value: number;
 
-	constructor(parent: ASTNode, name: string, start: number, end?: number) {
+	constructor(parent: ASTNode, name: Json.Segment, start: number, end?: number) {
 		super(parent, 'number', name, start, end);
 		this.isInteger = true;
 		this.value = Number.NaN;
@@ -419,7 +418,7 @@ export class StringASTNode extends ASTNode {
 	public isKey: boolean;
 	public value: string;
 
-	constructor(parent: ASTNode, name: string, isKey: boolean, start: number, end?: number) {
+	constructor(parent: ASTNode, name: Json.Segment, isKey: boolean, start: number, end?: number) {
 		super(parent, 'string', name, start, end);
 		this.isKey = isKey;
 		this.value = '';
@@ -471,7 +470,7 @@ export class PropertyASTNode extends ASTNode {
 		super(parent, 'property', null, key.start);
 		this.key = key;
 		key.parent = this;
-		key.name = key.value;
+		key.location = key.value;
 		this.colonOffset = -1;
 	}
 
@@ -501,7 +500,7 @@ export class PropertyASTNode extends ASTNode {
 export class ObjectASTNode extends ASTNode {
 	public properties: PropertyASTNode[];
 
-	constructor(parent: ASTNode, name: string, start: number, end?: number) {
+	constructor(parent: ASTNode, name: Json.Segment, start: number, end?: number) {
 		super(parent, 'object', name, start, end);
 
 		this.properties = [];
@@ -885,7 +884,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		return node;
 	}
 
-	function _parseArray(parent: ASTNode, name: string): ArrayASTNode {
+	function _parseArray(parent: ASTNode, name: Json.Segment): ArrayASTNode {
 		if (_scanner.getToken() !== Json.SyntaxKind.OpenBracketToken) {
 			return null;
 		}
@@ -893,9 +892,9 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		_scanNext(); // consume OpenBracketToken
 
 		let count = 0;
-		if (node.addItem(_parseValue(node, '' + count++))) {
+		if (node.addItem(_parseValue(node, count++))) {
 			while (_accept(Json.SyntaxKind.CommaToken)) {
-				if (!node.addItem(_parseValue(node, '' + count++)) && !ignoreDanglingComma) {
+				if (!node.addItem(_parseValue(node, count++)) && !ignoreDanglingComma) {
 					_error(localize('ValueExpected', 'Value expected'));
 				}
 			}
@@ -943,7 +942,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		return node;
 	}
 
-	function _parseObject(parent: ASTNode, name: string): ObjectASTNode {
+	function _parseObject(parent: ASTNode, name: Json.Segment): ObjectASTNode {
 		if (_scanner.getToken() !== Json.SyntaxKind.OpenBraceToken) {
 			return null;
 		}
@@ -965,7 +964,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		return _finalize(node, true);
 	}
 
-	function _parseString(parent: ASTNode, name: string, isKey: boolean): StringASTNode {
+	function _parseString(parent: ASTNode, name: Json.Segment, isKey: boolean): StringASTNode {
 		if (_scanner.getToken() !== Json.SyntaxKind.StringLiteral) {
 			return null;
 		}
@@ -978,7 +977,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		return _finalize(node, true);
 	}
 
-	function _parseNumber(parent: ASTNode, name: string): NumberASTNode {
+	function _parseNumber(parent: ASTNode, name: Json.Segment): NumberASTNode {
 		if (_scanner.getToken() !== Json.SyntaxKind.NumericLiteral) {
 			return null;
 		}
@@ -1000,7 +999,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		return _finalize(node, true);
 	}
 
-	function _parseLiteral(parent: ASTNode, name: string): ASTNode {
+	function _parseLiteral(parent: ASTNode, name: Json.Segment): ASTNode {
 		let node: ASTNode;
 		switch (_scanner.getToken()) {
 			case Json.SyntaxKind.NullKeyword:
@@ -1018,7 +1017,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		return _finalize(node, true);
 	}
 
-	function _parseValue(parent: ASTNode, name: string): ASTNode {
+	function _parseValue(parent: ASTNode, name: Json.Segment): ASTNode {
 		return _parseArray(parent, name) || _parseObject(parent, name) || _parseString(parent, name, false) || _parseNumber(parent, name) || _parseLiteral(parent, name);
 	}
 

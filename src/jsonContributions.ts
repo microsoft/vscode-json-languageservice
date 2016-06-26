@@ -4,24 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import {Thenable} from './jsonLanguageService';
-import {MarkedString, CompletionItem} from 'vscode-languageserver-types';
+import {Thenable, MarkedString, CompletionItem} from './jsonLanguageService';
 
 export interface JSONWorkerContribution {
-	getInfoContribution(resource: string, location: JSONLocation) : Thenable<MarkedString[]>;
-	collectPropertyCompletions(resource: string, location: JSONLocation, currentWord: string, addValue: boolean, isLast:boolean, result: CompletionsCollector) : Thenable<any>;
-	collectValueCompletions(resource: string, location: JSONLocation, propertyKey: string, result: CompletionsCollector): Thenable<any>;
-	collectDefaultCompletions(resource: string, result: CompletionsCollector): Thenable<any>;
+	getInfoContribution(uri: string, location: JSONPath): Thenable<MarkedString[]>;
+	collectPropertyCompletions(uri: string, location: JSONPath, currentWord: string, addValue: boolean, isLast: boolean, result: CompletionsCollector): Thenable<any>;
+	collectValueCompletions(uri: string, location: JSONPath, propertyKey: string, result: CompletionsCollector): Thenable<any>;
+	collectDefaultCompletions(uri: string, result: CompletionsCollector): Thenable<any>;
 	resolveCompletion?(item: CompletionItem): Thenable<CompletionItem>;
 }
-export interface JSONLocation {
-	getSegments(): string[];
-	matches(segments: string[]) : boolean;
-}
+export type Segment = string | number;
+export type JSONPath = Segment[];
 
 export interface CompletionsCollector {
 	add(suggestion: CompletionItem): void;
-	error(message:string): void;
-	log(message:string): void;
+	error(message: string): void;
+	log(message: string): void;
 	setAsIncomplete(): void;
 }

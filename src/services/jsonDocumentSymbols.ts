@@ -51,7 +51,7 @@ export class JSONDocumentSymbols {
 					let location = Location.create(document.uri, Range.create(document.positionAt(property.start), document.positionAt(property.end)));
 					let valueNode = property.value;
 					if (valueNode) {
-						let childContainerName = containerName ? containerName + '.' + property.key.name : property.key.name;
+						let childContainerName = containerName ? containerName + '.' + property.key.value : property.key.value;
 						result.push({ name: property.key.getValue(), kind: this.getSymbolKind(valueNode.type), location: location, containerName: containerName });
 						collectOutlineEntries(result, valueNode, childContainerName);
 					}

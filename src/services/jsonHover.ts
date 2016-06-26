@@ -52,7 +52,7 @@ export class JSONHover {
 			return result;
 		};
 
-		let location = node.getNodeLocation();
+		let location = node.getPath();
 		for (let i = this.contributions.length - 1; i >= 0; i--) {
 			let contribution = this.contributions[i];
 			let promise = contribution.getInfoContribution(document.uri, location);

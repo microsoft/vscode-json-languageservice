@@ -5,7 +5,7 @@
 'use strict';
 
 import {TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions} from 'vscode-languageserver-types';
+	TextEdit, FormattingOptions, MarkedString} from 'vscode-languageserver-types';
 
 import {JSONCompletion} from './services/jsonCompletion';
 import {JSONHover} from './services/jsonHover';
@@ -15,13 +15,13 @@ import {JSONDocumentSymbols} from './services/jsonDocumentSymbols';
 import {parse as parseJSON, JSONDocumentConfig} from './parser/jsonParser';
 import {schemaContributions} from './services/configuration';
 import {JSONSchemaService} from './services/jsonSchemaService';
-import {JSONWorkerContribution} from './jsonContributions';
+import {JSONWorkerContribution, JSONPath, Segment, CompletionsCollector} from './jsonContributions';
 import {format as formatJSON} from './services/jsonFormatter';
 
 export type JSONDocument = {};
-export {JSONSchema, JSONWorkerContribution};
+export {JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector};
 export {TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions};
+	TextEdit, FormattingOptions, MarkedString};
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;
