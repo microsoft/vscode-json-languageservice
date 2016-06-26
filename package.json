@@ -1,6 +1,6 @@
 {
     "name": "vscode-json-languageservice",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "description": "Language service for JSON",
     "main": "./lib/jsonLanguageService.js",
     "typings": "./lib/jsonLanguageService",
@@ -20,13 +20,12 @@
         "gulp-tsb": "^1.10.4",
         "merge-stream": "^1.0.0",
         "object-assign": "^4.1.0",
-        "rimraf": "^2.5.2",
-        "request-light": "^0.1.0"
+        "rimraf": "^2.5.2"
     },
     "dependencies": {
         "vscode-languageserver-types": "^1.0.1",
         "vscode-nls": "^1.0.4",
-        "jsonc-parser": "^0.2.2"
+        "jsonc-parser": "^0.2.3"
     },
     "scripts": {
         "prepublish": "gulp compile",

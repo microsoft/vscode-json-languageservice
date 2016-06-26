@@ -12,15 +12,14 @@ import {JSONHover} from './services/jsonHover';
 import {JSONValidation} from './services/jsonValidation';
 import {JSONSchema} from './jsonSchema';
 import {JSONDocumentSymbols} from './services/jsonDocumentSymbols';
-import {parse as parseJSON, JSONDocument} from './parser/jsonParser';
+import {parse as parseJSON, JSONDocumentConfig} from './parser/jsonParser';
 import {schemaContributions} from './services/configuration';
-import {XHROptions, XHRResponse} from 'request-light';
 import {JSONSchemaService} from './services/jsonSchemaService';
 import {JSONWorkerContribution} from './jsonContributions';
 import {format as formatJSON} from './services/jsonFormatter';
 
 export type JSONDocument = {};
-export {JSONSchema, JSONWorkerContribution, XHROptions, XHRResponse};
+export {JSONSchema, JSONWorkerContribution};
 export {TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
 	TextEdit, FormattingOptions};
 
@@ -33,30 +32,49 @@ export interface LanguageService {
 	doComplete(document: TextDocument, position: Position, doc: JSONDocument): Thenable<CompletionList>;
 	findDocumentSymbols(document: TextDocument, doc: JSONDocument): SymbolInformation[];
 	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover>;
-	format(document: TextDocument, range: Range, options: FormattingOptions): Thenable<TextEdit[]>;
+	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
 }
 
 export interface LanguageSettings {
+	/**
+	 * If set, the validator will return syntax errors.
+	 */
 	validate?: boolean;
+	/**
+	 * If set, comments are toleranted. If not set, a syntax error is emmited for comments.
+	 */
+	allowComments?: boolean,
+	/**
+	 * A list of known schemas and/or associations of schemas to file names.
+	 */
 	schemas?: SchemaConfiguration[];
 }
 
 export interface SchemaConfiguration {
+	/**
+	 * The URI of the schema, which is also the identifier of the schema.
+	 */
 	uri: string;
+	/**
+	 * A list of file names that are associated to the schema. The '*' wildcard can be used. For example '*.schema.json', 'package.json'
+	 */
 	fileMatch?: string[];
+	/**
+	 * The schema for the given URI.
+	 * If no schema is provided, the schema will be fetched with the schema request service (if available).
+	 */
 	schema?: JSONSchema;
-}
-
-export interface TelemetryService {
-	log(key: string, data: any): void;
 }
 
 export interface WorkspaceContextService {
 	resolveRelativePath(relativePath: string, resource: string): string;
 }
-
-export interface RequestService {
-	(options: XHROptions): Thenable<XHRResponse>;
+/**
+ * The schema request service is used to fetch schemas. The result should the schema file comment, or,
+ * in case of an error, a displayable error string
+ */
+export interface SchemaRequestService {
+	(uri: string): Thenable<string>;
 }
 
 export interface PromiseConstructor {
@@ -103,17 +121,29 @@ export interface Thenable<R> {
 }
 
 export interface LanguageServiceParams {
-	request?: RequestService;
+	/**
+	 * The schema request service is used to fetch schemas. The result should the schema file comment, or,
+	 * in case of an error, a displayable error string
+	 */
+	schemaRequestService?: SchemaRequestService;
+	/**
+	 * The workspace context is used to resolve relative paths for relative schema references.
+	 */
 	workspaceContext?: WorkspaceContextService;
-	telemetry?: TelemetryService;
+	/**
+	 * An optional set of completion and hover participants.
+	 */
 	contributions?: JSONWorkerContribution[];
+	/**
+	 * A promise constructor. If not set, the ES5 Promise will be used.
+	 */	
 	promiseConstructor?: PromiseConstructor;
 }
 
 export function getLanguageService(params: LanguageServiceParams): LanguageService {
 	let promise = params.promiseConstructor || Promise;
 
-	let jsonSchemaService = new JSONSchemaService(params.request, params.workspaceContext, params.telemetry, promise);
+	let jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext, promise);
 	jsonSchemaService.setSchemaContributions(schemaContributions);
 
 	let jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise);
@@ -121,6 +151,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 	let jsonDocumentSymbols = new JSONDocumentSymbols();
 	let jsonValidation = new JSONValidation(jsonSchemaService, promise);
 
+	let disallowComments = false;
 	return {
 		configure: (settings: LanguageSettings) => {
 			jsonSchemaService.clearExternalSchemas();
@@ -128,17 +159,17 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 				settings.schemas.forEach(settings => {
 					jsonSchemaService.registerExternalSchema(settings.uri, settings.fileMatch, settings.schema);
 				});
-			}
+			};
+			jsonValidation.configure(settings);
+			disallowComments = settings && !settings.allowComments;
 		},
-		resetSchema: (uri: string) => {
-			return jsonSchemaService.onResourceChange(uri);
-		},
+		resetSchema: (uri: string) => jsonSchemaService.onResourceChange(uri),
 		doValidation: jsonValidation.doValidation.bind(jsonValidation),
-		parseJSONDocument: (document: TextDocument) => parseJSON(document.getText()),
+		parseJSONDocument: (document: TextDocument) => parseJSON(document.getText(), {disallowComments}),
 		doResolve: jsonCompletion.doResolve.bind(jsonCompletion),
 		doComplete: jsonCompletion.doComplete.bind(jsonCompletion),
 		findDocumentSymbols: jsonDocumentSymbols.findDocumentSymbols.bind(jsonDocumentSymbols),
 		doHover: jsonHover.doHover.bind(jsonHover),
-		format: (document, range, options) => promise.resolve(formatJSON(document, range, options))
+		format: formatJSON
 	};
 }

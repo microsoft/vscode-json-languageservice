@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-export class JSONLocation {
+import * as jsonContributions from '../jsonContributions';
+
+export class JSONLocation implements jsonContributions.JSONLocation {
 	private segments: string[];
 
 	constructor(segments: string[]) {

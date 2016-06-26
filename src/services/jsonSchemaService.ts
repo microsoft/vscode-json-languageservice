@@ -6,11 +6,10 @@
 
 import Json = require('jsonc-parser');
 import {JSONSchema, JSONSchemaMap} from '../jsonSchema';
-import {XHRResponse} from 'request-light';
 import URI from '../utils/uri';
 import Strings = require('../utils/strings');
 import Parser = require('../parser/jsonParser');
-import {TelemetryService, RequestService, WorkspaceContextService, PromiseConstructor, Thenable} from '../jsonLanguageService';
+import {SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable} from '../jsonLanguageService';
 
 
 import * as nls from 'vscode-nls';
@@ -212,14 +211,12 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	private contextService: WorkspaceContextService;
 	private callOnDispose: Function[];
-	private telemetryService: TelemetryService;
-	private requestService: RequestService;
+	private requestService: SchemaRequestService;
 	private promiseConstructor: PromiseConstructor;
 
-	constructor(requestService: RequestService, contextService?: WorkspaceContextService, telemetryService?: TelemetryService, promiseConstructor?: PromiseConstructor) {
+	constructor(requestService: SchemaRequestService, contextService?: WorkspaceContextService, promiseConstructor?: PromiseConstructor) {
 		this.contextService = contextService;
 		this.requestService = requestService;
-		this.telemetryService = telemetryService;
 		this.promiseConstructor = promiseConstructor || Promise;
 		this.callOnDispose = [];
 
@@ -337,17 +334,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	public loadSchema(url: string): Thenable<UnresolvedSchema> {
 		if (!this.requestService) {
-			let errorMessage = localize('json.schema.norequestservice', 'Unable to load schema from \'{0}\'. No request service available', toDisplayString(url));
+			let errorMessage = localize('json.schema.norequestservice', 'Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
 			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [errorMessage]));
 		}
-		if (this.telemetryService && url.indexOf('//schema.management.azure.com/') !== -1) {
-			this.telemetryService.log('json.schema', {
-				schemaURL: url
-			});
-		}
-		return this.requestService({ url: url, followRedirects: 5 }).then(
-			request => {
-				let content = request.responseText;
+		return this.requestService(url).then(
+			content => {
 				if (!content) {
 					let errorMessage = localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': No content.', toDisplayString(url));
 					return new UnresolvedSchema(<JSONSchema>{}, [errorMessage]);
@@ -359,8 +350,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 				let errors = jsonErrors.length ? [localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': {1}.', toDisplayString(url), jsonErrors[0])] : [];
 				return new UnresolvedSchema(schemaContent, errors);
 			},
-			(error: XHRResponse) => {
-				let errorMessage = localize('json.schema.unabletoload', 'Unable to load schema from \'{0}\': {1}', toDisplayString(url), error.responseText || getErrorStatusDescription(error.status) || error.toString());
+			(error: any) => {
+				let errorMessage = localize('json.schema.unabletoload', 'Unable to load schema from \'{0}\': {1}', toDisplayString(url), error.toString());
 				return new UnresolvedSchema(<JSONSchema>{}, [errorMessage]);
 			}
 		);
@@ -519,26 +510,4 @@ function toDisplayString(url: string) {
 		// ignore
 	}
 	return url;
-}
-
-function getErrorStatusDescription(status) {
-    if (status < 400) {
-        return void 0;
-    }
-    switch (status) {
-        case 400: return localize('status.400', 'Bad request. The request cannot be fulfilled due to bad syntax.');
-        case 401: return localize('status.401', 'Unauthorized. The server is refusing to respond.');
-        case 403: return localize('status.403', 'Forbidden. The server is refusing to respond.');
-        case 404: return localize('status.404', 'Not Found. The requested location could not be found.');
-        case 405: return localize('status.405', 'Method not allowed. A request was made using a request method not supported by that location.');
-        case 406: return localize('status.406', 'Not Acceptable. The server can only generate a response that is not accepted by the client.');
-        case 407: return localize('status.407', 'Proxy Authentication Required. The client must first authenticate itself with the proxy.');
-        case 408: return localize('status.408', 'Request Timeout. The server timed out waiting for the request.');
-        case 410: return localize('status.410', 'Gone. The requested page is no longer available.');
-        case 411: return localize('status.411', 'Length Required. The "Content-Length" is not defined.');
-        case 500: return localize('status.500', 'Internal Server Error.');
-        case 501: return localize('status.501', 'Not Implemented. The server either does not recognize the request method, or it lacks the ability to fulfill the request.');
-        case 503: return localize('status.503', 'Service Unavailable. The server is currently unavailable (overloaded or down).');
-        default: return localize('status.416', 'HTTP status code {0}', status);
-    }
 }

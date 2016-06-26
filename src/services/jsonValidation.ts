@@ -7,8 +7,7 @@
 import {JSONSchemaService} from './jsonSchemaService';
 import {JSONDocument, ObjectASTNode} from '../parser/jsonParser';
 import {TextDocument, Diagnostic, DiagnosticSeverity} from 'vscode-languageserver-types';
-import {LanguageSettings} from '../jsonLanguageService';
-import {PromiseConstructor, Thenable} from '../jsonLanguageService';
+import {PromiseConstructor, Thenable, LanguageSettings} from '../jsonLanguageService';
 
 export class JSONValidation {
 
@@ -16,10 +15,12 @@ export class JSONValidation {
 	private promise: PromiseConstructor;
 
 	private validationEnabled: boolean;
+	private comments: boolean;
 
 	public constructor(jsonSchemaService: JSONSchemaService, promiseConstructor: PromiseConstructor) {
 		this.jsonSchemaService = jsonSchemaService;
 		this.promise = promiseConstructor;
+		this.validationEnabled = true;
 	}
 
 	public configure(raw: LanguageSettings) {

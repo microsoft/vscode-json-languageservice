@@ -9,15 +9,14 @@ import Parser = require('../parser/jsonParser');
 import SchemaService = require('../services/jsonSchemaService');
 import JsonSchema = require('../jsonSchema');
 import {JSONCompletion} from '../services/jsonCompletion';
-import {XHROptions, XHRResponse} from 'request-light';
 
 import {CompletionItem, CompletionItemKind, TextDocument, TextDocumentIdentifier, Range, Position, TextEdit} from 'vscode-languageserver-types';
 import {applyEdits} from './textEditSupport';
 
 suite('JSON Completion', () => {
 
-	let requestService = function(options: XHROptions): Promise<XHRResponse> {
-		return Promise.reject<XHRResponse>({ responseText: '', status: 404 });
+	let requestService = function(uri: string): Promise<string> {
+		return Promise.reject<string>('Resource not found');
 	}
 
 	let assertCompletion = function(completions: CompletionItem[], label: string, documentation?: string, document?: TextDocument, resultText?: string) {

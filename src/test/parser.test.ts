@@ -1262,4 +1262,16 @@ suite('JSON Parser', () => {
 
 	});
 
+	test('parse with comments disabled', function() {
+
+		function assertParse(v: string, expectedErrors: number): void {
+			var result = Parser.parse(v, {disallowComments:true});
+			assert.equal(result.errors.length, expectedErrors);
+		}
+
+		assertParse('// comment\n{\n"far": "boo"\n}', 1);
+		assertParse('/* comm\nent\nent */\n{\n"far": "boo"\n}', 1);
+		assertParse('{\n"far": "boo"\n}', 0);
+	});	
+
 });

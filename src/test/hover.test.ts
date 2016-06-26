@@ -9,7 +9,6 @@ import Parser = require('../parser/jsonParser');
 import SchemaService = require('../services/jsonSchemaService');
 import JsonSchema = require('../jsonSchema');
 import {JSONCompletion} from '../services/jsonCompletion';
-import {XHROptions, XHRResponse} from 'request-light';
 import {JSONHover} from '../services/jsonHover';
 
 import {Hover, TextDocument, TextDocumentIdentifier, Range, Position, TextEdit} from 'vscode-languageserver-types';
@@ -29,8 +28,8 @@ suite('JSON Hover', () => {
 		return hoverProvider.doHover(document, position, jsonDoc);
 	}
 
-	var requestService = function(options: XHROptions): Promise<XHRResponse> {
-		return Promise.reject<XHRResponse>({ responseText: '', status: 404 });
+	let requestService = function(uri: string): Promise<string> {
+		return Promise.reject<string>('Resource not found');
 	}
 
 	test('Simple schema', function(testDone) {

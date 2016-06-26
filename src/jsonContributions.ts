@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import {JSONLocation} from './parser/jsonLocation';
-
+import {Thenable} from './jsonLanguageService';
 import {MarkedString, CompletionItem} from 'vscode-languageserver-types';
 
 export interface JSONWorkerContribution {
@@ -14,6 +13,10 @@ export interface JSONWorkerContribution {
 	collectValueCompletions(resource: string, location: JSONLocation, propertyKey: string, result: CompletionsCollector): Thenable<any>;
 	collectDefaultCompletions(resource: string, result: CompletionsCollector): Thenable<any>;
 	resolveCompletion?(item: CompletionItem): Thenable<CompletionItem>;
+}
+export interface JSONLocation {
+	getSegments(): string[];
+	matches(segments: string[]) : boolean;
 }
 
 export interface CompletionsCollector {

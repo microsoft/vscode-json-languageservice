@@ -690,12 +690,9 @@ export class ObjectASTNode extends ASTNode {
 	}
 }
 
-export class JSONDocumentConfig {
-	public ignoreDanglingComma: boolean;
-
-	constructor() {
-		this.ignoreDanglingComma = false;
-	}
+export interface JSONDocumentConfig {
+	ignoreDanglingComma?: boolean;
+	disallowComments?: boolean;
 }
 
 export interface IApplicableSchema {
@@ -760,13 +757,11 @@ export class ValidationResult {
 }
 
 export class JSONDocument {
-	public config: JSONDocumentConfig;
 	public root: ASTNode;
 
 	private validationResult: ValidationResult;
 
 	constructor(config: JSONDocumentConfig) {
-		this.config = config;
 		this.validationResult = new ValidationResult();
 	}
 
@@ -799,14 +794,36 @@ export class JSONDocument {
 	}
 }
 
-export function parse(text: string, config = new JSONDocumentConfig()): JSONDocument {
+export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 
 	let _doc = new JSONDocument(config);
-	let _scanner = Json.createScanner(text, true);
+	let _scanner = Json.createScanner(text, false);
+
+	let disallowComments = config && config.disallowComments;
+	let ignoreDanglingComma = config && config.ignoreDanglingComma;
+
+	function _scanNext() : Json.SyntaxKind {
+		while (true) {
+			let token = _scanner.scan();
+			switch (token) {
+				case Json.SyntaxKind.LineCommentTrivia:
+				case Json.SyntaxKind.BlockCommentTrivia:
+					if (disallowComments) {
+						_error(localize('InvalidCommentTokem', 'Comments are not allowed'));
+					}
+					break;
+				case Json.SyntaxKind.Trivia:
+				case Json.SyntaxKind.LineBreakTrivia:
+					break;
+				default:
+					return token;
+			}
+		}
+	}
 
 	function _accept(token: Json.SyntaxKind): boolean {
 		if (_scanner.getToken() === token) {
-			_scanner.scan();
+			_scanNext();
 			return true;
 		}
 		return false;
@@ -826,12 +843,12 @@ export function parse(text: string, config = new JSONDocumentConfig()): JSONDocu
 			let token = _scanner.getToken();
 			while (token !== Json.SyntaxKind.EOF) {
 				if (skipUntilAfter.indexOf(token) !== -1) {
-					_scanner.scan();
+					_scanNext();
 					break;
 				} else if (skipUntil.indexOf(token) !== -1) {
 					break;
 				}
-				token = _scanner.scan();
+				token = _scanNext();
 			}
 		}
 		return node;
@@ -862,7 +879,7 @@ export function parse(text: string, config = new JSONDocumentConfig()): JSONDocu
 		node.end = _scanner.getTokenOffset() + _scanner.getTokenLength();
 
 		if (scanNext) {
-			_scanner.scan();
+			_scanNext();
 		}
 
 		return node;
@@ -873,12 +890,12 @@ export function parse(text: string, config = new JSONDocumentConfig()): JSONDocu
 			return null;
 		}
 		let node = new ArrayASTNode(parent, name, _scanner.getTokenOffset());
-		_scanner.scan(); // consume OpenBracketToken
+		_scanNext(); // consume OpenBracketToken
 
 		let count = 0;
 		if (node.addItem(_parseValue(node, '' + count++))) {
 			while (_accept(Json.SyntaxKind.CommaToken)) {
-				if (!node.addItem(_parseValue(node, '' + count++)) && !_doc.config.ignoreDanglingComma) {
+				if (!node.addItem(_parseValue(node, '' + count++)) && !ignoreDanglingComma) {
 					_error(localize('ValueExpected', 'Value expected'));
 				}
 			}
@@ -917,7 +934,7 @@ export function parse(text: string, config = new JSONDocumentConfig()): JSONDocu
 			return _error(localize('ColonExpected', 'Colon expected'), node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
 		}
 
-		_scanner.scan(); // consume ColonToken
+		_scanNext(); // consume ColonToken
 
 		if (!node.setValue(_parseValue(node, key.value))) {
 			return _error(localize('ValueExpected', 'Value expected'), node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
@@ -931,12 +948,12 @@ export function parse(text: string, config = new JSONDocumentConfig()): JSONDocu
 			return null;
 		}
 		let node = new ObjectASTNode(parent, name, _scanner.getTokenOffset());
-		_scanner.scan(); // consume OpenBraceToken
+		_scanNext(); // consume OpenBraceToken
 
 		let keysSeen: any = {};
 		if (node.addProperty(_parseProperty(node, keysSeen))) {
 			while (_accept(Json.SyntaxKind.CommaToken)) {
-				if (!node.addProperty(_parseProperty(node, keysSeen)) && !_doc.config.ignoreDanglingComma) {
+				if (!node.addProperty(_parseProperty(node, keysSeen)) && !ignoreDanglingComma) {
 					_error(localize('PropertyExpected', 'Property expected'));
 				}
 			}
@@ -1005,7 +1022,7 @@ export function parse(text: string, config = new JSONDocumentConfig()): JSONDocu
 		return _parseArray(parent, name) || _parseObject(parent, name) || _parseString(parent, name, false) || _parseNumber(parent, name) || _parseLiteral(parent, name);
 	}
 
-	_scanner.scan();
+	_scanNext();
 
 	_doc.root = _parseValue(null, null);
 	if (!_doc.root) {
