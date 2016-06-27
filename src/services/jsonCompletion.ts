@@ -48,6 +48,7 @@ export class JSONCompletion {
 
 		let currentWord = this.getCurrentWord(document, offset);
 		let overwriteRange = null;
+		let filterText = void 0;
 		let result: CompletionList = {
 			items: [],
 			isIncomplete: false
@@ -55,8 +56,10 @@ export class JSONCompletion {
 
 		if (node && (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')) {
 			overwriteRange = Range.create(document.positionAt(node.start), document.positionAt(node.end));
+			filterText = document.getText().substring(node.start, offset);
 		} else {
 			overwriteRange = Range.create(document.positionAt(offset - currentWord.length), position);
+			filterText = document.getText().substring(offset - currentWord.length, offset);
 		}
 
 		let proposed: { [key: string]: boolean } = {};
@@ -66,6 +69,7 @@ export class JSONCompletion {
 					proposed[suggestion.label] = true;
 					if (overwriteRange) {
 						suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
+						suggestion.filterText = filterText;
 					}
 
 					result.items.push(suggestion);
