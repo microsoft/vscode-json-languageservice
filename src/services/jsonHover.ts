@@ -74,7 +74,7 @@ export class JSONHover {
 					return true;
 				});
 				if (description) {
-					return createHover([description]);
+					return createHover([{ language: 'string', value: description }]);
 				}
 			}
 			return void 0;
