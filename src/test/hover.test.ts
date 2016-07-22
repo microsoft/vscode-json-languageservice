@@ -55,16 +55,16 @@ suite('JSON Hover', () => {
 		};
 		Promise.all([
 			testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-				assert.deepEqual(result.contents, ['a very special object']);
+				assert.deepEqual(result.contents, [{ language: 'string', value: 'a very special object'}]);
 			}),
 			testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
-				assert.deepEqual(result.contents, ['A']);
+				assert.deepEqual(result.contents, [{ language: 'string', value: 'A'}]);
 			}),
 			testComputeInfo(content, schema, { line: 0, character: 32 }).then((result) => {
-				assert.deepEqual(result.contents, ['C']);
+				assert.deepEqual(result.contents, [{ language: 'string', value: 'C'}]);
 			}),
 			testComputeInfo(content, schema, { line: 0, character: 7 }).then((result) => {
-				assert.deepEqual(result.contents, ['A']);
+				assert.deepEqual(result.contents, [{ language: 'string', value: 'A'}]);
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -92,10 +92,10 @@ suite('JSON Hover', () => {
 		};
 		Promise.all([
 			testComputeInfo(content, schema, { line: 0, character: 9 }).then((result) => {
-				assert.deepEqual(result.contents, ['a very special object']);
+				assert.deepEqual(result.contents, [{ language: 'string', value: 'a very special object'}]);
 			}),
 			testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
-				assert.deepEqual(result.contents, ['A']);
+				assert.deepEqual(result.contents, [{ language: 'string', value: 'A'}]);
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
