@@ -69,7 +69,6 @@ export class JSONCompletion {
 					proposed[suggestion.label] = true;
 					if (overwriteRange) {
 						suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
-						suggestion.filterText = filterText;
 					}
 
 					result.items.push(suggestion);
@@ -191,7 +190,7 @@ export class JSONCompletion {
 				if (schemaProperties) {
 					Object.keys(schemaProperties).forEach((key: string) => {
 						let propertySchema = schemaProperties[key];
-						collector.add({ kind: CompletionItemKind.Property, label: key, insertText: this.getTextForProperty(key, propertySchema, addValue, isLast), documentation: propertySchema.description || '' });
+						collector.add({ kind: CompletionItemKind.Property, label: key, insertText: this.getTextForProperty(key, propertySchema, addValue, isLast), filterText: this.getTextForValue(key), documentation: propertySchema.description || '' });
 					});
 				}
 			}
@@ -202,7 +201,7 @@ export class JSONCompletion {
 		let collectSuggestionsForSimilarObject = (obj: Parser.ObjectASTNode) => {
 			obj.properties.forEach((p) => {
 				let key = p.key.value;
-				collector.add({ kind: CompletionItemKind.Property, label: key, insertText: this.getTextForSimilarProperty(key, p.value), documentation: '' });
+				collector.add({ kind: CompletionItemKind.Property, label: key, insertText: this.getTextForSimilarProperty(key, p.value), filterText: this.getTextForValue(key), documentation: '' });
 			});
 		};
 		if (node.parent) {
