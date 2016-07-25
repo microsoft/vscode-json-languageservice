@@ -143,9 +143,6 @@ export class JSONCompletion {
 				if ((!schema && currentWord.length > 0 && document.getText().charAt(offset - currentWord.length - 1) !== '"')) {
 					collector.add({ kind: CompletionItemKind.Property, label: this.getLabelForValue(currentWord), insertText: this.getInsertTextForProperty(currentWord, null, false, isLast), documentation: '' });
 				}
-				if (!node.parent) {
-					collector.add({ kind: CompletionItemKind.Property, label: '$schema', insertText: this.getInsertTextForProperty('$schema', null, true, isLast), documentation: '' });
-				}
 			}
 
 			// proposals for values
@@ -233,6 +230,8 @@ export class JSONCompletion {
 					}
 				});
 			}
+		} else if (node.type === 'object') {
+			collector.add({ kind: CompletionItemKind.Property, label: '$schema', insertText: this.getInsertTextForProperty('$schema', null, true, isLast), documentation: '' , filterText: this.getFilterTextForValue("$schema")});
 		}
 	}
 
