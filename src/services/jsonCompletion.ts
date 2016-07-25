@@ -140,7 +140,9 @@ export class JSONCompletion {
 						collectionPromises.push(collectPromise);
 					}
 				});
-
+				if ((!schema && currentWord.length > 0 && document.getText().charAt(offset - currentWord.length - 1) !== '"') {
+					collector.add({ kind: CompletionItemKind.Property, label: this.getLabelForValue(currentWord), insertText: this.getInsertTextForProperty(currentWord, null, true, isLast), documentation: '' });
+				}
 			}
 
 			// proposals for values
@@ -228,9 +230,6 @@ export class JSONCompletion {
 					}
 				});
 			}
-		}
-		if (!currentKey && currentWord.length > 0) {
-			collector.add({ kind: CompletionItemKind.Property, label: this.getLabelForValue(currentWord), insertText: this.getInsertTextForProperty(currentWord, null, true, isLast), documentation: '' });
 		}
 	}
 
