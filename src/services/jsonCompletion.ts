@@ -140,7 +140,7 @@ export class JSONCompletion {
 						collectionPromises.push(collectPromise);
 					}
 				});
-				if ((!schema && currentWord.length > 0 && document.getText().charAt(offset - currentWord.length - 1) !== '"') {
+				if ((!schema && currentWord.length > 0 && document.getText().charAt(offset - currentWord.length - 1) !== '"')) {
 					collector.add({ kind: CompletionItemKind.Property, label: this.getLabelForValue(currentWord), insertText: this.getInsertTextForProperty(currentWord, null, true, isLast), documentation: '' });
 				}
 			}
