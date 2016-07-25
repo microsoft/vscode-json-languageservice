@@ -299,7 +299,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		if (filePatterns) {
 			filePatterns.forEach(pattern => {
-				this.getOrAddFilePatternAssociation(pattern).addSchema(uri);
+				this.getOrAddFilePatternAssociation(pattern).addSchema(id);
 			});
 		}
 		return unresolvedSchemaContent ? this.addSchemaHandle(id, unresolvedSchemaContent) : this.getOrAddSchemaHandle(id);
@@ -396,6 +396,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			if (contextService && !/^\w+:\/\/.*/.test(uri)) {
 				uri = contextService.resolveRelativePath(uri, parentSchemaURL);
 			}
+			uri = this.normalizeId(uri);
 			return this.getOrAddSchemaHandle(uri).getUnresolvedSchema().then(unresolvedSchema => {
 				if (unresolvedSchema.errors.length) {
 					let loc = linkPath ? uri + '#' + linkPath : uri;
