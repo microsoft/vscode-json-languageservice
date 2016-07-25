@@ -36,10 +36,6 @@ export class ASTNode {
 		this.parent = parent;
 	}
 
-	public toString() : string {
-		return 'type: ' + this.type + ' (' + this.start + '/' + this.end + ')', this.parent ? ', parent: ' + this.parent.toString() : '';
-	}
-
 	public getPath(): Json.JSONPath {
 		let path = this.parent ? this.parent.getPath() : [];
 		if (this.location !== null) {
@@ -61,6 +57,10 @@ export class ASTNode {
 	public contains(offset: number, includeRightBound: boolean = false): boolean {
 		return offset >= this.start && offset < this.end || includeRightBound && offset === this.end;
 	}
+
+	public toString() : string {
+		return 'type: ' + this.type + ' (' + this.start + '/' + this.end + ')' + (this.parent ? ' parent: {' + this.parent.toString() + '}' : '');
+	}	
 
 	public visit(visitor: (node: ASTNode) => boolean): boolean {
 		return visitor(this);
