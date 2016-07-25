@@ -250,6 +250,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 	}
 
 	public onResourceChange(uri: string): boolean {
+		uri = this.normalizeId(uri);
 		let schemaFile = this.schemasById[uri];
 		if (schemaFile) {
 			schemaFile.clearSchema();
