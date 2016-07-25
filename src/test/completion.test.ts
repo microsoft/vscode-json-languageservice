@@ -129,27 +129,29 @@ suite('JSON Completion', () => {
 		};
 		Promise.all([
 			testCompletionsFor('{/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 3);
+				assert.strictEqual(result.length, 4);
 				assertCompletion(result, 'a', 'A');
 				assertCompletion(result, 'b', 'B');
 				assertCompletion(result, 'c', 'C');
+				assertCompletion(result, '$schema');
 			}),
 			testCompletionsFor('{ "/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 3);
+				assert.strictEqual(result.length, 4);
 				assertCompletion(result, 'a', 'A');
 				assertCompletion(result, 'b', 'B');
 				assertCompletion(result, 'c', 'C');
+				assertCompletion(result, '$schema');
 			}),
 			testCompletionsFor('{ "a/**/}', '/**/', schema, (result, document) => {
-				assert.strictEqual(result.length, 3);
+				assert.strictEqual(result.length, 4);
 				assertCompletion(result, 'a', 'A', document, '{ "a": {{0}}');
 			}),
 			testCompletionsFor('{ a/**/}', '/**/', schema, (result, document) => {
-				assert.strictEqual(result.length, 3);
+				assert.strictEqual(result.length, 4);
 				assertCompletion(result, 'a', 'A', document, '{ "a": {{0}}/**/}');
 			}),
 			testCompletionsFor('{ "a" = 1;/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 2);
+				assert.strictEqual(result.length, 3);
 				assertCompletion(result, 'b', 'B');
 				assertCompletion(result, 'c', 'C');
 			})
@@ -238,9 +240,10 @@ suite('JSON Completion', () => {
 		};
 		Promise.all([
 			testCompletionsFor(content, '/**/', schema, result => {
-				assert.strictEqual(result.length, 2);
+				assert.strictEqual(result.length, 3);
 				assertCompletion(result, 'a', 'A');
 				assertCompletion(result, 'b', 'B');
+				assertCompletion(result, '$schema');
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -278,15 +281,17 @@ suite('JSON Completion', () => {
 		};
 		Promise.all([
 			testCompletionsFor('{/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 4);
+				assert.strictEqual(result.length, 5);
 				assertCompletion(result, 'a', 'A');
 				assertCompletion(result, 'b', 'B');
 				assertCompletion(result, 'c', 'C');
 				assertCompletion(result, 'd', 'D');
+				assertCompletion(result, '$schema');
 			}),
 			testCompletionsFor('{ "a": "", /**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 1);
+				assert.strictEqual(result.length, 2);
 				assertCompletion(result, 'b', 'B');
+				assertCompletion(result, '$schema');
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -318,14 +323,16 @@ suite('JSON Completion', () => {
 		};
 		Promise.all([
 			testCompletionsFor('{/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 3);
+				assert.strictEqual(result.length, 4);
 				assertCompletion(result, 'type');
 				assertCompletion(result, 'b');
 				assertCompletion(result, 'c');
+				assertCompletion(result, '$schema');
 			}),
 			testCompletionsFor('{ "type": "appartment", /**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 1);
+				assert.strictEqual(result.length, 2);
 				assertCompletion(result, 'c');
+				assertCompletion(result, '$schema');
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -376,17 +383,19 @@ suite('JSON Completion', () => {
 		};
 		Promise.all([
 			testCompletionsFor('{/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 5);
+				assert.strictEqual(result.length, 6);
 				assertCompletion(result, 'a', 'A');
 				assertCompletion(result, 'b1', 'B1');
 				assertCompletion(result, 'b2', 'B2');
 				assertCompletion(result, 'c', 'C');
 				assertCompletion(result, 'd', 'D');
+				assertCompletion(result, '$schema');
 			}),
 			testCompletionsFor('{ "b1": "", /**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 2);
+				assert.strictEqual(result.length, 3);
 				assertCompletion(result, 'a', 'A');
 				assertCompletion(result, 'b2', 'B2');
+				assertCompletion(result, '$schema');
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -440,11 +449,12 @@ suite('JSON Completion', () => {
 		};
 		Promise.all([
 			testCompletionsFor('{/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 4);
+				assert.strictEqual(result.length, 5);
 				assertCompletion(result, 'type');
 				assertCompletion(result, 'a');
 				assertCompletion(result, 'b');
 				assertCompletion(result, 'c');
+				assertCompletion(result, '$schema');
 			}),
 			testCompletionsFor('{ "type": /**/}', '/**/', schema, result => {
 				assert.strictEqual(result.length, 3);
@@ -464,14 +474,16 @@ suite('JSON Completion', () => {
 			}),
 			testCompletionsFor('{ "type": "1", "a" : { "x": "", "z":"" }, /**/', '/**/', schema, result => {
 				// both alternatives have errors: intellisense proposes all options
-				assert.strictEqual(result.length, 2);
+				assert.strictEqual(result.length, 3);
 				assertCompletion(result, 'b');
 				assertCompletion(result, 'c');
+				assertCompletion(result, '$schema');
 			}),
 			testCompletionsFor('{ "a" : { "x": "", "z":"" }, /**/', '/**/', schema, result => {
-				assert.strictEqual(result.length, 2);
+				assert.strictEqual(result.length, 3);
 				assertCompletion(result, 'type');
 				assertCompletion(result, 'c');
+				assertCompletion(result, '$schema');
 			}),
 		]).then(() => testDone(), (error) => testDone(error));
 	});
