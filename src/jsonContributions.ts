@@ -21,4 +21,5 @@ export interface CompletionsCollector {
 	error(message: string): void;
 	log(message: string): void;
 	setAsIncomplete(): void;
+	getNumberOfProposals(): number;
 }
