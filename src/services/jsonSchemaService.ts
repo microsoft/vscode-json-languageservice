@@ -36,6 +36,11 @@ export interface IJSONSchemaService {
 	 * Looks up the appropriate schema for the given URI
 	 */
 	getSchemaForResource(resource: string, document: Parser.JSONDocument): Thenable<ResolvedSchema>;
+
+	/**
+	 * Returns all registered schema ids
+	 */
+	getRegisteredSchemaIds(filter?: (scheme) => boolean): string[];
 }
 
 export interface ISchemaAssociations {
@@ -73,7 +78,7 @@ class FilePatternAssociation {
 	private combinedSchema: ISchemaHandle;
 
 	constructor(pattern: string) {
-		this.combinedSchemaId = 'local://combinedSchema/' + encodeURIComponent(pattern);
+		this.combinedSchemaId = 'schemaservice://combinedSchema/' + encodeURIComponent(pattern);
 		try {
 			this.patternRegExp = new RegExp(Strings.convertSimple2RegExpPattern(pattern) + '$');
 		} catch (e) {
@@ -225,6 +230,13 @@ export class JSONSchemaService implements IJSONSchemaService {
 		this.schemasById = {};
 		this.filePatternAssociations = [];
 		this.filePatternAssociationById = {};
+	}
+
+	public getRegisteredSchemaIds(filter?: (scheme) => boolean): string[] {
+		return Object.keys(this.schemasById).filter(id => {
+			let scheme = URI.parse(id).scheme;
+			return scheme !== 'schemaservice' && (!filter || filter(scheme));
+		});
 	}
 
 	public get promise() {

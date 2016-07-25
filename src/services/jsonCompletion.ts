@@ -141,7 +141,10 @@ export class JSONCompletion {
 					}
 				});
 				if ((!schema && currentWord.length > 0 && document.getText().charAt(offset - currentWord.length - 1) !== '"')) {
-					collector.add({ kind: CompletionItemKind.Property, label: this.getLabelForValue(currentWord), insertText: this.getInsertTextForProperty(currentWord, null, true, isLast), documentation: '' });
+					collector.add({ kind: CompletionItemKind.Property, label: this.getLabelForValue(currentWord), insertText: this.getInsertTextForProperty(currentWord, null, false, isLast), documentation: '' });
+				}
+				if (!node.parent) {
+					collector.add({ kind: CompletionItemKind.Property, label: '$schema', insertText: this.getInsertTextForProperty('$schema', null, true, isLast), documentation: '' });
 				}
 			}
 
@@ -239,7 +242,7 @@ export class JSONCompletion {
 				collector.add({ kind: this.getSuggestionKind(value.type), label: this.getLabelTextForMatchingNode(value, document), insertText: this.getInsertTextForMatchingNode(value, document), documentation: '' });
 			}
 			if (value.type === 'boolean') {
-				this.addBooleanValueCompletions(!value.getValue(), collector);
+				this.addBooleanValueCompletion(!value.getValue(), collector);
 			}
 		};
 
@@ -260,6 +263,9 @@ export class JSONCompletion {
 					}
 					return true;
 				});
+				if (parentKey === '$schema' && node.parent && !node.parent.parent) {
+					this.addDollarSchemaCompletions(collector);
+				}
 			}
 			if (node.type === 'array') {
 				if (node.parent && node.parent.type === 'property') {
@@ -316,13 +322,15 @@ export class JSONCompletion {
 						}
 					}
 				});
+				if (parentKey === '$schema' && !node.parent) {
+					this.addDollarSchemaCompletions(collector);
+				}
 				this.addFillerValueCompletions(types, collector);
 			}
 		}
 		if (collector.getNumberOfProposals() === 0) {
 			this.addFillerValueCompletions(null, collector);
 		}
-		
 	}
 
 	private addSchemaValueCompletions(schema: JSONSchema, collector: CompletionsCollector, types: {[type:string]: boolean}): void {
@@ -391,21 +399,26 @@ export class JSONCompletion {
 			}
 		}
 		if (!types || types['boolean']) {
-			this.addBooleanValueCompletions(true, collector);
-			this.addBooleanValueCompletions(false, collector);
+			this.addBooleanValueCompletion(true, collector);
+			this.addBooleanValueCompletion(false, collector);
 		}
 		if (!types || types['null']) {
-			this.addNullValueCompletions(collector);
+			this.addNullValueCompletion(collector);
 		}
 	}
 
-	private addBooleanValueCompletions(value: boolean, collector: CompletionsCollector): void {
+	private addBooleanValueCompletion(value: boolean, collector: CompletionsCollector): void {
 		collector.add({ kind: this.getSuggestionKind('boolean'), label: value ? 'true' : 'false', insertText: this.getInsertTextForValue(value), documentation: '' });
 	}
 
-	private addNullValueCompletions(collector: CompletionsCollector): void {
+	private addNullValueCompletion(collector: CompletionsCollector): void {
 		collector.add({ kind: this.getSuggestionKind('null'), label: 'null', insertText: 'null', documentation: '' });
 	}
+
+	private addDollarSchemaCompletions(collector: CompletionsCollector) : void  {
+		let schemaIds = this.schemaService.getRegisteredSchemaIds(schema => schema === 'http' || schema === 'https');
+		schemaIds.forEach(schemaId => collector.add({ kind: CompletionItemKind.Module, label: this.getLabelForValue(schemaId), insertText: this.getInsertTextForValue(schemaId), documentation: '' }));
+	}	
 
 	private getLabelForValue(value: any): string {
 		let label = JSON.stringify(value);
@@ -542,7 +555,7 @@ export class JSONCompletion {
 				}
 			}
 		} else {
-			result += '{{0}}';
+			result += '{{}}';
 		}
 		if (!isLast) {
 			result += ',';

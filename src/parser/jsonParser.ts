@@ -36,6 +36,10 @@ export class ASTNode {
 		this.parent = parent;
 	}
 
+	public toString() : string {
+		return 'type: ' + this.type + ' (' + this.start + '/' + this.end + ')', this.parent ? ', parent: ' + this.parent.toString() : '';
+	}
+
 	public getPath(): Json.JSONPath {
 		let path = this.parent ? this.parent.getPath() : [];
 		if (this.location !== null) {
