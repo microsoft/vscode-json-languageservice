@@ -150,9 +150,10 @@ export class JSONCompletion {
 				node = node.parent;
 			}
 
+			let types: {[type:string]: boolean} = {};
 			if (schema) {
 				// value proposals with schema
-				this.getValueCompletions(schema, doc, node, offset, collector);
+				this.getValueCompletions(schema, doc, node, offset, collector, types);
 			} else {
 				// value proposals without schema
 				this.getSchemaLessValueCompletions(doc, node, offset, document, collector);
@@ -181,7 +182,12 @@ export class JSONCompletion {
 					}
 				}
 			}
-			return this.promise.all(collectionPromises).then(() => result );
+			return this.promise.all(collectionPromises).then(() => {
+				if (collector.getNumberOfProposals() === 0) {
+					this.addFillerValueCompletions(types, collector);
+				}
+				return result;
+			});
 		});
 	}
 
@@ -200,9 +206,6 @@ export class JSONCompletion {
 				}
 			}
 		});
-		if (collector.getNumberOfProposals() === 0) {
-			collector.add({ kind: CompletionItemKind.Property, label: '""', insertText: this.getInsertTextForGuessedValue("key") + ': {{}}', detail: localize("defaults.properties", "New property")});
-		}
 	}
 
 	private getSchemaLessPropertyCompletions(doc: Parser.JSONDocument, node: Parser.ASTNode, currentKey: string, currentWord: string, isLast: boolean, collector: CompletionsCollector): void {
@@ -217,7 +220,7 @@ export class JSONCompletion {
 				// if the object is a property value, check the tree for other objects that hang under a property of the same name
 				let parentKey = (<Parser.PropertyASTNode>node.parent).key.value;
 				doc.visit((n) => {
-					if (n.type === 'property' && (<Parser.PropertyASTNode>n).key.value === parentKey && (<Parser.PropertyASTNode>n).value && (<Parser.PropertyASTNode>n).value.type === 'object') {
+					if (n.type === 'property' && n !== node.parent && (<Parser.PropertyASTNode>n).key.value === parentKey && (<Parser.PropertyASTNode>n).value && (<Parser.PropertyASTNode>n).value.type === 'object') {
 						collectCompletionsForSimilarObject(<Parser.ObjectASTNode>(<Parser.PropertyASTNode>n).value);
 					}
 					return true;
@@ -289,8 +292,7 @@ export class JSONCompletion {
 	}
 
 
-	private getValueCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, collector: CompletionsCollector): void {
-		let types: {[type:string]: boolean} = {};
+	private getValueCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, collector: CompletionsCollector, types: {[type:string]: boolean}): void {
 		if (!node) {
 			this.addDefaultValueCompletions(schema.schema, collector);
 		} else {
@@ -324,11 +326,14 @@ export class JSONCompletion {
 				if (parentKey === '$schema' && !node.parent) {
 					this.addDollarSchemaCompletions(collector);
 				}
-				this.addFillerValueCompletions(types, collector);
+				if (types['boolean']) {
+					this.addBooleanValueCompletion(true, collector);
+					this.addBooleanValueCompletion(false, collector);
+				}
+				if (types['null']) {
+					this.addNullValueCompletion(collector);
+				}
 			}
-		}
-		if (collector.getNumberOfProposals() === 0) {
-			this.addFillerValueCompletions(null, collector);
 		}
 	}
 
@@ -402,26 +407,11 @@ export class JSONCompletion {
 	}
 
 	private addFillerValueCompletions(types: {[type:string]: boolean}, collector: CompletionsCollector): void {
-		if (collector.getNumberOfProposals() === 0) {
-			if (!types || types['string']) {
-				collector.add({ kind: this.getSuggestionKind('string'), label: '""', insertText: this.getInsertTextForGuessedValue(""), detail: localize('defaults.string', 'New string'),  documentation: '' });
-			}
-			if (!types || types['object']) {
-				collector.add({ kind: this.getSuggestionKind('object'), label: '{}', insertText: this.getInsertTextForGuessedValue({}), detail: localize('defaults.object', 'New object'),  documentation: '' });
-			}
-			if (!types || types['array']) {
-				collector.add({ kind: this.getSuggestionKind('array'), label: '[]', insertText: this.getInsertTextForGuessedValue([]), detail: localize('defaults.array', 'New array'),  documentation: '' });
-			}
-			if (types && (types['number'] || types['integer'])) {
-				collector.add({ kind: this.getSuggestionKind('number'), label: '0', insertText: this.getInsertTextForGuessedValue(0), detail: localize('defaults.number', 'New number'),  documentation: '' });
-			}
+		if (types['object']) {
+			collector.add({ kind: this.getSuggestionKind('object'), label: '{}', insertText: this.getInsertTextForGuessedValue({}), detail: localize('defaults.object', 'New object'),  documentation: '' });
 		}
-		if (!types || types['boolean']) {
-			this.addBooleanValueCompletion(true, collector);
-			this.addBooleanValueCompletion(false, collector);
-		}
-		if (!types || types['null']) {
-			this.addNullValueCompletion(collector);
+		if (types['array']) {
+			collector.add({ kind: this.getSuggestionKind('array'), label: '[]', insertText: this.getInsertTextForGuessedValue([]), detail: localize('defaults.array', 'New array'),  documentation: '' });
 		}
 	}
 
