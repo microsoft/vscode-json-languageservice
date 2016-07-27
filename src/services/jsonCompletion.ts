@@ -347,26 +347,42 @@ export class JSONCompletion {
 		}
 	}
 
-	private addDefaultValueCompletions(schema: JSONSchema, collector: CompletionsCollector): void {
+	private addDefaultValueCompletions(schema: JSONSchema, collector: CompletionsCollector, arrayDepth = 0): void {
+		let hasProposals = false;
 		if (schema.default) {
+			let type = schema.type;
+			let value = schema.default;
+			for (let i = arrayDepth; i > 0; i--) {
+				value = [ value ];
+				type = 'array'
+			}
 			collector.add({
-				kind: this.getSuggestionKind(schema.type),
-				label: this.getLabelForValue(schema.default),
-				insertText: this.getInsertTextForValue(schema.default),
+				kind: this.getSuggestionKind(type),
+				label: this.getLabelForValue(value),
+				insertText: this.getInsertTextForValue(value),
 				detail: localize('json.suggest.default', 'Default value'),
 			});
+			hasProposals = true;
 		}
 		if (Array.isArray(schema.defaultSnippets)) {
 			schema.defaultSnippets.forEach(s => {
-				let insertText = this.getInsertTextForSnippetValue(s.body);
+				let value = s.body;
+				for (let i = arrayDepth; i > 0; i--) {
+					value = [ value ];
+				}
+				let insertText = this.getInsertTextForSnippetValue(value);
 				collector.add({
 					kind: CompletionItemKind.Snippet,
-					label: s.label || this.getLabelForSnippetValue(s.body),
+					label: s.label || this.getLabelForSnippetValue(value),
 					documentation: s.description,
 					insertText: insertText,
 					filterText: insertText
 				});
+				hasProposals = true;
 			});
+		}
+		if (!hasProposals && schema.items && !Array.isArray(schema.items)) {
+			this.addDefaultValueCompletions(schema.items, collector, arrayDepth + 1);
 		}
 	}
 
