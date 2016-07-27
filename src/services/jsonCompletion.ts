@@ -358,10 +358,13 @@ export class JSONCompletion {
 		}
 		if (Array.isArray(schema.defaultSnippets)) {
 			schema.defaultSnippets.forEach(s => {
+				let insertText = this.getInsertTextForSnippetValue(s.body);
 				collector.add({
 					kind: CompletionItemKind.Snippet,
-					label: this.getLabelForSnippetValue(s.body),
-					insertText: this.getInsertTextForSnippetValue(s.body)
+					label: s.label || this.getLabelForSnippetValue(s.body),
+					documentation: s.description,
+					insertText: insertText,
+					filterText: insertText
 				});
 			});
 		}
