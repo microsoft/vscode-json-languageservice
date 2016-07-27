@@ -213,6 +213,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 	private schemasById: { [id: string]: SchemaHandle };
 	private filePatternAssociations: FilePatternAssociation[];
 	private filePatternAssociationById: { [id: string]: FilePatternAssociation };
+	private registeredSchemasIds: { [id: string]: boolean };
 
 	private contextService: WorkspaceContextService;
 	private callOnDispose: Function[];
@@ -230,10 +231,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 		this.schemasById = {};
 		this.filePatternAssociations = [];
 		this.filePatternAssociationById = {};
+		this.registeredSchemasIds = {};
 	}
 
 	public getRegisteredSchemaIds(filter?: (scheme) => boolean): string[] {
-		return Object.keys(this.schemasById).filter(id => {
+		return Object.keys(this.registeredSchemasIds).filter(id => {
 			let scheme = URI.parse(id).scheme;
 			return scheme !== 'schemaservice' && (!filter || filter(scheme));
 		});
@@ -309,6 +311,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	public registerExternalSchema(uri: string, filePatterns: string[] = null, unresolvedSchemaContent?: JSONSchema): ISchemaHandle {
 		let id = this.normalizeId(uri);
+		this.registeredSchemasIds[id] = true;
 
 		if (filePatterns) {
 			filePatterns.forEach(pattern => {
@@ -322,9 +325,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 		this.schemasById = {};
 		this.filePatternAssociations = [];
 		this.filePatternAssociationById = {};
+		this.registeredSchemasIds = {};
 
 		for (let id in this.contributionSchemas) {
 			this.schemasById[id] = this.contributionSchemas[id];
+			this.registeredSchemasIds[id] = true;
 		}
 		for (let pattern in this.contributionAssociations) {
 			var fpa = this.getOrAddFilePatternAssociation(pattern);
