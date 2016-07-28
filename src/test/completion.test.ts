@@ -515,5 +515,20 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
+	test('$schema', function(testDone) {
+		let schema: JsonSchema.JSONSchema = {
+			type: 'object',
+		};
+
+		Promise.all([
+			testCompletionsFor('{ "$sc/**/ }', '/**/', null, (result, document) => {
+				assertCompletion(result, '$schema', null, document, '{ "$schema": {{}}');
+			}),
+			testCompletionsFor('{ "$schema": /**/ }', '/**/', schema, (result, document) => {
+				assertCompletion(result, '"http://myschemastore/test1"', null, document, '{ "$schema": "http://myschemastore/test1"/**/ }');
+			})
+		]).then(() => testDone(), (error) => testDone(error));
+	});
+
 });
 
