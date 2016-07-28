@@ -8,13 +8,13 @@
 			"request": "attach",
 			"port": 6004,
 			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/out"
+			"outDir": "${workspaceRoot}/lib"
 		},
 		{
 			"name": "Unit Tests",
 			"type": "node",
 			"request": "launch",
-			"program": "${workspaceRoot}/../../../node_modules/mocha/bin/_mocha",
+			"program": "${workspaceRoot}/node_modules/mocha/bin/_mocha",
 			"stopOnEntry": false,
 			"args": [
 				"--timeout",
@@ -26,7 +26,7 @@
 			"runtimeArgs": [],
 			"env": {},
 			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/out"
+			"outDir": "${workspaceRoot}/lib"
 		}
 	]
 }
