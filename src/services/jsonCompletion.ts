@@ -365,7 +365,7 @@ export class JSONCompletion {
 			let value = schema.default;
 			for (let i = arrayDepth; i > 0; i--) {
 				value = [ value ];
-				type = 'array'
+				type = 'array';
 			}
 			collector.add({
 				kind: this.getSuggestionKind(type),
@@ -378,12 +378,14 @@ export class JSONCompletion {
 		if (Array.isArray(schema.defaultSnippets)) {
 			schema.defaultSnippets.forEach(s => {
 				let value = s.body;
+				let type = schema.type;
 				for (let i = arrayDepth; i > 0; i--) {
 					value = [ value ];
+					type = 'array';
 				}
 				let insertText = this.getInsertTextForSnippetValue(value);
 				collector.add({
-					kind: CompletionItemKind.Snippet,
+					kind: this.getSuggestionKind(type),
 					label: s.label || this.getLabelForSnippetValue(value),
 					documentation: s.description,
 					insertText: insertText,
