@@ -123,7 +123,7 @@ export class JSONCompletion {
 						proposed[p.key.value] = true;
 					}
 				});
-
+				
 				let isLast = properties.length === 0 || offset >= properties[properties.length - 1].start;
 				if (schema) {
 					// property proposals with schema
@@ -215,7 +215,6 @@ export class JSONCompletion {
 				collector.add({ kind: CompletionItemKind.Property, label: key, insertText: this.getInsertTextForValue(key), filterText: this.getFilterTextForValue(key), documentation: '' });
 			});
 		};
-		collector.log('getSchemaLessPropertyCompletions ' + (node && node.toString()));
 		if (node.parent) {
 			if (node.parent.type === 'property') {
 				// if the object is a property value, check the tree for other objects that hang under a property of the same name
@@ -243,14 +242,12 @@ export class JSONCompletion {
 	private getSchemaLessValueCompletions(doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, document: TextDocument, collector: CompletionsCollector): void {
 		let collectSuggestionsForValues = (value: Parser.ASTNode) => {
 			if (!value.parent.contains(offset, true)) {
-				collector.log(value.toString());
 				collector.add({ kind: this.getSuggestionKind(value.type), label: this.getLabelTextForMatchingNode(value, document), insertText: this.getInsertTextForMatchingNode(value, document), documentation: '' });
 			}
 			if (value.type === 'boolean') {
 				this.addBooleanValueCompletion(!value.getValue(), collector);
 			}
 		};
-		collector.log('getSchemaLessValueCompletions ' + (node && node.toString()));
 		if (!node) {
 			collector.add({ kind: this.getSuggestionKind('object'), label: 'Empty object', insertText: this.getInsertTextForValue({}), documentation: '' });
 			collector.add({ kind: this.getSuggestionKind('array'), label: 'Empty array', insertText: this.getInsertTextForValue([]), documentation: '' });
@@ -260,7 +257,6 @@ export class JSONCompletion {
 				if (offset > propertyNode.colonOffset) {
 					
 					let valueNode = propertyNode.value;
-					collector.log('in property ' + + (node && node.toString()));
 					if (valueNode && (offset > valueNode.end || valueNode.type === 'object' || valueNode.type === 'array')) {
 						return;
 					}
@@ -435,7 +431,7 @@ export class JSONCompletion {
 
 	private addDollarSchemaCompletions(collector: CompletionsCollector) : void  {
 		let schemaIds = this.schemaService.getRegisteredSchemaIds(schema => schema === 'http' || schema === 'https');
-		schemaIds.forEach(schemaId => collector.add({ kind: CompletionItemKind.Module, label: this.getLabelForValue(schemaId), insertText: this.getInsertTextForValue(schemaId), documentation: '' }));
+		schemaIds.forEach(schemaId => collector.add({ kind: CompletionItemKind.Module, label: this.getLabelForValue(schemaId), filterText: JSON.stringify(schemaId), insertText: this.getInsertTextForValue(schemaId), documentation: '' }));
 	}	
 
 	private getLabelForValue(value: any): string {
