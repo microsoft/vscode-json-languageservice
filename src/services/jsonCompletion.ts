@@ -215,13 +215,15 @@ export class JSONCompletion {
 				collector.add({ kind: CompletionItemKind.Property, label: key, insertText: this.getInsertTextForValue(key), filterText: this.getFilterTextForValue(key), documentation: '' });
 			});
 		};
+		collector.log('getSchemaLessPropertyCompletions ' + (node && node.toString()));
 		if (node.parent) {
 			if (node.parent.type === 'property') {
 				// if the object is a property value, check the tree for other objects that hang under a property of the same name
 				let parentKey = (<Parser.PropertyASTNode>node.parent).key.value;
 				doc.visit((n) => {
-					if (n.type === 'property' && n !== node.parent && (<Parser.PropertyASTNode>n).key.value === parentKey && (<Parser.PropertyASTNode>n).value && (<Parser.PropertyASTNode>n).value.type === 'object') {
-						collectCompletionsForSimilarObject(<Parser.ObjectASTNode>(<Parser.PropertyASTNode>n).value);
+					let p = <Parser.PropertyASTNode> n;
+					if (n.type === 'property' && n !== node.parent && p.key.value === parentKey && p.value && p.value.type === 'object') {
+						collectCompletionsForSimilarObject(<Parser.ObjectASTNode>p.value);
 					}
 					return true;
 				});
@@ -241,32 +243,39 @@ export class JSONCompletion {
 	private getSchemaLessValueCompletions(doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, document: TextDocument, collector: CompletionsCollector): void {
 		let collectSuggestionsForValues = (value: Parser.ASTNode) => {
 			if (!value.parent.contains(offset, true)) {
+				collector.log(value.toString());
 				collector.add({ kind: this.getSuggestionKind(value.type), label: this.getLabelTextForMatchingNode(value, document), insertText: this.getInsertTextForMatchingNode(value, document), documentation: '' });
 			}
 			if (value.type === 'boolean') {
 				this.addBooleanValueCompletion(!value.getValue(), collector);
 			}
 		};
-
+		collector.log('getSchemaLessValueCompletions ' + (node && node.toString()));
 		if (!node) {
 			collector.add({ kind: this.getSuggestionKind('object'), label: 'Empty object', insertText: this.getInsertTextForValue({}), documentation: '' });
 			collector.add({ kind: this.getSuggestionKind('array'), label: 'Empty array', insertText: this.getInsertTextForValue([]), documentation: '' });
 		} else {
-			if (node.type === 'property' && offset > (<Parser.PropertyASTNode>node).colonOffset) {
-				let valueNode = (<Parser.PropertyASTNode>node).value;
-				if (valueNode && offset > valueNode.end) {
-					return;
-				}
-				// suggest values at the same key
-				let parentKey = (<Parser.PropertyASTNode>node).key.value;
-				doc.visit((n) => {
-					if (n.type === 'property' && (<Parser.PropertyASTNode>n).key.value === parentKey && (<Parser.PropertyASTNode>n).value) {
-						collectSuggestionsForValues((<Parser.PropertyASTNode>n).value);
+			if (node.type === 'property') {
+				let propertyNode = <Parser.PropertyASTNode> node;
+				if (offset > propertyNode.colonOffset) {
+					
+					let valueNode = propertyNode.value;
+					collector.log('in property ' + + (node && node.toString()));
+					if (valueNode && (offset > valueNode.end || valueNode.type === 'object' || valueNode.type === 'array')) {
+						return;
 					}
-					return true;
-				});
-				if (parentKey === '$schema' && node.parent && !node.parent.parent) {
-					this.addDollarSchemaCompletions(collector);
+					// suggest values at the same key
+					let parentKey = propertyNode.key.value;
+					doc.visit(n => {
+						let p = <Parser.PropertyASTNode> n;
+						if (n.type === 'property' && p.key.value === parentKey && p.value) {
+							collectSuggestionsForValues(p.value);
+						}
+						return true;
+					});
+					if (parentKey === '$schema' && node.parent && !node.parent.parent) {
+						this.addDollarSchemaCompletions(collector);
+					}
 				}
 			}
 			if (node.type === 'array') {
@@ -274,8 +283,9 @@ export class JSONCompletion {
 					// suggest items of an array at the same key
 					let parentKey = (<Parser.PropertyASTNode>node.parent).key.value;
 					doc.visit((n) => {
-						if (n.type === 'property' && (<Parser.PropertyASTNode>n).key.value === parentKey && (<Parser.PropertyASTNode>n).value && (<Parser.PropertyASTNode>n).value.type === 'array') {
-							((<Parser.ArrayASTNode>(<Parser.PropertyASTNode>n).value).items).forEach((n) => {
+						let p = <Parser.PropertyASTNode> n;
+						if (n.type === 'property' && p.key.value === parentKey && p.value && p.value.type === 'array') {
+							((<Parser.ArrayASTNode>p.value).items).forEach((n) => {
 								collectSuggestionsForValues(<Parser.ObjectASTNode>n);
 							});
 						}
@@ -574,7 +584,7 @@ export class JSONCompletion {
 	private getCurrentWord(document: TextDocument, offset: number) {
 		var i = offset - 1;
 		var text = document.getText();
-		while (i >= 0 && ' \t\n\r\v":{[,'.indexOf(text.charAt(i)) === -1) {
+		while (i >= 0 && ' \t\n\r\v":{[,]}'.indexOf(text.charAt(i)) === -1) {
 			i--;
 		}
 		return text.substring(i+1, offset);
