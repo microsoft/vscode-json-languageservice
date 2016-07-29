@@ -526,8 +526,52 @@ suite('JSON Completion', () => {
 			}),
 			testCompletionsFor('{ "$schema": /**/ }', '/**/', schema, (result, document) => {
 				assertCompletion(result, '"http://myschemastore/test1"', null, document, '{ "$schema": "http://myschemastore/test1"/**/ }');
+			}),
+			testCompletionsFor('{ "$schema": "/**/', '/**/', schema, (result, document) => {
+				assertCompletion(result, '"http://myschemastore/test1"', null, document, '{ "$schema": "http://myschemastore/test1"');
+			}),
+			testCompletionsFor('{ "$schema": "h/**/', '/**/', schema, (result, document) => {
+				assertCompletion(result, '"http://myschemastore/test1"', null, document, '{ "$schema": "http://myschemastore/test1"');
+			}),
+			testCompletionsFor('{ "$schema": "http://myschemastore/test1"/**/ }', '/**/', schema, (result, document) => {
+				assertCompletion(result, '"http://myschemastore/test1"', null, document, '{ "$schema": "http://myschemastore/test1"/**/ }');
 			})
 		]).then(() => testDone(), (error) => testDone(error));
+	});
+
+	test('root default proposals', function(testDone) {
+		let schema1: JsonSchema.JSONSchema = {
+			type: 'object',
+			default: {
+				hello: 'world'
+			}
+		};
+		let schema2: JsonSchema.JSONSchema = {
+			anyOf: [
+				{
+					default: {}
+				},
+				{
+					defaultSnippets: [ { label: 'def1', description: 'def1Desc', body: { hello: '{{world}}' }},
+									   { body: {"{{hello}}": [ "{{world}}"]} } ]
+				}
+			],
+			type: 'object',
+			default: {
+				hello: 'world'
+			}
+		};		
+		Promise.all([
+			testCompletionsFor('/**/', '/**/', schema1, (result, document) => {
+				assertCompletion(result, '{"hello":"world"}', null, document, '\\{\n\t"hello": "world"\n\\}/**/');
+			}),
+			testCompletionsFor('/**/', '/**/', schema2, (result, document) => {
+				assertCompletion(result, '{}', null, document, '{\n\t{{}}\n}/**/');
+				assertCompletion(result, 'def1', 'def1Desc', document, '{\n\t"hello": "{{world}}"\n}/**/');
+				assertCompletion(result, '{"hello":["world"]}', null, document, '{\n\t"{{hello}}": [\n\t\t"{{world}}"\n\t]\n}/**/');
+			}),
+		]).then(() => testDone(), (error) => testDone(error));
+
 	});
 
 });
