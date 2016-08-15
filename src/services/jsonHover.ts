@@ -43,11 +43,16 @@ export class JSONHover {
 			return this.promise.resolve(void 0);
 		}
 
+		let hoverRangeNode = node;
+		if (node.parent && node.parent.type === 'property') {
+			hoverRangeNode = node.parent;
+		}
+		let hoverRange = Range.create(document.positionAt(hoverRangeNode.start), document.positionAt(hoverRangeNode.end));
+
 		var createHover = (contents: MarkedString[]) => {
-			let range = Range.create(document.positionAt(node.start), document.positionAt(node.end));
 			let result: Hover = {
 				contents: contents,
-				range: range
+				range: hoverRange
 			};
 			return result;
 		};
