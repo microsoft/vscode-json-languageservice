@@ -28,7 +28,7 @@ export class JSONHover {
 
 		let offset = document.offsetAt(position);
 		let node = doc.getNodeFromOffset(offset);
-		if (!node || node.type === 'object' || node.type === 'array') {
+		if (!node || (node.type === 'object' || node.type === 'array') && offset > node.start + 1 && offset < node.end - 1) {
 			return this.promise.resolve(void 0);
 		}
 		let hoverRangeNode = node;

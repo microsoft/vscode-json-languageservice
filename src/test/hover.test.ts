@@ -91,7 +91,7 @@ suite('JSON Hover', () => {
 				}]
 		};
 		Promise.all([
-			testComputeInfo(content, schema, { line: 0, character: 9 }).then((result) => {
+			testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
 				assert.deepEqual(result.contents, [{ language: 'string', value: 'a very special object'}]);
 			}),
 			testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
