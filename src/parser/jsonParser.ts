@@ -204,7 +204,7 @@ export class ASTNode {
 			if (schema.enum.indexOf(this.getValue()) === -1) {
 				validationResult.warnings.push({
 					location: { start: this.start, end: this.end },
-					message: localize('enumWarning', 'Value is not an accepted value. Valid values: {0}', JSON.stringify(schema.enum))
+					message: schema.errorMessage || localize('enumWarning', 'Value is not an accepted value. Valid values: {0}', JSON.stringify(schema.enum))
 				});
 			} else {
 				validationResult.enumValueMatch = true;
