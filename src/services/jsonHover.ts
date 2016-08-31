@@ -28,25 +28,23 @@ export class JSONHover {
 
 		let offset = document.offsetAt(position);
 		let node = doc.getNodeFromOffset(offset);
+		if (!node || node.type === 'object' || node.type === 'array') {
+			return this.promise.resolve(void 0);
+		}
+		let hoverRangeNode = node;
 
 		// use the property description when hovering over an object key
-		if (node && node.type === 'string') {
+		if (node.type === 'string') {
 			let stringNode = <Parser.StringASTNode>node;
 			if (stringNode.isKey) {
 				let propertyNode = <Parser.PropertyASTNode>node.parent;
 				node = propertyNode.value;
-
+				if (!node) {
+					return this.promise.resolve(void 0);
+				}	
 			}
 		}
 
-		if (!node) {
-			return this.promise.resolve(void 0);
-		}
-
-		let hoverRangeNode = node;
-		if (node.parent && node.parent.type === 'property') {
-			hoverRangeNode = node.parent;
-		}
 		let hoverRange = Range.create(document.positionAt(hoverRangeNode.start), document.positionAt(hoverRangeNode.end));
 
 		var createHover = (contents: MarkedString[]) => {
