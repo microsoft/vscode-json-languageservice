@@ -13,7 +13,7 @@ suite('JSON Parser', () => {
 
 	function isValid(json: string): void {
 		var result = Parser.parse(json);
-		assert.equal(result.errors.length, 0);
+		assert.equal(result.errors.length + result.warnings.length, 0);
 	}
 
 	function isInvalid(json: string): void {
@@ -40,7 +40,7 @@ suite('JSON Parser', () => {
 		isValid('{}');
 		isValid('{"key": "value"}');
 		isValid('{"key1": true, "key2": 3, "key3": [null], "key4": { "nested": {}}}');
-
+		isValid('{"constructor": true }');
 
 		isInvalid('{');
 		isInvalid('{3:3}');

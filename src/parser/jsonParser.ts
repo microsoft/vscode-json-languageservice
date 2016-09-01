@@ -536,7 +536,7 @@ export class ObjectASTNode extends ASTNode {
 	}
 
 	public getValue(): any {
-		let value: any = {};
+		let value: any = Object.create(null);
 		this.properties.forEach((p) => {
 			let v = p.value && p.value.getValue();
 			if (v) {
@@ -560,7 +560,7 @@ export class ObjectASTNode extends ASTNode {
 		}
 
 		super.validate(schema, validationResult, matchingSchemas, offset);
-		let seenKeys: { [key: string]: ASTNode } = {};
+		let seenKeys: { [key: string]: ASTNode } = Object.create(null);
 		let unprocessedProperties: string[] = [];
 		this.properties.forEach((node) => {
 			let key = node.key.value;
@@ -953,7 +953,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		let node = new ObjectASTNode(parent, name, _scanner.getTokenOffset());
 		_scanNext(); // consume OpenBraceToken
 
-		let keysSeen: any = {};
+		let keysSeen: any = Object.create(null);
 		if (node.addProperty(_parseProperty(node, keysSeen))) {
 			while (_accept(Json.SyntaxKind.CommaToken)) {
 				if (!node.addProperty(_parseProperty(node, keysSeen)) && !ignoreDanglingComma) {
