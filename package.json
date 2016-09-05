@@ -1,6 +1,6 @@
 {
     "name": "vscode-json-languageservice",
-    "version": "1.1.5-next.2",
+    "version": "1.1.6",
     "description": "Language service for JSON",
     "main": "./lib/jsonLanguageService.js",
     "typings": "./lib/jsonLanguageService",
@@ -23,9 +23,10 @@
         "rimraf": "^2.5.2"
     },
     "dependencies": {
-        "vscode-languageserver-types": "^1.0.1",
+        "vscode-languageserver-types": "^1.0.2",
         "vscode-nls": "^1.0.4",
-        "jsonc-parser": "^0.2.3"
+        "jsonc-parser": "^0.2.3",
+        "vscode-uri": "^0.0.5"
     },
     "scripts": {
         "prepublish": "gulp compile",
