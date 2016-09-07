@@ -11,7 +11,7 @@ import JsonSchema = require('../jsonSchema');
 import {JSONCompletion} from '../services/jsonCompletion';
 import {JSONHover} from '../services/jsonHover';
 
-import {Hover, TextDocument, TextDocumentIdentifier, Range, Position, TextEdit} from 'vscode-languageserver-types';
+import {Hover, TextDocument, TextDocumentIdentifier, Range, Position, TextEdit, MarkedString} from 'vscode-languageserver-types';
 
 suite('JSON Hover', () => {
 
@@ -55,16 +55,16 @@ suite('JSON Hover', () => {
 		};
 		Promise.all([
 			testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-				assert.deepEqual(result.contents, [{ language: 'string', value: 'a very special object'}]);
+				assert.deepEqual(result.contents, [ MarkedString.fromPlainText('a very special object')]);
 			}),
 			testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
-				assert.deepEqual(result.contents, [{ language: 'string', value: 'A'}]);
+				assert.deepEqual(result.contents, [ MarkedString.fromPlainText('A')]);
 			}),
 			testComputeInfo(content, schema, { line: 0, character: 32 }).then((result) => {
-				assert.deepEqual(result.contents, [{ language: 'string', value: 'C'}]);
+				assert.deepEqual(result.contents, [ MarkedString.fromPlainText('C')]);
 			}),
 			testComputeInfo(content, schema, { line: 0, character: 7 }).then((result) => {
-				assert.deepEqual(result.contents, [{ language: 'string', value: 'A'}]);
+				assert.deepEqual(result.contents, [ MarkedString.fromPlainText('A')]);
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -92,10 +92,10 @@ suite('JSON Hover', () => {
 		};
 		Promise.all([
 			testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-				assert.deepEqual(result.contents, [{ language: 'string', value: 'a very special object'}]);
+				assert.deepEqual(result.contents, [ MarkedString.fromPlainText('a very special object') ]);
 			}),
 			testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
-				assert.deepEqual(result.contents, [{ language: 'string', value: 'A'}]);
+				assert.deepEqual(result.contents, [ MarkedString.fromPlainText('A') ]);
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
