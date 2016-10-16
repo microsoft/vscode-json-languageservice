@@ -26,7 +26,7 @@
         "vscode-languageserver-types": "^1.0.3",
         "vscode-nls": "^1.0.4",
         "jsonc-parser": "^0.2.3",
-        "vscode-uri": "^0.0.6"
+        "vscode-uri": "^1.0.0"
     },
     "scripts": {
         "prepublish": "gulp compile",

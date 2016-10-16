@@ -515,6 +515,23 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
+	test('Escaping with schema - #13716', function(testDone) {
+		let schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'url': {
+					default: "http://foo/bar"
+				}
+			}
+		};
+
+		Promise.all([
+			testCompletionsFor('{ /**/ }', '/**/', schema, (result, document) => {
+				assertCompletion(result, 'url', null, document, '{ "url": "{{0:http://foo/bar}}"/**/ }');
+			})
+		]).then(() => testDone(), (error) => testDone(error));
+	});	
+
 	test('$schema', function(testDone) {
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',

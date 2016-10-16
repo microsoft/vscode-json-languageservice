@@ -471,6 +471,8 @@ export class JSONCompletion {
 		return JSON.stringify(value, null, '\t');
 	}
 
+	private templateVarIdCounter = 0;
+
 	private getInsertTextForGuessedValue(value: any): string {
 		let snippet = this.getInsertTextForValue(value);
 		switch (typeof value) {
@@ -480,7 +482,9 @@ export class JSONCompletion {
 				}
 				return snippet;
 			case 'string':
-				return '"{{' + snippet.substr(1, snippet.length - 2) + '}}"';
+				snippet = snippet.substr(1, snippet.length - 2); // remove quotes
+				snippet = snippet.replace(/^(\w+:.*)$/, String(this.templateVarIdCounter++) + ':$1'); // add pseudo variable id to prevent clash with named snippet variables
+				return '"{{' + snippet + '}}"';
 			case 'number':
 			case 'integer':
 			case 'boolean':
