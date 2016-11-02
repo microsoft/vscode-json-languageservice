@@ -211,6 +211,13 @@ export class ASTNode {
 			}
 		}
 
+		if (schema.deprecatedMessage) {
+			validationResult.warnings.push({
+				location: { start: this.start, end: this.end },
+				message: schema.deprecatedMessage
+			});
+		}		
+
 		if (matchingSchemas !== null) {
 			matchingSchemas.push({ node: this, schema: schema });
 		}

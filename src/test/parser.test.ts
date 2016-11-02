@@ -1194,6 +1194,25 @@ suite('JSON Parser', () => {
 		assert.strictEqual(doc.warnings.length, 1);
 	});
 
+	test('deprecated', function() {
+
+		var doc = Parser.parse('{"prop": 42}');
+
+		var schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop': {
+					deprecatedMessage: "Prop is deprecated"
+				}
+			}
+		};
+
+		doc.validate(schema);
+
+		assert.strictEqual(doc.errors.length, 0);
+		assert.strictEqual(doc.warnings.length, 1);
+	});	
+
 	test('Strings with spaces', function() {
 
 		var result = Parser.parse('{"key1":"first string", "key2":["second string"]}');
