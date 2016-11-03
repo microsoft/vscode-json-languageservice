@@ -8,20 +8,30 @@ var tsb = require('gulp-tsb');
 var assign = require('object-assign');
 var rimraf = require('rimraf');
 var merge = require('merge-stream');
+var path = require('path');
+var uri = require('vscode-uri').default;
 
-var compilation = tsb.create(assign({ verbose: true }, require('./src/tsconfig.json').compilerOptions));
-var tsSources = 'src/**/*.ts';
+var options = require('./src/tsconfig.json').compilerOptions;
+var outDir = './lib';
 
-var outFolder = 'lib';
+// set sourceRoot to an absolute location to workaround https://github.com/jrieken/gulp-tsb/issues/48
+var sourceRoot = uri.file(path.join(__dirname, 'src')).toString(); 
+
+var compilation = tsb.create(assign({ verbose: true, sourceRoot: sourceRoot }, options));
+var tsSources = './src/**/*.ts';
 
 function compileTask() {
 	return merge(
 		gulp.src(tsSources).pipe(compilation())
 	)
-	.pipe(gulp.dest(outFolder));
+	.pipe(gulp.dest(outDir));
 }
 
-gulp.task('clean-out', function(cb) { rimraf(outFolder, { maxBusyTries: 1 }, cb); });
+function toFileUri(filePath) {
+	return uri.file(filePath).toString();
+}
+
+gulp.task('clean-out', function(cb) { rimraf(outDir, { maxBusyTries: 1 }, cb); });
 gulp.task('compile', ['clean-out'], compileTask);
 gulp.task('compile-without-clean', compileTask);
 gulp.task('watch', ['compile'], function() {
