@@ -10,11 +10,15 @@ import {TextDocument, Range, Position, FormattingOptions, TextEdit} from 'vscode
 export function format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[] {
 	const documentText = document.getText();
 	let initialIndentLevel: number;
-	let value: string;
-	let rangeOffset: number;
+	let formatText: string;
+	let formatTextStart: number;
+	let rangeStart, rangeEnd : number;
 	if (range) {
+		rangeStart = document.offsetAt(range.start);
+		rangeEnd = document.offsetAt(range.end);
+
 		let startPosition = Position.create(range.start.line, 0);
-		rangeOffset = document.offsetAt(startPosition);
+		formatTextStart = document.offsetAt(startPosition);
 
 		let endOffset = document.offsetAt(Position.create(range.end.line + 1, 0));
 		let endLineStart = document.offsetAt(Position.create(range.end.line, 0));
@@ -22,13 +26,15 @@ export function format(document: TextDocument, range: Range, options: Formatting
 			endOffset--;
 		}
 		range = Range.create(startPosition, document.positionAt(endOffset));
-		value = documentText.substring(rangeOffset, endOffset);
-		initialIndentLevel = computeIndentLevel(value, 0, options);
+		formatText = documentText.substring(formatTextStart, endOffset);
+		initialIndentLevel = computeIndentLevel(formatText, 0, options);
 	} else {
-		value = documentText;
-		range = Range.create(Position.create(0, 0), document.positionAt(value.length));
+		formatText = documentText;
+		range = Range.create(Position.create(0, 0), document.positionAt(formatText.length));
 		initialIndentLevel = 0;
-		rangeOffset = 0;
+		formatTextStart = 0;
+		rangeStart = 0;
+		rangeEnd = documentText.length;
 	}
 	let eol = getEOL(document);
 
@@ -41,7 +47,7 @@ export function format(document: TextDocument, range: Range, options: Formatting
 		indentValue = '\t';
 	}
 
-	let scanner = Json.createScanner(value, false);
+	let scanner = Json.createScanner(formatText, false);
 
 	function newLineAndIndent(): string {
 		return eol + repeat(indentValue, initialIndentLevel + indentLevel);
@@ -57,7 +63,7 @@ export function format(document: TextDocument, range: Range, options: Formatting
 	}
 	let editOperations: TextEdit[] = [];
 	function addEdit(text: string, startOffset: number, endOffset: number) {
-		if (documentText.substring(startOffset, endOffset) !== text) {
+		if (startOffset < rangeEnd && endOffset > rangeStart && documentText.substring(startOffset, endOffset) !== text) {
 			let replaceRange = Range.create(document.positionAt(startOffset), document.positionAt(endOffset));
 			editOperations.push(TextEdit.replace(replaceRange, text));
 		}
@@ -65,21 +71,21 @@ export function format(document: TextDocument, range: Range, options: Formatting
 
 	let firstToken = scanNext();
 	if (firstToken !== Json.SyntaxKind.EOF) {
-		let firstTokenStart = scanner.getTokenOffset() + rangeOffset;
+		let firstTokenStart = scanner.getTokenOffset() + formatTextStart;
 		let initialIndent = repeat(indentValue, initialIndentLevel);
-		addEdit(initialIndent, rangeOffset, firstTokenStart);
+		addEdit(initialIndent, formatTextStart, firstTokenStart);
 	}
 
 	while (firstToken !== Json.SyntaxKind.EOF) {
-		let firstTokenEnd = scanner.getTokenOffset() + scanner.getTokenLength() + rangeOffset;
+		let firstTokenEnd = scanner.getTokenOffset() + scanner.getTokenLength() + formatTextStart;
 		let secondToken = scanNext();
 
 		let replaceContent = '';
 		while (!lineBreak && (secondToken === Json.SyntaxKind.LineCommentTrivia || secondToken === Json.SyntaxKind.BlockCommentTrivia)) {
 			// comments on the same line: keep them on the same line, but ignore them otherwise
-			let commentTokenStart = scanner.getTokenOffset() + rangeOffset;
+			let commentTokenStart = scanner.getTokenOffset() + formatTextStart;
 			addEdit(' ', firstTokenEnd, commentTokenStart);
-			firstTokenEnd = scanner.getTokenOffset() + scanner.getTokenLength() + rangeOffset;
+			firstTokenEnd = scanner.getTokenOffset() + scanner.getTokenLength() + formatTextStart;
 			replaceContent = secondToken === Json.SyntaxKind.LineCommentTrivia ? newLineAndIndent() : '';
 			secondToken = scanNext();
 		}
@@ -130,7 +136,7 @@ export function format(document: TextDocument, range: Range, options: Formatting
 			}
 
 		}
-		let secondTokenStart = scanner.getTokenOffset() + rangeOffset;
+		let secondTokenStart = scanner.getTokenOffset() + formatTextStart;
 		addEdit(replaceContent, firstTokenEnd, secondTokenStart);
 		firstToken = secondToken;
 	}

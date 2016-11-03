@@ -352,7 +352,7 @@ suite('JSON Formatter', () => {
 
 		var expected = [
 			'{ "a": {},',
-			'  "b": [',
+			'   "b": [',
 			'    null',
 			'  ],',
 			'  "c": {}',
@@ -361,6 +361,7 @@ suite('JSON Formatter', () => {
 
 		format(content, expected);
 	});
+	
 
 	test('range with existing indent - tabs', () => {
 		var content = [
@@ -382,7 +383,21 @@ suite('JSON Formatter', () => {
 		format(content, expected, false);
 	});
 
+	test('property range - issue 14623', () => {
+		var content = [
+			'{ |"a" :| 1,',
+			'  "b": 1',
+			'}'
+		].join('\n');
 
+		var expected = [
+			'{ "a": 1,',
+			'  "b": 1',
+			'}'
+		].join('\n');
+
+		format(content, expected, false);
+	});
 	test('block comment none-line breaking symbols', () => {
 		var content = [
 			'{ "a": [ 1',
