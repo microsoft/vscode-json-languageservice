@@ -30,7 +30,7 @@ suite('JSON Completion', () => {
 	};
 
 
-	let testCompletionsFor = function(value: string, stringAfter: string, schema: JsonSchema.JSONSchema, test: (items: CompletionItem[], document: TextDocument) => void) : Thenable<void> {
+	let testCompletionsFor = function(value: string, stringAfter: string, schema: JsonSchema.JSONSchema, test: (items: CompletionItem[], document: TextDocument) => void) : PromiseLike<void> {
 		let uri = 'test://test.json';
 		let idx = stringAfter ? value.indexOf(stringAfter) : 0;
 

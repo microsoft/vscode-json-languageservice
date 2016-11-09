@@ -15,7 +15,7 @@ import {Hover, TextDocument, TextDocumentIdentifier, Range, Position, TextEdit, 
 
 suite('JSON Hover', () => {
 
-	function testComputeInfo(value: string, schema: JsonSchema.JSONSchema, position: Position): Thenable<Hover> {
+	function testComputeInfo(value: string, schema: JsonSchema.JSONSchema, position: Position): PromiseLike<Hover> {
 		var uri = 'test://test.json';
 
 		var schemaService = new SchemaService.JSONSchemaService(requestService);
