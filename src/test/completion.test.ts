@@ -10,7 +10,7 @@ import SchemaService = require('../services/jsonSchemaService');
 import JsonSchema = require('../jsonSchema');
 import {JSONCompletion} from '../services/jsonCompletion';
 
-import {CompletionItem, CompletionItemKind, TextDocument, TextDocumentIdentifier, Range, Position, TextEdit} from 'vscode-languageserver-types';
+import {CompletionItem, CompletionItemKind, TextDocument, TextDocumentIdentifier, Range, Position, TextEdit, SnippetString} from 'vscode-languageserver-types';
 import {applyEdits} from './textEditSupport';
 
 suite('JSON Completion', () => {
@@ -24,8 +24,15 @@ suite('JSON Completion', () => {
 			return completion.label === label && (!documentation || completion.documentation === documentation);
 		});
 		assert.equal(matches.length, 1, label + " should only existing once: Actual: " + completions.map(c => c.label).join(', '));
+		let match = matches[0];
 		if (document && resultText) {
-			assert.equal(applyEdits(document, [ matches[0].textEdit ]), resultText);
+			let insertText = match.label;
+			if (SnippetString.is(match.insertText)) {
+				insertText = match.insertText.value;
+			} else if (match.insertText) {
+				insertText = match.insertText;
+			}
+			assert.equal(applyEdits(document, [ TextEdit.replace(match.range, insertText) ]), resultText);
 		}
 	};
 
@@ -143,11 +150,11 @@ suite('JSON Completion', () => {
 			}),
 			testCompletionsFor('{ "a/**/}', '/**/', schema, (result, document) => {
 				assert.strictEqual(result.length, 3);
-				assertCompletion(result, 'a', 'A', document, '{ "a": {{0}}');
+				assertCompletion(result, 'a', 'A', document, '{ "a": ${1:0}');
 			}),
 			testCompletionsFor('{ a/**/}', '/**/', schema, (result, document) => {
 				assert.strictEqual(result.length, 3);
-				assertCompletion(result, 'a', 'A', document, '{ "a": {{0}}/**/}');
+				assertCompletion(result, 'a', 'A', document, '{ "a": ${1:0}/**/}');
 			}),
 			testCompletionsFor('{ "a" = 1;/**/}', '/**/', schema, result => {
 				assert.strictEqual(result.length, 2);
@@ -479,11 +486,11 @@ suite('JSON Completion', () => {
 
 	test('Escaping no schema', function(testDone) {
 		Promise.all([
-			testCompletionsFor('[ { "\\\\{{}}": "John" }, { "/**/" }', '/**/', null, result => {
-				assertCompletion(result, '\\{{}}');
+			testCompletionsFor('[ { "\\\\${1:b}": "John" }, { "/**/" }', '/**/', null, result => {
+				assertCompletion(result, '\\${1:b}');
 			}),
-			testCompletionsFor('[ { "\\\\{{}}": "John" }, { /**/ }', '/**/', null, (result, document) => {
-				assertCompletion(result, '\\{{}}', null, document, '[ { "\\\\{{}}": "John" }, { "\\\\\\\\\\{\\{\\}\\}"/**/ }');
+			testCompletionsFor('[ { "\\\\${1:b}": "John" }, { /**/ }', '/**/', null, (result, document) => {
+				assertCompletion(result, '\\${1:b}', null, document, '[ { "\\\\${1:b}": "John" }, { "\\\\\\\\\\$\\{1:b\\}"/**/ }');
 			}),
 			testCompletionsFor('[ { "name": "\\{" }, { "name": /**/ }', '/**/', null, result => {
 				assertCompletion(result, '"\\{"');
@@ -497,7 +504,7 @@ suite('JSON Completion', () => {
 			properties: {
 				'{\\}': {
 					default: "{\\}",
-					defaultSnippets: [ { body: "{{let}}"} ],
+					defaultSnippets: [ { body: "${1:let}"} ],
 					enum: ['John{\\}']
 				}
 			}
@@ -505,12 +512,12 @@ suite('JSON Completion', () => {
 
 		Promise.all([
 			testCompletionsFor('{ /**/ }', '/**/', schema, (result, document) => {
-				assertCompletion(result, '{\\}', null, document, '{ "\\{\\\\\\\\\\}": "{{\\{\\\\\\\\\\}}}"/**/ }');
+				assertCompletion(result, '{\\}', null, document, '{ "\\{\\\\\\\\\\}": "${1:\\{\\\\\\\\\\}}"/**/ }');
 			}),
 			testCompletionsFor('{ "{\\\\}": /**/ }', '/**/', schema, (result, document) => {
 				assertCompletion(result, '"{\\\\}"', null, document, '{ "{\\\\}": "\\{\\\\\\\\\\}"/**/ }');
 				assertCompletion(result, '"John{\\\\}"', null, document, '{ "{\\\\}": "John\\{\\\\\\\\\\}"/**/ }');
-				assertCompletion(result, '"let"', null, document, '{ "{\\\\}": "{{let}}"/**/ }');
+				assertCompletion(result, '"let"', null, document, '{ "{\\\\}": "${1:let}"/**/ }');
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -527,7 +534,7 @@ suite('JSON Completion', () => {
 
 		Promise.all([
 			testCompletionsFor('{ /**/ }', '/**/', schema, (result, document) => {
-				assertCompletion(result, 'url', null, document, '{ "url": "{{0:http://foo/bar}}"/**/ }');
+				assertCompletion(result, 'url', null, document, '{ "url": "${1:http://foo/bar}"/**/ }');
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});	
@@ -539,7 +546,7 @@ suite('JSON Completion', () => {
 
 		Promise.all([
 			testCompletionsFor('{ "$sc/**/ }', '/**/', null, (result, document) => {
-				assertCompletion(result, '$schema', null, document, '{ "$schema": {{}}');
+				assertCompletion(result, '$schema', null, document, '{ "\\$schema": $1');
 			}),
 			testCompletionsFor('{ "$schema": /**/ }', '/**/', schema, (result, document) => {
 				assertCompletion(result, '"http://myschemastore/test1"', null, document, '{ "$schema": "http://myschemastore/test1"/**/ }');
@@ -569,8 +576,8 @@ suite('JSON Completion', () => {
 					default: {}
 				},
 				{
-					defaultSnippets: [ { label: 'def1', description: 'def1Desc', body: { hello: '{{world}}' }},
-									   { body: {"{{hello}}": [ "{{world}}"]} } ]
+					defaultSnippets: [ { label: 'def1', description: 'def1Desc', body: { hello: '${1:world}' }},
+									   { body: { "${1:hello}": [ "${2:world}"]} } ]
 				}
 			],
 			type: 'object',
@@ -583,9 +590,9 @@ suite('JSON Completion', () => {
 				assertCompletion(result, '{"hello":"world"}', null, document, '\\{\n\t"hello": "world"\n\\}/**/');
 			}),
 			testCompletionsFor('/**/', '/**/', schema2, (result, document) => {
-				assertCompletion(result, '{}', null, document, '{\n\t{{}}\n}/**/');
-				assertCompletion(result, 'def1', 'def1Desc', document, '{\n\t"hello": "{{world}}"\n}/**/');
-				assertCompletion(result, '{"hello":["world"]}', null, document, '{\n\t"{{hello}}": [\n\t\t"{{world}}"\n\t]\n}/**/');
+				assertCompletion(result, '{}', null, document, '{\n\t$1\n}/**/');
+				assertCompletion(result, 'def1', 'def1Desc', document, '{\n\t"hello": "${1:world}"\n}/**/');
+				assertCompletion(result, '{"hello":["world"]}', null, document, '{\n\t"${1:hello}": [\n\t\t"${2:world}"\n\t]\n}/**/');
 			}),
 		]).then(() => testDone(), (error) => testDone(error));
 

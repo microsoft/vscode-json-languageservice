@@ -11,7 +11,7 @@ import {JSONSchema} from '../jsonSchema';
 import {JSONWorkerContribution, CompletionsCollector} from '../jsonContributions';
 import {PromiseConstructor, Thenable} from '../jsonLanguageService';
 
-import {CompletionItem, CompletionItemKind, CompletionList, TextDocument, Position, Range, TextEdit} from 'vscode-languageserver-types';
+import {CompletionItem, CompletionItemKind, CompletionList, TextDocument, Position, Range, SnippetString} from 'vscode-languageserver-types';
 
 import * as nls from 'vscode-nls';
 const localize = nls.loadMessageBundle();
@@ -68,7 +68,7 @@ export class JSONCompletion {
 				if (!proposed[suggestion.label]) {
 					proposed[suggestion.label] = true;
 					if (overwriteRange) {
-						suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
+						suggestion.range = overwriteRange;
 					}
 
 					result.items.push(suggestion);
@@ -387,8 +387,8 @@ export class JSONCompletion {
 					kind: this.getSuggestionKind(type),
 					label: s.label || this.getLabelForSnippetValue(value),
 					documentation: s.description,
-					insertText: insertText,
-					filterText: insertText
+					insertText,
+					filterText: insertText.value
 				});
 				hasProposals = true;
 			});
@@ -449,48 +449,52 @@ export class JSONCompletion {
 
 	private getLabelForSnippetValue(value: any): string {
 		let label = JSON.stringify(value);
-		label = label.replace(/\{\{|\}\}/g, '');
+		label = label.replace(/\$\{\w+:([^}]+)\}/g, '$1');
 		if (label.length > 57) {
 			return label.substr(0, 57).trim() + '...';
 		}
 		return label;
 	}
 
-	private getInsertTextForValue(value: any): string {
-		var text = JSON.stringify(value, null, '\t');
-		if (text === '{}') {
-			return '{\n\t{{}}\n}';
-		} else if (text === '[]') {
-			return '[\n\t{{}}\n]';
-		}
-		text = text.replace(/[\\\{\}]/g, '\\$&');
-		return text;
+	private getInsertTextForPlainText(text: string): SnippetString {
+		return SnippetString.create(text.replace(/[\\\$\{\}]/g, '\\$&'));
 	}
 
-	private getInsertTextForSnippetValue(value: any): string {
-		return JSON.stringify(value, null, '\t');
+	private getInsertTextForValue(value: any): SnippetString {
+		var text = JSON.stringify(value, null, '\t');
+		if (text === '{}') {
+			return SnippetString.create('{\n\t$1\n}');
+		} else if (text === '[]') {
+			return SnippetString.create('[\n\t$1\n]');
+		}
+		return this.getInsertTextForPlainText(text);
+	}
+
+	private getInsertTextForSnippetValue(value: any): SnippetString {
+		//todo
+		return SnippetString.create(JSON.stringify(value, null, '\t'));
 	}
 
 	private templateVarIdCounter = 0;
 
-	private getInsertTextForGuessedValue(value: any): string {
-		let snippet = this.getInsertTextForValue(value);
+	private getInsertTextForGuessedValue(value: any): SnippetString {
 		switch (typeof value) {
 			case 'object':
 				if (value === null) {
-					return '{{null}}';
+					return SnippetString.create('${1:null}');
 				}
-				return snippet;
+				return this.getInsertTextForValue(value);
 			case 'string':
-				snippet = snippet.substr(1, snippet.length - 2); // remove quotes
-				snippet = snippet.replace(/^(\w+:.*)$/, String(this.templateVarIdCounter++) + ':$1'); // add pseudo variable id to prevent clash with named snippet variables
-				return '"{{' + snippet + '}}"';
+				let snippetValue = JSON.stringify(value);
+				snippetValue = snippetValue.substr(1, snippetValue.length - 2); // remove quotes
+				snippetValue = this.getInsertTextForPlainText(snippetValue).value; // escape \ and }
+				return SnippetString.create('"${1:' + snippetValue + '}"');
 			case 'number':
 			case 'integer':
 			case 'boolean':
-				return '{{' + snippet + '}}';
+				return SnippetString.create('${1:' + JSON.stringify(value) + '}');
 		}
-		return snippet;
+		return this.getInsertTextForValue(value);
 	}
 
 	private getSuggestionKind(type: any): CompletionItemKind {
@@ -521,7 +525,7 @@ export class JSONCompletion {
 		}
 	}
 
-	private getInsertTextForMatchingNode(node: Parser.ASTNode, document: TextDocument): string {
+	private getInsertTextForMatchingNode(node: Parser.ASTNode, document: TextDocument): SnippetString {
 		switch (node.type) {
 			case 'array':
 				return this.getInsertTextForValue([]);
@@ -529,55 +533,55 @@ export class JSONCompletion {
 				return this.getInsertTextForValue({});
 			default:
 				let content = document.getText().substr(node.start, node.end - node.start);
-				return content;
+				return this.getInsertTextForPlainText(content);
 		}
 	}
 
-	private getInsertTextForProperty(key: string, propertySchema: JSONSchema, addValue: boolean, isLast: boolean): string {
+	private getInsertTextForProperty(key: string, propertySchema: JSONSchema, addValue: boolean, isLast: boolean): SnippetString {
 		
 		let result = this.getInsertTextForValue(key);
 		if (!addValue) {
 			return result;
 		}
-		result += ': ';
+		result.value += ': ';
 
 		if (propertySchema) {
 			let defaultVal = propertySchema.default;
 			if (typeof defaultVal !== 'undefined') {
-				result = result + this.getInsertTextForGuessedValue(defaultVal);
+				result.value += this.getInsertTextForGuessedValue(defaultVal).value;
 			} else if (propertySchema.enum && propertySchema.enum.length > 0) {
-				result = result + this.getInsertTextForGuessedValue(propertySchema.enum[0]);
+				result.value += this.getInsertTextForGuessedValue(propertySchema.enum[0]).value;
 			} else {
 				var type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
 				switch (type) {
 					case 'boolean':
-						result += '{{false}}';
+						result.value += '${1:false}}';
 						break;
 					case 'string':
-						result += '"{{}}"';
+						result.value += '"$1"';
 						break;
 					case 'object':
-						result += '{\n\t{{}}\n}';
+						result.value += '{\n\t$1\n}';
 						break;
 					case 'array':
-						result += '[\n\t{{}}\n]';
+						result.value += '[\n\t$1\n]';
 						break;
 					case 'number':
 					case 'integer':
-						result += '{{0}}';
+						result.value += '${1:0}';
 						break;
 					case 'null':
-						result += '{{null}}';
+						result.value += '${1:null}';
 						break;
 					default:
 						return result;
 				}
 			}
 		} else {
-			result += '{{}}';
+			result.value += '$1';
 		}
 		if (!isLast) {
-			result += ',';
+			result.value += ',';
 		}
 		return result;
 	}
