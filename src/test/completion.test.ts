@@ -490,7 +490,7 @@ suite('JSON Completion', () => {
 				assertCompletion(result, '\\${1:b}');
 			}),
 			testCompletionsFor('[ { "\\\\${1:b}": "John" }, { /**/ }', '/**/', null, (result, document) => {
-				assertCompletion(result, '\\${1:b}', null, document, '[ { "\\\\${1:b}": "John" }, { "\\\\\\\\\\$\\{1:b\\}"/**/ }');
+				assertCompletion(result, '\\${1:b}', null, document, '[ { "\\\\${1:b}": "John" }, { "\\\\\\\\\\${1:b\\}"/**/ }');
 			}),
 			testCompletionsFor('[ { "name": "\\{" }, { "name": /**/ }', '/**/', null, result => {
 				assertCompletion(result, '"\\{"');
@@ -512,11 +512,11 @@ suite('JSON Completion', () => {
 
 		Promise.all([
 			testCompletionsFor('{ /**/ }', '/**/', schema, (result, document) => {
-				assertCompletion(result, '{\\}', null, document, '{ "\\{\\\\\\\\\\}": "${1:\\{\\\\\\\\\\}}"/**/ }');
+				assertCompletion(result, '{\\}', null, document, '{ "{\\\\\\\\\\}": "${1:{\\\\\\\\\\}}"/**/ }');
 			}),
 			testCompletionsFor('{ "{\\\\}": /**/ }', '/**/', schema, (result, document) => {
-				assertCompletion(result, '"{\\\\}"', null, document, '{ "{\\\\}": "\\{\\\\\\\\\\}"/**/ }');
-				assertCompletion(result, '"John{\\\\}"', null, document, '{ "{\\\\}": "John\\{\\\\\\\\\\}"/**/ }');
+				assertCompletion(result, '"{\\\\}"', null, document, '{ "{\\\\}": "{\\\\\\\\\\}"/**/ }');
+				assertCompletion(result, '"John{\\\\}"', null, document, '{ "{\\\\}": "John{\\\\\\\\\\}"/**/ }');
 				assertCompletion(result, '"let"', null, document, '{ "{\\\\}": "${1:let}"/**/ }');
 			})
 		]).then(() => testDone(), (error) => testDone(error));
@@ -587,7 +587,7 @@ suite('JSON Completion', () => {
 		};		
 		Promise.all([
 			testCompletionsFor('/**/', '/**/', schema1, (result, document) => {
-				assertCompletion(result, '{"hello":"world"}', null, document, '\\{\n\t"hello": "world"\n\\}/**/');
+				assertCompletion(result, '{"hello":"world"}', null, document, '{\n\t"hello": "world"\n\\}/**/');
 			}),
 			testCompletionsFor('/**/', '/**/', schema2, (result, document) => {
 				assertCompletion(result, '{}', null, document, '{\n\t$1\n}/**/');

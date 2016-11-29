@@ -449,7 +449,7 @@ export class JSONCompletion {
 
 	private getLabelForSnippetValue(value: any): string {
 		let label = JSON.stringify(value);
-		label = label.replace(/\$\{\w+:([^}]+)\}/g, '$1');
+		label = label.replace(/\$\{\d+:([^}]+)\}|\$\d+/g, '$1');
 		if (label.length > 57) {
 			return label.substr(0, 57).trim() + '...';
 		}
@@ -457,7 +457,7 @@ export class JSONCompletion {
 	}
 
 	private getInsertTextForPlainText(text: string): SnippetString {
-		return SnippetString.create(text.replace(/[\\\$\{\}]/g, '\\$&'));
+		return SnippetString.create(text.replace(/[\\\$\}]/g, '\\$&'));   // escape $, \ and } 
 	}
 
 	private getInsertTextForValue(value: any): SnippetString {
@@ -471,7 +471,6 @@ export class JSONCompletion {
 	}
 
 	private getInsertTextForSnippetValue(value: any): SnippetString {
-		//todo
 		return SnippetString.create(JSON.stringify(value, null, '\t'));
 	}
 
