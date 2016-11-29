@@ -571,7 +571,7 @@ export class JSONCompletion {
 				var type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
 				switch (type) {
 					case 'boolean':
-						result.value += '${1:false}}';
+						result.value += '${1:false}';
 						break;
 					case 'string':
 						result.value += '"$1"';
