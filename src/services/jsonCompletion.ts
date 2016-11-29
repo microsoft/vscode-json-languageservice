@@ -376,16 +376,32 @@ export class JSONCompletion {
 		}
 		if (Array.isArray(schema.defaultSnippets)) {
 			schema.defaultSnippets.forEach(s => {
-				let value = s.body;
 				let type = schema.type;
-				for (let i = arrayDepth; i > 0; i--) {
-					value = [ value ];
-					type = 'array';
+				let value = s.body;
+				let label = s.label;
+				let insertText: SnippetString;
+				if (value) {
+					let type = schema.type;
+					for (let i = arrayDepth; i > 0; i--) {
+						value = [ value ];
+						type = 'array';
+					}
+					insertText = this.getInsertTextForSnippetValue(value);
+					label = label || this.getLabelForSnippetValue(value);
+				} else if (s.snippetTextBody) {
+					let prefix = '', suffix = '', indent = '';
+					for (let i = arrayDepth; i > 0; i--) {
+						prefix = prefix + indent + '[\n';
+						suffix = suffix + '\n' + indent + ']';
+						indent += '\t';
+						type = 'array';
+					}
+					insertText = SnippetString.create(prefix + indent + s.snippetTextBody.split('\n').join('\n' + indent) + suffix);
+					label = label || insertText.value;
 				}
-				let insertText = this.getInsertTextForSnippetValue(value);
 				collector.add({
 					kind: this.getSuggestionKind(type),
-					label: s.label || this.getLabelForSnippetValue(value),
+					label,
 					documentation: s.description,
 					insertText,
 					filterText: insertText.value
@@ -397,6 +413,7 @@ export class JSONCompletion {
 			this.addDefaultValueCompletions(schema.items, collector, arrayDepth + 1);
 		}
 	}
+
 
 	private addEnumValueCompletions(schema: JSONSchema, collector: CompletionsCollector): void {
 		if (Array.isArray(schema.enum)) {

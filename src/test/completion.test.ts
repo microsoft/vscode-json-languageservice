@@ -598,5 +598,23 @@ suite('JSON Completion', () => {
 
 	});
 
+	test('Default snippet', function(testDone) {
+		let schema: JsonSchema.JSONSchema = {
+			type: 'array',
+			items: {
+				type: 'object',
+				defaultSnippets: [ 
+					{ label: 'foo', bodyText: '{\n\t"foo": "${1:b}"\n}'}
+				]
+			}
+		};
+
+		Promise.all([
+			testCompletionsFor('/**/', '/**/', schema, (result, document) => {
+				assertCompletion(result, 'foo', null, document, '[\n\t{\n\t\t"foo": "${1:b}"\n\t}\n]/**/');
+			})
+		]).then(() => testDone(), (error) => testDone(error));
+	});
+
 });
 

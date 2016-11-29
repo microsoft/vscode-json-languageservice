@@ -40,7 +40,7 @@ export interface JSONSchema {
 	enum?: any[];
 	format?: string;
 
-	defaultSnippets?: { label?: string; description?: string; body: any; }[]; // VSCode extension
+	defaultSnippets?: { label?: string; description?: string; body?: any; bodyText?: string; }[]; // VSCode extension: body: a object that will be converted to a JSON string. bodyText: text with \t and \n
 	errorMessage?: string; // VSCode extension
 	deprecatedMessage?: string; // VSCode extension
 }
