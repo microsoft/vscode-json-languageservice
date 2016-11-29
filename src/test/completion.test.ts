@@ -9,9 +9,44 @@ import Parser = require('../parser/jsonParser');
 import SchemaService = require('../services/jsonSchemaService');
 import JsonSchema = require('../jsonSchema');
 import {JSONCompletion} from '../services/jsonCompletion';
+import * as jsonLanguageService from '../jsonLanguageService';
 
-import {CompletionItem, CompletionItemKind, TextDocument, TextDocumentIdentifier, Range, Position, TextEdit, SnippetString} from 'vscode-languageserver-types';
+import {CompletionList, CompletionItem, CompletionItemKind, TextDocument, TextDocumentIdentifier, Range, Position, TextEdit, SnippetString} from 'vscode-languageserver-types';
 import {applyEdits} from './textEditSupport';
+
+interface ItemDescription {
+	label: string;
+	detail?: string;
+	documentation?: string;
+	kind?: CompletionItemKind;
+	resultText?: string;
+}	
+
+let assertCompletion = function (completions: CompletionList, expected: ItemDescription, document: TextDocument, offset: number) {
+	let matches = completions.items.filter(completion => {
+		return completion.label === expected.label;
+	});
+	assert.equal(matches.length, 1, expected.label + " should only existing once: Actual: " + completions.items.map(c => c.label).join(', '));
+	let match = matches[0];
+	if (expected.detail) {
+		assert.equal(match.detail, expected.detail);
+	}
+	if (expected.documentation) {
+		assert.equal(match.documentation, expected.documentation);
+	}
+	if (expected.kind) {
+		assert.equal(match.kind, expected.kind);
+	}
+	if (expected.resultText) {
+		let insertText = match.label;
+		if (SnippetString.is(match.insertText)) {
+			insertText = match.insertText.value;
+		} else if (match.insertText) {
+			insertText = match.insertText;
+		}
+		assert.equal(applyEdits(document, [ TextEdit.replace(match.range, insertText) ]), expected.resultText);
+	}
+};
 
 suite('JSON Completion', () => {
 
@@ -19,100 +54,117 @@ suite('JSON Completion', () => {
 		return Promise.reject<string>('Resource not found');
 	}
 
-	let assertCompletion = function(completions: CompletionItem[], label: string, documentation?: string, document?: TextDocument, resultText?: string) {
-		let matches = completions.filter(function(completion: CompletionItem) {
-			return completion.label === label && (!documentation || completion.documentation === documentation);
-		});
-		assert.equal(matches.length, 1, label + " should only existing once: Actual: " + completions.map(c => c.label).join(', '));
-		let match = matches[0];
-		if (document && resultText) {
-			let insertText = match.label;
-			if (SnippetString.is(match.insertText)) {
-				insertText = match.insertText.value;
-			} else if (match.insertText) {
-				insertText = match.insertText;
-			}
-			assert.equal(applyEdits(document, [ TextEdit.replace(match.range, insertText) ]), resultText);
-		}
-	};
+	let testCompletionsFor = function (value: string, schema: JsonSchema.JSONSchema, expected: { count?: number, items?: ItemDescription[] }): PromiseLike<void> {
+		let offset = value.indexOf('|');
+		value = value.substr(0, offset) + value.substr(offset + 1);
 
+		let p : jsonLanguageService.LanguageServiceParams = {
+		};
 
-	let testCompletionsFor = function(value: string, stringAfter: string, schema: JsonSchema.JSONSchema, test: (items: CompletionItem[], document: TextDocument) => void) : PromiseLike<void> {
-		let uri = 'test://test.json';
-		let idx = stringAfter ? value.indexOf(stringAfter) : 0;
-
-		let schemaService = new SchemaService.JSONSchemaService(requestService);
-		let completionProvider = new JSONCompletion(schemaService);
+		let ls = jsonLanguageService.getLanguageService(p);
 		if (schema) {
-			let id = "http://myschemastore/test1";
-			schemaService.registerExternalSchema(id, ["*.json"], schema);
+			ls.configure({
+				schemas: [{
+					uri: 'http://myschemastore/test1',
+					schema,
+					fileMatch: ["*.json"]
+				}]
+			})
 		}
 
-		let document = TextDocument.create(uri, 'json', 0, value);
-		let position = Position.create(0, idx);
-		let jsonDoc = Parser.parse(value);
-		return completionProvider.doComplete(document, position, jsonDoc).then(list => list.items).then(completions => {
-			test(completions, document);
-			return null;
-		})
+		let document = TextDocument.create('test://test/test.json', 'json', 0, value);
+		let position = Position.create(0, offset);
+		let jsonDoc = ls.parseJSONDocument(document);
+		return ls.doComplete(document, position, jsonDoc).then(list => {
+			if (expected.count) {
+				assert.equal(list.items.length, expected.count);
+			}
+			if (expected.items) {
+				for (let item of expected.items) {
+					assertCompletion(list, item, document, offset);
+				}
+			}
+		});
 	};
 
 	test('Complete keys no schema', function(testDone) {
 		Promise.all([
-			testCompletionsFor('[ { "name": "John", "age": 44 }, { /**/ }', '/**/', null, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, 'name');
-				assertCompletion(result, 'age');
+			testCompletionsFor('[ { "name": "John", "age": 44 }, { | }', null, {
+				count: 2,
+				items: [
+					{ label: 'name'},
+					{ label: 'age' }
+				]
 			}),
-			testCompletionsFor('[ { "name": "John", "age": 44 }, { "/**/ }', '/**/', null, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, 'name');
-				assertCompletion(result, 'age');
+			testCompletionsFor('[ { "name": "John", "age": 44 }, { "| }', null, {
+				count: 2,
+				items: [
+					{ label: 'name'},
+					{ label: 'age' }
+				]
 			}),
-			testCompletionsFor('[ { "name": "John", "age": 44 }, { "n/**/ }', '/**/', null, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, 'name');
+			testCompletionsFor('[ { "name": "John", "age": 44 }, { "n| }', null, {
+				count: 2,
+				items: [
+					{ label: 'name'},
+					{ label: 'age' }
+				]
 			}),
-			testCompletionsFor('[ { "name": "John", "age": 44 }, { "name/**/" }', '/**/', null, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, 'name');
+			testCompletionsFor('[ { "name": "John", "age": 44 }, { "name|" }', null, {
+				count: 2,
+				items: [
+					{ label: 'name'},
+					{ label: 'age' }
+				]
 			}),
-			testCompletionsFor('[ { "name": "John", "address": { "street" : "MH Road", "number" : 5 } }, { "name": "Jack", "address": { "street" : "100 Feet Road", /**/ }', '/**/', null, result => {
-				assert.strictEqual(result.length, 1);
-				assertCompletion(result, 'number');
+			testCompletionsFor('[ { "name": "John", "address": { "street" : "MH Road", "number" : 5 } }, { "name": "Jack", "address": { "street" : "100 Feet Road", | }', null, {
+				count: 1,
+				items: [
+					{ label: 'number'}
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
 	test('Complete values no schema', function(testDone) {
 		Promise.all([
-			testCompletionsFor('[ { "name": "John", "age": 44 }, { "name": /**/', '/**/', null, result => {
-				assert.strictEqual(result.length, 1);
-				assertCompletion(result, '"John"');
+			testCompletionsFor('[ { "name": "John", "age": 44 }, { "name": |', null, {
+				count: 1,
+				items: [
+					{ label: '"John"'}
+				]
 			}),
-			testCompletionsFor('[ { "data": { "key": 1, "data": true } }, { "data": /**/', '/**/', null, result => {
-				assert.strictEqual(result.length, 3);
-				assertCompletion(result, '{}');
-				assertCompletion(result, 'true');
-				assertCompletion(result, 'false');
+			testCompletionsFor('[ { "data": { "key": 1, "data": true } }, { "data": |', null, {
+				count: 3,
+				items: [
+					{ label: '{}'},
+					{ label: 'true'},
+					{ label: 'false'}
+				]
 			}),
-			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "/**/" } ]', '/**/', null, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, '"foo"');
-				assertCompletion(result, '"bar"');
+			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "|" } ]', null, {
+				count: 2,
+				items: [
+					{ label: '"foo"'},
+					{ label: '"bar"'}
+				]
 			}),
-			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "f/**/" } ]', '/**/', null, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, '"foo"');
-				assertCompletion(result, '"bar"');
+			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "f|" } ]', null, {
+				count: 2,
+				items: [
+					{ label: '"foo"'},
+					{ label: '"bar"'}
+				]
 			}),
-			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "xoo"/**/ } ]', '/**/', null, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, '"foo"');
-				assertCompletion(result, '"bar"');
+			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "xoo"| } ]', null, {
+				count: 2,
+				items: [
+					{ label: '"foo"'},
+					{ label: '"bar"'}
+				]
 			}),
-			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "xoo"  /**/ } ]', '/**/', null, result => {
-				assert.strictEqual(result.length, 0);
+			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "xoo"  | } ]', null, {
+				count: 0
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -136,30 +188,40 @@ suite('JSON Completion', () => {
 			}
 		};
 		Promise.all([
-			testCompletionsFor('{/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 3);
-				assertCompletion(result, 'a', 'A');
-				assertCompletion(result, 'b', 'B');
-				assertCompletion(result, 'c', 'C');
+			testCompletionsFor('{|}', schema, {
+				count: 3,
+				items: [
+					{ label: 'a', documentation: 'A' },
+					{ label: 'b', documentation: 'B' },
+					{ label: 'c', documentation: 'C' }
+				]
 			}),
-			testCompletionsFor('{ "/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 3);
-				assertCompletion(result, 'a', 'A');
-				assertCompletion(result, 'b', 'B');
-				assertCompletion(result, 'c', 'C');
+			testCompletionsFor('{ "|}', schema, {
+				count: 3,
+				items: [
+					{ label: 'a', documentation: 'A' },
+					{ label: 'b', documentation: 'B' },
+					{ label: 'c', documentation: 'C' }
+				]
 			}),
-			testCompletionsFor('{ "a/**/}', '/**/', schema, (result, document) => {
-				assert.strictEqual(result.length, 3);
-				assertCompletion(result, 'a', 'A', document, '{ "a": ${1:0}');
+			testCompletionsFor('{ "a|}', schema, {
+				count: 3,
+				items: [
+					{ label: 'a', documentation: 'A', resultText: '{ "a": ${1:0}' }
+				]
 			}),
-			testCompletionsFor('{ a/**/}', '/**/', schema, (result, document) => {
-				assert.strictEqual(result.length, 3);
-				assertCompletion(result, 'a', 'A', document, '{ "a": ${1:0}/**/}');
+			testCompletionsFor('{ a|}', schema, {
+				count: 3,
+				items: [
+					{ label: 'a', documentation: 'A', resultText: '{ "a": ${1:0}}' }
+				]
 			}),
-			testCompletionsFor('{ "a" = 1;/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, 'b', 'B');
-				assertCompletion(result, 'c', 'C');
+			testCompletionsFor('{ "a" = 1;|}', schema, {
+				count: 2,
+				items: [
+					{ label: 'b', documentation: 'B'},
+					{ label: 'c', documentation: 'C'}
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 
@@ -176,22 +238,28 @@ suite('JSON Completion', () => {
 			}
 		};
 		Promise.all([
-			testCompletionsFor('{ "a": /**/ }', '/**/', schema, result => {
-				assert.strictEqual(result.length, 3);
-				assertCompletion(result, '"John"');
-				assertCompletion(result, '"Jeff"');
-				assertCompletion(result, '"George"');
+			testCompletionsFor('{ "a": | }', schema, {
+				count: 3,
+				items: [
+					{ label: '"John"' },
+					{ label: '"Jeff"' },
+					{ label: '"George"' }
+				]
 			}),
 
-			testCompletionsFor('{ "a": "J/**/ }', '/**/', schema, result => {
-				assert.strictEqual(result.length, 3);
-				assertCompletion(result, '"John"');
-				assertCompletion(result, '"Jeff"');
+			testCompletionsFor('{ "a": "J| }', schema, {
+				count: 3,
+				items: [
+					{ label: '"John"' },
+					{ label: '"Jeff"' }
+				]
 			}),
 
-			testCompletionsFor('{ "a": "John"/**/ }', '/**/', schema, result => {
-				assert.strictEqual(result.length, 3);
-				assertCompletion(result, '"John"');
+			testCompletionsFor('{ "a": "John"| }', schema, {
+				count: 3,
+				items: [
+					{ label: '"John"' }
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -210,23 +278,27 @@ suite('JSON Completion', () => {
 			}
 		};
 		Promise.all([
-			testCompletionsFor('{ "a": /**/ }', '/**/', schema, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, 'true');
-				assertCompletion(result, 'false');
+			testCompletionsFor('{ "a": | }', schema, {
+				count: 2,
+				items: [
+					{ label: 'true' },
+					{ label: 'false' },
+				]
 			}),
-			testCompletionsFor('{ "b": "/**/ }', '/**/', schema, result => {
-				assert.strictEqual(result.length, 3);
-				assertCompletion(result, 'true');
-				assertCompletion(result, 'false');
-				assertCompletion(result, 'null');
+			testCompletionsFor('{ "b": "| }', schema, {
+				count: 3,
+				items: [
+					{ label: 'true' },
+					{ label: 'false' },
+					{ label: 'null' }
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
 	test('Complete with nested schema', function(testDone) {
 
-		let content = '{/**/}';
+		let content = '{|}';
 		let schema: JsonSchema.JSONSchema = {
 			oneOf: [{
 				type: 'object',
@@ -245,10 +317,12 @@ suite('JSON Completion', () => {
 				}]
 		};
 		Promise.all([
-			testCompletionsFor(content, '/**/', schema, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, 'a', 'A');
-				assertCompletion(result, 'b', 'B');
+			testCompletionsFor(content, schema, {
+				count: 2,
+				items: [
+					{ label: 'a', documentation: 'A'},
+					{ label: 'b', documentation: 'B'}
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -285,16 +359,20 @@ suite('JSON Completion', () => {
 				}]
 		};
 		Promise.all([
-			testCompletionsFor('{/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 4);
-				assertCompletion(result, 'a', 'A');
-				assertCompletion(result, 'b', 'B');
-				assertCompletion(result, 'c', 'C');
-				assertCompletion(result, 'd', 'D');
+			testCompletionsFor('{|}', schema, {
+				count: 4,
+				items: [
+					{ label: 'a', documentation: 'A'},
+					{ label: 'b', documentation: 'B'},
+					{ label: 'c', documentation: 'C'},
+					{ label: 'd', documentation: 'D'}
+				]
 			}),
-			testCompletionsFor('{ "a": "", /**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 1);
-				assertCompletion(result, 'b', 'B');
+			testCompletionsFor('{ "a": "", |}', schema, {
+				count: 1,
+				items: [
+					{ label: 'b', documentation: 'B'}
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -325,15 +403,19 @@ suite('JSON Completion', () => {
 				}]
 		};
 		Promise.all([
-			testCompletionsFor('{/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 3);
-				assertCompletion(result, 'type');
-				assertCompletion(result, 'b');
-				assertCompletion(result, 'c');
+			testCompletionsFor('{|}', schema, {
+				count: 3,
+				items: [
+					{ label: 'type'},
+					{ label: 'b'},
+					{ label: 'c'}
+				]
 			}),
-			testCompletionsFor('{ "type": "appartment", /**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 1);
-				assertCompletion(result, 'c');
+			testCompletionsFor('{ "type": "appartment", |}', schema, {
+				count: 1,
+				items: [
+					{ label: 'c'}
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -383,18 +465,22 @@ suite('JSON Completion', () => {
 				}]
 		};
 		Promise.all([
-			testCompletionsFor('{/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 5);
-				assertCompletion(result, 'a', 'A');
-				assertCompletion(result, 'b1', 'B1');
-				assertCompletion(result, 'b2', 'B2');
-				assertCompletion(result, 'c', 'C');
-				assertCompletion(result, 'd', 'D');
+			testCompletionsFor('{|}', schema, {
+				count: 5,
+				items: [
+					{ label: 'a', documentation: 'A'},
+					{ label: 'b1', documentation: 'B1'},
+					{ label: 'b2', documentation: 'B2'},
+					{ label: 'c', documentation: 'C'},
+					{ label: 'd', documentation: 'D'}
+				]
 			}),
-			testCompletionsFor('{ "b1": "", /**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, 'a', 'A');
-				assertCompletion(result, 'b2', 'B2');
+			testCompletionsFor('{ "b1": "", |}', schema, {
+			count: 2,
+				items: [
+					{ label: 'a', documentation: 'A'},
+					{ label: 'b2', documentation: 'B2'}
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -447,53 +533,71 @@ suite('JSON Completion', () => {
 				}]
 		};
 		Promise.all([
-			testCompletionsFor('{/**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 4);
-				assertCompletion(result, 'type');
-				assertCompletion(result, 'a');
-				assertCompletion(result, 'b');
-				assertCompletion(result, 'c');
+			testCompletionsFor('{|}', schema, {
+				count: 4,
+				items: [
+					{ label: 'type'},
+					{ label: 'a'},
+					{ label: 'b'},
+					{ label: 'c'}
+				]
 			}),
-			testCompletionsFor('{ "type": /**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 3);
-				assertCompletion(result, '"1"');
-				assertCompletion(result, '"2"');
-				assertCompletion(result, '"3"');
+			testCompletionsFor('{ "type": |}', schema, {
+				count: 3,
+				items: [
+					{ label: '"1"'},
+					{ label: '"2"'},
+					{ label: '"3"'}
+				]
 			}),
-			testCompletionsFor('{ "a": { "x": "", "y": "" }, "type": /**/}', '/**/', schema, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, '"1"');
-				assertCompletion(result, '"2"');
+			testCompletionsFor('{ "a": { "x": "", "y": "" }, "type": |}', schema, {
+				count: 2,
+				items: [
+					{ label: '"1"'},
+					{ label: '"2"'}
+				]
 			}),
-			testCompletionsFor('{ "type": "1", "a" : { /**/ }', '/**/', schema, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, 'x');
-				assertCompletion(result, 'y');
+			testCompletionsFor('{ "type": "1", "a" : { | }', schema, {
+				count: 2,
+				items: [
+					{ label: 'x'},
+					{ label: 'y'}
+				]
 			}),
-			testCompletionsFor('{ "type": "1", "a" : { "x": "", "z":"" }, /**/', '/**/', schema, result => {
+			testCompletionsFor('{ "type": "1", "a" : { "x": "", "z":"" }, |', schema, {
 				// both alternatives have errors: intellisense proposes all options
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, 'b');
-				assertCompletion(result, 'c');
+				count: 2,
+				items: [
+					{ label: 'b'},
+					{ label: 'c'}
+				]
 			}),
-			testCompletionsFor('{ "a" : { "x": "", "z":"" }, /**/', '/**/', schema, result => {
-				assert.strictEqual(result.length, 2);
-				assertCompletion(result, 'type');
-				assertCompletion(result, 'c');
+			testCompletionsFor('{ "a" : { "x": "", "z":"" }, |', schema, {
+				count: 2,
+				items: [
+					{ label: 'type'},
+					{ label: 'c'}
+				]
 			}),
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
 	test('Escaping no schema', function(testDone) {
 		Promise.all([
-			testCompletionsFor('[ { "\\\\${1:b}": "John" }, { "/**/" }', '/**/', null, result => {
-				assertCompletion(result, '\\${1:b}');
+			testCompletionsFor('[ { "\\\\${1:b}": "John" }, { "|" }', null, {
+				items: [
+					{ label: '\\${1:b}' }
+				]
 			}),
-			testCompletionsFor('[ { "\\\\${1:b}": "John" }, { /**/ }', '/**/', null, (result, document) => {
-				assertCompletion(result, '\\${1:b}', null, document, '[ { "\\\\${1:b}": "John" }, { "\\\\\\\\\\${1:b\\}"/**/ }');
+			testCompletionsFor('[ { "\\\\${1:b}": "John" }, { | }', null, {
+				items: [
+					{ label: '\\${1:b}', resultText: '[ { "\\\\${1:b}": "John" }, { "\\\\\\\\\\${1:b\\}" }' }
+				]
 			}),
-			testCompletionsFor('[ { "name": "\\{" }, { "name": /**/ }', '/**/', null, result => {
-				assertCompletion(result, '"\\{"');
+			testCompletionsFor('[ { "name": "\\{" }, { "name": | }', null, {
+				items: [
+					{ label: '"\\{"' }
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -511,13 +615,17 @@ suite('JSON Completion', () => {
 		};
 
 		Promise.all([
-			testCompletionsFor('{ /**/ }', '/**/', schema, (result, document) => {
-				assertCompletion(result, '{\\}', null, document, '{ "{\\\\\\\\\\}": "${1:{\\\\\\\\\\}}"/**/ }');
+			testCompletionsFor('{ | }', schema, {
+				items: [
+					{ label: '{\\}', resultText: '{ "{\\\\\\\\\\}": "${1:{\\\\\\\\\\}}" }' }
+				]
 			}),
-			testCompletionsFor('{ "{\\\\}": /**/ }', '/**/', schema, (result, document) => {
-				assertCompletion(result, '"{\\\\}"', null, document, '{ "{\\\\}": "{\\\\\\\\\\}"/**/ }');
-				assertCompletion(result, '"John{\\\\}"', null, document, '{ "{\\\\}": "John{\\\\\\\\\\}"/**/ }');
-				assertCompletion(result, '"let"', null, document, '{ "{\\\\}": "${1:let}"/**/ }');
+			testCompletionsFor('{ "{\\\\}": | }', schema, {
+				items: [
+					{ label: '"{\\\\}"', resultText: '{ "{\\\\}": "{\\\\\\\\\\}" }' },
+					{ label: '"John{\\\\}"', resultText: '{ "{\\\\}": "John{\\\\\\\\\\}" }' },
+					{ label: '"let"', resultText: '{ "{\\\\}": "${1:let}" }' }
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -533,8 +641,10 @@ suite('JSON Completion', () => {
 		};
 
 		Promise.all([
-			testCompletionsFor('{ /**/ }', '/**/', schema, (result, document) => {
-				assertCompletion(result, 'url', null, document, '{ "url": "${1:http://foo/bar}"/**/ }');
+			testCompletionsFor('{ | }', schema, {
+				items: [
+					{ label: 'url', resultText: '{ "url": "${1:http://foo/bar}" }' }
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});	
@@ -545,20 +655,30 @@ suite('JSON Completion', () => {
 		};
 
 		Promise.all([
-			testCompletionsFor('{ "$sc/**/ }', '/**/', null, (result, document) => {
-				assertCompletion(result, '$schema', null, document, '{ "\\$schema": $1');
+			testCompletionsFor('{ "$sc| }', null, {
+				items: [
+					{ label: '$schema', resultText: '{ "\\$schema": $1' }
+				]
 			}),
-			testCompletionsFor('{ "$schema": /**/ }', '/**/', schema, (result, document) => {
-				assertCompletion(result, '"http://myschemastore/test1"', null, document, '{ "$schema": "http://myschemastore/test1"/**/ }');
+			testCompletionsFor('{ "$schema": | }', schema, {
+				items: [
+					{ label: '"http://myschemastore/test1"', resultText:  '{ "$schema": "http://myschemastore/test1" }' }
+				]
 			}),
-			testCompletionsFor('{ "$schema": "/**/', '/**/', schema, (result, document) => {
-				assertCompletion(result, '"http://myschemastore/test1"', null, document, '{ "$schema": "http://myschemastore/test1"');
+			testCompletionsFor('{ "$schema": "|', schema, {
+				items: [
+					{ label: '"http://myschemastore/test1"', resultText: '{ "$schema": "http://myschemastore/test1"' }
+				]
 			}),
-			testCompletionsFor('{ "$schema": "h/**/', '/**/', schema, (result, document) => {
-				assertCompletion(result, '"http://myschemastore/test1"', null, document, '{ "$schema": "http://myschemastore/test1"');
+			testCompletionsFor('{ "$schema": "h|', schema, {
+				items: [
+					{ label: '"http://myschemastore/test1"', resultText: '{ "$schema": "http://myschemastore/test1"' }
+				]
 			}),
-			testCompletionsFor('{ "$schema": "http://myschemastore/test1"/**/ }', '/**/', schema, (result, document) => {
-				assertCompletion(result, '"http://myschemastore/test1"', null, document, '{ "$schema": "http://myschemastore/test1"/**/ }');
+			testCompletionsFor('{ "$schema": "http://myschemastore/test1"| }', schema, {
+				items: [
+					{ label: '"http://myschemastore/test1"', resultText: '{ "$schema": "http://myschemastore/test1" }' }
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
@@ -586,13 +706,18 @@ suite('JSON Completion', () => {
 			}
 		};		
 		Promise.all([
-			testCompletionsFor('/**/', '/**/', schema1, (result, document) => {
-				assertCompletion(result, '{"hello":"world"}', null, document, '{\n\t"hello": "world"\n\\}/**/');
+			testCompletionsFor('|', schema1,  {
+				items: [
+					{ label: '{"hello":"world"}', resultText: '{\n\t"hello": "world"\n\\}' }
+				]
 			}),
-			testCompletionsFor('/**/', '/**/', schema2, (result, document) => {
-				assertCompletion(result, '{}', null, document, '{\n\t$1\n}/**/');
-				assertCompletion(result, 'def1', 'def1Desc', document, '{\n\t"hello": "${1:world}"\n}/**/');
-				assertCompletion(result, '{"hello":["world"]}', null, document, '{\n\t"${1:hello}": [\n\t\t"${2:world}"\n\t]\n}/**/');
+			testCompletionsFor('|', schema2, {
+				items: [
+					{ label: '{}', resultText: '{\n\t$1\n}' },
+					{ label: 'def1', documentation: 'def1Desc', resultText: '{\n\t"hello": "${1:world}"\n}' },
+					{ label: '{"hello":["world"]}', resultText: '{\n\t"${1:hello}": [\n\t\t"${2:world}"\n\t]\n}' }
+				]
+
 			}),
 		]).then(() => testDone(), (error) => testDone(error));
 
@@ -610,8 +735,10 @@ suite('JSON Completion', () => {
 		};
 
 		Promise.all([
-			testCompletionsFor('/**/', '/**/', schema, (result, document) => {
-				assertCompletion(result, 'foo', null, document, '[\n\t{\n\t\t"foo": "${1:b}"\n\t}\n]/**/');
+			testCompletionsFor('|', schema, {
+				items: [
+					{ label: 'foo', resultText: '[\n\t{\n\t\t"foo": "${1:b}"\n\t}\n]' }
+				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
