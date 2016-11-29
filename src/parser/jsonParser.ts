@@ -49,6 +49,10 @@ export class ASTNode {
 		return [];
 	}
 
+	public getLastChild() : ASTNode {
+		return null;
+	}
+
 	public getValue(): any {
 		// override in children
 		return;
@@ -262,6 +266,10 @@ export class ArrayASTNode extends ASTNode {
 	public getChildNodes(): ASTNode[] {
 		return this.items;
 	}
+
+	public getLastChild() : ASTNode {
+		return this.items[this.items.length -1];
+	}	
 
 	public getValue(): any {
 		return this.items.map((v) => v.getValue());
@@ -489,6 +497,10 @@ export class PropertyASTNode extends ASTNode {
 		return this.value ? [this.key, this.value] : [this.key];
 	}
 
+	public getLastChild() : ASTNode {
+		return this.value;
+	}		
+
 	public setValue(value: ASTNode): boolean {
 		this.value = value;
 		return value !== null;
@@ -520,6 +532,10 @@ export class ObjectASTNode extends ASTNode {
 	public getChildNodes(): ASTNode[] {
 		return this.properties;
 	}
+
+	public getLastChild() : ASTNode {
+		return this.properties[this.properties.length - 1];
+	}		
 
 	public addProperty(node: PropertyASTNode): boolean {
 		if (!node) {
