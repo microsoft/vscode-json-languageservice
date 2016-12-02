@@ -67,7 +67,7 @@ suite('JSON Completion', () => {
 		let jsonDoc = ls.parseJSONDocument(document);
 		return ls.doComplete(document, position, jsonDoc).then(list => {
 			if (expected.count) {
-				assert.equal(list.items.length, expected.count);
+				assert.equal(list.items.length, expected.count, value);
 			}
 			if (expected.items) {
 				for (let item of expected.items) {

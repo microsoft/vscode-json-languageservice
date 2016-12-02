@@ -49,7 +49,6 @@ export class JSONCompletion {
 
 		let currentWord = this.getCurrentWord(document, offset);
 		let overwriteRange = null;
-		let filterText = void 0;
 		let result: CompletionList = {
 			items: [],
 			isIncomplete: false
@@ -57,15 +56,13 @@ export class JSONCompletion {
 
 		if (node && (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')) {
 			overwriteRange = Range.create(document.positionAt(node.start), document.positionAt(node.end));
-			filterText = document.getText().substring(node.start, offset);
 		} else {
 			overwriteRange = Range.create(document.positionAt(offset - currentWord.length), position);
-			filterText = document.getText().substring(offset - currentWord.length, offset);
 		}
 
 		let proposed: { [key: string]: boolean } = {};
 		let collector: CompletionsCollector = {
-			add: (suggestion: CompletionItem) => {
+			add: (suggestion: CompletionItem) => { 
 				if (!proposed[suggestion.label]) {
 					proposed[suggestion.label] = true;
 					if (overwriteRange) {
@@ -124,8 +121,10 @@ export class JSONCompletion {
 						proposed[p.key.value] = true;
 					}
 				});
-				
-				let separatorAfter = this.needsCommaAfter(document, node, offset) ? ',' : '';
+				let separatorAfter = '';
+				if (addValue) {
+					separatorAfter = this.evaluateSeparatorAfter(document, document.offsetAt(overwriteRange.end));
+				}
 				
 				if (schema) {
 					// property proposals with schema
@@ -148,17 +147,23 @@ export class JSONCompletion {
 			}
 
 			// proposals for values
+			let offsetForSeparator = offset;
 			if (node && (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')) {
+				offsetForSeparator = node.end;
 				node = node.parent;
+			}
+			let separatorAfter = '';
+			if (node) {
+				separatorAfter = this.evaluateSeparatorAfter(document, offsetForSeparator);
 			}
 
 			let types: {[type:string]: boolean} = {};
 			if (schema) {
 				// value proposals with schema
-				this.getValueCompletions(schema, doc, node, offset, document, collector, types);
+				this.getValueCompletions(schema, doc, node, offset, separatorAfter, collector, types);
 			} else {
 				// value proposals without schema
-				this.getSchemaLessValueCompletions(doc, node, offset, document, collector);
+				this.getSchemaLessValueCompletions(doc, node, offset, separatorAfter, document, collector);
 			}
 
 			if (!node) {
@@ -186,7 +191,7 @@ export class JSONCompletion {
 			}
 			return this.promise.all(collectionPromises).then(() => {
 				if (collector.getNumberOfProposals() === 0) {
-					this.addFillerValueCompletions(types, '', collector);
+					this.addFillerValueCompletions(types, separatorAfter, collector);
 				}
 				return result;
 			});
@@ -240,8 +245,7 @@ export class JSONCompletion {
 		}
 	}
 
-	private getSchemaLessValueCompletions(doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, document: TextDocument, collector: CompletionsCollector): void {
-		let separatorAfter = this.needsCommaAfter(document, node, offset) ? ',' : '';
+	private getSchemaLessValueCompletions(doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, separatorAfter: string, document: TextDocument, collector: CompletionsCollector): void {
 		let collectSuggestionsForValues = (value: Parser.ASTNode) => {
 			if (!value.parent.contains(offset, true)) {
 				collector.add({ kind: this.getSuggestionKind(value.type), label: this.getLabelTextForMatchingNode(value, document), insertText: this.getInsertTextForMatchingNode(value, document, separatorAfter), documentation: '' });
@@ -251,8 +255,8 @@ export class JSONCompletion {
 			}
 		};
 		if (!node) {
-			collector.add({ kind: this.getSuggestionKind('object'), label: 'Empty object', insertText: this.getInsertTextForValue({}, separatorAfter), documentation: '' });
-			collector.add({ kind: this.getSuggestionKind('array'), label: 'Empty array', insertText: this.getInsertTextForValue([], separatorAfter), documentation: '' });
+			collector.add({ kind: this.getSuggestionKind('object'), label: 'Empty object', insertText: this.getInsertTextForValue({}, ''), documentation: '' });
+			collector.add({ kind: this.getSuggestionKind('array'), label: 'Empty array', insertText: this.getInsertTextForValue([], ''), documentation: '' });
 		} else {
 			if (node.type === 'property') {
 				let propertyNode = <Parser.PropertyASTNode> node;
@@ -278,6 +282,7 @@ export class JSONCompletion {
 			}
 			if (node.type === 'array') {
 				if (node.parent && node.parent.type === 'property') {
+
 					// suggest items of an array at the same key
 					let parentKey = (<Parser.PropertyASTNode>node.parent).key.value;
 					doc.visit((n) => {
@@ -300,14 +305,12 @@ export class JSONCompletion {
 	}
 
 
-	private getValueCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, document: TextDocument, collector: CompletionsCollector, types: {[type:string]: boolean}): void {
+	private getValueCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, separatorAfter: string, collector: CompletionsCollector, types: {[type:string]: boolean}): void {
 		if (!node) {
 			this.addSchemaValueCompletions(schema.schema, '', collector, types);
 		} else {
-			
 			let parentKey: string = null;
-			
-			if (node && (node.type === 'property') && offset > (<Parser.PropertyASTNode>node).colonOffset) {
+			if ((node.type === 'property') && offset > (<Parser.PropertyASTNode>node).colonOffset) {
 				let valueNode = (<Parser.PropertyASTNode>node).value;
 				if (valueNode && offset > valueNode.end) {
 					return; // we are past the value node
@@ -319,8 +322,6 @@ export class JSONCompletion {
 			if (node && (parentKey !== null || node.type === 'array')) {
 				let matchingSchemas: Parser.IApplicableSchema[] = [];
 				doc.validate(schema.schema, matchingSchemas, node.start);
-
-				let separatorAfter = this.needsCommaAfter(document, node, offset) ? ',' : '';
 
 				matchingSchemas.forEach(s => {
 					if (s.node === node && !s.inverted && s.schema) {
@@ -566,45 +567,54 @@ export class JSONCompletion {
 		if (!addValue) {
 			return result;
 		}
-		result.value += ': ';
+		let resultText = result.value;
+		resultText += ': ';
 
 		if (propertySchema) {
 			let defaultVal = propertySchema.default;
 			if (typeof defaultVal !== 'undefined') {
-				result.value += this.getInsertTextForGuessedValue(defaultVal, '').value;
+				resultText += this.getInsertTextForGuessedValue(defaultVal, '').value;
 			} else if (propertySchema.enum && propertySchema.enum.length > 0) {
-				result.value += this.getInsertTextForGuessedValue(propertySchema.enum[0], '').value;
+				resultText += this.getInsertTextForGuessedValue(propertySchema.enum[0], '').value;
 			} else {
 				var type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
+				if (!type) {
+					if (propertySchema.properties) {
+						type = 'object';
+					} else if (propertySchema.items) {
+						type = 'array';
+					}
+
+				}
 				switch (type) {
 					case 'boolean':
-						result.value += '${1:false}';
+						resultText += '${1:false}';
 						break;
 					case 'string':
-						result.value += '"$1"';
+						resultText += '"$1"';
 						break;
 					case 'object':
-						result.value += '{\n\t$1\n}';
+						resultText += '{\n\t$1\n}';
 						break;
 					case 'array':
-						result.value += '[\n\t$1\n]';
+						resultText += '[\n\t$1\n]';
 						break;
 					case 'number':
 					case 'integer':
-						result.value += '${1:0}';
+						resultText += '${1:0}';
 						break;
 					case 'null':
-						result.value += '${1:null}';
+						resultText += '${1:null}';
 						break;
 					default:
 						return result;
 				}
 			}
 		} else {
-			result.value += '$1';
+			resultText += '$1';
 		}
-		result.value += separatorAfter;
-		return result;
+		resultText += separatorAfter;
+		return SnippetString.create(resultText);
 	}
 
 	private getCurrentWord(document: TextDocument, offset: number) {
@@ -616,17 +626,18 @@ export class JSONCompletion {
 		return text.substring(i+1, offset);
 	}
 
-	private needsCommaAfter(document: TextDocument, node: Parser.ASTNode, offset: number) {
-		if (!node) {
-			return false;
-		}
-
+	private evaluateSeparatorAfter(document: TextDocument, offset: number) {
 		let scanner = Json.createScanner(document.getText(), true);
-		scanner.setPosition(node.start);
+		scanner.setPosition(offset);
 		let token = scanner.scan();
-		while (token !== Json.SyntaxKind.EOF && scanner.getTokenOffset() < offset) {
-			token = scanner.scan();
+		switch (token) {
+			case Json.SyntaxKind.CommaToken:
+			case Json.SyntaxKind.CloseBraceToken:
+			case Json.SyntaxKind.CloseBracketToken:
+			case Json.SyntaxKind.EOF:
+				return '';
+			default:
+				return ',';
 		}
-		return token !== Json.SyntaxKind.CommaToken && token !== Json.SyntaxKind.CloseBraceToken && token !== Json.SyntaxKind.CloseBracketToken && token !== Json.SyntaxKind.EOF;
 	}
 }
