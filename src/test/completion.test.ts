@@ -814,5 +814,27 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});	
 
+
+	test('Enum description', function(testDone) {
+		var schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop1': {
+					enum: ['e1', 'e2', 'e3' ],
+					enumDescriptions: ['E1', 'E2', 'E3' ],
+				},
+			}
+		};
+
+		Promise.all([
+			testCompletionsFor('{ "prop1": |', schema, {
+				items: [
+					{ label: '"e1"', documentation: 'E1' },
+					{ label: '"e2"', documentation: 'E2' }
+				]
+			})
+		]).then(() => testDone(), (error) => testDone(error));
+	});		
+
 });
 

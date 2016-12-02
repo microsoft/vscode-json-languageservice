@@ -99,4 +99,23 @@ suite('JSON Hover', () => {
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
+
+	test('Enum description', function(testDone) {
+		var schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop1': {
+					description: "prop1",
+					enum: ['e1', 'e2', 'e3' ],
+					enumDescriptions: ['E1', 'E2', 'E3' ],
+				},
+			}
+		};
+
+		Promise.all([
+			testComputeInfo('{ "prop1": "e1', schema, { line: 0, character: 12 }).then(result => {
+				assert.deepEqual(result.contents, [ MarkedString.fromPlainText('prop1\n\nE1') ]);
+			})
+		]).then(() => testDone(), (error) => testDone(error));
+	});
 })

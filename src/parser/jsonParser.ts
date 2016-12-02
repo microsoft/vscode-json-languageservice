@@ -15,8 +15,13 @@ export interface IRange {
 	end: number;
 }
 
+export enum ErrorCode {
+	EnumValueMismatch = 1
+}
+
 export interface IError {
 	location: IRange;
+	code?: ErrorCode;
 	message: string;
 }
 
@@ -176,6 +181,7 @@ export class ASTNode {
 						} else if (compareResult === 0) {
 							// there's already a best matching but we are as good
 							bestMatch.matchingSchemas.push.apply(bestMatch.matchingSchemas, subMatchingSchemas);
+							bestMatch.validationResult.mergeEnumValueMismatch(subValidationResult);
 						}
 					}
 				}
@@ -208,8 +214,10 @@ export class ASTNode {
 			if (schema.enum.indexOf(this.getValue()) === -1) {
 				validationResult.warnings.push({
 					location: { start: this.start, end: this.end },
-					message: schema.errorMessage || localize('enumWarning', 'Value is not an accepted value. Valid values: {0}', JSON.stringify(schema.enum))
+					code: ErrorCode.EnumValueMismatch,
+					message: schema.errorMessage || localize('enumWarning', 'Value is not accepted. Valid values: {0}', JSON.stringify(schema.enum))
 				});
+				validationResult.mismatchedEnumValues = schema.enum;
 			} else {
 				validationResult.enumValueMatch = true;
 			}
@@ -734,6 +742,7 @@ export class ValidationResult {
 	public propertiesMatches: number;
 	public propertiesValueMatches: number;
 	public enumValueMatch: boolean;
+	public mismatchedEnumValues: any[];
 
 	constructor() {
 		this.errors = [];
@@ -741,6 +750,7 @@ export class ValidationResult {
 		this.propertiesMatches = 0;
 		this.propertiesValueMatches = 0;
 		this.enumValueMatch = false;
+		this.mismatchedEnumValues = null;
 	}
 
 	public hasErrors(): boolean {
@@ -757,6 +767,20 @@ export class ValidationResult {
 		this.errors = this.errors.concat(validationResult.errors);
 		this.warnings = this.warnings.concat(validationResult.warnings);
 	}
+
+	public mergeEnumValueMismatch(validationResult: ValidationResult): void {
+		if (this.mismatchedEnumValues && validationResult.mismatchedEnumValues) {
+			this.mismatchedEnumValues = this.mismatchedEnumValues.concat(validationResult.mismatchedEnumValues);
+			for (let warning of this.warnings) {
+				if (warning.code === ErrorCode.EnumValueMismatch) {
+					warning.message = localize('enumWarning', 'Value is not accepted. Valid values: {0}', JSON.stringify(this.mismatchedEnumValues))
+				}
+			}
+		} else {
+			this.mismatchedEnumValues = null;
+		}
+	}
+
 
 	public mergePropertyMatch(propertyValidationResult: ValidationResult): void {
 		this.merge(propertyValidationResult);
