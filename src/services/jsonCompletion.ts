@@ -427,7 +427,7 @@ export class JSONCompletion {
 
 	private addEnumValueCompletions(schema: JSONSchema, separatorAfter: string, collector: CompletionsCollector): void {
 		if (Array.isArray(schema.enum)) {
-			schema.enum.forEach((enm) => collector.add({ kind: this.getSuggestionKind(schema.type), label: this.getLabelForValue(enm), insertText: this.getInsertTextForValue(enm, separatorAfter), documentation: '' }));
+			schema.enum.forEach((enm) => collector.add({ kind: this.getSuggestionKind(schema.type), label: this.getLabelForValue(enm), insertText: this.getInsertTextForValue(enm, separatorAfter), documentation: schema.description }));
 		}
 	}
 
