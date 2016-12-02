@@ -207,7 +207,9 @@ export class JSONCompletion {
 				if (schemaProperties) {
 					Object.keys(schemaProperties).forEach((key: string) => {
 						let propertySchema = schemaProperties[key];
-						collector.add({ kind: CompletionItemKind.Property, label: key, insertText: this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter), filterText: this.getFilterTextForValue(key), documentation: propertySchema.description || '' });
+						if (!propertySchema.deprecationMessage) {
+							collector.add({ kind: CompletionItemKind.Property, label: key, insertText: this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter), filterText: this.getFilterTextForValue(key), documentation: propertySchema.description || '' });
+						}
 					});
 				}
 			}

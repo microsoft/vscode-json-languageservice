@@ -215,10 +215,10 @@ export class ASTNode {
 			}
 		}
 
-		if (schema.deprecatedMessage) {
+		if (schema.deprecationMessage) {
 			validationResult.warnings.push({
 				location: { start: this.start, end: this.end },
-				message: schema.deprecatedMessage
+				message: schema.deprecationMessage
 			});
 		}		
 

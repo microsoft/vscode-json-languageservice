@@ -17,12 +17,17 @@ interface ItemDescription {
 	documentation?: string;
 	kind?: CompletionItemKind;
 	resultText?: string;
+	notAvailable?: boolean;
 }	
 
 let assertCompletion = function (completions: CompletionList, expected: ItemDescription, document: TextDocument, offset: number) {
 	let matches = completions.items.filter(completion => {
 		return completion.label === expected.label;
 	});
+	if (expected.notAvailable) {
+		assert.equal(matches.length, 0, expected.label + " should not existing is results");
+		return;
+	}
 	assert.equal(matches.length, 1, expected.label + " should only existing once: Actual: " + completions.items.map(c => c.label).join(', '));
 	let match = matches[0];
 	if (expected.detail) {
@@ -785,6 +790,29 @@ suite('JSON Completion', () => {
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
+
+	test('Deprecation message', function(testDone) {
+		var schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop1': {
+					deprecationMessage: "Prop is deprecated"
+				},
+				'prop2': {
+					type: 'string'
+				},
+			}
+		};
+
+		Promise.all([
+			testCompletionsFor('{ |', schema, {
+				items: [
+					{ label: 'prop2' },
+					{ label: 'prop1', notAvailable: true}
+				]
+			})
+		]).then(() => testDone(), (error) => testDone(error));
+	});	
 
 });
 

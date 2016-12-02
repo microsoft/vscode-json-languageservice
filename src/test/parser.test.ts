@@ -1202,7 +1202,7 @@ suite('JSON Parser', () => {
 			type: 'object',
 			properties: {
 				'prop': {
-					deprecatedMessage: "Prop is deprecated"
+					deprecationMessage: "Prop is deprecated"
 				}
 			}
 		};
