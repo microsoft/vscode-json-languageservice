@@ -8,7 +8,7 @@
 			"request": "attach",
 			"port": 6004,
 			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/lib"
+			"outFiles": ["${workspaceRoot}/lib"]
 		},
 		{
 			"name": "Unit Tests",
@@ -26,7 +26,15 @@
 			"runtimeArgs": [],
 			"env": {},
 			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/lib"
+			"outFiles": ["${workspaceRoot}/lib"]
+		},
+		{
+			"name": "Attach Language Server",
+			"type": "node",
+			"request": "attach",
+			"port": 6004,
+			"sourceMaps": true,
+			"outFiles": ["${workspaceRoot}/server/out"]
 		}
 	]
 }
