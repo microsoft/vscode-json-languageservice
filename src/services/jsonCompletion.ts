@@ -11,6 +11,7 @@ import SchemaService = require('./jsonSchemaService');
 import {JSONSchema} from '../jsonSchema';
 import {JSONWorkerContribution, CompletionsCollector} from '../jsonContributions';
 import {PromiseConstructor, Thenable} from '../jsonLanguageService';
+import {stringifyObject} from '../utils/json';
 
 import {CompletionItem, CompletionItemKind, CompletionList, TextDocument, Position, Range, SnippetString} from 'vscode-languageserver-types';
 
@@ -510,7 +511,15 @@ export class JSONCompletion {
 	}
 
 	private getInsertTextForSnippetValue(value: any, separatorAfter: string): SnippetString {
-		return SnippetString.create(JSON.stringify(value, null, '\t') + separatorAfter);
+		let replacer = (value) => {
+			if (typeof value === 'string') {
+				if (value[0] === '^') {
+					return value.substr(1);
+				}
+			}
+			return JSON.stringify(value);
+		}
+		return SnippetString.create(stringifyObject(value, '', replacer) + separatorAfter);
 	}
 
 	private templateVarIdCounter = 0;

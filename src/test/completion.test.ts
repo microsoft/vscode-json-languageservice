@@ -777,7 +777,8 @@ suite('JSON Completion', () => {
 			items: {
 				type: 'object',
 				defaultSnippets: [ 
-					{ label: 'foo', bodyText: '{\n\t"foo": "${1:b}"\n}'}
+					{ label: 'foo', bodyText: '{\n\t"foo": "${1:b}"\n}'},
+					{ label: 'foo2', body: { key1: '^$1'} }
 				]
 			}
 		};
@@ -785,7 +786,8 @@ suite('JSON Completion', () => {
 		Promise.all([
 			testCompletionsFor('|', schema, {
 				items: [
-					{ label: 'foo', resultText: '[\n\t{\n\t\t"foo": "${1:b}"\n\t}\n]' }
+					{ label: 'foo', resultText: '[\n\t{\n\t\t"foo": "${1:b}"\n\t}\n]' },
+					{ label: 'foo2', resultText: '[\n\t{\n\t\t"key1": $1\n\t}\n]' }
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
