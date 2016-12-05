@@ -8,7 +8,7 @@
 			"request": "attach",
 			"port": 6004,
 			"sourceMaps": true,
-			"outFiles": ["${workspaceRoot}/lib"]
+			"outFiles": [ "${workspaceRoot}/lib/**/*.js" ]
 		},
 		{
 			"name": "Unit Tests",
@@ -26,7 +26,7 @@
 			"runtimeArgs": [],
 			"env": {},
 			"sourceMaps": true,
-			"outFiles": ["${workspaceRoot}/lib"]
+			"outFiles": [ "${workspaceRoot}/lib/**/*.js" ]
 		},
 		{
 			"name": "Attach Language Server",
@@ -34,7 +34,7 @@
 			"request": "attach",
 			"port": 6004,
 			"sourceMaps": true,
-			"outFiles": ["${workspaceRoot}/server/out"]
+			"outFiles": [ "${workspaceRoot}/server/out/**/*.js" ]
 		}
 	]
 }

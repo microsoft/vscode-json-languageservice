@@ -44,15 +44,19 @@ export class JSONCompletion {
 
 	public doComplete(document: TextDocument, position: Position, doc: Parser.JSONDocument): Thenable<CompletionList> {
 
-		let offset = document.offsetAt(position);
-		let node = doc.getNodeFromOffsetEndInclusive(offset);
-
-		let currentWord = this.getCurrentWord(document, offset);
-		let overwriteRange = null;
 		let result: CompletionList = {
 			items: [],
 			isIncomplete: false
 		};
+
+		let offset = document.offsetAt(position);
+		let node = doc.getNodeFromOffsetEndInclusive(offset);
+		if (this.isInComment(document, node ? node.start : 0, offset)) {
+			return Promise.resolve(result);
+		}
+
+		let currentWord = this.getCurrentWord(document, offset);
+		let overwriteRange = null;
 
 		if (node && (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')) {
 			overwriteRange = Range.create(document.positionAt(node.start), document.positionAt(node.end));
@@ -649,5 +653,15 @@ export class JSONCompletion {
 			default:
 				return ',';
 		}
+	}
+
+	private isInComment(document: TextDocument, start: number, offset: number) {
+		let scanner = Json.createScanner(document.getText(), false);
+		scanner.setPosition(start);
+		let token = scanner.scan();
+		while (token !== Json.SyntaxKind.EOF && (scanner.getTokenOffset() + scanner.getTokenLength() < offset)) {
+			token = scanner.scan();
+		}
+		return (token === Json.SyntaxKind.LineCommentTrivia || token === Json.SyntaxKind.BlockCommentTrivia) && scanner.getTokenOffset() <= offset;
 	}
 }

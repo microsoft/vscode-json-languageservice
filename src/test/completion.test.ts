@@ -836,5 +836,16 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});		
 
+	test('In comment', function(testDone) {
+		Promise.all([
+			testCompletionsFor('[{ "name": "John", "age": 44 }, { /* | */ }', null, {
+				count: 0
+			}),
+			testCompletionsFor('[{ "name": "John", "age": 44 }, {\n // |', null, {
+				count: 0
+			})
+		]).then(() => testDone(), (error) => testDone(error));
+	});
+
 });
 
