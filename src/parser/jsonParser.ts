@@ -671,7 +671,7 @@ export class ObjectASTNode extends ASTNode {
 
 						validationResult.warnings.push({
 							location: { start: propertyNode.key.start, end: propertyNode.key.end },
-							message: localize('DisallowedExtraPropWarning', 'Property {0} is not allowed', propertyName)
+							message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed', propertyName)
 						});
 					}
 				});
