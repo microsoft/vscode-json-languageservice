@@ -65,16 +65,19 @@ export class JSONCompletion {
 			overwriteRange = Range.create(document.positionAt(offset - currentWord.length), position);
 		}
 
-		let proposed: { [key: string]: boolean } = {};
+		let proposed: { [key: string]: CompletionItem } = {};
 		let collector: CompletionsCollector = {
-			add: (suggestion: CompletionItem) => { 
-				if (!proposed[suggestion.label]) {
-					proposed[suggestion.label] = true;
+			add: (suggestion: CompletionItem) => {
+				let existing = proposed[suggestion.label];
+				if (!existing) {
+					proposed[suggestion.label] = suggestion;
 					if (overwriteRange) {
 						suggestion.range = overwriteRange;
 					}
 
 					result.items.push(suggestion);
+				} else if (!existing.documentation) {
+					existing.documentation = suggestion.documentation;
 				}
 			},
 			setAsIncomplete: () => {
@@ -123,7 +126,7 @@ export class JSONCompletion {
 				let properties = (<Parser.ObjectASTNode>node).properties;
 				properties.forEach(p => {
 					if (!currentProperty || currentProperty !== p) {
-						proposed[p.key.value] = true;
+						proposed[p.key.value] = CompletionItem.create('__');
 					}
 				});
 				let separatorAfter = '';
