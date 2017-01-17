@@ -40,7 +40,6 @@ let assertCompletion = function (completions: CompletionList, expected: ItemDesc
 		assert.equal(match.kind, expected.kind);
 	}
 	if (expected.resultText) {
-		let insertText = match.label;
 		assert.equal(applyEdits(document, [ match.textEdit ]), expected.resultText);
 	}
 };
