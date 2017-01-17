@@ -8,7 +8,7 @@ import assert = require('assert');
 import JsonSchema = require('../jsonSchema');
 import * as jsonLanguageService from '../jsonLanguageService';
 
-import {CompletionList, CompletionItemKind, TextDocument, Position, TextEdit, SnippetString} from 'vscode-languageserver-types';
+import {CompletionList, CompletionItemKind, TextDocument, Position, TextEdit, InsertTextFormat} from 'vscode-languageserver-types';
 import {applyEdits} from './textEditSupport';
 
 interface ItemDescription {
@@ -41,12 +41,7 @@ let assertCompletion = function (completions: CompletionList, expected: ItemDesc
 	}
 	if (expected.resultText) {
 		let insertText = match.label;
-		if (SnippetString.is(match.insertText)) {
-			insertText = match.insertText.value;
-		} else if (match.insertText) {
-			insertText = match.insertText;
-		}
-		assert.equal(applyEdits(document, [ TextEdit.replace(match.range, insertText) ]), expected.resultText);
+		assert.equal(applyEdits(document, [ match.textEdit ]), expected.resultText);
 	}
 };
 

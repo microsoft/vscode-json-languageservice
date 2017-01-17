@@ -13,7 +13,7 @@ import {JSONWorkerContribution, CompletionsCollector} from '../jsonContributions
 import {PromiseConstructor, Thenable} from '../jsonLanguageService';
 import {stringifyObject} from '../utils/json';
 
-import {CompletionItem, CompletionItemKind, CompletionList, TextDocument, Position, Range, SnippetString} from 'vscode-languageserver-types';
+import {CompletionItem, CompletionItemKind, CompletionList, TextDocument, Position, Range, TextEdit, InsertTextFormat} from 'vscode-languageserver-types';
 
 import * as nls from 'vscode-nls';
 const localize = nls.loadMessageBundle();
@@ -72,7 +72,7 @@ export class JSONCompletion {
 				if (!existing) {
 					proposed[suggestion.label] = suggestion;
 					if (overwriteRange) {
-						suggestion.range = overwriteRange;
+						suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
 					}
 
 					result.items.push(suggestion);
@@ -150,7 +150,12 @@ export class JSONCompletion {
 					}
 				});
 				if ((!schema && currentWord.length > 0 && document.getText().charAt(offset - currentWord.length - 1) !== '"')) {
-					collector.add({ kind: CompletionItemKind.Property, label: this.getLabelForValue(currentWord), insertText: this.getInsertTextForProperty(currentWord, null, false, separatorAfter), documentation: '' });
+					collector.add({ 
+						kind: CompletionItemKind.Property, 
+						label: this.getLabelForValue(currentWord), 
+						insertText: this.getInsertTextForProperty(currentWord, null, false, separatorAfter), 
+						insertTextFormat: InsertTextFormat.Snippet, documentation: '' 
+					});
 				}
 			}
 
@@ -216,7 +221,14 @@ export class JSONCompletion {
 					Object.keys(schemaProperties).forEach((key: string) => {
 						let propertySchema = schemaProperties[key];
 						if (!propertySchema.deprecationMessage) {
-							collector.add({ kind: CompletionItemKind.Property, label: key, insertText: this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter), filterText: this.getFilterTextForValue(key), documentation: propertySchema.description || '' });
+							collector.add({ 
+								kind: CompletionItemKind.Property, 
+								label: key, 
+								insertText: this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter), 
+								insertTextFormat: InsertTextFormat.Snippet, 
+								filterText: this.getFilterTextForValue(key), 
+								documentation: propertySchema.description || '' 
+							});
 						}
 					});
 				}
@@ -228,7 +240,14 @@ export class JSONCompletion {
 		let collectCompletionsForSimilarObject = (obj: Parser.ObjectASTNode) => {
 			obj.properties.forEach((p) => {
 				let key = p.key.value;
-				collector.add({ kind: CompletionItemKind.Property, label: key, insertText: this.getInsertTextForValue(key, ''), filterText: this.getFilterTextForValue(key), documentation: '' });
+				collector.add({ 
+					kind: CompletionItemKind.Property, 
+					label: key, 
+					insertText: this.getInsertTextForValue(key, ''), 
+					insertTextFormat: InsertTextFormat.Snippet, 
+					filterText: this.getFilterTextForValue(key), 
+					documentation: '' 
+				});
 			});
 		};
 		if (node.parent) {
@@ -251,22 +270,45 @@ export class JSONCompletion {
 				});
 			}
 		} else if (node.type === 'object') {
-			collector.add({ kind: CompletionItemKind.Property, label: '$schema', insertText: this.getInsertTextForProperty('$schema', null, true, ''), documentation: '' , filterText: this.getFilterTextForValue("$schema")});
+			collector.add({ 
+				kind: CompletionItemKind.Property, 
+				label: '$schema', 
+				insertText: this.getInsertTextForProperty('$schema', null, true, ''), 
+				insertTextFormat: InsertTextFormat.Snippet, documentation: '' , 
+				filterText: this.getFilterTextForValue("$schema")
+			});
 		}
 	}
 
 	private getSchemaLessValueCompletions(doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, separatorAfter: string, document: TextDocument, collector: CompletionsCollector): void {
 		let collectSuggestionsForValues = (value: Parser.ASTNode) => {
 			if (!value.parent.contains(offset, true)) {
-				collector.add({ kind: this.getSuggestionKind(value.type), label: this.getLabelTextForMatchingNode(value, document), insertText: this.getInsertTextForMatchingNode(value, document, separatorAfter), documentation: '' });
+				collector.add({ 
+					kind: this.getSuggestionKind(value.type), 
+					label: this.getLabelTextForMatchingNode(value, document), 
+					insertText: this.getInsertTextForMatchingNode(value, document, separatorAfter), 
+					insertTextFormat: InsertTextFormat.Snippet, documentation: '' 
+				});
 			}
 			if (value.type === 'boolean') {
 				this.addBooleanValueCompletion(!value.getValue(), separatorAfter, collector);
 			}
 		};
 		if (!node) {
-			collector.add({ kind: this.getSuggestionKind('object'), label: 'Empty object', insertText: this.getInsertTextForValue({}, ''), documentation: '' });
-			collector.add({ kind: this.getSuggestionKind('array'), label: 'Empty array', insertText: this.getInsertTextForValue([], ''), documentation: '' });
+			collector.add({ 
+				kind: this.getSuggestionKind('object'), 
+				label: 'Empty object', 
+				insertText: this.getInsertTextForValue({}, ''), 
+				insertTextFormat: InsertTextFormat.Snippet, 
+				documentation: '' 
+			});
+			collector.add({ 
+				kind: this.getSuggestionKind('array'), 
+				label: 'Empty array', 
+				insertText: this.getInsertTextForValue([], ''), 
+				insertTextFormat: InsertTextFormat.Snippet, 
+				documentation: '' 
+			});
 		} else {
 			if (node.type === 'property') {
 				let propertyNode = <Parser.PropertyASTNode> node;
@@ -388,6 +430,7 @@ export class JSONCompletion {
 				kind: this.getSuggestionKind(type),
 				label: this.getLabelForValue(value),
 				insertText: this.getInsertTextForValue(value, separatorAfter),
+				insertTextFormat: InsertTextFormat.Snippet,
 				detail: localize('json.suggest.default', 'Default value'),
 			});
 			hasProposals = true;
@@ -397,7 +440,7 @@ export class JSONCompletion {
 				let type = schema.type;
 				let value = s.body;
 				let label = s.label;
-				let insertText: SnippetString;
+				let insertText: string;
 				if (value) {
 					let type = schema.type;
 					for (let i = arrayDepth; i > 0; i--) {
@@ -414,15 +457,16 @@ export class JSONCompletion {
 						indent += '\t';
 						type = 'array';
 					}
-					insertText = SnippetString.create(prefix + indent + s.bodyText.split('\n').join('\n' + indent) + suffix + separatorAfter);
-					label = label || insertText.value;
+					insertText = prefix + indent + s.bodyText.split('\n').join('\n' + indent) + suffix + separatorAfter;
+					label = label || insertText;
 				}
 				collector.add({
 					kind: this.getSuggestionKind(type),
 					label,
 					documentation: s.description,
 					insertText,
-					filterText: insertText.value
+					insertTextFormat: InsertTextFormat.Snippet,
+					filterText: insertText,
 				});
 				hasProposals = true;
 			});
@@ -441,8 +485,13 @@ export class JSONCompletion {
 				if (schema.enumDescriptions && i < schema.enumDescriptions.length) {
 					documentation = schema.enumDescriptions[i];
 				}
-				collector.add({ kind: this.getSuggestionKind(schema.type), label: this.getLabelForValue(enm), insertText: this.getInsertTextForValue(enm, separatorAfter), documentation });
-
+				collector.add({ 
+					kind: this.getSuggestionKind(schema.type), 
+					label: this.getLabelForValue(enm), 
+					insertText: this.getInsertTextForValue(enm, separatorAfter), 
+					insertTextFormat: InsertTextFormat.Snippet, 
+					documentation 
+				});
 			}
 		}
 	}
@@ -458,24 +507,56 @@ export class JSONCompletion {
 
 	private addFillerValueCompletions(types: {[type:string]: boolean}, separatorAfter: string, collector: CompletionsCollector): void {
 		if (types['object']) {
-			collector.add({ kind: this.getSuggestionKind('object'), label: '{}', insertText: this.getInsertTextForGuessedValue({}, separatorAfter), detail: localize('defaults.object', 'New object'),  documentation: '' });
+			collector.add({ 
+				kind: this.getSuggestionKind('object'), 
+				label: '{}', 
+				insertText: this.getInsertTextForGuessedValue({}, separatorAfter), 
+				insertTextFormat: InsertTextFormat.Snippet, 
+				detail: localize('defaults.object', 'New object'), 
+				documentation: '' 
+			});
 		}
 		if (types['array']) {
-			collector.add({ kind: this.getSuggestionKind('array'), label: '[]', insertText: this.getInsertTextForGuessedValue([], separatorAfter), detail: localize('defaults.array', 'New array'),  documentation: '' });
+			collector.add({ 
+				kind: this.getSuggestionKind('array'), 
+				label: '[]', 
+				insertText: this.getInsertTextForGuessedValue([], separatorAfter), 
+				insertTextFormat: InsertTextFormat.Snippet, 
+				detail: localize('defaults.array', 'New array'), 
+				documentation: ''
+			});
 		}
 	}
 
 	private addBooleanValueCompletion(value: boolean, separatorAfter: string, collector: CompletionsCollector): void {
-		collector.add({ kind: this.getSuggestionKind('boolean'), label: value ? 'true' : 'false', insertText: this.getInsertTextForValue(value, separatorAfter), documentation: '' });
+		collector.add({ 
+			kind: this.getSuggestionKind('boolean'), 
+			label: value ? 'true' : 'false', 
+			insertText: this.getInsertTextForValue(value, separatorAfter), 
+			insertTextFormat: InsertTextFormat.Snippet, 
+			documentation: '' 
+		});
 	}
 
 	private addNullValueCompletion(separatorAfter: string, collector: CompletionsCollector): void {
-		collector.add({ kind: this.getSuggestionKind('null'), label: 'null', insertText: 'null' + separatorAfter, documentation: '' });
+		collector.add({ 
+			kind: this.getSuggestionKind('null'), 
+			label: 'null', 
+			insertText: 'null' + separatorAfter, 
+			insertTextFormat: InsertTextFormat.Snippet, 
+			documentation: '' 
+		});
 	}
 
 	private addDollarSchemaCompletions(separatorAfter: string, collector: CompletionsCollector) : void  {
 		let schemaIds = this.schemaService.getRegisteredSchemaIds(schema => schema === 'http' || schema === 'https');
-		schemaIds.forEach(schemaId => collector.add({ kind: CompletionItemKind.Module, label: this.getLabelForValue(schemaId), filterText: JSON.stringify(schemaId), insertText: this.getInsertTextForValue(schemaId, separatorAfter), documentation: '' }));
+		schemaIds.forEach(schemaId => collector.add({ 
+			kind: CompletionItemKind.Module, 
+			label: this.getLabelForValue(schemaId), 
+			filterText: JSON.stringify(schemaId), 
+			insertText: this.getInsertTextForValue(schemaId, separatorAfter), 
+			insertTextFormat: InsertTextFormat.Snippet, documentation: '' 
+		}));
 	}	
 
 	private getLabelForValue(value: any): string {
@@ -499,21 +580,21 @@ export class JSONCompletion {
 		return label;
 	}
 
-	private getInsertTextForPlainText(text: string): SnippetString {
-		return SnippetString.create(text.replace(/[\\\$\}]/g, '\\$&'));   // escape $, \ and } 
+	private getInsertTextForPlainText(text: string): string {
+		return text.replace(/[\\\$\}]/g, '\\$&');   // escape $, \ and } 
 	}
 
-	private getInsertTextForValue(value: any, separatorAfter: string): SnippetString {
+	private getInsertTextForValue(value: any, separatorAfter: string): string {
 		var text = JSON.stringify(value, null, '\t');
 		if (text === '{}') {
-			return SnippetString.create('{\n\t$1\n}' + separatorAfter);
+			return '{\n\t$1\n}' + separatorAfter;
 		} else if (text === '[]') {
-			return SnippetString.create('[\n\t$1\n]' + separatorAfter);
+			return '[\n\t$1\n]' + separatorAfter;
 		}
 		return this.getInsertTextForPlainText(text + separatorAfter);
 	}
 
-	private getInsertTextForSnippetValue(value: any, separatorAfter: string): SnippetString {
+	private getInsertTextForSnippetValue(value: any, separatorAfter: string): string {
 		let replacer = (value) => {
 			if (typeof value === 'string') {
 				if (value[0] === '^') {
@@ -522,27 +603,27 @@ export class JSONCompletion {
 			}
 			return JSON.stringify(value);
 		}
-		return SnippetString.create(stringifyObject(value, '', replacer) + separatorAfter);
+		return stringifyObject(value, '', replacer) + separatorAfter;
 	}
 
 	private templateVarIdCounter = 0;
 
-	private getInsertTextForGuessedValue(value: any, separatorAfter: string): SnippetString {
+	private getInsertTextForGuessedValue(value: any, separatorAfter: string): string {
 		switch (typeof value) {
 			case 'object':
 				if (value === null) {
-					return SnippetString.create('${1:null}' + separatorAfter);
+					return '${1:null}' + separatorAfter;
 				}
 				return this.getInsertTextForValue(value, separatorAfter);
 			case 'string':
 				let snippetValue = JSON.stringify(value);
 				snippetValue = snippetValue.substr(1, snippetValue.length - 2); // remove quotes
-				snippetValue = this.getInsertTextForPlainText(snippetValue).value; // escape \ and }
-				return SnippetString.create('"${1:' + snippetValue + '}"' + separatorAfter);
+				snippetValue = this.getInsertTextForPlainText(snippetValue); // escape \ and }
+				return '"${1:' + snippetValue + '}"' + separatorAfter;
 			case 'number':
 			case 'integer':
 			case 'boolean':
-				return SnippetString.create('${1:' + JSON.stringify(value) + '}' + separatorAfter);
+				return '${1:' + JSON.stringify(value) + '}' + separatorAfter;
 		}
 		return this.getInsertTextForValue(value, separatorAfter);
 	}
@@ -575,7 +656,7 @@ export class JSONCompletion {
 		}
 	}
 
-	private getInsertTextForMatchingNode(node: Parser.ASTNode, document: TextDocument, separatorAfter: string): SnippetString {
+	private getInsertTextForMatchingNode(node: Parser.ASTNode, document: TextDocument, separatorAfter: string): string {
 		switch (node.type) {
 			case 'array':
 				return this.getInsertTextForValue([], separatorAfter);
@@ -587,21 +668,20 @@ export class JSONCompletion {
 		}
 	}
 
-	private getInsertTextForProperty(key: string, propertySchema: JSONSchema, addValue: boolean, separatorAfter: string): SnippetString {
+	private getInsertTextForProperty(key: string, propertySchema: JSONSchema, addValue: boolean, separatorAfter: string): string {
 		
-		let result = this.getInsertTextForValue(key, '');
+		let propertyText = this.getInsertTextForValue(key, '');
 		if (!addValue) {
-			return result;
+			return propertyText;
 		}
-		let resultText = result.value;
-		resultText += ': ';
+		let resultText = propertyText + ': ';
 
 		if (propertySchema) {
 			let defaultVal = propertySchema.default;
 			if (typeof defaultVal !== 'undefined') {
-				resultText += this.getInsertTextForGuessedValue(defaultVal, '').value;
+				resultText += this.getInsertTextForGuessedValue(defaultVal, '');
 			} else if (propertySchema.enum && propertySchema.enum.length > 0) {
-				resultText += this.getInsertTextForGuessedValue(propertySchema.enum[0], '').value;
+				resultText += this.getInsertTextForGuessedValue(propertySchema.enum[0], '');
 			} else {
 				var type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
 				if (!type) {
@@ -633,14 +713,14 @@ export class JSONCompletion {
 						resultText += '${1:null}';
 						break;
 					default:
-						return result;
+						return propertyText;
 				}
 			}
 		} else {
 			resultText += '$1';
 		}
 		resultText += separatorAfter;
-		return SnippetString.create(resultText);
+		return resultText;
 	}
 
 	private getCurrentWord(document: TextDocument, offset: number) {

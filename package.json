@@ -1,6 +1,6 @@
 {
   "name": "vscode-json-languageservice",
-  "version": "2.0.0-next.9",
+  "version": "2.0.0-next.10",
   "description": "Language service for JSON",
   "main": "./lib/jsonLanguageService.js",
   "typings": "./lib/jsonLanguageService",
@@ -15,20 +15,21 @@
   },
   "devDependencies": {
     "mocha": "^2.4.5",
-    "typescript": "^2.0.10",
+    "typescript": "^2.1.5",
     "@types/node": "^6.0.51",
     "@types/mocha": "^2.2.33"
   },
   "dependencies": {
     "jsonc-parser": "^0.2.3",
-    "vscode-languageserver-types": "^3.0.1-alpha.2",
-    "vscode-nls": "^1.0.7",
+    "vscode-languageserver-types": "^3.0.2-beta.5",
+    "vscode-nls": "^2.0.1",
     "vscode-uri": "^1.0.0"
   },
   "scripts": {
     "prepublish": "npm run compile",
     "compile": "tsc -p ./src",
     "watch": "tsc -w -p ./src",
-    "test": "npm run compile && mocha"
+    "test": "npm run compile && mocha",
+    "install-types-next": "npm install vscode-languageserver-types@next -f -S"
   }
 }
