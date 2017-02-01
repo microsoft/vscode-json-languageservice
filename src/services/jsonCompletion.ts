@@ -621,7 +621,6 @@ export class JSONCompletion {
 				snippetValue = this.getInsertTextForPlainText(snippetValue); // escape \ and }
 				return '"${1:' + snippetValue + '}"' + separatorAfter;
 			case 'number':
-			case 'integer':
 			case 'boolean':
 				return '${1:' + JSON.stringify(value) + '}' + separatorAfter;
 		}
