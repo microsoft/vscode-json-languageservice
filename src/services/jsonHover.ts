@@ -76,7 +76,7 @@ export class JSONHover {
 						description = description || s.schema.description;
 						if (s.schema.enum && s.schema.enumDescriptions) {
 							let idx = s.schema.enum.indexOf(node.getValue());
-							enumValueDescription = s.schema.enumDescriptions[idx];
+							enumValueDescription = `${s.schema.enum[idx]}: ${s.schema.enumDescriptions[idx]}`;
 						}
 					}
 					return true;
