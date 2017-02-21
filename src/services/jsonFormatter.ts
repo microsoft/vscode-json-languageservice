@@ -48,6 +48,7 @@ export function format(document: TextDocument, range: Range, options: Formatting
 	}
 
 	let scanner = Json.createScanner(formatText, false);
+	let hasError = false;
 
 	function newLineAndIndent(): string {
 		return eol + repeat(indentValue, initialIndentLevel + indentLevel);
@@ -59,17 +60,19 @@ export function format(document: TextDocument, range: Range, options: Formatting
 			lineBreak = lineBreak || (token === Json.SyntaxKind.LineBreakTrivia);
 			token = scanner.scan();
 		}
+		hasError = token === Json.SyntaxKind.Unknown || scanner.getTokenError() !== Json.ScanError.None;
 		return token;
 	}
 	let editOperations: TextEdit[] = [];
 	function addEdit(text: string, startOffset: number, endOffset: number) {
-		if (startOffset < rangeEnd && endOffset > rangeStart && documentText.substring(startOffset, endOffset) !== text) {
+		if (!hasError && startOffset < rangeEnd && endOffset > rangeStart && documentText.substring(startOffset, endOffset) !== text) {
 			let replaceRange = Range.create(document.positionAt(startOffset), document.positionAt(endOffset));
 			editOperations.push(TextEdit.replace(replaceRange, text));
 		}
 	}
 
 	let firstToken = scanNext();
+
 	if (firstToken !== Json.SyntaxKind.EOF) {
 		let firstTokenStart = scanner.getTokenOffset() + formatTextStart;
 		let initialIndent = repeat(indentValue, initialIndentLevel);
@@ -122,12 +125,22 @@ export function format(document: TextDocument, range: Range, options: Formatting
 				case Json.SyntaxKind.ColonToken:
 					replaceContent = ' ';
 					break;
+				case Json.SyntaxKind.StringLiteral:
+					if (secondToken === Json.SyntaxKind.ColonToken) {
+						replaceContent = '';
+						break;
+					}
+					// fall through
 				case Json.SyntaxKind.NullKeyword:
 				case Json.SyntaxKind.TrueKeyword:
 				case Json.SyntaxKind.FalseKeyword:
 				case Json.SyntaxKind.NumericLiteral:
-					if (secondToken === Json.SyntaxKind.NullKeyword || secondToken === Json.SyntaxKind.FalseKeyword || secondToken === Json.SyntaxKind.NumericLiteral) {
+				case Json.SyntaxKind.CloseBraceToken:
+				case Json.SyntaxKind.CloseBracketToken:
+					if (secondToken === Json.SyntaxKind.LineCommentTrivia || secondToken === Json.SyntaxKind.BlockCommentTrivia) {
 						replaceContent = ' ';
+					} else if (secondToken !== Json.SyntaxKind.CommaToken && secondToken !== Json.SyntaxKind.EOF) {
+						hasError = true;
 					}
 					break;
 			}
@@ -142,6 +155,8 @@ export function format(document: TextDocument, range: Range, options: Formatting
 	}
 	return editOperations;
 }
+
+const tokensAfterValue = [Json.SyntaxKind.LineCommentTrivia, Json.SyntaxKind.BlockCommentTrivia, Json.SyntaxKind.CommaToken];
 
 function repeat(s: string, count: number): string {
 	let result = '';

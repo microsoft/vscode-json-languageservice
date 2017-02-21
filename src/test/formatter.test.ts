@@ -158,13 +158,27 @@ suite('JSON Formatter', () => {
 
 	test('syntax errors', () => {
 		var content = [
-			'[ null 1.2 ]'
+			'[ null  1.2 "Hello" ]'
 		].join('\n');
 
 		var expected = [
 			'[',
-			'  null 1.2',
+			'  null  1.2 "Hello"',
 			']',
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('syntax errors 2', () => {
+		var content = [
+			'{"a":"b""c":"d" }'
+		].join('\n');
+
+		var expected = [
+			'{',
+			'  "a": "b""c": "d"',
+			'}',
 		].join('\n');
 
 		format(content, expected);
