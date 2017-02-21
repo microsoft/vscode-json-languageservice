@@ -201,6 +201,15 @@ suite('JSON Parser', () => {
 		assert.equal(result.errors[0].location.end, content.indexOf('error') + 5);
 	});
 
+	test('Errors at the end of the file', function() {
+
+		var content = '{\n"key":32\n ';
+		var result = Parser.parse(content);
+		assert.equal(result.errors.length, 1);
+		assert.equal(result.errors[0].location.start, 9);
+		assert.equal(result.errors[0].location.end, 10);
+	});	
+
 	test('Getting keys out of an object', function() {
 
 		var content = '{\n"key":32,\n\n"key2":45}';

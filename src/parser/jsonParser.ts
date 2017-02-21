@@ -5,7 +5,7 @@
 'use strict';
 
 import Json = require('jsonc-parser');
-import {JSONSchema} from '../jsonSchema';
+import { JSONSchema } from '../jsonSchema';
 
 import * as nls from 'vscode-nls';
 const localize = nls.loadMessageBundle();
@@ -30,7 +30,7 @@ export class ASTNode {
 	public end: number;
 	public type: string;
 	public parent: ASTNode;
-	
+
 	public location: Json.Segment;
 
 	constructor(parent: ASTNode, type: string, location: Json.Segment, start: number, end?: number) {
@@ -54,7 +54,7 @@ export class ASTNode {
 		return [];
 	}
 
-	public getLastChild() : ASTNode {
+	public getLastChild(): ASTNode {
 		return null;
 	}
 
@@ -67,9 +67,9 @@ export class ASTNode {
 		return offset >= this.start && offset < this.end || includeRightBound && offset === this.end;
 	}
 
-	public toString() : string {
+	public toString(): string {
 		return 'type: ' + this.type + ' (' + this.start + '/' + this.end + ')' + (this.parent ? ' parent: {' + this.parent.toString() + '}' : '');
-	}	
+	}
 
 	public visit(visitor: (node: ASTNode) => boolean): boolean {
 		return visitor(this);
@@ -228,7 +228,7 @@ export class ASTNode {
 				location: { start: this.start, end: this.end },
 				message: schema.deprecationMessage
 			});
-		}		
+		}
 
 		if (matchingSchemas !== null) {
 			matchingSchemas.push({ node: this, schema: schema });
@@ -275,9 +275,9 @@ export class ArrayASTNode extends ASTNode {
 		return this.items;
 	}
 
-	public getLastChild() : ASTNode {
-		return this.items[this.items.length -1];
-	}	
+	public getLastChild(): ASTNode {
+		return this.items[this.items.length - 1];
+	}
 
 	public getValue(): any {
 		return this.items.map((v) => v.getValue());
@@ -505,9 +505,9 @@ export class PropertyASTNode extends ASTNode {
 		return this.value ? [this.key, this.value] : [this.key];
 	}
 
-	public getLastChild() : ASTNode {
+	public getLastChild(): ASTNode {
 		return this.value;
-	}		
+	}
 
 	public setValue(value: ASTNode): boolean {
 		this.value = value;
@@ -541,9 +541,9 @@ export class ObjectASTNode extends ASTNode {
 		return this.properties;
 	}
 
-	public getLastChild() : ASTNode {
+	public getLastChild(): ASTNode {
 		return this.properties[this.properties.length - 1];
-	}		
+	}
 
 	public addProperty(node: PropertyASTNode): boolean {
 		if (!node) {
@@ -852,7 +852,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 	let disallowComments = config && config.disallowComments;
 	let ignoreDanglingComma = config && config.ignoreDanglingComma;
 
-	function _scanNext() : Json.SyntaxKind {
+	function _scanNext(): Json.SyntaxKind {
 		while (true) {
 			let token = _scanner.scan();
 			switch (token) {
@@ -882,8 +882,16 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 	function _error<T extends ASTNode>(message: string, node: T = null, skipUntilAfter: Json.SyntaxKind[] = [], skipUntil: Json.SyntaxKind[] = []): T {
 		if (_doc.errors.length === 0 || _doc.errors[0].location.start !== _scanner.getTokenOffset()) {
 			// ignore multiple errors on the same offset
-			let error = { message: message, location: { start: _scanner.getTokenOffset(), end: _scanner.getTokenOffset() + _scanner.getTokenLength() } };
-			_doc.errors.push(error);
+			let start = _scanner.getTokenOffset();
+			let end = _scanner.getTokenOffset() + _scanner.getTokenLength();
+			if (start === end && start > 0) {
+				start--;
+				while (start > 0 && /\s/.test(text.charAt(start))) {
+					start--;
+				}
+				end = start + 1;
+			}
+			_doc.errors.push({ message, location: { start, end } });
 		}
 
 		if (node) {
