@@ -70,20 +70,21 @@ export class JSONHover {
 				doc.validate(schema.schema, matchingSchemas, node.start);
 
 				let description: string = null;
-				let enumValueDescription = null;
+				let enumValueDescription = null, enumValue = null;;
 				matchingSchemas.every((s) => {
 					if (s.node === node && !s.inverted && s.schema) {
 						description = description || s.schema.description;
 						if (s.schema.enum && s.schema.enumDescriptions) {
 							let idx = s.schema.enum.indexOf(node.getValue());
-							enumValueDescription = `${s.schema.enum[idx]}: ${s.schema.enumDescriptions[idx]}`;
+							enumValueDescription =  s.schema.enumDescriptions[idx];
+							enumValue = s.schema.enum[idx];
 						}
 					}
 					return true;
 				});
 				if (description) {
 					if (enumValueDescription) {
-						description = description + '\n\n' + enumValueDescription;
+						description = `${description}\n\n${enumValue}: ${enumValueDescription}`;
 					}
 					return createHover([MarkedString.fromPlainText(description)]);
 				}
