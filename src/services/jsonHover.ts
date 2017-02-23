@@ -83,13 +83,19 @@ export class JSONHover {
 					return true;
 				});
 				if (description) {
+					description = toMarkdown(description);
 					if (enumValueDescription) {
-						description = `${description}\n\n${enumValue}: ${enumValueDescription}`;
+						description = `${description}\n\n\`${toMarkdown(enumValue)}\`: ${toMarkdown(enumValueDescription)}`;
 					}
-					return createHover([MarkedString.fromPlainText(description)]);
+					return createHover([description]);
 				}
 			}
 			return void 0;
 		});
 	}
+}
+
+function toMarkdown(plain: string) {
+	let res = plain.replace(/([^\n\r])(\r?\n)([^\n\r])/gm, '$1\n\n$3'); // single new lines to \n\n (Markdown paragraph)
+	return res.replace(/[\\`*_{}[\]()#+\-.!]/g, "\\$&"); // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
 }

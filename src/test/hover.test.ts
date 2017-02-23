@@ -114,8 +114,31 @@ suite('JSON Hover', () => {
 
 		Promise.all([
 			testComputeInfo('{ "prop1": "e1', schema, { line: 0, character: 12 }).then(result => {
-				assert.deepEqual(result.contents, [ MarkedString.fromPlainText('prop1\n\ne1: E1') ]);
+				assert.deepEqual(result.contents, [ 'prop1\n\n`e1`: E1' ]);
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
+
+	test('Multiline descriptions', function (testDone) {
+		var schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop1': {
+					description: "line1\nline2\n\nline3\n\n\nline4\n",
+				},
+				'prop2': {
+					description: "line1\r\nline2\r\n\r\nline3",
+				}
+			}
+		};
+
+		Promise.all([
+			testComputeInfo('{ "prop1": "e1', schema, { line: 0, character: 12 }).then(result => {
+				assert.deepEqual(result.contents, [ 'line1\n\nline2\n\nline3\n\n\nline4\n']);
+			}),
+			testComputeInfo('{ "prop2": "e1', schema, { line: 0, character: 12 }).then(result => {
+				assert.deepEqual(result.contents, [ 'line1\n\nline2\r\n\r\nline3' ]);
+			})
+		]).then(() => testDone(), (error) => testDone(error));
+	});	
 })
