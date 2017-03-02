@@ -109,12 +109,26 @@ suite('JSON Hover', () => {
 					enum: ['e1', 'e2', 'e3' ],
 					enumDescriptions: ['E1', 'E2', 'E3' ],
 				},
+				'prop2': {
+					description: "prop2",
+					enum: [null, 1, false ],
+					enumDescriptions: ['null', 'one', 'wrong' ],
+				}
 			}
 		};
 
 		Promise.all([
 			testComputeInfo('{ "prop1": "e1', schema, { line: 0, character: 12 }).then(result => {
 				assert.deepEqual(result.contents, [ 'prop1\n\n`e1`: E1' ]);
+			}),
+			testComputeInfo('{ "prop2": null', schema, { line: 0, character: 12 }).then(result => {
+				assert.deepEqual(result.contents, [ 'prop2\n\n`null`: null' ]);
+			}),
+			testComputeInfo('{ "prop2": 1', schema, { line: 0, character: 11 }).then(result => {
+				assert.deepEqual(result.contents, [ 'prop2\n\n`1`: one' ]);
+			}),
+			testComputeInfo('{ "prop2": false', schema, { line: 0, character: 12 }).then(result => {
+				assert.deepEqual(result.contents, [ 'prop2\n\n`false`: wrong' ]);
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});

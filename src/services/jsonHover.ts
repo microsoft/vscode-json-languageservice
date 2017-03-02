@@ -78,6 +78,9 @@ export class JSONHover {
 							let idx = s.schema.enum.indexOf(node.getValue());
 							enumValueDescription =  s.schema.enumDescriptions[idx];
 							enumValue = s.schema.enum[idx];
+							if (typeof enumValue !== 'string') {
+								enumValue = JSON.stringify(enumValue);
+							}
 						}
 					}
 					return true;
