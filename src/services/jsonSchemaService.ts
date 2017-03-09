@@ -426,6 +426,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 		};
 
 		let resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentSchemaURL: string): Thenable<any> => {
+			if (!node) {
+				return Promise.resolve(null);
+			}
+
 			let toWalk: JSONSchema[] = [node];
 			let seen: JSONSchema[] = [];
 
@@ -451,7 +455,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			let collectArrayEntries = (...arrays: JSONSchema[][]) => {
 				for (let array of arrays) {
 					if (Array.isArray(array)) {
-						toWalk.push.apply(toWalk, array);
+						collectEntries(array);
 					}
 				}
 			};
