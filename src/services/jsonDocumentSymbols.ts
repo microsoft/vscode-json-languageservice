@@ -7,11 +7,13 @@
 import Parser = require('../parser/jsonParser');
 import Strings = require('../utils/strings');
 
-import {SymbolInformation, SymbolKind, TextDocument, Range, Location} from 'vscode-languageserver-types';
+import { SymbolInformation, SymbolKind, TextDocument, Range, Location } from 'vscode-languageserver-types';
+import { Thenable } from "../jsonLanguageService";
+import { IJSONSchemaService } from "./jsonSchemaService";
 
 export class JSONDocumentSymbols {
 
-	constructor() {
+	constructor(private schemaService: IJSONSchemaService) {
 	}
 
 	public findDocumentSymbols(document: TextDocument, doc: Parser.JSONDocument): SymbolInformation[] {
@@ -78,5 +80,24 @@ export class JSONDocumentSymbols {
 			default: // 'null'
 				return SymbolKind.Variable;
 		}
+	}
+
+	public findColorSymbols(document: TextDocument, doc: Parser.JSONDocument): Thenable<Range[]> {
+		return this.schemaService.getSchemaForResource(document.uri, doc).then(schema => {
+			let matchingSchemas: Parser.IApplicableSchema[] = [];
+			doc.validate(schema.schema, matchingSchemas);
+			let result: Range[] = [];
+			let visitedNode = {};
+			for (let s of matchingSchemas) {
+				if (!s.inverted && s.schema && s.schema.format === 'color' && s.node && s.node.type === 'string') {
+					let nodeId = String(s.node.start);
+					if (!visitedNode[nodeId]) {
+						result.push(Range.create(document.positionAt(s.node.start), document.positionAt(s.node.end)));
+						visitedNode[nodeId] = true;
+					}
+				}
+			}
+			return result;
+		});
 	}
 }

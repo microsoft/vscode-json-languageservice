@@ -31,6 +31,7 @@ export interface LanguageService {
 	doResolve(item: CompletionItem): Thenable<CompletionItem>;
 	doComplete(document: TextDocument, position: Position, doc: JSONDocument): Thenable<CompletionList>;
 	findDocumentSymbols(document: TextDocument, doc: JSONDocument): SymbolInformation[];
+	findColorSymbols(document: TextDocument, doc: JSONDocument): Thenable<Range[]>;
 	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
 }
@@ -148,7 +149,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 
 	let jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise);
 	let jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
-	let jsonDocumentSymbols = new JSONDocumentSymbols();
+	let jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
 	let jsonValidation = new JSONValidation(jsonSchemaService, promise);
 
 	let disallowComments = false;
@@ -169,6 +170,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		doResolve: jsonCompletion.doResolve.bind(jsonCompletion),
 		doComplete: jsonCompletion.doComplete.bind(jsonCompletion),
 		findDocumentSymbols: jsonDocumentSymbols.findDocumentSymbols.bind(jsonDocumentSymbols),
+		findColorSymbols: jsonDocumentSymbols.findColorSymbols.bind(jsonDocumentSymbols),
 		doHover: jsonHover.doHover.bind(jsonHover),
 		format: formatJSON
 	};
