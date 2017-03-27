@@ -1,4 +1,8 @@
 
+2.0.5 / 2017-03-27
+==================
+  * Add new API findColorSymbols that retunes all color values in a JSON document. To mark a value as a color, specify `"format": "color"` in the schema.
+
 2.0.4 / 2017-02-27
 ==================
   * Support for custom schema property 'patternErrorMessage'. The message is used as error message if the object is of type string and has a 'pattern' property that does not match the object to validate.
