@@ -455,7 +455,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			let collectArrayEntries = (...arrays: JSONSchema[][]) => {
 				for (let array of arrays) {
 					if (Array.isArray(array)) {
-						collectEntries(array);
+						toWalk.push.apply(toWalk, array);
 					}
 				}
 			};
