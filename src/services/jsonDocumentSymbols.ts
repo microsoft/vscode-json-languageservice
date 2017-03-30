@@ -84,10 +84,10 @@ export class JSONDocumentSymbols {
 
 	public findColorSymbols(document: TextDocument, doc: Parser.JSONDocument): Thenable<Range[]> {
 		return this.schemaService.getSchemaForResource(document.uri, doc).then(schema => {
+			let result: Range[] = [];
 			if (schema) {
 				let matchingSchemas: Parser.IApplicableSchema[] = [];
 				doc.validate(schema.schema, matchingSchemas);
-				let result: Range[] = [];
 				let visitedNode = {};
 				for (let s of matchingSchemas) {
 					if (!s.inverted && s.schema && s.schema.format === 'color' && s.node && s.node.type === 'string') {
@@ -98,8 +98,8 @@ export class JSONDocumentSymbols {
 						}
 					}
 				}
-				return result;
 			}
+			return result;
 		});
 	}
 }
