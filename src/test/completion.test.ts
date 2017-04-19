@@ -190,15 +190,19 @@ suite('JSON Completion', () => {
 					{ label: 'c', documentation: 'C', resultText: '{"c": ${1:false}}' }
 				]
 			}),
-			testCompletionsFor('{ "|}', schema, {
+			testCompletionsFor('{ "a|}', schema, {
 				count: 3,
 				items: [
-					{ label: 'a', documentation: 'A', resultText: '{ "a": ${1:0}' },
-					{ label: 'b', documentation: 'B', resultText: '{ "b": "$1"' },
-					{ label: 'c', documentation: 'C', resultText: '{ "c": ${1:false}' }
+					{ label: 'a', documentation: 'A', resultText: '{ "a": ${1:0}' }
 				]
 			}),
-			testCompletionsFor('{ "a|}', schema, {
+			testCompletionsFor('{ "b": 1 "a|}', schema, {
+				count: 2,
+				items: [
+					{ label: 'a', documentation: 'A', resultText: '{ "b": 1 "a": ${1:0}}' }
+				]
+			}),
+			testCompletionsFor('{ "|}', schema, {
 				count: 3,
 				items: [
 					{ label: 'a', documentation: 'A', resultText: '{ "a": ${1:0}' }

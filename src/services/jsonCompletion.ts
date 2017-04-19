@@ -62,7 +62,11 @@ export class JSONCompletion {
 		if (node && (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')) {
 			overwriteRange = Range.create(document.positionAt(node.start), document.positionAt(node.end));
 		} else {
-			overwriteRange = Range.create(document.positionAt(offset - currentWord.length), position);
+			let overwriteStart = offset - currentWord.length;
+			if (overwriteStart > 0 && document.getText()[overwriteStart - 1] === '"') {
+				overwriteStart--;
+			}
+			overwriteRange = Range.create(document.positionAt(overwriteStart), position);
 		}
 
 		let proposed: { [key: string]: CompletionItem } = {};
