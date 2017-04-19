@@ -16,7 +16,9 @@ export interface IRange {
 }
 
 export enum ErrorCode {
-	EnumValueMismatch = 1
+	Undefined = 0,
+	EnumValueMismatch = 1,
+	CommentsNotAllowed = 2
 }
 
 export interface IError {
@@ -859,7 +861,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 				case Json.SyntaxKind.LineCommentTrivia:
 				case Json.SyntaxKind.BlockCommentTrivia:
 					if (disallowComments) {
-						_error(localize('InvalidCommentTokem', 'Comments are not allowed'));
+						_error(localize('InvalidCommentTokem', 'Comments are not allowed'), ErrorCode.CommentsNotAllowed);
 					}
 					break;
 				case Json.SyntaxKind.Trivia:
@@ -879,7 +881,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		return false;
 	}
 
-	function _error<T extends ASTNode>(message: string, node: T = null, skipUntilAfter: Json.SyntaxKind[] = [], skipUntil: Json.SyntaxKind[] = []): T {
+	function _error<T extends ASTNode>(message: string, code: ErrorCode, node: T = null, skipUntilAfter: Json.SyntaxKind[] = [], skipUntil: Json.SyntaxKind[] = []): T {
 		if (_doc.errors.length === 0 || _doc.errors[0].location.start !== _scanner.getTokenOffset()) {
 			// ignore multiple errors on the same offset
 			let start = _scanner.getTokenOffset();
@@ -915,19 +917,19 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 	function _checkScanError(): boolean {
 		switch (_scanner.getTokenError()) {
 			case Json.ScanError.InvalidUnicode:
-				_error(localize('InvalidUnicode', 'Invalid unicode sequence in string'));
+				_error(localize('InvalidUnicode', 'Invalid unicode sequence in string'), ErrorCode.Undefined);
 				return true;
 			case Json.ScanError.InvalidEscapeCharacter:
-				_error(localize('InvalidEscapeCharacter', 'Invalid escape character in string'));
+				_error(localize('InvalidEscapeCharacter', 'Invalid escape character in string'), ErrorCode.Undefined);
 				return true;
 			case Json.ScanError.UnexpectedEndOfNumber:
-				_error(localize('UnexpectedEndOfNumber', 'Unexpected end of number'));
+				_error(localize('UnexpectedEndOfNumber', 'Unexpected end of number'), ErrorCode.Undefined);
 				return true;
 			case Json.ScanError.UnexpectedEndOfComment:
-				_error(localize('UnexpectedEndOfComment', 'Unexpected end of comment'));
+				_error(localize('UnexpectedEndOfComment', 'Unexpected end of comment'), ErrorCode.Undefined);
 				return true;
 			case Json.ScanError.UnexpectedEndOfString:
-				_error(localize('UnexpectedEndOfString', 'Unexpected end of string'));
+				_error(localize('UnexpectedEndOfString', 'Unexpected end of string'), ErrorCode.Undefined);
 				return true;
 		}
 		return false;
@@ -954,13 +956,13 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		if (node.addItem(_parseValue(node, count++))) {
 			while (_accept(Json.SyntaxKind.CommaToken)) {
 				if (!node.addItem(_parseValue(node, count++)) && !ignoreDanglingComma) {
-					_error(localize('ValueExpected', 'Value expected'));
+					_error(localize('ValueExpected', 'Value expected'), ErrorCode.Undefined);
 				}
 			}
 		}
 
 		if (_scanner.getToken() !== Json.SyntaxKind.CloseBracketToken) {
-			return _error(localize('ExpectedCloseBracket', 'Expected comma or closing bracket'), node);
+			return _error(localize('ExpectedCloseBracket', 'Expected comma or closing bracket'), ErrorCode.Undefined, node);
 		}
 
 		return _finalize(node, true);
@@ -974,7 +976,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 				// give a more helpful error message
 				let value = _scanner.getTokenValue();
 				if (value.match(/^['\w]/)) {
-					_error(localize('DoubleQuotesExpected', 'Property keys must be doublequoted'));
+					_error(localize('DoubleQuotesExpected', 'Property keys must be doublequoted'), ErrorCode.Undefined);
 				}
 			}
 			return null;
@@ -982,20 +984,20 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		let node = new PropertyASTNode(parent, key);
 
 		if (keysSeen[key.value]) {
-			_doc.warnings.push({ location: { start: node.key.start, end: node.key.end }, message: localize('DuplicateKeyWarning', "Duplicate object key") });
+			_doc.warnings.push({ location: { start: node.key.start, end: node.key.end }, message: localize('DuplicateKeyWarning', "Duplicate object key"), code: ErrorCode.Undefined });
 		}
 		keysSeen[key.value] = true;
 
 		if (_scanner.getToken() === Json.SyntaxKind.ColonToken) {
 			node.colonOffset = _scanner.getTokenOffset();
 		} else {
-			return _error(localize('ColonExpected', 'Colon expected'), node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
+			return _error(localize('ColonExpected', 'Colon expected'), ErrorCode.Undefined, node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
 		}
 
 		_scanNext(); // consume ColonToken
 
 		if (!node.setValue(_parseValue(node, key.value))) {
-			return _error(localize('ValueExpected', 'Value expected'), node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
+			return _error(localize('ValueExpected', 'Value expected'), ErrorCode.Undefined, node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
 		}
 		node.end = node.value.end;
 		return node;
@@ -1012,13 +1014,13 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		if (node.addProperty(_parseProperty(node, keysSeen))) {
 			while (_accept(Json.SyntaxKind.CommaToken)) {
 				if (!node.addProperty(_parseProperty(node, keysSeen)) && !ignoreDanglingComma) {
-					_error(localize('PropertyExpected', 'Property expected'));
+					_error(localize('PropertyExpected', 'Property expected'), ErrorCode.Undefined);
 				}
 			}
 		}
 
 		if (_scanner.getToken() !== Json.SyntaxKind.CloseBraceToken) {
-			return _error(localize('ExpectedCloseBrace', 'Expected comma or closing brace'), node);
+			return _error(localize('ExpectedCloseBrace', 'Expected comma or closing brace'), ErrorCode.Undefined, node);
 		}
 		return _finalize(node, true);
 	}
@@ -1047,11 +1049,11 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 			try {
 				let numberValue = JSON.parse(tokenValue);
 				if (typeof numberValue !== 'number') {
-					return _error(localize('InvalidNumberFormat', 'Invalid number format'), node);
+					return _error(localize('InvalidNumberFormat', 'Invalid number format'), ErrorCode.Undefined, node);
 				}
 				node.value = numberValue;
 			} catch (e) {
-				return _error(localize('InvalidNumberFormat', 'Invalid number format'), node);
+				return _error(localize('InvalidNumberFormat', 'Invalid number format'), ErrorCode.Undefined, node);
 			}
 			node.isInteger = tokenValue.indexOf('.') === -1;
 		}
@@ -1084,9 +1086,9 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 
 	_doc.root = _parseValue(null, null);
 	if (!_doc.root) {
-		_error(localize('Invalid symbol', 'Expected a JSON object, array or literal'));
+		_error(localize('Invalid symbol', 'Expected a JSON object, array or literal'), ErrorCode.Undefined);
 	} else if (_scanner.getToken() !== Json.SyntaxKind.EOF) {
-		_error(localize('End of file expected', 'End of file expected'));
+		_error(localize('End of file expected', 'End of file expected'), ErrorCode.Undefined);
 	}
 	return _doc;
 }

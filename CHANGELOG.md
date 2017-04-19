@@ -1,4 +1,8 @@
 
+2.0.8 /
+==================
+  * error code for CommentsNotAllowed
+
 2.0.5 / 2017-03-27
 ==================
   * Add new API findColorSymbols that retunes all color values in a JSON document. To mark a value as a color, specify `"format": "color"` in the schema.
