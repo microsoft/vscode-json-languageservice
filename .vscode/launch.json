@@ -26,7 +26,8 @@
 			"runtimeArgs": [],
 			"env": {},
 			"sourceMaps": true,
-			"outFiles": [ "${workspaceRoot}/lib/**/*.js" ]
+			"outFiles": [ "${workspaceRoot}/lib/**/*.js" ],
+			"preLaunchTask": "compile"
 		},
 		{
 			"name": "Attach Language Server",

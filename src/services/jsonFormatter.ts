@@ -6,6 +6,7 @@
 
 import Json = require('jsonc-parser');
 import {TextDocument, Range, Position, FormattingOptions, TextEdit} from 'vscode-languageserver-types';
+import {repeat} from '../utils/strings';
 
 export function format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[] {
 	const documentText = document.getText();
@@ -25,12 +26,10 @@ export function format(document: TextDocument, range: Range, options: Formatting
 		while (endOffset > endLineStart && isEOL(documentText, endOffset - 1)) {
 			endOffset--;
 		}
-		range = Range.create(startPosition, document.positionAt(endOffset));
 		formatText = documentText.substring(formatTextStart, endOffset);
 		initialIndentLevel = computeIndentLevel(formatText, 0, options);
 	} else {
 		formatText = documentText;
-		range = Range.create(Position.create(0, 0), document.positionAt(formatText.length));
 		initialIndentLevel = 0;
 		formatTextStart = 0;
 		rangeStart = 0;
@@ -157,14 +156,6 @@ export function format(document: TextDocument, range: Range, options: Formatting
 }
 
 const tokensAfterValue = [Json.SyntaxKind.LineCommentTrivia, Json.SyntaxKind.BlockCommentTrivia, Json.SyntaxKind.CommaToken];
-
-function repeat(s: string, count: number): string {
-	let result = '';
-	for (let i = 0; i < count; i++) {
-		result += s;
-	}
-	return result;
-}
 
 function computeIndentLevel(content: string, offset: number, options: FormattingOptions): number {
 	let i = 0;

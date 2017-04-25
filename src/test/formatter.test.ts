@@ -20,10 +20,10 @@ suite('JSON Formatter', () => {
 		let rangeEnd = unformatted.lastIndexOf('|');
 		if (rangeStart !== -1 && rangeEnd !== -1) {
 			// remove '|'
-			var unformattedDoc = TextDocument.create(uri, 'json', 0, unformatted);
 			unformatted = unformatted.substring(0, rangeStart) + unformatted.substring(rangeStart + 1, rangeEnd) + unformatted.substring(rangeEnd + 1);
+			var unformattedDoc = TextDocument.create(uri, 'json', 0, unformatted);
 			let startPos = unformattedDoc.positionAt(rangeStart);
-			let endPos = unformattedDoc.positionAt(rangeEnd);
+			let endPos = unformattedDoc.positionAt(rangeEnd-1);
 			range = Range.create(startPos, endPos);
 		}
 
@@ -361,7 +361,7 @@ suite('JSON Formatter', () => {
 			'{ "a": {},',
 			'   |"b": [null],',
 			'"c": {}',
-			'} |'
+			'}|'
 		].join('\n');
 
 		var expected = [
@@ -382,7 +382,7 @@ suite('JSON Formatter', () => {
 			'{ "a": {},',
 			'|  "b": [null],   ',
 			'"c": {}',
-			'} |    '
+			'}|    '
 		].join('\n');
 
 		var expected = [
@@ -391,7 +391,7 @@ suite('JSON Formatter', () => {
 			'\t\tnull',
 			'\t],',
 			'\t"c": {}',
-			'}',
+			'}    ',
 		].join('\n');
 
 		format(content, expected, false);
