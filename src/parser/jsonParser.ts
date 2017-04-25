@@ -225,9 +225,9 @@ export class ASTNode {
 			}
 		}
 
-		if (schema.deprecationMessage) {
+		if (schema.deprecationMessage && this.parent) {
 			validationResult.warnings.push({
-				location: { start: this.start, end: this.end },
+				location: { start: this.parent.start, end: this.parent.end },
 				message: schema.deprecationMessage
 			});
 		}
