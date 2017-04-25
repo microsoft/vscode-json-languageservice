@@ -466,14 +466,14 @@ export class StringASTNode extends ASTNode {
 		if (schema.minLength && this.value.length < schema.minLength) {
 			validationResult.warnings.push({
 				location: { start: this.start, end: this.end },
-				message: localize('minLengthWarning', 'String is shorter than the minimum length of ', schema.minLength)
+				message: localize('minLengthWarning', 'String is shorter than the minimum length of {0}', schema.minLength)
 			});
 		}
 
 		if (schema.maxLength && this.value.length > schema.maxLength) {
 			validationResult.warnings.push({
 				location: { start: this.start, end: this.end },
-				message: localize('maxLengthWarning', 'String is shorter than the maximum length of ', schema.maxLength)
+				message: localize('maxLengthWarning', 'String is longer than the maximum length of {0}', schema.maxLength)
 			});
 		}
 
