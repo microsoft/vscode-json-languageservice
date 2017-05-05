@@ -20,7 +20,7 @@
     "@types/mocha": "^2.2.33"
   },
   "dependencies": {
-    "jsonc-parser": "^0.4.1",
+    "jsonc-parser": "^0.4.2",
     "vscode-languageserver-types": "^3.0.3",
     "vscode-nls": "^2.0.2",
     "vscode-uri": "^1.0.0"

@@ -16,9 +16,13 @@ suite('JSON Parser', () => {
 		assert.equal(result.errors.length + result.warnings.length, 0);
 	}
 
-	function isInvalid(json: string): void {
+	function isInvalid(json: string, ...expectedErrors: Parser.ErrorCode[]): void {
 		var result = Parser.parse(json);
-		assert.ok(result.errors.length > 0);
+		if (expectedErrors.length === 0) {
+			assert.ok(result.errors.length > 0);
+		} else {
+			assert.deepEqual(result.errors.map(e => e.code), expectedErrors);
+		}
 		// these should be caught by the parser, not the last-ditch guard
 		assert.notEqual(result.errors[0].message, 'Invalid JSON');
 	}
@@ -78,6 +82,7 @@ suite('JSON Parser', () => {
 		isInvalid('["\\u123"]');
 		isInvalid('["\\u123Z"]');
 		isInvalid('[\'string\']');
+		isInvalid('"\tabc"', Parser.ErrorCode.InvalidCharacter);
 	});
 
 	test('Numbers', function() {

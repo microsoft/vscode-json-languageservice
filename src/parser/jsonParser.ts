@@ -18,7 +18,13 @@ export interface IRange {
 export enum ErrorCode {
 	Undefined = 0,
 	EnumValueMismatch = 1,
-	CommentsNotAllowed = 2
+	CommentsNotAllowed = 2,
+    UnexpectedEndOfComment = 0x101,
+    UnexpectedEndOfString = 0x102,
+    UnexpectedEndOfNumber = 0x103,
+    InvalidUnicode = 0x104,
+    InvalidEscapeCharacter = 0x105,
+    InvalidCharacter = 0x106,
 }
 
 export interface IError {
@@ -893,7 +899,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 				}
 				end = start + 1;
 			}
-			_doc.errors.push({ message, location: { start, end } });
+			_doc.errors.push({ message, location: { start, end }, code });
 		}
 
 		if (node) {
@@ -917,19 +923,22 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 	function _checkScanError(): boolean {
 		switch (_scanner.getTokenError()) {
 			case Json.ScanError.InvalidUnicode:
-				_error(localize('InvalidUnicode', 'Invalid unicode sequence in string'), ErrorCode.Undefined);
+				_error(localize('InvalidUnicode', 'Invalid unicode sequence in string'), ErrorCode.InvalidUnicode);
 				return true;
 			case Json.ScanError.InvalidEscapeCharacter:
-				_error(localize('InvalidEscapeCharacter', 'Invalid escape character in string'), ErrorCode.Undefined);
+				_error(localize('InvalidEscapeCharacter', 'Invalid escape character in string'), ErrorCode.InvalidEscapeCharacter);
 				return true;
 			case Json.ScanError.UnexpectedEndOfNumber:
-				_error(localize('UnexpectedEndOfNumber', 'Unexpected end of number'), ErrorCode.Undefined);
+				_error(localize('UnexpectedEndOfNumber', 'Unexpected end of number'), ErrorCode.UnexpectedEndOfNumber);
 				return true;
 			case Json.ScanError.UnexpectedEndOfComment:
-				_error(localize('UnexpectedEndOfComment', 'Unexpected end of comment'), ErrorCode.Undefined);
+				_error(localize('UnexpectedEndOfComment', 'Unexpected end of comment'), ErrorCode.UnexpectedEndOfComment);
 				return true;
 			case Json.ScanError.UnexpectedEndOfString:
-				_error(localize('UnexpectedEndOfString', 'Unexpected end of string'), ErrorCode.Undefined);
+				_error(localize('UnexpectedEndOfString', 'Unexpected end of string'), ErrorCode.UnexpectedEndOfString);
+				return true;
+			case Json.ScanError.InvalidCharacter:
+				_error(localize('InvalidCharacter', 'Invalid characters in string. Control characters must be escaped.'), ErrorCode.InvalidCharacter);
 				return true;
 		}
 		return false;
