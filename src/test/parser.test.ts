@@ -932,7 +932,6 @@ suite('JSON Parser', () => {
 		assert.strictEqual(doc.warnings.length, 0);
 	});
 
-	//only support enums for string and number values
 	test('enum', function() {
 
 		var doc = Parser.parse('{"prop": "harmonica"}');
@@ -975,6 +974,21 @@ suite('JSON Parser', () => {
 
 		assert.strictEqual(doc.errors.length, 0);
 		assert.strictEqual(doc.warnings.length, 1);
+
+		var doc = Parser.parse('{"prop": { "name": "David" }}');
+
+		var schema: JsonSchema.JSONSchema = {
+			properties: {
+				'prop': {
+					enum: ['violin', { "name": "David" }, null]
+				}
+			}
+		};
+
+		doc.validate(schema);
+
+		assert.strictEqual(doc.errors.length, 0);
+		assert.strictEqual(doc.warnings.length, 0);
 	});
 
 	test('uniqueItems', function() {
