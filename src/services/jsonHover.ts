@@ -69,10 +69,12 @@ export class JSONHover {
 				let matchingSchemas: Parser.IApplicableSchema[] = [];
 				doc.validate(schema.schema, matchingSchemas, node.start);
 
+				let title: string = null
 				let description: string = null;
 				let enumValueDescription = null, enumValue = null;;
 				matchingSchemas.every((s) => {
 					if (s.node === node && !s.inverted && s.schema) {
+						title = title || s.schema.title;
 						description = description || s.schema.description;
 						if (s.schema.enum && s.schema.enumDescriptions) {
 							let idx = s.schema.enum.indexOf(node.getValue());
@@ -85,13 +87,23 @@ export class JSONHover {
 					}
 					return true;
 				});
-				if (description) {
-					description = toMarkdown(description);
-					if (enumValueDescription) {
-						description = `${description}\n\n\`${toMarkdown(enumValue)}\`: ${toMarkdown(enumValueDescription)}`;
-					}
-					return createHover([description]);
+				let result = '';
+				if (title) {
+					result = toMarkdown(title);
 				}
+				if (description) {
+					if (result.length > 0) {
+						result += "\n\n";
+					}
+					result += toMarkdown(description);
+				}
+				if (enumValueDescription) {
+					if (result.length > 0) {
+						result += "\n\n";
+					}
+					result += `\`${toMarkdown(enumValue)}\`: ${toMarkdown(enumValueDescription)}`;
+				}
+				return createHover([result]);
 			}
 			return void 0;
 		});

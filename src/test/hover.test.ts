@@ -83,7 +83,8 @@ suite('JSON Hover', () => {
 					},
 					'b': {
 						type: 'string',
-						description: 'B'
+						title: 'B',
+						description: 'It\'s B'
 					},
 				}
 			}, {
@@ -96,6 +97,9 @@ suite('JSON Hover', () => {
 			}),
 			testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
 				assert.deepEqual(result.contents, [ MarkedString.fromPlainText('A') ]);
+			}),
+			testComputeInfo(content, schema, { line: 0, character: 10 }).then((result) => {
+				assert.deepEqual(result.contents, [ MarkedString.fromPlainText('B\n\nIt\'s B') ]);
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
