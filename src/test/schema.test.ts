@@ -548,10 +548,10 @@ suite('JSON Schema', () => {
 
 	});
 
-	test('Validate Azure Resource Dfinition', function(testDone) {
+	test('Validate Azure Resource Definition', function (testDone) {
 
 
-		var service : SchemaService.IJSONSchemaService = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);
+		var service: SchemaService.IJSONSchemaService = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);
 
 		var input = {
 			"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
@@ -619,5 +619,72 @@ suite('JSON Schema', () => {
 		});
 
 	});
+
+});
+
+test('Complex enums', function () {
+
+	var input = {
+		"group": {
+			"kind": "build",
+			"isDefault": false
+		}
+	};
+
+	var schema = {
+		"type": "object",
+		"properties": {
+			"group": {
+				"oneOf": [
+					{
+						"type": "string"
+					},
+					{
+						"type": "object",
+						"properties": {
+							"kind": {
+								"type": "string",
+								"default": "none",
+								"description": "The task\"s execution group."
+							},
+							"isDefault": {
+								"type": "boolean",
+								"default": false,
+								"description": "Defines if this task is the default task in the group."
+							}
+						}
+					}
+				],
+				"enum": [
+					{
+						"kind": "build",
+						"isDefault": true
+					},
+					{
+						"kind": "build",
+						"isDefault": false
+					},
+					{
+						"kind": "test",
+						"isDefault": true
+					},
+					{
+						"kind": "test",
+						"isDefault": false
+					},
+					"build",
+					"test",
+					"none"
+				]
+			}
+		}
+	};
+
+	var document = Parser.parse(JSON.stringify(input));
+
+	document.validate(schema);
+
+	assert.equal(document.warnings.length, 0);
+	assert.equal(document.errors.length, 0);
 
 });
