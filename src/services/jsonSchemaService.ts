@@ -491,7 +491,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			let schemaProperties = (<Parser.ObjectASTNode>document.root).properties.filter((p) => (p.key.value === '$schema') && !!p.value);
 			if (schemaProperties.length > 0) {
 				let schemeId = <string>schemaProperties[0].value.getValue();
-				if (Strings.startsWith(schemeId, '.') && this.contextService) {
+				if (schemeId && Strings.startsWith(schemeId, '.') && this.contextService) {
 					schemeId = this.contextService.resolveRelativePath(schemeId, resource);
 				}
 				if (schemeId) {
