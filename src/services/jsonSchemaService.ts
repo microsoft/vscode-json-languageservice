@@ -396,7 +396,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return current;
 		};
 
-		let resolveLink = (node: any, linkedSchema: JSONSchema, linkPath: string): void => {
+		let resolveLink = (node: any, linkedSchema: JSONSchema, linkedSchemaURI: string, linkPath: string): void => {
 			let section = findSection(linkedSchema, linkPath);
 			if (section) {
 				for (let key in section) {
@@ -405,7 +405,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 					}
 				}
 			} else {
-				resolveErrors.push(localize('json.schema.invalidref', '$ref \'{0}\' in {1} can not be resolved.', linkPath, linkedSchema.id));
+				resolveErrors.push(localize('json.schema.invalidref', '$ref \'{0}\' in \'{1}\' can not be resolved.', linkPath, linkedSchemaURI));
 			}
 			delete node.$ref;
 		};
@@ -420,7 +420,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 					let loc = linkPath ? uri + '#' + linkPath : uri;
 					resolveErrors.push(localize('json.schema.problemloadingref', 'Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0]));
 				}
-				resolveLink(node, unresolvedSchema.schema, linkPath);
+				resolveLink(node, unresolvedSchema.schema, uri, linkPath);
 				return resolveRefs(node, unresolvedSchema.schema, uri);
 			});
 		};
@@ -471,7 +471,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL));
 						continue;
 					} else {
-						resolveLink(next, parentSchema, segments[1]);
+						resolveLink(next, parentSchema, parentSchemaURL, segments[1]);
 					}
 				}
 				collectEntries(next.items, next.additionalProperties, next.not);
