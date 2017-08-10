@@ -277,6 +277,39 @@ suite('JSON Schema', () => {
 		});
 	});
 
+	test('Multiple matches', function(testDone) {
+		var service = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);
+		var id = 'https://myschemastore/test1';
+		var schema1 : JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				foo: {
+					enum: [1],
+				}
+			}
+		};
+
+		var schema2 : JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				bar: {
+					enum: [2],
+				}
+			}
+		};		
+
+		service.registerExternalSchema(id, [ '*.json' ], schema1);
+		service.registerExternalSchema(id, [ 'test.json' ], schema2);
+
+		service.getSchemaForResource('test.json', null).then((schema) => {
+			var document = Parser.parse(JSON.stringify({ foo: true, bar: true }));
+			document.validate(schema.schema, []);
+			assert.equal(document.errors.length + document.warnings.length, 2);
+		}).then(() => testDone(), (error) => {
+			testDone(error);
+		});
+	});	
+
 	test('External Schema', function(testDone) {
 		var service = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);
 		var id = 'https://myschemastore/test1';

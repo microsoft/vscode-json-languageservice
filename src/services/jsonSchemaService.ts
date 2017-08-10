@@ -73,12 +73,9 @@ export interface ISchemaHandle {
 class FilePatternAssociation {
 
 	private schemas: string[];
-	private combinedSchemaId: string;
 	private patternRegExp: RegExp;
-	private combinedSchema: ISchemaHandle;
 
 	constructor(pattern: string) {
-		this.combinedSchemaId = 'schemaservice://combinedSchema/' + encodeURIComponent(pattern);
 		try {
 			this.patternRegExp = new RegExp(Strings.convertSimple2RegExpPattern(pattern) + '$');
 		} catch (e) {
@@ -86,23 +83,18 @@ class FilePatternAssociation {
 			this.patternRegExp = null;
 		}
 		this.schemas = [];
-		this.combinedSchema = null;
 	}
 
 	public addSchema(id: string) {
 		this.schemas.push(id);
-		this.combinedSchema = null;
 	}
 
 	public matchesPattern(fileName: string): boolean {
 		return this.patternRegExp && this.patternRegExp.test(fileName);
 	}
 
-	public getCombinedSchema(service: JSONSchemaService): ISchemaHandle {
-		if (!this.combinedSchema) {
-			this.combinedSchema = service.createCombinedSchema(this.combinedSchemaId, this.schemas);
-		}
-		return this.combinedSchema;
+	public getSchemas() {
+		return this.schemas;
 	}
 }
 
@@ -502,19 +494,25 @@ export class JSONSchemaService implements IJSONSchemaService {
 		}
 
 		// then check for matching file names, last to first
+		let schemas : string[] = [];
 		for (let i = this.filePatternAssociations.length - 1; i >= 0; i--) {
 			let entry = this.filePatternAssociations[i];
 			if (entry.matchesPattern(resource)) {
-				return entry.getCombinedSchema(this).getResolvedSchema();
+				schemas = schemas.concat(entry.getSchemas());
 			}
 		}
+		if (schemas.length > 0) {
+			return this.createCombinedSchema(resource, schemas).getResolvedSchema();
+		}
+
 		return this.promise.resolve(null);
 	}
 
-	public createCombinedSchema(combinedSchemaId: string, schemaIds: string[]): ISchemaHandle {
+	private createCombinedSchema(resource: string, schemaIds: string[]): ISchemaHandle {
 		if (schemaIds.length === 1) {
 			return this.getOrAddSchemaHandle(schemaIds[0]);
 		} else {
+			let combinedSchemaId = 'schemaservice://combinedSchema/' + encodeURIComponent(resource);
 			let combinedSchema: JSONSchema = {
 				allOf: schemaIds.map(schemaId => ({ $ref: schemaId }))
 			};
