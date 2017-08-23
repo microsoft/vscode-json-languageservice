@@ -354,9 +354,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 
 				let schemaContent: JSONSchema = {};
-				let jsonErrors = [];
+				let jsonErrors : Json.ParseError[] = [];
 				schemaContent = Json.parse(content, jsonErrors);
-				let errors = jsonErrors.length ? [localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': {1}.', toDisplayString(url), Json.getParseErrorMessage(jsonErrors[0]))] : [];
+				let errors = jsonErrors.length ? [localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset)] : [];
 				return new UnresolvedSchema(schemaContent, errors);
 			},
 			(error: any) => {
