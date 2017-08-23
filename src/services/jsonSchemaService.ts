@@ -325,7 +325,6 @@ export class JSONSchemaService implements IJSONSchemaService {
 		}
 		for (let pattern in this.contributionAssociations) {
 			var fpa = this.getOrAddFilePatternAssociation(pattern);
-
 			this.contributionAssociations[pattern].forEach(schemaId => {
 				let id = this.normalizeId(schemaId);
 				fpa.addSchema(id);
@@ -493,10 +492,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		}
 
-		// then check for matching file names, last to first
 		let schemas : string[] = [];
-		for (let i = this.filePatternAssociations.length - 1; i >= 0; i--) {
-			let entry = this.filePatternAssociations[i];
+		for (let entry of this.filePatternAssociations) {
 			if (entry.matchesPattern(resource)) {
 				schemas = schemas.concat(entry.getSchemas());
 			}
