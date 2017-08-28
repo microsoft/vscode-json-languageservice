@@ -96,8 +96,10 @@ export class JSONDocumentSymbols {
 						let nodeId = String(s.node.start);
 						if (!visitedNode[nodeId]) {
 							let color = colorFromHex(s.node.getValue());
-							let range = Range.create(document.positionAt(s.node.start), document.positionAt(s.node.end));
-							result.push({ color, range });
+							if (color) {
+								let range = Range.create(document.positionAt(s.node.start), document.positionAt(s.node.end));
+								result.push({ color, range });
+							}
 							visitedNode[nodeId] = true;
 						}
 					}
