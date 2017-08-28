@@ -6,9 +6,10 @@
 
 import Parser = require('../parser/jsonParser');
 import Strings = require('../utils/strings');
+import { colorFromHex } from '../utils/colors';
 
 import { SymbolInformation, SymbolKind, TextDocument, Range, Location } from 'vscode-languageserver-types';
-import { Thenable } from "../jsonLanguageService";
+import { Thenable, ColorInformation } from "../jsonLanguageService";
 import { IJSONSchemaService } from "./jsonSchemaService";
 
 export class JSONDocumentSymbols {
@@ -82,18 +83,21 @@ export class JSONDocumentSymbols {
 		}
 	}
 
-	public findColorSymbols(document: TextDocument, doc: Parser.JSONDocument): Thenable<Range[]> {
+	public findDocumentColors(document: TextDocument, doc: Parser.JSONDocument): Thenable<ColorInformation[]> {
 		return this.schemaService.getSchemaForResource(document.uri, doc).then(schema => {
-			let result: Range[] = [];
+			let result: ColorInformation[] = [];
 			if (schema) {
 				let matchingSchemas: Parser.IApplicableSchema[] = [];
 				doc.validate(schema.schema, matchingSchemas);
 				let visitedNode = {};
+				let text = document.getText();
 				for (let s of matchingSchemas) {
 					if (!s.inverted && s.schema && s.schema.format === 'color' && s.node && s.node.type === 'string') {
 						let nodeId = String(s.node.start);
 						if (!visitedNode[nodeId]) {
-							result.push(Range.create(document.positionAt(s.node.start), document.positionAt(s.node.end)));
+							let color = colorFromHex(s.node.getValue());
+							let range = Range.create(document.positionAt(s.node.start), document.positionAt(s.node.end));
+							result.push({ color, range });
 							visitedNode[nodeId] = true;
 						}
 					}
@@ -102,4 +106,6 @@ export class JSONDocumentSymbols {
 			return result;
 		});
 	}
+	
+
 }

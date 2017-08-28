@@ -8,15 +8,16 @@ import assert = require('assert');
 import Parser = require('../parser/jsonParser');
 import SchemaService = require('../services/jsonSchemaService');
 import JsonSchema = require('../jsonSchema');
-import {JSONCompletion} from '../services/jsonCompletion';
-import {JSONDocumentSymbols} from '../services/jsonDocumentSymbols';
+import { JSONCompletion } from '../services/jsonCompletion';
+import { JSONDocumentSymbols } from '../services/jsonDocumentSymbols';
 
 import { SymbolInformation, SymbolKind, TextDocumentIdentifier, TextDocument, Range, Position, TextEdit } from 'vscode-languageserver-types';
-import { Thenable } from "../jsonLanguageService";
+import { Thenable, Color } from "../jsonLanguageService";
+import { colorFrom256RGB } from '../utils/colors';
 
 suite('JSON Document Symbols', () => {
 
-	let requestService = function(uri: string): Promise<string> {
+	let requestService = function (uri: string): Promise<string> {
 		return Promise.reject<string>('Resource not found');
 	}
 
@@ -31,7 +32,7 @@ suite('JSON Document Symbols', () => {
 		return symbolProvider.findDocumentSymbols(document, jsonDoc);
 	}
 
-	function assertColors(value: string, schema: JsonSchema.JSONSchema, expected: number[]): Thenable<any> {
+	function assertColors(value: string, schema: JsonSchema.JSONSchema, expectedOffsets: number[], expectedColors: Color[]): Thenable<any> {
 		var uri = 'test://test.json';
 		var schemaService = new SchemaService.JSONSchemaService(requestService);
 
@@ -41,11 +42,13 @@ suite('JSON Document Symbols', () => {
 
 		var document = TextDocument.create(uri, 'json', 0, value);
 		var jsonDoc = Parser.parse(value);
-		return symbolProvider.findColorSymbols(document, jsonDoc).then(ranges => {
-			let actuals = ranges.map(r => document.offsetAt(r.start));
-			assert.deepEqual(actuals, expected);
+		return symbolProvider.findDocumentColors(document, jsonDoc).then(colorInfos => {
+			let actualOffsets = colorInfos.map(r => document.offsetAt(r.range.start));
+			assert.deepEqual(actualOffsets, expectedOffsets);
+			let actualColors = colorInfos.map(r => r.color);
+			assert.deepEqual(actualColors, expectedColors);			
 		})
-	}	
+	}
 
 	function assertOutline(value: string, expected: any[], message?: string) {
 		var actual = getOutline(value);
@@ -58,7 +61,7 @@ suite('JSON Document Symbols', () => {
 	};
 
 
-	test('Base types', function() {
+	test('Base types', function () {
 		var content = '{ "key1": 1, "key2": "foo", "key3" : true }';
 
 		var expected = [
@@ -70,7 +73,7 @@ suite('JSON Document Symbols', () => {
 		assertOutline(content, expected);
 	});
 
-	test('Arrays', function() {
+	test('Arrays', function () {
 		var content = '{ "key1": 1, "key2": [ 1, 2, 3 ], "key3" : [ { "k1": 1 }, {"k2": 2 } ] }';
 
 		var expected = [
@@ -84,7 +87,7 @@ suite('JSON Document Symbols', () => {
 		assertOutline(content, expected);
 	});
 
-	test('Objects', function() {
+	test('Objects', function () {
 		var content = '{ "key1": { "key2": true }, "key3" : { "k1":  { } }';
 
 		var expected = [
@@ -97,7 +100,7 @@ suite('JSON Document Symbols', () => {
 		assertOutline(content, expected);
 	});
 
-	test('Outline - object with syntax error', function() {
+	test('Outline - object with syntax error', function () {
 		var content = '{ "key1": { "key2": true, "key3":, "key4": false } }';
 
 		var expected = [
@@ -109,7 +112,7 @@ suite('JSON Document Symbols', () => {
 		assertOutline(content, expected);
 	});
 
-	test('Colors', function(done) {
+	test('Colors', function (done) {
 		var content = '{ "a": "#FF00FF", "b": "#FF0000" }';
 		var schema: JsonSchema.JSONSchema = {
 			type: 'object',
@@ -128,8 +131,9 @@ suite('JSON Document Symbols', () => {
 			}
 		};
 
-		var expected = [ 7, 23 ];
-		assertColors(content, schema, expected).then(_ => done(), e => done(e));
-	});	
+		var expectedOffsets = [7, 23];
+		var expectedColors = [ colorFrom256RGB(255, 0, 255), colorFrom256RGB(255, 0, 0)];
+		assertColors(content, schema, expectedOffsets, expectedColors).then(_ => done(), e => done(e));
+	});
 
 });

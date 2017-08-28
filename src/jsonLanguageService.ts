@@ -12,7 +12,7 @@ import {JSONHover} from './services/jsonHover';
 import {JSONValidation} from './services/jsonValidation';
 import {JSONSchema} from './jsonSchema';
 import {JSONDocumentSymbols} from './services/jsonDocumentSymbols';
-import {parse as parseJSON, JSONDocumentConfig} from './parser/jsonParser';
+import {parse as parseJSON, JSONDocumentConfig, JSONDocument as InternalJSONDocument} from './parser/jsonParser';
 import {schemaContributions} from './services/configuration';
 import {JSONSchemaService} from './services/jsonSchemaService';
 import {JSONWorkerContribution, JSONPath, Segment, CompletionsCollector} from './jsonContributions';
@@ -31,9 +31,20 @@ export interface LanguageService {
 	doResolve(item: CompletionItem): Thenable<CompletionItem>;
 	doComplete(document: TextDocument, position: Position, doc: JSONDocument): Thenable<CompletionList>;
 	findDocumentSymbols(document: TextDocument, doc: JSONDocument): SymbolInformation[];
-	findColorSymbols(document: TextDocument, doc: JSONDocument): Thenable<Range[]>;
+	/** deprecated, use findDocumentColors instead */
+	findColorSymbols(document: TextDocument, stylesheet: JSONDocument): Thenable<Range[]>;
+	findDocumentColors(document: TextDocument, stylesheet: JSONDocument): Thenable<ColorInformation[]>;
 	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
+}
+
+export interface Color {
+	red: number; blue: number; green: number; alpha: number;
+}
+
+export interface ColorInformation {
+	range: Range;
+	color: Color;
 }
 
 export interface LanguageSettings {
@@ -170,7 +181,8 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		doResolve: jsonCompletion.doResolve.bind(jsonCompletion),
 		doComplete: jsonCompletion.doComplete.bind(jsonCompletion),
 		findDocumentSymbols: jsonDocumentSymbols.findDocumentSymbols.bind(jsonDocumentSymbols),
-		findColorSymbols: jsonDocumentSymbols.findColorSymbols.bind(jsonDocumentSymbols),
+		findColorSymbols: (d, s) => jsonDocumentSymbols.findDocumentColors(d, <InternalJSONDocument> s).then(s => s.map(s => s.range)),
+		findDocumentColors: jsonDocumentSymbols.findDocumentColors.bind(jsonDocumentSymbols),
 		doHover: jsonHover.doHover.bind(jsonHover),
 		format: formatJSON
 	};
