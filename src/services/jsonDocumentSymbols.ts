@@ -90,7 +90,6 @@ export class JSONDocumentSymbols {
 				let matchingSchemas: Parser.IApplicableSchema[] = [];
 				doc.validate(schema.schema, matchingSchemas);
 				let visitedNode = {};
-				let text = document.getText();
 				for (let s of matchingSchemas) {
 					if (!s.inverted && s.schema && s.schema.format === 'color' && s.node && s.node.type === 'string') {
 						let nodeId = String(s.node.start);

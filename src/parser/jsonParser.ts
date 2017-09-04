@@ -855,7 +855,7 @@ export class JSONDocument {
 	}
 
 	public validate(schema: JSONSchema, matchingSchemas: IApplicableSchema[] = null, offset: number = -1): void {
-		if (this.root) {
+		if (this.root && schema) {
 			this.root.validate(schema, this.validationResult, matchingSchemas, offset);
 		}
 	}
