@@ -846,6 +846,32 @@ suite('JSON Completion', () => {
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
+	
+	test('DoNotSuggest', function(testDone) {
+		var schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop1': {
+					doNotSuggest: true
+				},
+				'prop2': {
+					doNotSuggest: false
+				},
+				'prop3': {
+					doNotSuggest: false
+				},
+			}
+		};
+
+		Promise.all([
+			testCompletionsFor('{ |', schema, {
+				items: [
+					{ label: 'prop2' },
+					{ label: 'prop3' }
+				]
+			})
+		]).then(() => testDone(), (error) => testDone(error));
+	});			
 
 });
 

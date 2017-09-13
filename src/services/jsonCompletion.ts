@@ -224,7 +224,7 @@ export class JSONCompletion {
 				if (schemaProperties) {
 					Object.keys(schemaProperties).forEach((key: string) => {
 						let propertySchema = schemaProperties[key];
-						if (!propertySchema.deprecationMessage) {
+						if (!propertySchema.deprecationMessage && !propertySchema.doNotSuggest) {
 							collector.add({ 
 								kind: CompletionItemKind.Property, 
 								label: key, 
