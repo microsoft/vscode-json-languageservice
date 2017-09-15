@@ -580,6 +580,37 @@ suite('JSON Schema', () => {
 		});
 
 	});
+	
+	test('$refs in $ref', function(testDone) {
+		var service = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);
+		var id0 = "foo://bar/bar0";
+		var id1 = "foo://bar/bar1";
+		var schema0:JsonSchema.JSONSchema = {
+			"allOf": [
+				{
+					$ref: id1
+				}
+			]
+		};
+		var schema1:JsonSchema.JSONSchema = {
+			$ref: "#/definitions/foo",
+			definitions: {
+				foo: {
+					type: 'object',
+				}
+			},
+		};
+
+		var fsm0 = service.registerExternalSchema(id0, [ '*.json' ], schema0);
+		var fsm1 = service.registerExternalSchema(id1, [], schema1);
+		fsm0.getResolvedSchema().then((fs0) => {
+			assert.equal(fs0.schema.allOf[0].type, 'object');
+		}).then(() => testDone(), (error) => {
+			testDone(error);
+		});
+
+	});
+	
 
 	test('Validate Azure Resource Definition', function (testDone) {
 

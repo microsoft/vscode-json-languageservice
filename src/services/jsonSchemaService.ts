@@ -5,11 +5,11 @@
 'use strict';
 
 import Json = require('jsonc-parser');
-import {JSONSchema, JSONSchemaMap} from '../jsonSchema';
+import { JSONSchema, JSONSchemaMap } from '../jsonSchema';
 import URI from 'vscode-uri';
 import Strings = require('../utils/strings');
 import Parser = require('../parser/jsonParser');
-import {SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable} from '../jsonLanguageService';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable } from '../jsonLanguageService';
 
 
 import * as nls from 'vscode-nls';
@@ -354,7 +354,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 
 				let schemaContent: JSONSchema = {};
-				let jsonErrors : Json.ParseError[] = [];
+				let jsonErrors: Json.ParseError[] = [];
 				schemaContent = Json.parse(content, jsonErrors);
 				let errors = jsonErrors.length ? [localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset)] : [];
 				return new UnresolvedSchema(schemaContent, errors);
@@ -387,18 +387,17 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return current;
 		};
 
-		let resolveLink = (node: any, linkedSchema: JSONSchema, linkedSchemaURI: string, linkPath: string): void => {
-			let section = findSection(linkedSchema, linkPath);
+		let merge = (target: JSONSchema, sourceRoot: JSONSchema, sourceURI: string, path: string): void => {
+			let section = findSection(sourceRoot, path);
 			if (section) {
 				for (let key in section) {
-					if (section.hasOwnProperty(key) && !node.hasOwnProperty(key)) {
-						node[key] = section[key];
+					if (section.hasOwnProperty(key) && !target.hasOwnProperty(key)) {
+						target[key] = section[key];
 					}
 				}
 			} else {
-				resolveErrors.push(localize('json.schema.invalidref', '$ref \'{0}\' in \'{1}\' can not be resolved.', linkPath, linkedSchemaURI));
+				resolveErrors.push(localize('json.schema.invalidref', '$ref \'{0}\' in \'{1}\' can not be resolved.', path, sourceURI));
 			}
-			delete node.$ref;
 		};
 
 		let resolveExternalLink = (node: any, uri: string, linkPath: string, parentSchemaURL: string): Thenable<any> => {
@@ -411,7 +410,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 					let loc = linkPath ? uri + '#' + linkPath : uri;
 					resolveErrors.push(localize('json.schema.problemloadingref', 'Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0]));
 				}
-				resolveLink(node, unresolvedSchema.schema, uri, linkPath);
+				merge(node, unresolvedSchema.schema, uri, linkPath);
 				return resolveRefs(node, unresolvedSchema.schema, uri);
 			});
 		};
@@ -450,24 +449,29 @@ export class JSONSchemaService implements IJSONSchemaService {
 					}
 				}
 			};
+			let handleRef = (next: JSONSchema) => {
+				while (next.$ref) {
+					let segments = next.$ref.split('#', 2);
+					if (segments[0].length > 0) {
+						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL));
+						return;
+					} else {
+						delete node.$ref;
+						merge(next, parentSchema, parentSchemaURL, segments[1]); // removes $ref, but a new $ref can come in from the referenced node.
+					}
+				}
+				collectEntries(next.items, next.additionalProperties, next.not);
+				collectMapEntries(next.definitions, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies);
+				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, <JSONSchema[]>next.items);
+			};
+
 			while (toWalk.length) {
 				let next = toWalk.pop();
 				if (seen.indexOf(next) >= 0) {
 					continue;
 				}
 				seen.push(next);
-				if (next.$ref) {
-					let segments = next.$ref.split('#', 2);
-					if (segments[0].length > 0) {
-						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL));
-						continue;
-					} else {
-						resolveLink(next, parentSchema, parentSchemaURL, segments[1]);
-					}
-				}
-				collectEntries(next.items, next.additionalProperties, next.not);
-				collectMapEntries(next.definitions, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies);
-				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, <JSONSchema[]>next.items);
+				handleRef(next);
 			}
 			return this.promise.all(openPromises);
 		};
@@ -492,7 +496,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		}
 
-		let schemas : string[] = [];
+		let schemas: string[] = [];
 		for (let entry of this.filePatternAssociations) {
 			if (entry.matchesPattern(resource)) {
 				schemas = schemas.concat(entry.getSchemas());
