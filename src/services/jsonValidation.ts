@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import {JSONSchemaService} from './jsonSchemaService';
-import {JSONDocument, ObjectASTNode} from '../parser/jsonParser';
-import {TextDocument, Diagnostic, DiagnosticSeverity} from 'vscode-languageserver-types';
-import {PromiseConstructor, Thenable, LanguageSettings} from '../jsonLanguageService';
+import { JSONSchemaService } from './jsonSchemaService';
+import { JSONDocument, ObjectASTNode, IProblem, ProblemSeverity } from '../parser/jsonParser';
+import { TextDocument, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver-types';
+import { PromiseConstructor, Thenable, LanguageSettings } from '../jsonLanguageService';
 
 export class JSONValidation {
 
@@ -29,10 +29,27 @@ export class JSONValidation {
 		}
 	}
 
-	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument) : Thenable<Diagnostic[]> {
+	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument): Thenable<Diagnostic[]> {
 		if (!this.validationEnabled) {
 			return this.promise.resolve([]);
 		}
+		let diagnostics: Diagnostic[] = [];
+		let added: { [signature: string]: boolean } = {};
+		let addProblem = (problem: IProblem) => {
+			// remove duplicated messages
+			let signature = problem.location.start + ' ' + problem.location.end + ' ' + problem.message;
+			if (!added[signature]) {
+				added[signature] = true;
+				let range = {
+					start: textDocument.positionAt(problem.location.start),
+					end: textDocument.positionAt(problem.location.end)
+				};
+				let severity = problem.severity === ProblemSeverity.Error ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
+				diagnostics.push({ severity, range, message: problem.message });
+			}
+		}
+		jsonDocument.syntaxErrors.forEach(addProblem);
+
 		return this.jsonSchemaService.getSchemaForResource(textDocument.uri, jsonDocument).then(schema => {
 			if (schema) {
 				if (schema.errors.length && jsonDocument.root) {
@@ -40,33 +57,17 @@ export class JSONValidation {
 					let property = astRoot.type === 'object' ? (<ObjectASTNode>astRoot).getFirstProperty('$schema') : null;
 					if (property) {
 						let node = property.value || property;
-						jsonDocument.warnings.push({ location: { start: node.start, end: node.end }, message: schema.errors[0] });
+						addProblem({ location: { start: node.start, end: node.end }, message: schema.errors[0], severity: ProblemSeverity.Warning });
 					} else {
-						jsonDocument.warnings.push({ location: { start: astRoot.start, end: astRoot.start + 1 }, message: schema.errors[0] });
+						addProblem({ location: { start: astRoot.start, end: astRoot.start + 1 }, message: schema.errors[0], severity: ProblemSeverity.Warning });
 					}
 				} else {
-					jsonDocument.validate(schema.schema);
+					let semanticErrors = jsonDocument.validate(schema.schema);
+					if (semanticErrors) {
+						semanticErrors.forEach(addProblem);
+					}
 				}
 			}
-
-			let diagnostics: Diagnostic[] = [];
-			let added: { [signature: string]: boolean } = {};
-			jsonDocument.errors.concat(jsonDocument.warnings).forEach((error, idx) => {
-				// remove duplicated messages
-				let signature = error.location.start + ' ' + error.location.end + ' ' + error.message;
-				if (!added[signature]) {
-					added[signature] = true;
-					let range = {
-						start: textDocument.positionAt(error.location.start),
-						end: textDocument.positionAt(error.location.end)
-					};
-					diagnostics.push({
-						severity: idx >= jsonDocument.errors.length ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
-						range: range,
-						message: error.message
-					});
-				}
-			});
 			return diagnostics;
 		});
 	}

@@ -13,34 +13,34 @@ suite('JSON Parser', () => {
 
 	function isValid(json: string): void {
 		var result = Parser.parse(json);
-		assert.equal(result.errors.length + result.warnings.length, 0);
+		assert.equal(result.syntaxErrors.length, 0);
 	}
 
 	function isInvalid(json: string, ...expectedErrors: Parser.ErrorCode[]): void {
 		var result = Parser.parse(json);
 		if (expectedErrors.length === 0) {
-			assert.ok(result.errors.length > 0);
+			assert.ok(result.syntaxErrors.length > 0);
 		} else {
-			assert.deepEqual(result.errors.map(e => e.code), expectedErrors);
+			assert.deepEqual(result.syntaxErrors.map(e => e.code), expectedErrors);
 		}
 		// these should be caught by the parser, not the last-ditch guard
-		assert.notEqual(result.errors[0].message, 'Invalid JSON');
+		assert.notEqual(result.syntaxErrors[0].message, 'Invalid JSON');
 	}
 
 
-	test('Invalid body', function() {
+	test('Invalid body', function () {
 		var result = Parser.parse('*');
-		assert.equal(result.errors.length, 1);
+		assert.equal(result.syntaxErrors.length, 1);
 
 		isInvalid('{}[]');
 	});
 
-	test('Trailing Whitespace', function() {
+	test('Trailing Whitespace', function () {
 		isValid('{}\n\n');
 	});
 
 
-	test('Objects', function() {
+	test('Objects', function () {
 		isValid('{}');
 		isValid('{"key": "value"}');
 		isValid('{"key1": true, "key2": 3, "key3": [null], "key4": { "nested": {}}}');
@@ -55,7 +55,7 @@ suite('JSON Parser', () => {
 		isInvalid('{"key:42');
 	});
 
-	test('Arrays', function() {
+	test('Arrays', function () {
 		isValid('[]');
 		isValid('[1, 2]');
 		isValid('[1, "string", false, {}, [null]]');
@@ -70,7 +70,7 @@ suite('JSON Parser', () => {
 		isInvalid('[magic]');
 	});
 
-	test('Strings', function() {
+	test('Strings', function () {
 		isValid('["string"]');
 		isValid('["\\"\\\\\\/\\b\\f\\n\\r\\t\\u1234\\u12AB"]');
 		isValid('["\\\\"]');
@@ -85,7 +85,7 @@ suite('JSON Parser', () => {
 		isInvalid('"\tabc"', Parser.ErrorCode.InvalidCharacter);
 	});
 
-	test('Numbers', function() {
+	test('Numbers', function () {
 		isValid('[0, -1, 186.1, 0.123, -1.583e+4, 1.583E-4, 5e8]');
 
 		isInvalid('[+1]');
@@ -96,11 +96,11 @@ suite('JSON Parser', () => {
 		isInvalid('[-A]');
 	});
 
-	test('Simple AST', function() {
+	test('Simple AST', function () {
 
 		var result = Parser.parse('{}');
 
-		assert.strictEqual(result.errors.length, 0);
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		var node = result.getNodeFromOffset(1);
 
@@ -110,7 +110,7 @@ suite('JSON Parser', () => {
 		assert.strictEqual(result.getNodeFromOffset(2), null);
 
 		result = Parser.parse('[null]');
-		assert.strictEqual(result.errors.length, 0);
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		node = result.getNodeFromOffset(2);
 
@@ -118,7 +118,7 @@ suite('JSON Parser', () => {
 		assert.deepEqual(node.getPath(), [0]);
 
 		result = Parser.parse('{"a":true}');
-		assert.strictEqual(result.errors.length, 0);
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		node = result.getNodeFromOffset(3);
 
@@ -145,12 +145,12 @@ suite('JSON Parser', () => {
 
 	});
 
-	test('Nested AST', function() {
+	test('Nested AST', function () {
 
 		var content = '{\n\t"key" : {\n\t"key2": 42\n\t}\n}';
 		var result = Parser.parse(content);
 
-		assert.strictEqual(result.errors.length, 0);
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		var node = result.getNodeFromOffset(content.indexOf('key2') + 2);
 		var location = node.getPath();
@@ -163,11 +163,11 @@ suite('JSON Parser', () => {
 		assert.deepEqual(location, ['key', 'key2']);
 	});
 
-	test('Nested AST in Array', function() {
+	test('Nested AST in Array', function () {
 
 		var result = Parser.parse('{"key":[{"key2":42}]}');
 
-		assert.strictEqual(result.errors.length, 0);
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		var node = result.getNodeFromOffset(17);
 		var location = node.getPath();
@@ -176,12 +176,12 @@ suite('JSON Parser', () => {
 
 	});
 
-	test('Multiline', function() {
+	test('Multiline', function () {
 
 		var content = '{\n\t\n}';
 		var result = Parser.parse(content);
 
-		assert.strictEqual(result.errors.length, 0);
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		var node = result.getNodeFromOffset(content.indexOf('\t') + 1);
 
@@ -197,29 +197,29 @@ suite('JSON Parser', () => {
 		assert.equal(node.type, 'boolean');
 	});
 
-	test('Expand errors to entire tokens', function() {
+	test('Expand errors to entire tokens', function () {
 
 		var content = '{\n"key":32,\nerror\n}';
 		var result = Parser.parse(content);
-		assert.equal(result.errors.length, 1);
-		assert.equal(result.errors[0].location.start, content.indexOf('error'));
-		assert.equal(result.errors[0].location.end, content.indexOf('error') + 5);
+		assert.equal(result.syntaxErrors.length, 1);
+		assert.equal(result.syntaxErrors[0].location.start, content.indexOf('error'));
+		assert.equal(result.syntaxErrors[0].location.end, content.indexOf('error') + 5);
 	});
 
-	test('Errors at the end of the file', function() {
+	test('Errors at the end of the file', function () {
 
 		var content = '{\n"key":32\n ';
 		var result = Parser.parse(content);
-		assert.equal(result.errors.length, 1);
-		assert.equal(result.errors[0].location.start, 9);
-		assert.equal(result.errors[0].location.end, 10);
-	});	
+		assert.equal(result.syntaxErrors.length, 1);
+		assert.equal(result.syntaxErrors[0].location.start, 9);
+		assert.equal(result.syntaxErrors[0].location.end, 10);
+	});
 
-	test('Getting keys out of an object', function() {
+	test('Getting keys out of an object', function () {
 
 		var content = '{\n"key":32,\n\n"key2":45}';
 		var result = Parser.parse(content);
-		assert.equal(result.errors.length, 0);
+		assert.equal(result.syntaxErrors.length, 0);
 		var node = result.getNodeFromOffset(content.indexOf('32,\n') + 4);
 
 		assert.equal(node.type, 'object');
@@ -227,29 +227,26 @@ suite('JSON Parser', () => {
 		assert.deepEqual(keyList, ['key', 'key2']);
 	});
 
-	test('Validate types', function() {
+	test('Validate types', function () {
 
 		var str = '{"number": 3.4, "integer": 42, "string": "some string", "boolean":true, "null":null, "object":{}, "array":[1, 2]}';
 		var result = Parser.parse(str);
 
-		assert.strictEqual(result.errors.length, 0);
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		result.validate({
+		let semanticErrors = result.validate({
 			type: 'object'
 		});
 
-		assert.strictEqual(result.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
-		result = Parser.parse(str);
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'array'
 		});
 
-		assert.strictEqual(result.warnings.length, 1);
+		assert.strictEqual(semanticErrors.length, 1);
 
-		result = Parser.parse(str);
-
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"number": {
@@ -276,10 +273,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
-		result = Parser.parse(str);
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"number": {
@@ -306,10 +302,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 7);
+		assert.strictEqual(semanticErrors.length, 7);
 
-		result = Parser.parse(str);
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"number": {
@@ -318,10 +313,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 1);
+		assert.strictEqual(semanticErrors.length, 1);
 
-		result = Parser.parse(str);
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"integer": {
@@ -330,10 +324,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
-		result = Parser.parse(str);
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"array": {
@@ -345,10 +338,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
-		result = Parser.parse(str);
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"array": {
@@ -360,38 +352,36 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 2);
+		assert.strictEqual(semanticErrors.length, 2);
 	});
 
-	test('Required properties', function() {
+	test('Required properties', function () {
 
 		var result = Parser.parse('{"integer": 42, "string": "some string", "boolean":true}');
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		assert.strictEqual(result.errors.length, 0);
-
-		result.validate({
+		let semanticErrors = result.validate({
 			type: 'object',
 			required: ['string']
 		});
 
-		assert.strictEqual(result.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
-		result = Parser.parse('{"integer": 42, "string": "some string", "boolean":true}');
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			required: ['notpresent']
 		});
 
-		assert.strictEqual(result.warnings.length, 1);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
-	test('Arrays', function() {
+	test('Arrays', function () {
 
 		var result = Parser.parse('[1, 2, 3]');
 
-		assert.strictEqual(result.errors.length, 0);
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		result.validate({
+		let semanticErrors = result.validate({
 			type: 'array',
 			items: {
 				type: 'number'
@@ -400,10 +390,9 @@ suite('JSON Parser', () => {
 			maxItems: 5
 		});
 
-		assert.strictEqual(result.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
-		result = Parser.parse('[1, 2, 3]');
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'array',
 			items: {
 				type: 'number'
@@ -411,10 +400,9 @@ suite('JSON Parser', () => {
 			minItems: 10
 		});
 
-		assert.strictEqual(result.warnings.length, 1);
+		assert.strictEqual(semanticErrors.length, 1);
 
-		result = Parser.parse('[1, 2, 3]');
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'array',
 			items: {
 				type: 'number'
@@ -422,17 +410,16 @@ suite('JSON Parser', () => {
 			maxItems: 2
 		});
 
-		assert.strictEqual(result.warnings.length, 1);
+		assert.strictEqual(semanticErrors.length, 1);
 
 	});
 
-	test('Strings', function() {
+	test('Strings', function () {
 
 		var result = Parser.parse('{"one":"test"}');
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		assert.strictEqual(result.errors.length, 0);
-
-		result.validate({
+		let semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"one": {
@@ -443,10 +430,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
-		result = Parser.parse('{"one":"test"}');
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"one": {
@@ -456,10 +442,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 1);
+		assert.strictEqual(semanticErrors.length, 1);
 
-		result = Parser.parse('{"one":"test"}');
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"one": {
@@ -469,10 +454,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 1);
+		assert.strictEqual(semanticErrors.length, 1);
 
-		result = Parser.parse('{"one":"test"}');
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"one": {
@@ -482,10 +466,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
-		result = Parser.parse('{"one":"test"}');
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"one": {
@@ -495,17 +478,17 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 1);
+		assert.strictEqual(semanticErrors.length, 1);
 
 	});
 
-	test('Numbers', function() {
+	test('Numbers', function () {
 
 		var result = Parser.parse('{"one": 13.45e+1}');
 
-		assert.strictEqual(result.errors.length, 0);
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		result.validate({
+		let semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"one": {
@@ -516,11 +499,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
-		result = Parser.parse('{"one": 13.45e+1}');
-
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"one": {
@@ -530,10 +511,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 1, 'below minimum');
+		assert.strictEqual(semanticErrors.length, 1, 'below minimum');
 
-		result = Parser.parse('{"one": 13.45e+1}');
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"one": {
@@ -543,10 +523,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 1, 'above maximum');
+		assert.strictEqual(semanticErrors.length, 1, 'above maximum');
 
-		result = Parser.parse('{"one": 13.45e+1}');
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"one": {
@@ -557,10 +536,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 1, 'at exclusive mininum');
+		assert.strictEqual(semanticErrors.length, 1, 'at exclusive mininum');
 
-		result = Parser.parse('{"one": 13.45e+1}');
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"one": {
@@ -571,10 +549,9 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 1, 'at exclusive maximum');
+		assert.strictEqual(semanticErrors.length, 1, 'at exclusive maximum');
 
-		result = Parser.parse('{"one": 13.45e+1}');
-		result.validate({
+		semanticErrors = result.validate({
 			type: 'object',
 			properties: {
 				"one": {
@@ -585,14 +562,14 @@ suite('JSON Parser', () => {
 			}
 		});
 
-		assert.strictEqual(result.warnings.length, 0, 'equal to min and max');
+		assert.strictEqual(semanticErrors.length, 0, 'equal to min and max');
 	});
 
-	test('getNodeFromOffset', function() {
+	test('getNodeFromOffset', function () {
 		var content = '{"a": 1,\n\n"d": 2}';
 		var doc = Parser.parse(content);
 
-		assert.strictEqual(doc.errors.length, 0);
+		assert.strictEqual(doc.syntaxErrors.length, 0);
 
 		var node = doc.getNodeFromOffset(content.indexOf(': 2') + 1);
 
@@ -600,27 +577,25 @@ suite('JSON Parser', () => {
 	});
 
 
-	test('Duplicate keys', function() {
+	test('Duplicate keys', function () {
 		var doc = Parser.parse('{"a": 1, "a": 2}');
 
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1, 'Keys should not be the same');
+		assert.strictEqual(doc.syntaxErrors.length, 1, 'Keys should not be the same');
 
 		var doc = Parser.parse('{"a": { "a": 2, "a": 3}}');
 
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1, 'Keys should not be the same');
+		assert.strictEqual(doc.syntaxErrors.length, 1, 'Keys should not be the same');
 
 		var doc = Parser.parse('[{ "a": 2, "a": 3}]');
 
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1, 'Keys should not be the same');
+		assert.strictEqual(doc.syntaxErrors.length, 1, 'Keys should not be the same');
 
 	});
 
-	test('allOf', function() {
+	test('allOf', function () {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
+		assert.strictEqual(doc.syntaxErrors.length, 0);
 
 		var schema: JsonSchema.JSONSchema = {
 			id: 'main',
@@ -646,22 +621,20 @@ suite('JSON Parser', () => {
 			]
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop1": 42, "prop2": 123}');
+		assert.strictEqual(doc.syntaxErrors.length, 0);
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
-	test('anyOf', function() {
+	test('anyOf', function () {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
+		assert.strictEqual(doc.syntaxErrors.length, 0);
 
 		var schema: JsonSchema.JSONSchema = {
 			id: 'main',
@@ -684,29 +657,26 @@ suite('JSON Parser', () => {
 			]
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop1": 42, "prop2": 123}');
+		assert.strictEqual(doc.syntaxErrors.length, 0);
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop1": "a string", "prop2": 123}');
+		assert.strictEqual(doc.syntaxErrors.length, 0);
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
-	test('oneOf', function() {
+	test('oneOf', function () {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
+		assert.strictEqual(doc.syntaxErrors.length, 0);
 
 		var schema: JsonSchema.JSONSchema = {
 			id: 'main',
@@ -729,28 +699,24 @@ suite('JSON Parser', () => {
 			]
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 
 		doc = Parser.parse('{"prop1": 42, "prop2": 123}');
+		assert.strictEqual(doc.syntaxErrors.length, 0);
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop1": "a string", "prop2": 123}');
+		assert.strictEqual(doc.syntaxErrors.length, 0);
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
 
-	test('not', function() {
+	test('not', function () {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
@@ -766,20 +732,16 @@ suite('JSON Parser', () => {
 
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 
 		doc = Parser.parse('{"prop1": "test"}');
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 	});
 
-	test('minProperties', function() {
+	test('minProperties', function () {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
@@ -787,27 +749,21 @@ suite('JSON Parser', () => {
 			minProperties: 2
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		schema.minProperties = 1;
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		schema.minProperties = 3;
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
-	test('maxProperties', function() {
+	test('maxProperties', function () {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
@@ -815,27 +771,21 @@ suite('JSON Parser', () => {
 			maxProperties: 2
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		schema.maxProperties = 3;
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		schema.maxProperties = 1;
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
-	test('patternProperties', function() {
+	test('patternProperties', function () {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": 42}');
 
@@ -848,27 +798,21 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 
 		doc = Parser.parse('{"prop1": 42, "prop2": 123, "aprop3": true}');
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 	});
 
-	test('additionalProperties', function() {
+	test('additionalProperties', function () {
 
 		var doc = Parser.parse('{"prop1": 42, "prop2": 42}');
 
@@ -878,17 +822,13 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 
 		schema = {
 			properties: {
@@ -903,10 +843,8 @@ suite('JSON Parser', () => {
 
 		doc = Parser.parse('{"prop1": true, "prop2": 42}');
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		schema = {
 			properties: {
@@ -919,20 +857,16 @@ suite('JSON Parser', () => {
 
 		doc = Parser.parse('{"prop1": true, "prop2": 42}');
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 
 		doc = Parser.parse('{"prop1": true}');
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 	});
 
-	test('enum', function() {
+	test('enum', function () {
 
 		var doc = Parser.parse('{"prop": "harmonica"}');
 
@@ -944,16 +878,13 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop": "harp"}');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 
 		schema = {
 			properties: {
@@ -964,16 +895,14 @@ suite('JSON Parser', () => {
 		};
 
 		doc = Parser.parse('{"prop": 42}');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop": 1337}');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 
 		var doc = Parser.parse('{"prop": { "name": "David" }}');
 
@@ -985,13 +914,11 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 	});
 
-	test('uniqueItems', function() {
+	test('uniqueItems', function () {
 
 		var doc = Parser.parse('[1, 2, 3]');
 
@@ -1000,25 +927,21 @@ suite('JSON Parser', () => {
 			uniqueItems: true
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('[1, 2, 3, 2]');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 
 		doc = Parser.parse('[1, 2, "string", 52, "string"]');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
-	test('items as array', function() {
+	test('items as array', function () {
 
 		var doc = Parser.parse('[1, true, "string"]');
 
@@ -1037,25 +960,21 @@ suite('JSON Parser', () => {
 			]
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('["string", 1, true]');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 3);
+		
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 3);
 
 		doc = Parser.parse('[1, true, "string", "another", 42]');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 	});
 
-	test('additionalItems', function() {
+	test('additionalItems', function () {
 
 		var doc = Parser.parse('[1, true, "string"]');
 
@@ -1075,19 +994,17 @@ suite('JSON Parser', () => {
 			additionalItems: false
 		};
 
-		doc.validate(schema);
+		let semanticErrors = doc.validate(schema);
 
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('[1, true, "string", 42]');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
-	test('multipleOf', function() {
+	test('multipleOf', function () {
 
 		var doc = Parser.parse('[42]');
 
@@ -1099,19 +1016,17 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		doc.validate(schema);
+		let semanticErrors = doc.validate(schema);
 
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('[43]');
-		doc.validate(schema);
+		semanticErrors = doc.validate(schema);
 
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
-	test('dependencies with array', function() {
+	test('dependencies with array', function () {
 
 		var doc = Parser.parse('{"a":true, "b":42}');
 
@@ -1127,25 +1042,22 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		doc.validate(schema);
+		let semanticErrors = doc.validate(schema);
 
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{}');
-		doc.validate(schema);
+		semanticErrors = doc.validate(schema);
 
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"a":true}');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
-	test('dependencies with schema', function() {
+	test('dependencies with schema', function () {
 
 		var doc = Parser.parse('{"a":true, "b":42}');
 
@@ -1167,31 +1079,23 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{}');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"a":true}');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"a":true, "b": "string"}');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
-	test('type as array', function() {
+	test('type as array', function () {
 
 		var doc = Parser.parse('{"prop": 42}');
 
@@ -1204,25 +1108,19 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop": "string"}');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 0);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop": true}');
-		doc.validate(schema);
-
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
-	test('deprecated', function() {
+	test('deprecated', function () {
 
 		var doc = Parser.parse('{"prop": 42}');
 
@@ -1235,16 +1133,15 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		doc.validate(schema);
+		let semanticErrors = doc.validate(schema);
 
-		assert.strictEqual(doc.errors.length, 0);
-		assert.strictEqual(doc.warnings.length, 1);
-	});	
+		assert.strictEqual(semanticErrors.length, 1);
+	});
 
-	test('Strings with spaces', function() {
+	test('Strings with spaces', function () {
 
 		var result = Parser.parse('{"key1":"first string", "key2":["second string"]}');
-		assert.strictEqual(result.errors.length, 0);
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		var node = result.getNodeFromOffset(9);
 		assert.strictEqual(node.getValue(), 'first string');
@@ -1254,10 +1151,10 @@ suite('JSON Parser', () => {
 
 	});
 
-	test('Schema information on node', function() {
+	test('Schema information on node', function () {
 
 		var result = Parser.parse('{"key":42}');
-		assert.strictEqual(result.errors.length, 0);
+		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		var schema: JsonSchema.JSONSchema = {
 			type: 'object',
@@ -1267,9 +1164,9 @@ suite('JSON Parser', () => {
 						type: 'number',
 						description: 'this is a number'
 					}, {
-							type: 'string',
-							description: 'this is a string'
-						}]
+						type: 'string',
+						description: 'this is a string'
+					}]
 				}
 			}
 		};
@@ -1290,11 +1187,11 @@ suite('JSON Parser', () => {
 		assert.strictEqual(schemas[0].description, 'this is a number');
 	});
 
-	test('parse with comments', function() {
+	test('parse with comments', function () {
 
 		function parse<T>(v: string): T {
 			var result = Parser.parse(v);
-			assert.equal(result.errors.length, 0);
+			assert.equal(result.syntaxErrors.length, 0);
 			return <T>result.root.getValue();
 		}
 
@@ -1309,16 +1206,16 @@ suite('JSON Parser', () => {
 
 	});
 
-	test('parse with comments disabled', function() {
+	test('parse with comments disabled', function () {
 
 		function assertParse(v: string, expectedErrors: number): void {
-			var result = Parser.parse(v, {disallowComments:true});
-			assert.equal(result.errors.length, expectedErrors);
+			var result = Parser.parse(v, { disallowComments: true });
+			assert.equal(result.syntaxErrors.length, expectedErrors);
 		}
 
 		assertParse('// comment\n{\n"far": "boo"\n}', 1);
 		assertParse('/* comm\nent\nent */\n{\n"far": "boo"\n}', 1);
 		assertParse('{\n"far": "boo"\n}', 0);
-	});	
+	});
 
 });

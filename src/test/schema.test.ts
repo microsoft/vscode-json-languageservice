@@ -304,8 +304,8 @@ suite('JSON Schema', () => {
 
 		service.getSchemaForResource('test.json', null).then((schema) => {
 			var document = Parser.parse(JSON.stringify({ foo: true, bar: true }));
-			document.validate(schema.schema, []);
-			assert.equal(document.errors.length + document.warnings.length, 2);
+			let problems = document.validate(schema.schema, []);
+			assert.equal(problems.length, 2);
 		}).then(() => testDone(), (error) => {
 			testDone(error);
 		});
@@ -539,9 +539,8 @@ suite('JSON Schema', () => {
 			assert.equal(content.indexOf('$ref'), -1); // no more $refs
 
 			var matchingSchemas = [];
-			document.validate(resolveSchema.schema, matchingSchemas);
-			assert.deepEqual(document.errors, []);
-			assert.deepEqual(document.warnings, []);
+			let problems = document.validate(resolveSchema.schema, matchingSchemas);
+			assert.deepEqual(problems, []);
 		}).then(() => testDone(), (error) => {
 			testDone(error);
 		});
@@ -573,9 +572,8 @@ suite('JSON Schema', () => {
 			assert.equal(content.indexOf('$ref'), -1); // no more $refs
 
 			var matchingSchemas = [];
-			document.validate(resolveSchema.schema, matchingSchemas);
-			assert.deepEqual(document.errors, []);
-			assert.equal(document.warnings.length, 1);
+			let problems = document.validate(resolveSchema.schema, matchingSchemas);
+			assert.equal(problems.length, 1);
 		}).then(() => testDone(), (error) => {
 			testDone(error);
 		});
@@ -675,10 +673,10 @@ suite('JSON Schema', () => {
 		service.getSchemaForResource('file://doc/mydoc.json', document).then(resolvedSchema => {
 			assert.deepEqual(resolvedSchema.errors, []);
 
-			document.validate(resolvedSchema.schema);
+			let problems = document.validate(resolvedSchema.schema);
 
-			assert.equal(document.warnings.length, 1);
-			assert.equal(document.warnings[0].message, 'Missing property "computerName"');
+			assert.equal(problems.length, 1);
+			assert.equal(problems[0].message, 'Missing property "computerName"');
 		}).then(() => testDone(), (error) => {
 			testDone(error);
 		});
@@ -747,9 +745,9 @@ test('Complex enums', function () {
 
 	var document = Parser.parse(JSON.stringify(input));
 
-	document.validate(schema);
+	let problems = document.validate(schema);
 
-	assert.equal(document.warnings.length, 0);
-	assert.equal(document.errors.length, 0);
+	assert.equal(problems.length, 0);
+
 
 });
