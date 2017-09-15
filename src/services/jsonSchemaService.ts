@@ -400,7 +400,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		};
 
-		let resolveExternalLink = (node: any, uri: string, linkPath: string, parentSchemaURL: string): Thenable<any> => {
+		let resolveExternalLink = (node: JSONSchema, uri: string, linkPath: string, parentSchemaURL: string): Thenable<any> => {
 			if (contextService && !/^\w+:\/\/.*/.test(uri)) {
 				uri = contextService.resolveRelativePath(uri, parentSchemaURL);
 			}
@@ -452,12 +452,12 @@ export class JSONSchemaService implements IJSONSchemaService {
 			let handleRef = (next: JSONSchema) => {
 				while (next.$ref) {
 					let segments = next.$ref.split('#', 2);
+					delete next.$ref;
 					if (segments[0].length > 0) {
 						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL));
 						return;
 					} else {
-						delete node.$ref;
-						merge(next, parentSchema, parentSchemaURL, segments[1]); // removes $ref, but a new $ref can come in from the referenced node.
+						merge(next, parentSchema, parentSchemaURL, segments[1]); // can set next.$ref again
 					}
 				}
 				collectEntries(next.items, next.additionalProperties, next.not);
@@ -496,10 +496,16 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		}
 
+		let seen: { [schemaId: string]: boolean } = Object.create(null);
 		let schemas: string[] = [];
 		for (let entry of this.filePatternAssociations) {
 			if (entry.matchesPattern(resource)) {
-				schemas = schemas.concat(entry.getSchemas());
+				for (let schemaId of entry.getSchemas()) {
+					if (!seen[schemaId]) {
+						schemas.push(schemaId);
+						seen[schemaId] = true;
+					}
+				}
 			}
 		}
 		if (schemas.length > 0) {
