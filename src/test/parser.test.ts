@@ -882,7 +882,7 @@ suite('JSON Parser', () => {
 		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop": "harp"}');
-		
+
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 
@@ -895,12 +895,12 @@ suite('JSON Parser', () => {
 		};
 
 		doc = Parser.parse('{"prop": 42}');
-		
+
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"prop": 1337}');
-		
+
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 
@@ -931,12 +931,12 @@ suite('JSON Parser', () => {
 		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('[1, 2, 3, 2]');
-		
+
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 
 		doc = Parser.parse('[1, 2, "string", 52, "string"]');
-		
+
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 	});
@@ -964,20 +964,17 @@ suite('JSON Parser', () => {
 		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('["string", 1, true]');
-		
+
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 3);
 
 		doc = Parser.parse('[1, true, "string", "another", 42]');
-		
+
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 0);
 	});
 
 	test('additionalItems', function () {
-
-		var doc = Parser.parse('[1, true, "string"]');
-
 		var schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			items: [
@@ -994,14 +991,49 @@ suite('JSON Parser', () => {
 			additionalItems: false
 		};
 
-		let semanticErrors = doc.validate(schema);
+		var doc = Parser.parse('[1, true, "string"]');
 
+		let semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('[1, true, "string", 42]');
-		
+
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
+
+		var schema: JsonSchema.JSONSchema = {
+			type: 'array',
+			items: [
+				{
+					type: 'integer'
+				},
+				{
+					type: 'boolean'
+				},
+				{
+					type: 'string'
+				}
+			],
+			additionalItems: {
+				type: "boolean"
+			}
+		};
+
+		doc = Parser.parse('[1, true, "string"]');
+
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
+
+		doc = Parser.parse('[1, true, "string", false, true]');
+
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
+
+		doc = Parser.parse('[1, true, "string", true, "Hello"]');
+
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
+
 	});
 
 	test('multipleOf', function () {
@@ -1052,7 +1084,7 @@ suite('JSON Parser', () => {
 		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = Parser.parse('{"a":true}');
-		
+
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 	});

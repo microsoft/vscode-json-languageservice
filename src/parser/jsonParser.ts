@@ -345,15 +345,20 @@ export class ArrayASTNode extends ASTNode {
 					validationResult.propertiesValueMatches++;
 				}
 			});
-
-			if (schema.additionalItems === false && this.items.length > subSchemas.length) {
-				validationResult.problems.push({
-					location: { start: this.start, end: this.end },
-					severity: ProblemSeverity.Warning,
-					message: localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer', subSchemas.length)
-				});
-			} else if (this.items.length >= subSchemas.length) {
-				validationResult.propertiesValueMatches += (this.items.length - subSchemas.length);
+			if (this.items.length > subSchemas.length) {
+				if (typeof schema.additionalItems === 'object') {
+					for (let i = subSchemas.length; i < this.items.length; i++) {
+						let itemValidationResult = new ValidationResult();
+						this.items[i].validate(<any>schema.additionalItems, itemValidationResult, matchingSchemas, offset);
+						validationResult.mergePropertyMatch(itemValidationResult);
+					}
+				} else if (schema.additionalItems === false) {
+					validationResult.problems.push({
+						location: { start: this.start, end: this.end },
+						severity: ProblemSeverity.Warning,
+						message: localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer', subSchemas.length)
+					});
+				}
 			}
 		}
 		else if (schema.items) {
@@ -698,9 +703,9 @@ export class ObjectASTNode extends ASTNode {
 			unprocessedProperties.forEach((propertyName: string) => {
 				let child = seenKeys[propertyName];
 				if (child) {
-					let propertyvalidationResult = new ValidationResult();
-					child.validate(<any>schema.additionalProperties, propertyvalidationResult, matchingSchemas, offset);
-					validationResult.mergePropertyMatch(propertyvalidationResult);
+					let propertyValidationResult = new ValidationResult();
+					child.validate(<any>schema.additionalProperties, propertyValidationResult, matchingSchemas, offset);
+					validationResult.mergePropertyMatch(propertyValidationResult);
 				}
 			});
 		} else if (schema.additionalProperties === false) {

@@ -22,7 +22,7 @@ export interface JSONSchema {
 	minItems?: number;
 	maxItems?: number;
 	uniqueItems?: boolean;
-	additionalItems?: boolean;
+	additionalItems?: boolean | JSONSchema;
 	pattern?: string;
 	minLength?: number;
 	maxLength?: number;
