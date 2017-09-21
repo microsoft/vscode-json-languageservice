@@ -56,7 +56,7 @@ suite('JSON Document Symbols', () => {
 		let range = Range.create(Position.create(0, 0), Position.create(0, 1));
 		let result = ls.getColorPresentations(document, doc, { color, range });
 		assert.deepEqual(result.map(r => r.label), expected);
-		assert.deepEqual(result.map(r => r.textEdit), expected.map(l => TextEdit.replace(range, l)));
+		assert.deepEqual(result.map(r => r.textEdit), expected.map(l => TextEdit.replace(range, JSON.stringify(l))));
 	}
 
 	function assertOutline(value: string, expected: any[], message?: string) {

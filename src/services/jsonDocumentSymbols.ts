@@ -124,7 +124,7 @@ export class JSONDocumentSymbols {
 		} else {
 			label = `#${toTwoDigitHex(red256)}${toTwoDigitHex(green256)}${toTwoDigitHex(blue256)}${toTwoDigitHex(Math.round(color.alpha * 255))}`;
 		}
-		result.push({ label: label, textEdit: TextEdit.replace(colorInfo.range, label) });
+		result.push({ label: label, textEdit: TextEdit.replace(colorInfo.range, JSON.stringify(label)) });
 
 		return result;
 	}
