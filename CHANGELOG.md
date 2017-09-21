@@ -1,10 +1,15 @@
+2.0.19 / 2017-09-21
+==================
+  * New API `LanguageService.getColorPresentations` returning presentations for a given color. 
+  * New API type `ColorPresentation` added.
+  
 2.0.15 / 2017-08-28
 ==================
   * New API `LanguageService.findDocumentColors` returning the location and value of all colors in a document. 
   * New API types `ColorInformation` and `Color` added.
   * Deprecated `LanguageService.findColorSymbols`. Use `LanguageService.findDocumentColors` instead.
 
-2.0.8 /
+2.0.8 / 2017-04-25
 ==================
   * error code for CommentsNotAllowed
 

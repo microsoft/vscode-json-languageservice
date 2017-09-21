@@ -12,42 +12,51 @@ import { JSONCompletion } from '../services/jsonCompletion';
 import { JSONDocumentSymbols } from '../services/jsonDocumentSymbols';
 
 import { SymbolInformation, SymbolKind, TextDocumentIdentifier, TextDocument, Range, Position, TextEdit } from 'vscode-languageserver-types';
-import { Thenable, Color } from "../jsonLanguageService";
+import { Thenable, Color, getLanguageService } from "../jsonLanguageService";
 import { colorFrom256RGB } from '../utils/colors';
 
 suite('JSON Document Symbols', () => {
 
-	let requestService = function (uri: string): Promise<string> {
+	let schemaRequestService = function (uri: string): Promise<string> {
 		return Promise.reject<string>('Resource not found');
 	}
 
 	function getOutline(value: string): SymbolInformation[] {
 		var uri = 'test://test.json';
-		var schemaService = new SchemaService.JSONSchemaService(requestService);
-
-		var symbolProvider = new JSONDocumentSymbols(schemaService);
+		let ls = getLanguageService({ schemaRequestService });
 
 		var document = TextDocument.create(uri, 'json', 0, value);
 		var jsonDoc = Parser.parse(value);
-		return symbolProvider.findDocumentSymbols(document, jsonDoc);
+		return ls.findDocumentSymbols(document, jsonDoc);
 	}
 
 	function assertColors(value: string, schema: JsonSchema.JSONSchema, expectedOffsets: number[], expectedColors: Color[]): Thenable<any> {
 		var uri = 'test://test.json';
-		var schemaService = new SchemaService.JSONSchemaService(requestService);
+		var schemaUri = "http://myschemastore/test1";
 
-		var id = "http://myschemastore/test1";
-		schemaService.registerExternalSchema(id, ["*.json"], schema);
-		var symbolProvider = new JSONDocumentSymbols(schemaService);
+		let ls = getLanguageService({ schemaRequestService });
+		ls.configure({ schemas: [{ fileMatch: ["*.json"], uri: schemaUri, schema }] })
 
 		var document = TextDocument.create(uri, 'json', 0, value);
 		var jsonDoc = Parser.parse(value);
-		return symbolProvider.findDocumentColors(document, jsonDoc).then(colorInfos => {
+		return ls.findDocumentColors(document, jsonDoc).then(colorInfos => {
 			let actualOffsets = colorInfos.map(r => document.offsetAt(r.range.start));
 			assert.deepEqual(actualOffsets, expectedOffsets);
 			let actualColors = colorInfos.map(r => r.color);
-			assert.deepEqual(actualColors, expectedColors);			
+			assert.deepEqual(actualColors, expectedColors);
 		})
+	}
+
+	function assertColorPresentations(color: Color, ...expected: string[]) {
+		let ls = getLanguageService({ schemaRequestService });
+
+		let document = TextDocument.create('test://test/test.css', 'css', 0, '');
+
+		let doc = ls.parseJSONDocument(document);
+		let range = Range.create(Position.create(0, 0), Position.create(0, 1));
+		let result = ls.getColorPresentations(document, doc, { color, range });
+		assert.deepEqual(result.map(r => r.label), expected);
+		assert.deepEqual(result.map(r => r.textEdit), expected.map(l => TextEdit.replace(range, l)));
 	}
 
 	function assertOutline(value: string, expected: any[], message?: string) {
@@ -132,8 +141,13 @@ suite('JSON Document Symbols', () => {
 		};
 
 		var expectedOffsets = [7, 23];
-		var expectedColors = [ colorFrom256RGB(255, 0, 255), colorFrom256RGB(255, 0, 0)];
+		var expectedColors = [colorFrom256RGB(255, 0, 255), colorFrom256RGB(255, 0, 0)];
 		assertColors(content, schema, expectedOffsets, expectedColors).then(_ => done(), e => done(e));
+	});
+
+	test('color presentations', function () {
+		assertColorPresentations(colorFrom256RGB(255, 0, 0), '#ff0000');
+		assertColorPresentations(colorFrom256RGB(77, 33, 111, 0.5), '#4d216f80');
 	});
 
 });

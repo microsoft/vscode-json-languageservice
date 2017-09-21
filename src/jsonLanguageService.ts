@@ -4,24 +4,28 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import {TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions, MarkedString} from 'vscode-languageserver-types';
+import {
+	TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
+	TextEdit, FormattingOptions, MarkedString
+} from 'vscode-languageserver-types';
 
-import {JSONCompletion} from './services/jsonCompletion';
-import {JSONHover} from './services/jsonHover';
-import {JSONValidation} from './services/jsonValidation';
-import {JSONSchema} from './jsonSchema';
-import {JSONDocumentSymbols} from './services/jsonDocumentSymbols';
-import {parse as parseJSON, JSONDocumentConfig, JSONDocument as InternalJSONDocument} from './parser/jsonParser';
-import {schemaContributions} from './services/configuration';
-import {JSONSchemaService} from './services/jsonSchemaService';
-import {JSONWorkerContribution, JSONPath, Segment, CompletionsCollector} from './jsonContributions';
-import {format as formatJSON} from './services/jsonFormatter';
+import { JSONCompletion } from './services/jsonCompletion';
+import { JSONHover } from './services/jsonHover';
+import { JSONValidation } from './services/jsonValidation';
+import { JSONSchema } from './jsonSchema';
+import { JSONDocumentSymbols } from './services/jsonDocumentSymbols';
+import { parse as parseJSON, JSONDocumentConfig, JSONDocument as InternalJSONDocument } from './parser/jsonParser';
+import { schemaContributions } from './services/configuration';
+import { JSONSchemaService } from './services/jsonSchemaService';
+import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions';
+import { format as formatJSON } from './services/jsonFormatter';
 
 export type JSONDocument = {};
-export {JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector};
-export {TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions, MarkedString};
+export { JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector };
+export {
+	TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
+	TextEdit, FormattingOptions, MarkedString
+};
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;
@@ -32,8 +36,9 @@ export interface LanguageService {
 	doComplete(document: TextDocument, position: Position, doc: JSONDocument): Thenable<CompletionList>;
 	findDocumentSymbols(document: TextDocument, doc: JSONDocument): SymbolInformation[];
 	/** deprecated, use findDocumentColors instead */
-	findColorSymbols(document: TextDocument, stylesheet: JSONDocument): Thenable<Range[]>;
-	findDocumentColors(document: TextDocument, stylesheet: JSONDocument): Thenable<ColorInformation[]>;
+	findColorSymbols(document: TextDocument, doc: JSONDocument): Thenable<Range[]>;
+	findDocumentColors(document: TextDocument, doc: JSONDocument): Thenable<ColorInformation[]>;
+	getColorPresentations(document: TextDocument, doc: JSONDocument, colorInfo: ColorInformation): ColorPresentation[];
 	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
 }
@@ -45,6 +50,26 @@ export interface Color {
 export interface ColorInformation {
 	range: Range;
 	color: Color;
+}
+
+export interface ColorPresentation {
+	/**
+	 * The label of this color presentation. It will be shown on the color
+	 * picker header. By default this is also the text that is inserted when selecting
+	 * this color presentation.
+	 */
+	label: string;
+	/**
+	 * An [edit](#TextEdit) which is applied to a document when selecting
+	 * this presentation for the color.  When `falsy` the [label](#ColorPresentation.label)
+	 * is used.
+	 */
+	textEdit?: TextEdit;
+	/**
+	 * An optional array of additional [text edits](#TextEdit) that are applied when
+	 * selecting this color presentation. Edits must not overlap with the main [edit](#ColorPresentation.textEdit) nor with themselves.
+	 */
+	additionalTextEdits?: TextEdit[];
 }
 
 export interface LanguageSettings {
@@ -96,7 +121,7 @@ export interface PromiseConstructor {
      * a resolve callback used resolve the promise with a value or the result of another promise,
      * and a reject callback used to reject the promise with a provided reason or error.
      */
-    new <T>(executor: (resolve: (value?: T | Thenable<T>) => void, reject: (reason?: any) => void) => void): Thenable<T>;
+	new <T>(executor: (resolve: (value?: T | Thenable<T>) => void, reject: (reason?: any) => void) => void): Thenable<T>;
 
     /**
      * Creates a Promise that is resolved with an array of results when all of the provided Promises
@@ -104,20 +129,20 @@ export interface PromiseConstructor {
      * @param values An array of Promises.
      * @returns A new Promise.
      */
-    all<T>(values: Array<T | Thenable<T>>): Thenable<T[]>;
+	all<T>(values: Array<T | Thenable<T>>): Thenable<T[]>;
     /**
      * Creates a new rejected promise for the provided reason.
      * @param reason The reason the promise was rejected.
      * @returns A new rejected Promise.
      */
-    reject<T>(reason: any): Thenable<T>;
+	reject<T>(reason: any): Thenable<T>;
 
     /**
       * Creates a new resolved promise for the provided value.
       * @param value A promise.
       * @returns A promise whose internal state matches the provided promise.
       */
-    resolve<T>(value: T | Thenable<T>): Thenable<T>;
+	resolve<T>(value: T | Thenable<T>): Thenable<T>;
 
 }
 
@@ -128,8 +153,8 @@ export interface Thenable<R> {
     * @param onrejected The callback to execute when the Promise is rejected.
     * @returns A Promise for the completion of which ever callback is executed.
     */
-    then<TResult>(onfulfilled?: (value: R) => TResult | Thenable<TResult>, onrejected?: (reason: any) => TResult | Thenable<TResult>): Thenable<TResult>;
-    then<TResult>(onfulfilled?: (value: R) => TResult | Thenable<TResult>, onrejected?: (reason: any) => void): Thenable<TResult>;
+	then<TResult>(onfulfilled?: (value: R) => TResult | Thenable<TResult>, onrejected?: (reason: any) => TResult | Thenable<TResult>): Thenable<TResult>;
+	then<TResult>(onfulfilled?: (value: R) => TResult | Thenable<TResult>, onrejected?: (reason: any) => void): Thenable<TResult>;
 }
 
 export interface LanguageServiceParams {
@@ -148,7 +173,7 @@ export interface LanguageServiceParams {
 	contributions?: JSONWorkerContribution[];
 	/**
 	 * A promise constructor. If not set, the ES5 Promise will be used.
-	 */	
+	 */
 	promiseConstructor?: PromiseConstructor;
 }
 
@@ -177,12 +202,13 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		},
 		resetSchema: (uri: string) => jsonSchemaService.onResourceChange(uri),
 		doValidation: jsonValidation.doValidation.bind(jsonValidation),
-		parseJSONDocument: (document: TextDocument) => parseJSON(document.getText(), {disallowComments}),
+		parseJSONDocument: (document: TextDocument) => parseJSON(document.getText(), { disallowComments }),
 		doResolve: jsonCompletion.doResolve.bind(jsonCompletion),
 		doComplete: jsonCompletion.doComplete.bind(jsonCompletion),
 		findDocumentSymbols: jsonDocumentSymbols.findDocumentSymbols.bind(jsonDocumentSymbols),
-		findColorSymbols: (d, s) => jsonDocumentSymbols.findDocumentColors(d, <InternalJSONDocument> s).then(s => s.map(s => s.range)),
+		findColorSymbols: (d, s) => jsonDocumentSymbols.findDocumentColors(d, <InternalJSONDocument>s).then(s => s.map(s => s.range)),
 		findDocumentColors: jsonDocumentSymbols.findDocumentColors.bind(jsonDocumentSymbols),
+		getColorPresentations: jsonDocumentSymbols.getColorPresentations.bind(jsonDocumentSymbols),
 		doHover: jsonHover.doHover.bind(jsonHover),
 		format: formatJSON
 	};

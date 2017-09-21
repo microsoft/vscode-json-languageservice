@@ -8,8 +8,8 @@ import Parser = require('../parser/jsonParser');
 import Strings = require('../utils/strings');
 import { colorFromHex } from '../utils/colors';
 
-import { SymbolInformation, SymbolKind, TextDocument, Range, Location } from 'vscode-languageserver-types';
-import { Thenable, ColorInformation } from "../jsonLanguageService";
+import { SymbolInformation, SymbolKind, TextDocument, Range, Location, TextEdit } from 'vscode-languageserver-types';
+import { Thenable, ColorInformation, ColorPresentation } from "../jsonLanguageService";
 import { IJSONSchemaService } from "./jsonSchemaService";
 
 export class JSONDocumentSymbols {
@@ -107,6 +107,27 @@ export class JSONDocumentSymbols {
 			return result;
 		});
 	}
-	
+
+	public getColorPresentations(document: TextDocument, doc: Parser.JSONDocument, colorInfo: ColorInformation): ColorPresentation[] {
+		let result: ColorPresentation[] = [];
+		let color = colorInfo.color;
+		let red256 = Math.round(color.red * 255), green256 = Math.round(color.green * 255), blue256 = Math.round(color.blue * 255);
+
+		function toTwoDigitHex(n: number): string {
+			const r = n.toString(16);
+			return r.length !== 2 ? '0' + r : r;
+		};
+
+		let label;
+		if (color.alpha === 1) {
+			label = `#${toTwoDigitHex(red256)}${toTwoDigitHex(green256)}${toTwoDigitHex(blue256)}`;
+		} else {
+			label = `#${toTwoDigitHex(red256)}${toTwoDigitHex(green256)}${toTwoDigitHex(blue256)}${toTwoDigitHex(Math.round(color.alpha * 255))}`;
+		}
+		result.push({ label: label, textEdit: TextEdit.replace(colorInfo.range, label) });
+
+		return result;
+	}
+
 
 }
