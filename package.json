@@ -21,12 +21,13 @@
   },
   "dependencies": {
     "jsonc-parser": "^1.0.0",
-    "vscode-languageserver-types": "^3.3.0",
+    "vscode-languageserver-types": "^3.4.0",
     "vscode-nls": "^2.0.2",
     "vscode-uri": "^1.0.1"
   },
   "scripts": {
     "prepublish": "npm run test",
+    "postpublish": "node ./build/npm/post-publish.js",
     "compile": "tsc -p ./src",
     "watch": "tsc -w -p ./src",
     "test": "npm run compile && mocha",
