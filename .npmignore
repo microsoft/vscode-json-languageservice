@@ -6,5 +6,6 @@ src/
 test/
 build/
 .eslintrc
+.travis.yml
 .gitignore
 gulpfile.js
