@@ -242,7 +242,7 @@ export class ASTNode {
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
 					code: ErrorCode.EnumValueMismatch,
-					message: schema.errorMessage || localize('enumWarning', 'Value is not accepted. Valid values: {0}', JSON.stringify(schema.enum))
+					message: schema.errorMessage || localize('enumWarning', 'Value is not accepted. Valid values: {0}', schema.enum.map(v => JSON.stringify(v)).join(', '))
 				});
 				validationResult.mismatchedEnumValues = schema.enum;
 			} else {
