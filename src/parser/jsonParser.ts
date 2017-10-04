@@ -26,6 +26,12 @@ export enum ErrorCode {
 	InvalidUnicode = 0x104,
 	InvalidEscapeCharacter = 0x105,
 	InvalidCharacter = 0x106,
+	PropertyExpected = 0x201,
+	CommaExpected = 0x202,
+	ColonExpected = 0x203,
+	ValueExpected = 0x204,
+	CommaOrCloseBacketExpected = 0x205,
+	CommaOrCloseBraceExpected = 0x206
 }
 
 export enum ProblemSeverity {
@@ -774,7 +780,6 @@ export class ObjectASTNode extends ASTNode {
 }
 
 export interface JSONDocumentConfig {
-	ignoreDanglingComma?: boolean;
 	disallowComments?: boolean;
 }
 
@@ -887,7 +892,6 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 	let scanner = Json.createScanner(text, false);
 
 	let disallowComments = config && config.disallowComments;
-	let ignoreDanglingComma = config && config.ignoreDanglingComma;
 
 	function _scanNext(): Json.SyntaxKind {
 		while (true) {
@@ -993,14 +997,15 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		let count = 0;
 		if (node.addItem(_parseValue(node, count++))) {
 			while (_accept(Json.SyntaxKind.CommaToken)) {
-				if (!node.addItem(_parseValue(node, count++)) && !ignoreDanglingComma) {
-					_error(localize('ValueExpected', 'Value expected'), ErrorCode.Undefined);
+				if (!node.addItem(_parseValue(node, count++))) {
+					_error(localize('ValueExpected', 'Value expected'), ErrorCode.ValueExpected);
+					// report error, but continue
 				}
 			}
 		}
 
 		if (scanner.getToken() !== Json.SyntaxKind.CloseBracketToken) {
-			return _error(localize('ExpectedCloseBracket', 'Expected comma or closing bracket'), ErrorCode.Undefined, node);
+			return _error(localize('ExpectedCloseBracket', 'Expected comma or closing bracket'), ErrorCode.CommaOrCloseBacketExpected, node);
 		}
 
 		return _finalize(node, true);
@@ -1028,14 +1033,15 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 
 		if (scanner.getToken() === Json.SyntaxKind.ColonToken) {
 			node.colonOffset = scanner.getTokenOffset();
+			_scanNext(); // consume ColonToken
 		} else {
-			return _error(localize('ColonExpected', 'Colon expected'), ErrorCode.Undefined, node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
+			_error(localize('ColonExpected', 'Colon expected'), ErrorCode.ColonExpected);
 		}
 
-		_scanNext(); // consume ColonToken
+		
 
 		if (!node.setValue(_parseValue(node, key.value))) {
-			return _error(localize('ValueExpected', 'Value expected'), ErrorCode.Undefined, node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
+			return _error(localize('ValueExpected', 'Value expected'), ErrorCode.ValueExpected, node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
 		}
 		node.end = node.value.end;
 		return node;
@@ -1046,19 +1052,27 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 			return null;
 		}
 		let node = new ObjectASTNode(parent, name, scanner.getTokenOffset());
-		_scanNext(); // consume OpenBraceToken
-
 		let keysSeen: any = Object.create(null);
-		if (node.addProperty(_parseProperty(node, keysSeen))) {
-			while (_accept(Json.SyntaxKind.CommaToken)) {
-				if (!node.addProperty(_parseProperty(node, keysSeen)) && !ignoreDanglingComma) {
-					_error(localize('PropertyExpected', 'Property expected'), ErrorCode.Undefined);
+		_scanNext(); // consume OpenBraceToken
+		let needsComma = false;
+
+		while (scanner.getToken() !== Json.SyntaxKind.CloseBraceToken && scanner.getToken() !== Json.SyntaxKind.EOF) {
+			if (scanner.getToken() === Json.SyntaxKind.CommaToken) {
+				if (!needsComma) {
+					_error(localize('PropertyExpected', 'Property expected'), ErrorCode.PropertyExpected);
 				}
+				_scanNext(); // consume comma
+			} else if (needsComma) {
+				_error(localize('ExpectedComma', 'Expected comma'), ErrorCode.CommaExpected, node);
 			}
+			if (!node.addProperty(_parseProperty(node, keysSeen))) {
+				_error(localize('PropertyExpected', 'Property expected'), ErrorCode.PropertyExpected, null, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
+			}
+			needsComma = true;
 		}
 
 		if (scanner.getToken() !== Json.SyntaxKind.CloseBraceToken) {
-			return _error(localize('ExpectedCloseBrace', 'Expected comma or closing brace'), ErrorCode.Undefined, node);
+			return _error(localize('ExpectedCloseBrace', 'Expected comma or closing brace'), ErrorCode.CommaOrCloseBraceExpected, node);
 		}
 		return _finalize(node, true);
 	}

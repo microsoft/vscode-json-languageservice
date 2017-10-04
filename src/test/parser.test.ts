@@ -19,12 +19,12 @@ suite('JSON Parser', () => {
 	function isInvalid(json: string, ...expectedErrors: Parser.ErrorCode[]): void {
 		var result = Parser.parse(json);
 		if (expectedErrors.length === 0) {
-			assert.ok(result.syntaxErrors.length > 0);
+			assert.ok(result.syntaxErrors.length > 0, json);
 		} else {
-			assert.deepEqual(result.syntaxErrors.map(e => e.code), expectedErrors);
+			assert.deepEqual(result.syntaxErrors.map(e => e.code), expectedErrors, json);
 		}
 		// these should be caught by the parser, not the last-ditch guard
-		assert.notEqual(result.syntaxErrors[0].message, 'Invalid JSON');
+		assert.notEqual(result.syntaxErrors[0].message, 'Invalid JSON', json);
 	}
 
 
@@ -49,10 +49,10 @@ suite('JSON Parser', () => {
 		isInvalid('{');
 		isInvalid('{3:3}');
 		isInvalid('{\'key\': 3}');
-		isInvalid('{"key" 3}');
-		isInvalid('{"key":3 "key2": 4}');
-		isInvalid('{"key":42, }');
-		isInvalid('{"key:42');
+		isInvalid('{"key" 3}', Parser.ErrorCode.ColonExpected);
+		isInvalid('{"key":3 "key2": 4}', Parser.ErrorCode.CommaExpected);
+		isInvalid('{"key":42, }', Parser.ErrorCode.PropertyExpected);
+		isInvalid('{"key:42', Parser.ErrorCode.UnexpectedEndOfString, Parser.ErrorCode.ColonExpected, Parser.ErrorCode.ValueExpected, Parser.ErrorCode.CommaOrCloseBraceExpected);
 	});
 
 	test('Arrays', function () {

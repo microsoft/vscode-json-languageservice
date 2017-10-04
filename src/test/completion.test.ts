@@ -199,7 +199,7 @@ suite('JSON Completion', () => {
 			testCompletionsFor('{ "b": 1 "a|}', schema, {
 				count: 2,
 				items: [
-					{ label: 'a', documentation: 'A', resultText: '{ "b": 1 "a": ${1:0}}' }
+					{ label: 'a', documentation: 'A', resultText: '{ "b": 1 "a": ${1:0}' }
 				]
 			}),
 			testCompletionsFor('{ "|}', schema, {
@@ -222,10 +222,15 @@ suite('JSON Completion', () => {
 				]
 			}),
 			testCompletionsFor('{ |, "a": 1}', schema, {
-				count: 3,
+				count: 2,
 				items: [
 					{ label: 'b', documentation: 'B', resultText: '{ "b": "$1", "a": 1}'},
 					{ label: 'c', documentation: 'C', resultText: '{ "c": ${1:false}, "a": 1}'}
+				]
+			}),
+			testCompletionsFor('{ "a": 1 "b|"}', schema, {
+				items: [
+					{ label: 'b', documentation: 'B', resultText: '{ "a": 1 "b": "$1"}'},
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
