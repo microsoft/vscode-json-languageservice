@@ -749,9 +749,9 @@ export class ObjectASTNode extends ASTNode {
 			Object.keys(schema.dependencies).forEach((key: string) => {
 				let prop = seenKeys[key];
 				if (prop) {
-					if (Array.isArray(schema.dependencies[key])) {
-						let valueAsArray: string[] = schema.dependencies[key];
-						valueAsArray.forEach((requiredProp: string) => {
+					let propertyDep = schema.dependencies[key]
+					if (Array.isArray(propertyDep)) {
+						propertyDep.forEach((requiredProp: string) => {
 							if (!seenKeys[requiredProp]) {
 								validationResult.problems.push({
 									location: { start: this.start, end: this.end },
@@ -762,10 +762,9 @@ export class ObjectASTNode extends ASTNode {
 								validationResult.propertiesValueMatches++;
 							}
 						});
-					} else if (schema.dependencies[key]) {
-						let valueAsSchema: JSONSchema = schema.dependencies[key];
+					} else if (propertyDep) {
 						let propertyvalidationResult = new ValidationResult();
-						this.validate(valueAsSchema, propertyvalidationResult, matchingSchemas, offset);
+						this.validate(propertyDep, propertyvalidationResult, matchingSchemas, offset);
 						validationResult.mergePropertyMatch(propertyvalidationResult);
 					}
 				}
