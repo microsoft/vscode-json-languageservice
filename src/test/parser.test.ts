@@ -1250,4 +1250,100 @@ suite('JSON Parser', () => {
 		assertParse('{\n"far": "boo"\n}', 0);
 	});
 
+	test('validate alternatives', function () {
+		var schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'key': {
+					oneOf: [{
+						type: 'object',
+						properties: {
+							type: {
+								enum: ['foo']
+							},
+							prop1: {
+								type: 'boolean'
+							},
+							prop2: {
+								type: 'boolean'
+							}
+						}
+					}, {
+						type: 'object',
+						properties: {
+							type: {
+								enum: ['bar']
+							},						
+							prop2: {
+								type: 'number'
+							}
+						}
+					}]
+				}
+			}
+		};
+
+		var result = Parser.parse('{"key":{"type":"foo", "prop2":1 }}');
+		assert.strictEqual(result.syntaxErrors.length, 0);
+
+		let semanticErrors = result.validate(schema, []);
+		assert.strictEqual(semanticErrors.length, 1);
+		assert.strictEqual(semanticErrors[0].message, 'Incorrect type. Expected "boolean"');
+
+		var result = Parser.parse('{"key":{"type":"bar", "prop1":true, "prop2":false }}');
+		assert.strictEqual(result.syntaxErrors.length, 0);
+
+		semanticErrors = result.validate(schema, []);
+		assert.strictEqual(semanticErrors.length, 1);
+		assert.strictEqual(semanticErrors[0].message, 'Incorrect type. Expected "number"');		
+	});	
+
+	test('validate alternatives 2', function () {
+		var schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'key': {
+					oneOf: [{
+						type: 'object',
+						properties: {
+							type: {
+								enum: ['foo']
+							},
+							prop1: {
+								enum: ['v1, v2']
+							},
+							prop2: {
+								enum: ['w1', 'w2']
+							}
+						}
+					}, {
+						type: 'object',
+						properties: {
+							type: {
+								enum: ['bar']
+							},						
+							prop2: {
+								enum: ['x1', 'x2']
+							}
+						}
+					}]
+				}
+			}
+		};
+
+		var result = Parser.parse('{"key":{"type":"foo", "prop2":"x1" }}');
+		assert.strictEqual(result.syntaxErrors.length, 0);
+
+		let semanticErrors = result.validate(schema, []);
+		assert.strictEqual(semanticErrors.length, 1);
+		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "w1", "w2"');
+
+		var result = Parser.parse('{"key":{"type":"bar", "prop1":"v1", "prop2":"w1" }}');
+		assert.strictEqual(result.syntaxErrors.length, 0);
+
+		semanticErrors = result.validate(schema, []);
+		assert.strictEqual(semanticErrors.length, 1);
+		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "x1", "x2"');		
+	});	
+
 });

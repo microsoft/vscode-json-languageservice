@@ -193,7 +193,7 @@ export class ASTNode {
 				} else {
 					if (!maxOneMatch && !subValidationResult.hasProblems() && !bestMatch.validationResult.hasProblems()) {
 						// no errors, both are equally good matches
-						bestMatch.matchingSchemas.push.apply(bestMatch.matchingSchemas, subMatchingSchemas);
+						bestMatch.matchingSchemas.push(...subMatchingSchemas);
 						bestMatch.validationResult.propertiesMatches += subValidationResult.propertiesMatches;
 						bestMatch.validationResult.propertiesValueMatches += subValidationResult.propertiesValueMatches;
 					} else {
@@ -203,8 +203,8 @@ export class ASTNode {
 							bestMatch = { schema: subSchema, validationResult: subValidationResult, matchingSchemas: subMatchingSchemas };
 						} else if (compareResult === 0) {
 							// there's already a best matching but we are as good
-							bestMatch.matchingSchemas.push.apply(bestMatch.matchingSchemas, subMatchingSchemas);
-							bestMatch.validationResult.mergeEnumValueMismatch(subValidationResult);
+							bestMatch.matchingSchemas.push(...subMatchingSchemas);
+							bestMatch.validationResult.mergeEnumValues(subValidationResult);
 						}
 					}
 				}
@@ -243,6 +243,8 @@ export class ASTNode {
 					break;
 				}
 			}
+			validationResult.enumValues = schema.enum;
+			validationResult.enumValueMatch = enumValueMatch;
 			if (!enumValueMatch) {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
@@ -250,9 +252,6 @@ export class ASTNode {
 					code: ErrorCode.EnumValueMismatch,
 					message: schema.errorMessage || localize('enumWarning', 'Value is not accepted. Valid values: {0}', schema.enum.map(v => JSON.stringify(v)).join(', '))
 				});
-				validationResult.mismatchedEnumValues = schema.enum;
-			} else {
-				validationResult.enumValueMatch = true;
 			}
 		}
 
@@ -789,20 +788,26 @@ export interface IApplicableSchema {
 	schema: JSONSchema;
 }
 
+export enum EnumMatch {
+	Key, Enum
+}
+
 export class ValidationResult {
 	public problems: IProblem[];
 
 	public propertiesMatches: number;
 	public propertiesValueMatches: number;
+	public primaryValueMatches: number;
 	public enumValueMatch: boolean;
-	public mismatchedEnumValues: any[];
+	public enumValues: any[];
 
 	constructor() {
 		this.problems = [];
 		this.propertiesMatches = 0;
 		this.propertiesValueMatches = 0;
+		this.primaryValueMatches = 0;
 		this.enumValueMatch = false;
-		this.mismatchedEnumValues = null;
+		this.enumValues = null;
 	}
 
 	public hasProblems(): boolean {
@@ -819,25 +824,25 @@ export class ValidationResult {
 		this.problems = this.problems.concat(validationResult.problems);
 	}
 
-	public mergeEnumValueMismatch(validationResult: ValidationResult): void {
-		if (this.mismatchedEnumValues && validationResult.mismatchedEnumValues) {
-			this.mismatchedEnumValues = this.mismatchedEnumValues.concat(validationResult.mismatchedEnumValues);
+	public mergeEnumValues(validationResult: ValidationResult): void {
+		if (!this.enumValueMatch && !validationResult.enumValueMatch && this.enumValues && validationResult.enumValues) {
+			this.enumValues = this.enumValues.concat(validationResult.enumValues);
 			for (let error of this.problems) {
 				if (error.code === ErrorCode.EnumValueMismatch) {
-					error.message = localize('enumWarning', 'Value is not accepted. Valid values: {0}', JSON.stringify(this.mismatchedEnumValues))
+					error.message = localize('enumWarning', 'Value is not accepted. Valid values: {0}', JSON.stringify(this.enumValues))
 				}
 			}
-		} else {
-			this.mismatchedEnumValues = null;
 		}
 	}
-
 
 	public mergePropertyMatch(propertyValidationResult: ValidationResult): void {
 		this.merge(propertyValidationResult);
 		this.propertiesMatches++;
 		if (propertyValidationResult.enumValueMatch || !propertyValidationResult.hasProblems() && propertyValidationResult.propertiesMatches) {
 			this.propertiesValueMatches++;
+		}
+		if (propertyValidationResult.enumValueMatch && propertyValidationResult.enumValues && propertyValidationResult.enumValues.length === 1) {
+			this.primaryValueMatches++;
 		}
 	}
 
@@ -848,6 +853,9 @@ export class ValidationResult {
 		}
 		if (this.enumValueMatch !== other.enumValueMatch) {
 			return other.enumValueMatch ? -1 : 1;
+		}
+		if (this.primaryValueMatches !== other.primaryValueMatches) {
+			return this.primaryValueMatches - other.primaryValueMatches;
 		}
 		if (this.propertiesValueMatches !== other.propertiesValueMatches) {
 			return this.propertiesValueMatches - other.propertiesValueMatches;
