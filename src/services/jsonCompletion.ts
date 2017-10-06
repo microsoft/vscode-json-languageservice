@@ -177,7 +177,7 @@ export class JSONCompletion {
 			let types: {[type:string]: boolean} = {};
 			if (schema) {
 				// value proposals with schema
-				this.getValueCompletions(schema, doc, node, offset, separatorAfter, collector, types);
+				this.getValueCompletions(schema, doc, node, offset, separatorAfter, document, collector, types);
 			} else {
 				// value proposals without schema
 				this.getSchemaLessValueCompletions(doc, node, offset, separatorAfter, document, collector);
@@ -361,7 +361,7 @@ export class JSONCompletion {
 	}
 
 
-	private getValueCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, separatorAfter: string, collector: CompletionsCollector, types: {[type:string]: boolean}): void {
+	private getValueCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, separatorAfter: string, document: TextDocument, collector: CompletionsCollector, types: {[type:string]: boolean}): void {
 		if (!node) {
 			this.addSchemaValueCompletions(schema.schema, '', collector, types);
 		} else {
@@ -382,7 +382,14 @@ export class JSONCompletion {
 				matchingSchemas.forEach(s => {
 					if (s.node === node && !s.inverted && s.schema) {
 						if (s.schema.items) {
-							this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types);
+							if (Array.isArray(s.schema.items)) {
+								let index = this.findItemAtOffset(node, document, offset);
+								if (index < s.schema.items.length) {
+									this.addSchemaValueCompletions(s.schema.items[index], separatorAfter, collector, types);
+								}
+							} else {
+								this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types);
+							}
 						}
 						if (s.schema.properties) {
 							let propertySchema = s.schema.properties[parentKey];
@@ -749,6 +756,25 @@ export class JSONCompletion {
 				return ',';
 		}
 	}
+
+	private findItemAtOffset(node: Parser.ASTNode, document: TextDocument, offset: number) {
+		let scanner = Json.createScanner(document.getText(), true);
+		let children = node.getChildNodes();
+		for (let i = children.length - 1; i >= 0; i--) {
+			let child = children[i];
+			if (offset > child.end) {
+				scanner.setPosition(child.end);
+				let token = scanner.scan();
+				if (token === Json.SyntaxKind.CommaToken && offset >= scanner.getTokenOffset() + scanner.getTokenLength()) {
+					return i + 1;
+				}
+				return i;
+			} else if (offset >= child.start) {
+				return i;
+			}
+		}
+		return 0;
+	}	
 
 	private isInComment(document: TextDocument, start: number, offset: number) {
 		let scanner = Json.createScanner(document.getText(), false);

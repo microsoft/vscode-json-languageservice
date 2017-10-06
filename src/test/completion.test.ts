@@ -8,8 +8,8 @@ import assert = require('assert');
 import JsonSchema = require('../jsonSchema');
 import * as jsonLanguageService from '../jsonLanguageService';
 
-import {CompletionList, CompletionItemKind, TextDocument, Position, TextEdit, InsertTextFormat} from 'vscode-languageserver-types';
-import {applyEdits} from './textEditSupport';
+import { CompletionList, CompletionItemKind, TextDocument, Position, TextEdit, InsertTextFormat } from 'vscode-languageserver-types';
+import { applyEdits } from './textEditSupport';
 
 interface ItemDescription {
 	label: string;
@@ -18,7 +18,7 @@ interface ItemDescription {
 	kind?: CompletionItemKind;
 	resultText?: string;
 	notAvailable?: boolean;
-}	
+}
 
 let assertCompletion = function (completions: CompletionList, expected: ItemDescription, document: TextDocument, offset: number) {
 	let matches = completions.items.filter(completion => {
@@ -40,7 +40,7 @@ let assertCompletion = function (completions: CompletionList, expected: ItemDesc
 		assert.equal(match.kind, expected.kind);
 	}
 	if (expected.resultText) {
-		assert.equal(applyEdits(document, [ match.textEdit ]), expected.resultText);
+		assert.equal(applyEdits(document, [match.textEdit]), expected.resultText);
 	}
 };
 
@@ -76,7 +76,7 @@ suite('JSON Completion', () => {
 		});
 	};
 
-	test('Complete keys no schema', function(testDone) {
+	test('Complete keys no schema', function (testDone) {
 		Promise.all([
 			testCompletionsFor('[ { "name": "John", "age": 44 }, { | }', null, {
 				count: 2,
@@ -114,13 +114,13 @@ suite('JSON Completion', () => {
 			testCompletionsFor('[ { "name": "John", "address": { "street" : "MH Road", "number" : 5 } }, { "name": "Jack", "address": { "street" : "100 Feet Road", | }', null, {
 				count: 1,
 				items: [
-					{ label: 'number', resultText: '[ { "name": "John", "address": { "street" : "MH Road", "number" : 5 } }, { "name": "Jack", "address": { "street" : "100 Feet Road", "number" }'}
+					{ label: 'number', resultText: '[ { "name": "John", "address": { "street" : "MH Road", "number" : 5 } }, { "name": "Jack", "address": { "street" : "100 Feet Road", "number" }' }
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Complete values no schema', function(testDone) {
+	test('Complete values no schema', function (testDone) {
 		Promise.all([
 			testCompletionsFor('[ { "name": "John", "age": 44 }, { "name": |', null, {
 				count: 1,
@@ -139,22 +139,22 @@ suite('JSON Completion', () => {
 			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "|" } ]', null, {
 				count: 2,
 				items: [
-					{ label: '"foo"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "foo" } ]'},
-					{ label: '"bar"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "bar" } ]'}
+					{ label: '"foo"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "foo" } ]' },
+					{ label: '"bar"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "bar" } ]' }
 				]
 			}),
 			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "f|" } ]', null, {
 				count: 2,
 				items: [
-					{ label: '"foo"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "foo" } ]'},
-					{ label: '"bar"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "bar" } ]'}
+					{ label: '"foo"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "foo" } ]' },
+					{ label: '"bar"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "bar" } ]' }
 				]
 			}),
 			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "xoo"|, "o": 1 } ]', null, {
 				count: 2,
 				items: [
-					{ label: '"foo"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "foo", "o": 1 } ]'},
-					{ label: '"bar"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "bar", "o": 1 } ]'}
+					{ label: '"foo"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "foo", "o": 1 } ]' },
+					{ label: '"bar"', resultText: '[ { "data": "foo" }, { "data": "bar" }, { "data": "bar", "o": 1 } ]' }
 				]
 			}),
 			testCompletionsFor('[ { "data": "foo" }, { "data": "bar" }, { "data": "xoo"  | } ]', null, {
@@ -163,7 +163,7 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Complete keys with schema', function(testDone) {
+	test('Complete keys with schema', function (testDone) {
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
@@ -217,27 +217,27 @@ suite('JSON Completion', () => {
 			testCompletionsFor('{ "a": 1,|}', schema, {
 				count: 2,
 				items: [
-					{ label: 'b', documentation: 'B', resultText: '{ "a": 1,"b": "$1"}'},
-					{ label: 'c', documentation: 'C', resultText: '{ "a": 1,"c": ${1:false}}'}
+					{ label: 'b', documentation: 'B', resultText: '{ "a": 1,"b": "$1"}' },
+					{ label: 'c', documentation: 'C', resultText: '{ "a": 1,"c": ${1:false}}' }
 				]
 			}),
 			testCompletionsFor('{ |, "a": 1}', schema, {
 				count: 2,
 				items: [
-					{ label: 'b', documentation: 'B', resultText: '{ "b": "$1", "a": 1}'},
-					{ label: 'c', documentation: 'C', resultText: '{ "c": ${1:false}, "a": 1}'}
+					{ label: 'b', documentation: 'B', resultText: '{ "b": "$1", "a": 1}' },
+					{ label: 'c', documentation: 'C', resultText: '{ "c": ${1:false}, "a": 1}' }
 				]
 			}),
 			testCompletionsFor('{ "a": 1 "b|"}', schema, {
 				items: [
-					{ label: 'b', documentation: 'B', resultText: '{ "a": 1 "b": "$1"}'},
+					{ label: 'b', documentation: 'B', resultText: '{ "a": 1 "b": "$1"}' },
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 
 	});
 
-	test('Complete value with schema', function(testDone) {
+	test('Complete value with schema', function (testDone) {
 
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
@@ -279,7 +279,7 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Complete array value with schema', function(testDone) {
+	test('Complete array value with schema', function (testDone) {
 
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
@@ -288,7 +288,7 @@ suite('JSON Completion', () => {
 					type: 'array',
 					items: {
 						type: 'number',
-						enum: [ 1, 2 ]
+						enum: [1, 2]
 					}
 				}
 			}
@@ -311,11 +311,53 @@ suite('JSON Completion', () => {
 					{ label: '1', resultText: '{ "c": [ 1, 1] }' },
 					{ label: '2', resultText: '{ "c": [ 2, 1] }' }
 				]
-			}),	
+			}),
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Complete value with schema: booleans, null', function(testDone) {
+	test('Complete array value with schema 2', function (testDone) {
+
+		let schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'c': {
+					type: 'array',
+					items: [
+						{ enum: [1, 2] }, { enum: [3, 4] }, { enum: [5, 6] }
+					]
+				}
+			}
+		};
+		Promise.all([
+			testCompletionsFor('{ "c": [ | ] }', schema, {
+				items: [
+					{ label: '1', resultText: '{ "c": [ 1 ] }' },
+					{ label: '2', resultText: '{ "c": [ 2 ] }' }
+				]
+			}),
+			testCompletionsFor('{ "c": [ 1, | ] }', schema, {
+				items: [
+					{ label: '3', resultText: '{ "c": [ 1, 3 ] }' },
+					{ label: '4', resultText: '{ "c": [ 1, 4 ] }' }
+				]
+			}),
+			testCompletionsFor('{ "c": [ 1, 3, 6| ] }', schema, {
+				items: [
+					{ label: '5', resultText: '{ "c": [ 1, 3, 5 ] }' },
+					{ label: '6', resultText: '{ "c": [ 1, 3, 6 ] }' }
+				]
+			}),
+			testCompletionsFor('{ "c": [ | 1] }', schema, {
+				items: [
+					{ label: '1', resultText: '{ "c": [ 1, 1] }' },
+					{ label: '2', resultText: '{ "c": [ 2, 1] }' }
+				]
+			}),
+		]).then(() => testDone(), (error) => testDone(error));
+	});
+
+
+	test('Complete value with schema: booleans, null', function (testDone) {
 
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
@@ -347,7 +389,7 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Complete with nested schema', function(testDone) {
+	test('Complete with nested schema', function (testDone) {
 
 		let content = '{|}';
 		let schema: JsonSchema.JSONSchema = {
@@ -364,21 +406,21 @@ suite('JSON Completion', () => {
 					},
 				}
 			}, {
-					type: 'array'
-				}]
+				type: 'array'
+			}]
 		};
 		Promise.all([
 			testCompletionsFor(content, schema, {
 				count: 2,
 				items: [
-					{ label: 'a', documentation: 'A'},
-					{ label: 'b', documentation: 'B'}
+					{ label: 'a', documentation: 'A' },
+					{ label: 'b', documentation: 'B' }
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Complete with required anyOf', function(testDone) {
+	test('Complete with required anyOf', function (testDone) {
 
 		let schema: JsonSchema.JSONSchema = {
 			anyOf: [{
@@ -395,40 +437,40 @@ suite('JSON Completion', () => {
 					},
 				}
 			}, {
-					type: 'object',
-					required: ['c', 'd'],
-					properties: {
-						'c': {
-							type: 'string',
-							description: 'C'
-						},
-						'd': {
-							type: 'string',
-							description: 'D'
-						},
-					}
-				}]
+				type: 'object',
+				required: ['c', 'd'],
+				properties: {
+					'c': {
+						type: 'string',
+						description: 'C'
+					},
+					'd': {
+						type: 'string',
+						description: 'D'
+					},
+				}
+			}]
 		};
 		Promise.all([
 			testCompletionsFor('{|}', schema, {
 				count: 4,
 				items: [
-					{ label: 'a', documentation: 'A'},
-					{ label: 'b', documentation: 'B'},
-					{ label: 'c', documentation: 'C'},
-					{ label: 'd', documentation: 'D'}
+					{ label: 'a', documentation: 'A' },
+					{ label: 'b', documentation: 'B' },
+					{ label: 'c', documentation: 'C' },
+					{ label: 'd', documentation: 'D' }
 				]
 			}),
 			testCompletionsFor('{ "a": "", |}', schema, {
 				count: 1,
 				items: [
-					{ label: 'b', documentation: 'B'}
+					{ label: 'b', documentation: 'B' }
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Complete with anyOf', function(testDone) {
+	test('Complete with anyOf', function (testDone) {
 
 		let schema: JsonSchema.JSONSchema = {
 			anyOf: [{
@@ -442,36 +484,36 @@ suite('JSON Completion', () => {
 					},
 				}
 			}, {
-					type: 'object',
-					properties: {
-						'type': {
-							enum: ['appartment']
-						},
-						'c': {
-							type: 'string'
-						},
-					}
-				}]
+				type: 'object',
+				properties: {
+					'type': {
+						enum: ['appartment']
+					},
+					'c': {
+						type: 'string'
+					},
+				}
+			}]
 		};
 		Promise.all([
 			testCompletionsFor('{|}', schema, {
 				count: 3,
 				items: [
-					{ label: 'type'},
-					{ label: 'b'},
-					{ label: 'c'}
+					{ label: 'type' },
+					{ label: 'b' },
+					{ label: 'c' }
 				]
 			}),
 			testCompletionsFor('{ "type": "appartment", |}', schema, {
 				count: 1,
 				items: [
-					{ label: 'c'}
+					{ label: 'c' }
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Complete with oneOf', function(testDone) {
+	test('Complete with oneOf', function (testDone) {
 
 		let schema: JsonSchema.JSONSchema = {
 			oneOf: [{
@@ -484,59 +526,59 @@ suite('JSON Completion', () => {
 						}
 					}
 				},
-					{
-						anyOf: [{
-							properties: {
-								'b1': {
-									type: 'string',
-									description: 'B1'
-								}
-							},
-						}, {
-								properties: {
-									'b2': {
-										type: 'string',
-										description: 'B2'
-									}
-								},
-							}]
+				{
+					anyOf: [{
+						properties: {
+							'b1': {
+								type: 'string',
+								description: 'B1'
+							}
+						},
+					}, {
+						properties: {
+							'b2': {
+								type: 'string',
+								description: 'B2'
+							}
+						},
 					}]
-			}, {
-					type: 'object',
-					properties: {
-						'c': {
-							type: 'string',
-							description: 'C'
-						},
-						'd': {
-							type: 'string',
-							description: 'D'
-						},
-					}
 				}]
+			}, {
+				type: 'object',
+				properties: {
+					'c': {
+						type: 'string',
+						description: 'C'
+					},
+					'd': {
+						type: 'string',
+						description: 'D'
+					},
+				}
+			}]
 		};
 		Promise.all([
 			testCompletionsFor('{|}', schema, {
 				count: 5,
 				items: [
-					{ label: 'a', documentation: 'A'},
-					{ label: 'b1', documentation: 'B1'},
-					{ label: 'b2', documentation: 'B2'},
-					{ label: 'c', documentation: 'C'},
-					{ label: 'd', documentation: 'D'}
+					{ label: 'a', documentation: 'A' },
+					{ label: 'b1', documentation: 'B1' },
+					{ label: 'b2', documentation: 'B2' },
+					{ label: 'c', documentation: 'C' },
+					{ label: 'd', documentation: 'D' }
 				]
 			}),
 			testCompletionsFor('{ "b1": "", |}', schema, {
-			count: 2,
+				count: 2,
 				items: [
-					{ label: 'a', documentation: 'A'},
-					{ label: 'b2', documentation: 'B2'}
+					{ label: 'a', documentation: 'A' },
+					{ label: 'b2', documentation: 'B2' }
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Complete with oneOf and enums', function(testDone) {
+	test('Complete with oneOf and enums', function (testDone) {
 
 		let schema: JsonSchema.JSONSchema = {
 			oneOf: [{
@@ -561,79 +603,79 @@ suite('JSON Completion', () => {
 					'b': {}
 				},
 			}, {
-					type: 'object',
-					properties: {
-						'type': {
-							type: 'string',
-							enum: ['3']
-						},
-						'a': {
-							type: 'object',
-							properties: {
-								'x': {
-									type: 'string'
-								},
-								'z': {
-									type: 'string'
-								}
-							},
-							"required": ['x', 'z']
-						},
-						'c': {}
+				type: 'object',
+				properties: {
+					'type': {
+						type: 'string',
+						enum: ['3']
 					},
-				}]
+					'a': {
+						type: 'object',
+						properties: {
+							'x': {
+								type: 'string'
+							},
+							'z': {
+								type: 'string'
+							}
+						},
+						"required": ['x', 'z']
+					},
+					'c': {}
+				},
+			}]
 		};
 		Promise.all([
 			testCompletionsFor('{|}', schema, {
 				count: 4,
 				items: [
-					{ label: 'type'},
-					{ label: 'a'},
-					{ label: 'b'},
-					{ label: 'c'}
+					{ label: 'type' },
+					{ label: 'a' },
+					{ label: 'b' },
+					{ label: 'c' }
 				]
 			}),
 			testCompletionsFor('{ "type": |}', schema, {
 				count: 3,
 				items: [
-					{ label: '"1"'},
-					{ label: '"2"'},
-					{ label: '"3"'}
+					{ label: '"1"' },
+					{ label: '"2"' },
+					{ label: '"3"' }
 				]
 			}),
 			testCompletionsFor('{ "a": { "x": "", "y": "" }, "type": |}', schema, {
 				count: 2,
 				items: [
-					{ label: '"1"'},
-					{ label: '"2"'}
+					{ label: '"1"' },
+					{ label: '"2"' }
 				]
 			}),
 			testCompletionsFor('{ "type": "1", "a" : { | }', schema, {
 				count: 2,
 				items: [
-					{ label: 'x'},
-					{ label: 'y'}
+					{ label: 'x' },
+					{ label: 'y' }
 				]
 			}),
 			testCompletionsFor('{ "type": "1", "a" : { "x": "", "z":"" }, |', schema, {
 				// both alternatives have errors: intellisense proposes all options
 				count: 2,
 				items: [
-					{ label: 'b'},
-					{ label: 'c'}
+					{ label: 'b' },
+					{ label: 'c' }
 				]
 			}),
 			testCompletionsFor('{ "a" : { "x": "", "z":"" }, |', schema, {
 				count: 2,
 				items: [
-					{ label: 'type'},
-					{ label: 'c'}
+					{ label: 'type' },
+					{ label: 'c' }
 				]
 			}),
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Escaping no schema', function(testDone) {
+	test('Escaping no schema', function (testDone) {
 		Promise.all([
 			testCompletionsFor('[ { "\\\\${1:b}": "John" }, { "|" }', null, {
 				items: [
@@ -653,13 +695,13 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Escaping with schema', function(testDone) {
+	test('Escaping with schema', function (testDone) {
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'{\\}': {
 					default: "{\\}",
-					defaultSnippets: [ { body: "${1:let}"} ],
+					defaultSnippets: [{ body: "${1:let}" }],
 					enum: ['John{\\}']
 				}
 			}
@@ -681,7 +723,7 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Escaping with schema - #13716', function(testDone) {
+	test('Escaping with schema - #13716', function (testDone) {
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
@@ -698,9 +740,9 @@ suite('JSON Completion', () => {
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
-	});	
+	});
 
-	test('$schema', function(testDone) {
+	test('$schema', function (testDone) {
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 		};
@@ -713,7 +755,7 @@ suite('JSON Completion', () => {
 			}),
 			testCompletionsFor('{ "$schema": | }', schema, {
 				items: [
-					{ label: '"http://myschemastore/test1"', resultText:  '{ "$schema": "http://myschemastore/test1" }' }
+					{ label: '"http://myschemastore/test1"', resultText: '{ "$schema": "http://myschemastore/test1" }' }
 				]
 			}),
 			testCompletionsFor('{ "$schema": "|', schema, {
@@ -734,7 +776,7 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('root default proposals', function(testDone) {
+	test('root default proposals', function (testDone) {
 		let schema1: JsonSchema.JSONSchema = {
 			type: 'object',
 			default: {
@@ -747,17 +789,17 @@ suite('JSON Completion', () => {
 					default: {}
 				},
 				{
-					defaultSnippets: [ { label: 'def1', description: 'def1Desc', body: { hello: '${1:world}' }},
-									   { body: { "${1:hello}": [ "${2:world}"]} } ]
+					defaultSnippets: [{ label: 'def1', description: 'def1Desc', body: { hello: '${1:world}' } },
+					{ body: { "${1:hello}": ["${2:world}"] } }]
 				}
 			],
 			type: 'object',
 			default: {
 				hello: 'world'
 			}
-		};		
+		};
 		Promise.all([
-			testCompletionsFor('|', schema1,  {
+			testCompletionsFor('|', schema1, {
 				items: [
 					{ label: '{"hello":"world"}', resultText: '{\n\t"hello": "world"\n\\}' }
 				]
@@ -774,14 +816,14 @@ suite('JSON Completion', () => {
 
 	});
 
-	test('Default snippet', function(testDone) {
+	test('Default snippet', function (testDone) {
 		let schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			items: {
 				type: 'object',
-				defaultSnippets: [ 
-					{ label: 'foo', bodyText: '{\n\t"foo": "${1:b}"\n}'},
-					{ label: 'foo2', body: { key1: '^$1'} }
+				defaultSnippets: [
+					{ label: 'foo', bodyText: '{\n\t"foo": "${1:b}"\n}' },
+					{ label: 'foo2', body: { key1: '^$1' } }
 				]
 			}
 		};
@@ -796,7 +838,7 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Deprecation message', function(testDone) {
+	test('Deprecation message', function (testDone) {
 		var schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
@@ -813,20 +855,20 @@ suite('JSON Completion', () => {
 			testCompletionsFor('{ |', schema, {
 				items: [
 					{ label: 'prop2' },
-					{ label: 'prop1', notAvailable: true}
+					{ label: 'prop1', notAvailable: true }
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
-	});	
+	});
 
 
-	test('Enum description', function(testDone) {
+	test('Enum description', function (testDone) {
 		var schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop1': {
-					enum: ['e1', 'e2', 'e3' ],
-					enumDescriptions: ['E1', 'E2', 'E3' ],
+					enum: ['e1', 'e2', 'e3'],
+					enumDescriptions: ['E1', 'E2', 'E3'],
 				},
 			}
 		};
@@ -839,9 +881,9 @@ suite('JSON Completion', () => {
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
-	});		
+	});
 
-	test('In comment', function(testDone) {
+	test('In comment', function (testDone) {
 		Promise.all([
 			testCompletionsFor('[{ "name": "John", "age": 44 }, { /* | */ }', null, {
 				count: 0
@@ -851,8 +893,8 @@ suite('JSON Completion', () => {
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
-	
-	test('DoNotSuggest', function(testDone) {
+
+	test('DoNotSuggest', function (testDone) {
 		var schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
@@ -876,7 +918,5 @@ suite('JSON Completion', () => {
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
-	});			
-
+	});
 });
-
