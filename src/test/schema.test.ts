@@ -676,7 +676,7 @@ suite('JSON Schema', () => {
 			let problems = document.validate(resolvedSchema.schema);
 
 			assert.equal(problems.length, 1);
-			assert.equal(problems[0].message, 'Missing property "computerName"');
+			assert.equal(problems[0].message, 'Missing property "computerName".');
 		}).then(() => testDone(), (error) => {
 			testDone(error);
 		});

@@ -139,7 +139,7 @@ export class ASTNode {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
-					message: schema.errorMessage || localize('typeArrayMismatchWarning', 'Incorrect type. Expected one of {0}', (<string[]>schema.type).join(', '))
+					message: schema.errorMessage || localize('typeArrayMismatchWarning', 'Incorrect type. Expected one of {0}.', (<string[]>schema.type).join(', '))
 				});
 			}
 		}
@@ -148,7 +148,7 @@ export class ASTNode {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
-					message: schema.errorMessage || localize('typeMismatchWarning', 'Incorrect type. Expected "{0}"', schema.type)
+					message: schema.errorMessage || localize('typeMismatchWarning', 'Incorrect type. Expected "{0}".', schema.type)
 				});
 			}
 		}
@@ -250,7 +250,7 @@ export class ASTNode {
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
 					code: ErrorCode.EnumValueMismatch,
-					message: schema.errorMessage || localize('enumWarning', 'Value is not accepted. Valid values: {0}', schema.enum.map(v => JSON.stringify(v)).join(', '))
+					message: schema.errorMessage || localize('enumWarning', 'Value is not accepted. Valid values: {0}.', schema.enum.map(v => JSON.stringify(v)).join(', '))
 				});
 			}
 		}
@@ -361,7 +361,7 @@ export class ArrayASTNode extends ASTNode {
 					validationResult.problems.push({
 						location: { start: this.start, end: this.end },
 						severity: ProblemSeverity.Warning,
-						message: localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer', subSchemas.length)
+						message: localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer.', subSchemas.length)
 					});
 				}
 			}
@@ -378,7 +378,7 @@ export class ArrayASTNode extends ASTNode {
 			validationResult.problems.push({
 				location: { start: this.start, end: this.end },
 				severity: ProblemSeverity.Warning,
-				message: localize('minItemsWarning', 'Array has too few items. Expected {0} or more', schema.minItems)
+				message: localize('minItemsWarning', 'Array has too few items. Expected {0} or more.', schema.minItems)
 			});
 		}
 
@@ -386,7 +386,7 @@ export class ArrayASTNode extends ASTNode {
 			validationResult.problems.push({
 				location: { start: this.start, end: this.end },
 				severity: ProblemSeverity.Warning,
-				message: localize('maxItemsWarning', 'Array has too many items. Expected {0} or fewer', schema.minItems)
+				message: localize('maxItemsWarning', 'Array has too many items. Expected {0} or fewer.', schema.minItems)
 			});
 		}
 
@@ -401,7 +401,7 @@ export class ArrayASTNode extends ASTNode {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
-					message: localize('uniqueItemsWarning', 'Array has duplicate items')
+					message: localize('uniqueItemsWarning', 'Array has duplicate items.')
 				});
 			}
 		}
@@ -446,7 +446,7 @@ export class NumberASTNode extends ASTNode {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
-					message: localize('multipleOfWarning', 'Value is not divisible by {0}', schema.multipleOf)
+					message: localize('multipleOfWarning', 'Value is not divisible by {0}.', schema.multipleOf)
 				});
 			}
 		}
@@ -456,14 +456,14 @@ export class NumberASTNode extends ASTNode {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
-					message: localize('exclusiveMinimumWarning', 'Value is below the exclusive minimum of {0}', schema.minimum)
+					message: localize('exclusiveMinimumWarning', 'Value is below the exclusive minimum of {0}.', schema.minimum)
 				});
 			}
 			if (!schema.exclusiveMinimum && val < schema.minimum) {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
-					message: localize('minimumWarning', 'Value is below the minimum of {0}', schema.minimum)
+					message: localize('minimumWarning', 'Value is below the minimum of {0}.', schema.minimum)
 				});
 			}
 		}
@@ -473,14 +473,14 @@ export class NumberASTNode extends ASTNode {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
-					message: localize('exclusiveMaximumWarning', 'Value is above the exclusive maximum of {0}', schema.maximum)
+					message: localize('exclusiveMaximumWarning', 'Value is above the exclusive maximum of {0}.', schema.maximum)
 				});
 			}
 			if (!schema.exclusiveMaximum && val > schema.maximum) {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
-					message: localize('maximumWarning', 'Value is above the maximum of {0}', schema.maximum)
+					message: localize('maximumWarning', 'Value is above the maximum of {0}.', schema.maximum)
 				});
 			}
 		}
@@ -512,7 +512,7 @@ export class StringASTNode extends ASTNode {
 			validationResult.problems.push({
 				location: { start: this.start, end: this.end },
 				severity: ProblemSeverity.Warning,
-				message: localize('minLengthWarning', 'String is shorter than the minimum length of {0}', schema.minLength)
+				message: localize('minLengthWarning', 'String is shorter than the minimum length of {0}.', schema.minLength)
 			});
 		}
 
@@ -520,7 +520,7 @@ export class StringASTNode extends ASTNode {
 			validationResult.problems.push({
 				location: { start: this.start, end: this.end },
 				severity: ProblemSeverity.Warning,
-				message: localize('maxLengthWarning', 'String is longer than the maximum length of {0}', schema.maxLength)
+				message: localize('maxLengthWarning', 'String is longer than the maximum length of {0}.', schema.maxLength)
 			});
 		}
 
@@ -530,7 +530,7 @@ export class StringASTNode extends ASTNode {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
-					message: schema.patternErrorMessage || schema.errorMessage || localize('patternWarning', 'String does not match the pattern of "{0}"', schema.pattern)
+					message: schema.patternErrorMessage || schema.errorMessage || localize('patternWarning', 'String does not match the pattern of "{0}".', schema.pattern)
 				});
 			}
 		}
@@ -657,7 +657,7 @@ export class ObjectASTNode extends ASTNode {
 					validationResult.problems.push({
 						location: location,
 						severity: ProblemSeverity.Warning,
-						message: localize('MissingRequiredPropWarning', 'Missing property "{0}"', propertyName)
+						message: localize('MissingRequiredPropWarning', 'Missing property "{0}".', propertyName)
 					});
 				}
 			});
@@ -723,7 +723,7 @@ export class ObjectASTNode extends ASTNode {
 						validationResult.problems.push({
 							location: { start: propertyNode.key.start, end: propertyNode.key.end },
 							severity: ProblemSeverity.Warning,
-							message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed', propertyName)
+							message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
 						});
 					}
 				});
@@ -735,7 +735,7 @@ export class ObjectASTNode extends ASTNode {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
-					message: localize('MaxPropWarning', 'Object has more properties than limit of {0}', schema.maxProperties)
+					message: localize('MaxPropWarning', 'Object has more properties than limit of {0}.', schema.maxProperties)
 				});
 			}
 		}
@@ -761,7 +761,7 @@ export class ObjectASTNode extends ASTNode {
 								validationResult.problems.push({
 									location: { start: this.start, end: this.end },
 									severity: ProblemSeverity.Warning,
-									message: localize('RequiredDependentPropWarning', 'Object is missing property {0} required by property {1}', requiredProp, key)
+									message: localize('RequiredDependentPropWarning', 'Object is missing property {0} required by property {1}.', requiredProp, key)
 								});
 							} else {
 								validationResult.propertiesValueMatches++;
@@ -829,7 +829,7 @@ export class ValidationResult {
 			this.enumValues = this.enumValues.concat(validationResult.enumValues);
 			for (let error of this.problems) {
 				if (error.code === ErrorCode.EnumValueMismatch) {
-					error.message = localize('enumWarning', 'Value is not accepted. Valid values: {0}', JSON.stringify(this.enumValues))
+					error.message = localize('enumWarning', 'Value is not accepted. Valid values: {0}.', this.enumValues.map(v => JSON.stringify(v)).join(', '));
 				}
 			}
 		}
@@ -908,7 +908,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 				case Json.SyntaxKind.LineCommentTrivia:
 				case Json.SyntaxKind.BlockCommentTrivia:
 					if (disallowComments) {
-						_error(localize('InvalidCommentTokem', 'Comments are not allowed'), ErrorCode.CommentsNotAllowed);
+						_error(localize('InvalidCommentTokem', 'Comments are not allowed.'), ErrorCode.CommentsNotAllowed);
 					}
 					break;
 				case Json.SyntaxKind.Trivia:
@@ -964,19 +964,19 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 	function _checkScanError(): boolean {
 		switch (scanner.getTokenError()) {
 			case Json.ScanError.InvalidUnicode:
-				_error(localize('InvalidUnicode', 'Invalid unicode sequence in string'), ErrorCode.InvalidUnicode);
+				_error(localize('InvalidUnicode', 'Invalid unicode sequence in string.'), ErrorCode.InvalidUnicode);
 				return true;
 			case Json.ScanError.InvalidEscapeCharacter:
-				_error(localize('InvalidEscapeCharacter', 'Invalid escape character in string'), ErrorCode.InvalidEscapeCharacter);
+				_error(localize('InvalidEscapeCharacter', 'Invalid escape character in string.'), ErrorCode.InvalidEscapeCharacter);
 				return true;
 			case Json.ScanError.UnexpectedEndOfNumber:
-				_error(localize('UnexpectedEndOfNumber', 'Unexpected end of number'), ErrorCode.UnexpectedEndOfNumber);
+				_error(localize('UnexpectedEndOfNumber', 'Unexpected end of number.'), ErrorCode.UnexpectedEndOfNumber);
 				return true;
 			case Json.ScanError.UnexpectedEndOfComment:
-				_error(localize('UnexpectedEndOfComment', 'Unexpected end of comment'), ErrorCode.UnexpectedEndOfComment);
+				_error(localize('UnexpectedEndOfComment', 'Unexpected end of comment.'), ErrorCode.UnexpectedEndOfComment);
 				return true;
 			case Json.ScanError.UnexpectedEndOfString:
-				_error(localize('UnexpectedEndOfString', 'Unexpected end of string'), ErrorCode.UnexpectedEndOfString);
+				_error(localize('UnexpectedEndOfString', 'Unexpected end of string.'), ErrorCode.UnexpectedEndOfString);
 				return true;
 			case Json.ScanError.InvalidCharacter:
 				_error(localize('InvalidCharacter', 'Invalid characters in string. Control characters must be escaped.'), ErrorCode.InvalidCharacter);
@@ -1109,11 +1109,11 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 			try {
 				let numberValue = JSON.parse(tokenValue);
 				if (typeof numberValue !== 'number') {
-					return _error(localize('InvalidNumberFormat', 'Invalid number format'), ErrorCode.Undefined, node);
+					return _error(localize('InvalidNumberFormat', 'Invalid number format.'), ErrorCode.Undefined, node);
 				}
 				node.value = numberValue;
 			} catch (e) {
-				return _error(localize('InvalidNumberFormat', 'Invalid number format'), ErrorCode.Undefined, node);
+				return _error(localize('InvalidNumberFormat', 'Invalid number format.'), ErrorCode.Undefined, node);
 			}
 			node.isInteger = tokenValue.indexOf('.') === -1;
 		}
@@ -1146,9 +1146,9 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 
 	let _root = _parseValue(null, null);
 	if (!_root) {
-		_error(localize('Invalid symbol', 'Expected a JSON object, array or literal'), ErrorCode.Undefined);
+		_error(localize('Invalid symbol', 'Expected a JSON object, array or literal.'), ErrorCode.Undefined);
 	} else if (scanner.getToken() !== Json.SyntaxKind.EOF) {
-		_error(localize('End of file expected', 'End of file expected'), ErrorCode.Undefined);
+		_error(localize('End of file expected', 'End of file expected.'), ErrorCode.Undefined);
 	}
 	return new JSONDocument(_root, problems);
 }

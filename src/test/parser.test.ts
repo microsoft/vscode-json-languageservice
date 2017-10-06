@@ -1288,14 +1288,14 @@ suite('JSON Parser', () => {
 
 		let semanticErrors = result.validate(schema, []);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'Incorrect type. Expected "boolean"');
+		assert.strictEqual(semanticErrors[0].message, 'Incorrect type. Expected "boolean".');
 
 		var result = Parser.parse('{"key":{"type":"bar", "prop1":true, "prop2":false }}');
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		semanticErrors = result.validate(schema, []);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'Incorrect type. Expected "number"');		
+		assert.strictEqual(semanticErrors[0].message, 'Incorrect type. Expected "number".');		
 	});	
 
 	test('validate alternatives 2', function () {
@@ -1336,14 +1336,36 @@ suite('JSON Parser', () => {
 
 		let semanticErrors = result.validate(schema, []);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "w1", "w2"');
+		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "w1", "w2".');
 
 		var result = Parser.parse('{"key":{"type":"bar", "prop1":"v1", "prop2":"w1" }}');
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		semanticErrors = result.validate(schema, []);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "x1", "x2"');		
+		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "x1", "x2".');		
+	});	
+
+	test('enum value merge', function () {
+		var schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'key': {
+					oneOf: [{
+						enum: ["a", "b"]
+					},{
+						enum: ["c", "d"]
+					}]
+				}
+			}
+		};
+
+		var result = Parser.parse('{"key":3 }');
+		assert.strictEqual(result.syntaxErrors.length, 0);
+
+		let semanticErrors = result.validate(schema, []);
+		assert.strictEqual(semanticErrors.length, 1);
+		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "a", "b", "c", "d".');	
 	});	
 
 });
