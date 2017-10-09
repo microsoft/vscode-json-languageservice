@@ -66,7 +66,7 @@ suite('JSON Completion', () => {
 		let jsonDoc = ls.parseJSONDocument(document);
 		return ls.doComplete(document, position, jsonDoc).then(list => {
 			if (expected.count) {
-				assert.equal(list.items.length, expected.count, value);
+				assert.equal(list.items.length, expected.count, value + ' ' + list.items.map(i => i.label).join(', '));
 			}
 			if (expected.items) {
 				for (let item of expected.items) {
@@ -839,7 +839,7 @@ suite('JSON Completion', () => {
 	});
 
 	test('Deprecation message', function (testDone) {
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop1': {
@@ -863,7 +863,7 @@ suite('JSON Completion', () => {
 
 
 	test('Enum description', function (testDone) {
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop1': {
@@ -895,7 +895,7 @@ suite('JSON Completion', () => {
 	});
 
 	test('DoNotSuggest', function (testDone) {
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop1': {
@@ -915,6 +915,55 @@ suite('JSON Completion', () => {
 				items: [
 					{ label: 'prop2' },
 					{ label: 'prop3' }
+				]
+			})
+		]).then(() => testDone(), (error) => testDone(error));
+	});
+
+	test('Primary property', function (testDone) {
+		let schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			oneOf: [{
+
+				properties: {
+					type: {
+						enum: ['foo'],
+					},
+					prop1: {
+						enum: ['e1', 'e2']
+					}
+				}
+
+			}, {
+				type: 'object',
+				properties: {
+					type: {
+						enum: ['bar'],
+					},
+					prop1: {
+						enum: ['f1', 'f2']
+					}
+				}
+			}]
+		};
+
+		Promise.all([
+			testCompletionsFor('{ "type": |', schema, {
+				items: [
+					{ label: '"foo"' },
+					{ label: '"bar"' }
+				]
+			}),
+			testCompletionsFor('{ "type": "f|', schema, {
+				items: [
+					{ label: '"foo"' },
+					{ label: '"bar"' }
+				]
+			}),
+			testCompletionsFor('{ "type": "foo|"', schema, {
+				items: [
+					{ label: '"foo"' },
+					{ label: '"bar"' }
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
