@@ -12,12 +12,12 @@ import JsonSchema = require('../jsonSchema');
 suite('JSON Parser', () => {
 
 	function isValid(json: string): void {
-		var result = Parser.parse(json);
+		let result = Parser.parse(json);
 		assert.equal(result.syntaxErrors.length, 0);
 	}
 
 	function isInvalid(json: string, ...expectedErrors: Parser.ErrorCode[]): void {
-		var result = Parser.parse(json);
+		let result = Parser.parse(json);
 		if (expectedErrors.length === 0) {
 			assert.ok(result.syntaxErrors.length > 0, json);
 		} else {
@@ -29,7 +29,7 @@ suite('JSON Parser', () => {
 
 
 	test('Invalid body', function () {
-		var result = Parser.parse('*');
+		let result = Parser.parse('*');
 		assert.equal(result.syntaxErrors.length, 1);
 
 		isInvalid('{}[]');
@@ -98,11 +98,11 @@ suite('JSON Parser', () => {
 
 	test('Simple AST', function () {
 
-		var result = Parser.parse('{}');
+		let result = Parser.parse('{}');
 
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		var node = result.getNodeFromOffset(1);
+		let node = result.getNodeFromOffset(1);
 
 		assert.equal(node.type, 'object');
 		assert.deepEqual(node.getPath(), []);
@@ -147,13 +147,13 @@ suite('JSON Parser', () => {
 
 	test('Nested AST', function () {
 
-		var content = '{\n\t"key" : {\n\t"key2": 42\n\t}\n}';
-		var result = Parser.parse(content);
+		let content = '{\n\t"key" : {\n\t"key2": 42\n\t}\n}';
+		let result = Parser.parse(content);
 
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		var node = result.getNodeFromOffset(content.indexOf('key2') + 2);
-		var location = node.getPath();
+		let node = result.getNodeFromOffset(content.indexOf('key2') + 2);
+		let location = node.getPath();
 
 		assert.deepEqual(location, ['key', 'key2']);
 
@@ -165,12 +165,12 @@ suite('JSON Parser', () => {
 
 	test('Nested AST in Array', function () {
 
-		var result = Parser.parse('{"key":[{"key2":42}]}');
+		let result = Parser.parse('{"key":[{"key2":42}]}');
 
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		var node = result.getNodeFromOffset(17);
-		var location = node.getPath();
+		let node = result.getNodeFromOffset(17);
+		let location = node.getPath();
 
 		assert.deepEqual(location, ['key', 0, 'key2']);
 
@@ -178,12 +178,12 @@ suite('JSON Parser', () => {
 
 	test('Multiline', function () {
 
-		var content = '{\n\t\n}';
-		var result = Parser.parse(content);
+		let content = '{\n\t\n}';
+		let result = Parser.parse(content);
 
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		var node = result.getNodeFromOffset(content.indexOf('\t') + 1);
+		let node = result.getNodeFromOffset(content.indexOf('\t') + 1);
 
 		assert.notEqual(node, null);
 
@@ -199,8 +199,8 @@ suite('JSON Parser', () => {
 
 	test('Expand errors to entire tokens', function () {
 
-		var content = '{\n"key":32,\nerror\n}';
-		var result = Parser.parse(content);
+		let content = '{\n"key":32,\nerror\n}';
+		let result = Parser.parse(content);
 		assert.equal(result.syntaxErrors.length, 1);
 		assert.equal(result.syntaxErrors[0].location.start, content.indexOf('error'));
 		assert.equal(result.syntaxErrors[0].location.end, content.indexOf('error') + 5);
@@ -208,8 +208,8 @@ suite('JSON Parser', () => {
 
 	test('Errors at the end of the file', function () {
 
-		var content = '{\n"key":32\n ';
-		var result = Parser.parse(content);
+		let content = '{\n"key":32\n ';
+		let result = Parser.parse(content);
 		assert.equal(result.syntaxErrors.length, 1);
 		assert.equal(result.syntaxErrors[0].location.start, 9);
 		assert.equal(result.syntaxErrors[0].location.end, 10);
@@ -217,20 +217,20 @@ suite('JSON Parser', () => {
 
 	test('Getting keys out of an object', function () {
 
-		var content = '{\n"key":32,\n\n"key2":45}';
-		var result = Parser.parse(content);
+		let content = '{\n"key":32,\n\n"key2":45}';
+		let result = Parser.parse(content);
 		assert.equal(result.syntaxErrors.length, 0);
-		var node = result.getNodeFromOffset(content.indexOf('32,\n') + 4);
+		let node = result.getNodeFromOffset(content.indexOf('32,\n') + 4);
 
 		assert.equal(node.type, 'object');
-		var keyList = (<Parser.ObjectASTNode>node).getKeyList();
+		let keyList = (<Parser.ObjectASTNode>node).getKeyList();
 		assert.deepEqual(keyList, ['key', 'key2']);
 	});
 
 	test('Validate types', function () {
 
-		var str = '{"number": 3.4, "integer": 42, "string": "some string", "boolean":true, "null":null, "object":{}, "array":[1, 2]}';
-		var result = Parser.parse(str);
+		let str = '{"number": 3.4, "integer": 42, "string": "some string", "boolean":true, "null":null, "object":{}, "array":[1, 2]}';
+		let result = Parser.parse(str);
 
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
@@ -357,7 +357,7 @@ suite('JSON Parser', () => {
 
 	test('Required properties', function () {
 
-		var result = Parser.parse('{"integer": 42, "string": "some string", "boolean":true}');
+		let result = Parser.parse('{"integer": 42, "string": "some string", "boolean":true}');
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		let semanticErrors = result.validate({
@@ -377,7 +377,7 @@ suite('JSON Parser', () => {
 
 	test('Arrays', function () {
 
-		var result = Parser.parse('[1, 2, 3]');
+		let result = Parser.parse('[1, 2, 3]');
 
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
@@ -416,7 +416,7 @@ suite('JSON Parser', () => {
 
 	test('Strings', function () {
 
-		var result = Parser.parse('{"one":"test"}');
+		let result = Parser.parse('{"one":"test"}');
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		let semanticErrors = result.validate({
@@ -484,7 +484,7 @@ suite('JSON Parser', () => {
 
 	test('Numbers', function () {
 
-		var result = Parser.parse('{"one": 13.45e+1}');
+		let result = Parser.parse('{"one": 13.45e+1}');
 
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
@@ -566,27 +566,27 @@ suite('JSON Parser', () => {
 	});
 
 	test('getNodeFromOffset', function () {
-		var content = '{"a": 1,\n\n"d": 2}';
-		var doc = Parser.parse(content);
+		let content = '{"a": 1,\n\n"d": 2}';
+		let doc = Parser.parse(content);
 
 		assert.strictEqual(doc.syntaxErrors.length, 0);
 
-		var node = doc.getNodeFromOffset(content.indexOf(': 2') + 1);
+		let node = doc.getNodeFromOffset(content.indexOf(': 2') + 1);
 
 		assert.strictEqual(node.type, 'property');
 	});
 
 
 	test('Duplicate keys', function () {
-		var doc = Parser.parse('{"a": 1, "a": 2}');
+		let doc = Parser.parse('{"a": 1, "a": 2}');
 
 		assert.strictEqual(doc.syntaxErrors.length, 1, 'Keys should not be the same');
 
-		var doc = Parser.parse('{"a": { "a": 2, "a": 3}}');
+		doc = Parser.parse('{"a": { "a": 2, "a": 3}}');
 
 		assert.strictEqual(doc.syntaxErrors.length, 1, 'Keys should not be the same');
 
-		var doc = Parser.parse('[{ "a": 2, "a": 3}]');
+		doc = Parser.parse('[{ "a": 2, "a": 3}]');
 
 		assert.strictEqual(doc.syntaxErrors.length, 1, 'Keys should not be the same');
 
@@ -594,10 +594,10 @@ suite('JSON Parser', () => {
 
 	test('allOf', function () {
 
-		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
+		let doc = Parser.parse('{"prop1": 42, "prop2": true}');
 		assert.strictEqual(doc.syntaxErrors.length, 0);
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			allOf: [
 				{
@@ -633,10 +633,10 @@ suite('JSON Parser', () => {
 
 	test('anyOf', function () {
 
-		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
+		let doc = Parser.parse('{"prop1": 42, "prop2": true}');
 		assert.strictEqual(doc.syntaxErrors.length, 0);
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			anyOf: [
 				{
@@ -675,10 +675,10 @@ suite('JSON Parser', () => {
 
 	test('oneOf', function () {
 
-		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
+		let doc = Parser.parse('{"prop1": 42, "prop2": true}');
 		assert.strictEqual(doc.syntaxErrors.length, 0);
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			oneOf: [
 				{
@@ -718,9 +718,9 @@ suite('JSON Parser', () => {
 
 	test('not', function () {
 
-		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
+		let doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			not: {
 				properties: {
@@ -743,9 +743,9 @@ suite('JSON Parser', () => {
 
 	test('minProperties', function () {
 
-		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
+		let doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			minProperties: 2
 		};
 
@@ -765,9 +765,9 @@ suite('JSON Parser', () => {
 
 	test('maxProperties', function () {
 
-		var doc = Parser.parse('{"prop1": 42, "prop2": true}');
+		let doc = Parser.parse('{"prop1": 42, "prop2": true}');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			maxProperties: 2
 		};
 
@@ -787,9 +787,9 @@ suite('JSON Parser', () => {
 
 	test('patternProperties', function () {
 
-		var doc = Parser.parse('{"prop1": 42, "prop2": 42}');
+		let doc = Parser.parse('{"prop1": 42, "prop2": 42}');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			patternProperties: {
 				'^prop\\d$': {
@@ -814,9 +814,9 @@ suite('JSON Parser', () => {
 
 	test('additionalProperties', function () {
 
-		var doc = Parser.parse('{"prop1": 42, "prop2": 42}');
+		let doc = Parser.parse('{"prop1": 42, "prop2": 42}');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			additionalProperties: {
 				type: 'number'
 			}
@@ -868,9 +868,9 @@ suite('JSON Parser', () => {
 
 	test('enum', function () {
 
-		var doc = Parser.parse('{"prop": "harmonica"}');
+		let doc = Parser.parse('{"prop": "harmonica"}');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			properties: {
 				'prop': {
 					enum: ['violin', 'harmonica', 'banjo']
@@ -904,9 +904,9 @@ suite('JSON Parser', () => {
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 
-		var doc = Parser.parse('{"prop": { "name": "David" }}');
+		doc = Parser.parse('{"prop": { "name": "David" }}');
 
-		var schema: JsonSchema.JSONSchema = {
+		schema = {
 			properties: {
 				'prop': {
 					enum: ['violin', { "name": "David" }, null]
@@ -920,9 +920,9 @@ suite('JSON Parser', () => {
 
 	test('uniqueItems', function () {
 
-		var doc = Parser.parse('[1, 2, 3]');
+		let doc = Parser.parse('[1, 2, 3]');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			uniqueItems: true
 		};
@@ -943,9 +943,9 @@ suite('JSON Parser', () => {
 
 	test('items as array', function () {
 
-		var doc = Parser.parse('[1, true, "string"]');
+		let doc = Parser.parse('[1, true, "string"]');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			items: [
 				{
@@ -975,7 +975,7 @@ suite('JSON Parser', () => {
 	});
 
 	test('additionalItems', function () {
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			items: [
 				{
@@ -991,7 +991,7 @@ suite('JSON Parser', () => {
 			additionalItems: false
 		};
 
-		var doc = Parser.parse('[1, true, "string"]');
+		let doc = Parser.parse('[1, true, "string"]');
 
 		let semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 0);
@@ -1001,7 +1001,7 @@ suite('JSON Parser', () => {
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 
-		var schema: JsonSchema.JSONSchema = {
+		schema = {
 			type: 'array',
 			items: [
 				{
@@ -1038,9 +1038,9 @@ suite('JSON Parser', () => {
 
 	test('multipleOf', function () {
 
-		var doc = Parser.parse('[42]');
+		let doc = Parser.parse('[42]');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			items: {
 				type: 'integer',
@@ -1060,9 +1060,9 @@ suite('JSON Parser', () => {
 
 	test('dependencies with array', function () {
 
-		var doc = Parser.parse('{"a":true, "b":42}');
+		let doc = Parser.parse('{"a":true, "b":42}');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				a: {
@@ -1091,9 +1091,9 @@ suite('JSON Parser', () => {
 
 	test('dependencies with schema', function () {
 
-		var doc = Parser.parse('{"a":true, "b":42}');
+		let doc = Parser.parse('{"a":true, "b":42}');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				a: {
@@ -1129,9 +1129,9 @@ suite('JSON Parser', () => {
 
 	test('type as array', function () {
 
-		var doc = Parser.parse('{"prop": 42}');
+		let doc = Parser.parse('{"prop": 42}');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop': {
@@ -1154,9 +1154,9 @@ suite('JSON Parser', () => {
 
 	test('deprecated', function () {
 
-		var doc = Parser.parse('{"prop": 42}');
+		let doc = Parser.parse('{"prop": 42}');
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop': {
@@ -1172,10 +1172,10 @@ suite('JSON Parser', () => {
 
 	test('Strings with spaces', function () {
 
-		var result = Parser.parse('{"key1":"first string", "key2":["second string"]}');
+		let result = Parser.parse('{"key1":"first string", "key2":["second string"]}');
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		var node = result.getNodeFromOffset(9);
+		let node = result.getNodeFromOffset(9);
 		assert.strictEqual(node.getValue(), 'first string');
 
 		node = result.getNodeFromOffset(34);
@@ -1185,10 +1185,10 @@ suite('JSON Parser', () => {
 
 	test('Schema information on node', function () {
 
-		var result = Parser.parse('{"key":42}');
+		let result = Parser.parse('{"key":42}');
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'key': {
@@ -1203,14 +1203,12 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		var matchingSchemas: Parser.IApplicableSchema[] = [];
-		result.validate(schema, matchingSchemas);
-
-		var node = result.getNodeFromOffset(7);
+		let node = result.getNodeFromOffset(7);
 		assert.strictEqual(node.type, 'number');
 		assert.strictEqual(node.getValue(), 42);
 
-		var schemas = matchingSchemas.filter((s) => s.node === node && !s.inverted).map((s) => s.schema);
+		let matchingSchemas = result.getMatchingSchemas(schema);
+		let schemas = matchingSchemas.filter((s) => s.node === node && !s.inverted).map((s) => s.schema);
 
 		assert.ok(Array.isArray(schemas));
 		// 0 is the most specific schema,
@@ -1222,18 +1220,18 @@ suite('JSON Parser', () => {
 	test('parse with comments', function () {
 
 		function parse<T>(v: string): T {
-			var result = Parser.parse(v);
+			let result = Parser.parse(v);
 			assert.equal(result.syntaxErrors.length, 0);
 			return <T>result.root.getValue();
 		}
 
-		var value = parse<{ far: string; }>('// comment\n{\n"far": "boo"\n}');
+		let value = parse<{ far: string; }>('// comment\n{\n"far": "boo"\n}');
 		assert.equal(value.far, 'boo');
 
-		var value = parse<{ far: string; }>('/* comm\nent\nent */\n{\n"far": "boo"\n}');
+		value = parse<{ far: string; }>('/* comm\nent\nent */\n{\n"far": "boo"\n}');
 		assert.equal(value.far, 'boo');
 
-		var value = parse<{ far: string; }>('{\n"far": "boo"\n}');
+		value = parse<{ far: string; }>('{\n"far": "boo"\n}');
 		assert.equal(value.far, 'boo');
 
 	});
@@ -1241,7 +1239,7 @@ suite('JSON Parser', () => {
 	test('parse with comments disabled', function () {
 
 		function assertParse(v: string, expectedErrors: number): void {
-			var result = Parser.parse(v, { disallowComments: true });
+			let result = Parser.parse(v, { disallowComments: true });
 			assert.equal(result.syntaxErrors.length, expectedErrors);
 		}
 
@@ -1251,7 +1249,7 @@ suite('JSON Parser', () => {
 	});
 
 	test('validate alternatives', function () {
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'key': {
@@ -1273,7 +1271,7 @@ suite('JSON Parser', () => {
 						properties: {
 							type: {
 								enum: ['bar']
-							},						
+							},
 							prop2: {
 								type: 'number'
 							}
@@ -1283,23 +1281,23 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		var result = Parser.parse('{"key":{"type":"foo", "prop2":1 }}');
+		let result = Parser.parse('{"key":{"type":"foo", "prop2":1 }}');
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		let semanticErrors = result.validate(schema, []);
+		let semanticErrors = result.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 		assert.strictEqual(semanticErrors[0].message, 'Incorrect type. Expected "boolean".');
 
-		var result = Parser.parse('{"key":{"type":"bar", "prop1":true, "prop2":false }}');
+		result = Parser.parse('{"key":{"type":"bar", "prop1":true, "prop2":false }}');
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		semanticErrors = result.validate(schema, []);
+		semanticErrors = result.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'Incorrect type. Expected "number".');		
-	});	
+		assert.strictEqual(semanticErrors[0].message, 'Incorrect type. Expected "number".');
+	});
 
 	test('validate alternatives 2', function () {
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'key': {
@@ -1321,7 +1319,7 @@ suite('JSON Parser', () => {
 						properties: {
 							type: {
 								enum: ['bar']
-							},						
+							},
 							prop2: {
 								enum: ['x1', 'x2']
 							}
@@ -1331,41 +1329,41 @@ suite('JSON Parser', () => {
 			}
 		};
 
-		var result = Parser.parse('{"key":{"type":"foo", "prop2":"x1" }}');
+		let result = Parser.parse('{"key":{"type":"foo", "prop2":"x1" }}');
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		let semanticErrors = result.validate(schema, []);
+		let semanticErrors = result.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "w1", "w2".');
 
-		var result = Parser.parse('{"key":{"type":"bar", "prop1":"v1", "prop2":"w1" }}');
+		result = Parser.parse('{"key":{"type":"bar", "prop1":"v1", "prop2":"w1" }}');
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		semanticErrors = result.validate(schema, []);
+		semanticErrors = result.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "x1", "x2".');		
-	});	
+		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "x1", "x2".');
+	});
 
 	test('enum value merge', function () {
-		var schema: JsonSchema.JSONSchema = {
+		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'key': {
 					oneOf: [{
 						enum: ["a", "b"]
-					},{
+					}, {
 						enum: ["c", "d"]
 					}]
 				}
 			}
 		};
 
-		var result = Parser.parse('{"key":3 }');
+		let result = Parser.parse('{"key":3 }');
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
-		let semanticErrors = result.validate(schema, []);
+		let semanticErrors = result.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "a", "b", "c", "d".');	
-	});	
+		assert.strictEqual(semanticErrors[0].message, 'Value is not accepted. Valid values: "a", "b", "c", "d".');
+	});
 
 });

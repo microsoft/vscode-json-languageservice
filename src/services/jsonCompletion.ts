@@ -216,8 +216,7 @@ export class JSONCompletion {
 	}
 
 	private getPropertyCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: Parser.ASTNode, addValue: boolean, separatorAfter: string, collector: CompletionsCollector): void {
-		let matchingSchemas: Parser.IApplicableSchema[] = [];
-		doc.validate(schema.schema, matchingSchemas, node.start);
+		let matchingSchemas = doc.getMatchingSchemas(schema.schema, node.start);
 		matchingSchemas.forEach((s) => {
 			if (s.node === node && !s.inverted) {
 				let schemaProperties = s.schema.properties;
@@ -376,8 +375,7 @@ export class JSONCompletion {
 			}
 
 			if (node && (parentKey !== null || node.type === 'array')) {
-				let matchingSchemas: Parser.IApplicableSchema[] = [];
-				doc.validate(schema.schema, matchingSchemas, node.start);
+				let matchingSchemas = doc.getMatchingSchemas(schema.schema, node.start);
 
 				matchingSchemas.forEach(s => {
 					if (s.node === node && !s.inverted && s.schema) {

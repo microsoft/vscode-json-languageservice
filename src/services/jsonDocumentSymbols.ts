@@ -87,8 +87,7 @@ export class JSONDocumentSymbols {
 		return this.schemaService.getSchemaForResource(document.uri, doc).then(schema => {
 			let result: ColorInformation[] = [];
 			if (schema) {
-				let matchingSchemas: Parser.IApplicableSchema[] = [];
-				doc.validate(schema.schema, matchingSchemas);
+				let matchingSchemas = doc.getMatchingSchemas(schema.schema);
 				let visitedNode = {};
 				for (let s of matchingSchemas) {
 					if (!s.inverted && s.schema && s.schema.format === 'color' && s.node && s.node.type === 'string') {

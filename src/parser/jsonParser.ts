@@ -884,13 +884,21 @@ export class JSONDocument {
 		}
 	}
 
-	public validate(schema: JSONSchema, matchingSchemas: IApplicableSchema[] = null, offset: number = -1): IProblem[] {
+	public validate(schema: JSONSchema): IProblem[] {
 		if (this.root && schema) {
 			let validationResult = new ValidationResult();
-			this.root.validate(schema, validationResult, matchingSchemas, offset);
+			this.root.validate(schema, validationResult, null, -1);
 			return validationResult.problems;
 		}
 		return null;
+	}
+
+	public getMatchingSchemas(schema: JSONSchema, offset: number = -1): IApplicableSchema[] {
+		let matchingSchemas = [];
+		if (this.root && schema) {
+			this.root.validate(schema, new ValidationResult(), matchingSchemas, offset);
+		}
+		return matchingSchemas;
 	}
 }
 
@@ -1046,7 +1054,7 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 			_error(localize('ColonExpected', 'Colon expected'), ErrorCode.ColonExpected);
 		}
 
-		
+
 
 		if (!node.setValue(_parseValue(node, key.value))) {
 			return _error(localize('ValueExpected', 'Value expected'), ErrorCode.ValueExpected, node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);

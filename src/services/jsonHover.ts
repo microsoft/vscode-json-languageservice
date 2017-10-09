@@ -66,8 +66,7 @@ export class JSONHover {
 
 		return this.schemaService.getSchemaForResource(document.uri, doc).then((schema) => {
 			if (schema) {
-				let matchingSchemas: Parser.IApplicableSchema[] = [];
-				doc.validate(schema.schema, matchingSchemas, node.start);
+				let matchingSchemas = doc.getMatchingSchemas(schema.schema, node.start);
 
 				let title: string = null
 				let description: string = null;
