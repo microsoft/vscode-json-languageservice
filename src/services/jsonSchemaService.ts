@@ -174,22 +174,16 @@ export class ResolvedSchema {
 					return this.getSectionRecursive(path, schema.patternProperties[pattern]);
 				}
 			});
-		} else if (schema.additionalProperties) {
+		} else if (typeof schema.additionalProperties === 'object') {
 			return this.getSectionRecursive(path, schema.additionalProperties);
 		} else if (next.match('[0-9]+')) {
-			if (schema.items) {
+			if (Array.isArray(schema.items)) {
+				let index = parseInt(next, 10);
+				if (!isNaN(index) && schema.items[index]) {
+					return this.getSectionRecursive(path, schema.items[index]);
+				}
+			} else if (schema.items) {
 				return this.getSectionRecursive(path, schema.items);
-			} else if (Array.isArray(schema.items)) {
-				try {
-					let index = parseInt(next, 10);
-					if (schema.items[index]) {
-						return this.getSectionRecursive(path, schema.items[index]);
-					}
-					return null;
-				}
-				catch (e) {
-					return null;
-				}
 			}
 		}
 
@@ -460,7 +454,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 						merge(next, parentSchema, parentSchemaURL, segments[1]); // can set next.$ref again
 					}
 				}
-				collectEntries(next.items, next.additionalProperties, next.not);
+				
+				collectEntries(<JSONSchema>next.items, <JSONSchema>next.additionalProperties, next.not);
 				collectMapEntries(next.definitions, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies);
 				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, <JSONSchema[]>next.items);
 			};
