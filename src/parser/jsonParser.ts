@@ -129,8 +129,8 @@ export class ASTNode {
 		return findNode(this);
 	}
 
-	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
-		if (offset !== -1 && !this.contains(offset)) {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
+		if (!matchingSchemas.include(this)) {
 			return;
 		}
 
@@ -154,13 +154,13 @@ export class ASTNode {
 		}
 		if (Array.isArray(schema.allOf)) {
 			schema.allOf.forEach((subSchema) => {
-				this.validate(subSchema, validationResult, matchingSchemas, offset);
+				this.validate(subSchema, validationResult, matchingSchemas);
 			});
 		}
 		if (schema.not) {
 			let subValidationResult = new ValidationResult();
-			let subMatchingSchemas: IApplicableSchema[] = [];
-			this.validate(schema.not, subValidationResult, subMatchingSchemas, offset);
+			let subMatchingSchemas = matchingSchemas.newSub();
+			this.validate(schema.not, subValidationResult, subMatchingSchemas);
 			if (!subValidationResult.hasProblems()) {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
@@ -168,22 +168,20 @@ export class ASTNode {
 					message: localize('notSchemaWarning', "Matches a schema that is not allowed.")
 				});
 			}
-			if (matchingSchemas) {
-				subMatchingSchemas.forEach((ms) => {
-					ms.inverted = !ms.inverted;
-					matchingSchemas.push(ms);
-				});
-			}
+			subMatchingSchemas.schemas.forEach((ms) => {
+				ms.inverted = !ms.inverted;
+				matchingSchemas.add(ms);
+			});
 		}
 
 		let testAlternatives = (alternatives: JSONSchema[], maxOneMatch: boolean) => {
 			let matches = [];
 
 			// remember the best match that is used for error messages
-			let bestMatch: { schema: JSONSchema; validationResult: ValidationResult; matchingSchemas: IApplicableSchema[]; } = null;
+			let bestMatch: { schema: JSONSchema; validationResult: ValidationResult; matchingSchemas: ISchemaCollector; } = null;
 			alternatives.forEach((subSchema) => {
 				let subValidationResult = new ValidationResult();
-				let subMatchingSchemas: IApplicableSchema[] = [];
+				let subMatchingSchemas = matchingSchemas.newSub();
 				this.validate(subSchema, subValidationResult, subMatchingSchemas);
 				if (!subValidationResult.hasProblems()) {
 					matches.push(subSchema);
@@ -193,7 +191,7 @@ export class ASTNode {
 				} else {
 					if (!maxOneMatch && !subValidationResult.hasProblems() && !bestMatch.validationResult.hasProblems()) {
 						// no errors, both are equally good matches
-						bestMatch.matchingSchemas.push(...subMatchingSchemas);
+						bestMatch.matchingSchemas.merge(subMatchingSchemas);
 						bestMatch.validationResult.propertiesMatches += subValidationResult.propertiesMatches;
 						bestMatch.validationResult.propertiesValueMatches += subValidationResult.propertiesValueMatches;
 					} else {
@@ -203,7 +201,7 @@ export class ASTNode {
 							bestMatch = { schema: subSchema, validationResult: subValidationResult, matchingSchemas: subMatchingSchemas };
 						} else if (compareResult === 0) {
 							// there's already a best matching but we are as good
-							bestMatch.matchingSchemas.push(...subMatchingSchemas);
+							bestMatch.matchingSchemas.merge(subMatchingSchemas);
 							bestMatch.validationResult.mergeEnumValues(subValidationResult);
 						}
 					}
@@ -221,9 +219,7 @@ export class ASTNode {
 				validationResult.merge(bestMatch.validationResult);
 				validationResult.propertiesMatches += bestMatch.validationResult.propertiesMatches;
 				validationResult.propertiesValueMatches += bestMatch.validationResult.propertiesValueMatches;
-				if (matchingSchemas) {
-					matchingSchemas.push.apply(matchingSchemas, bestMatch.matchingSchemas);
-				}
+				matchingSchemas.merge(bestMatch.matchingSchemas);
 			}
 			return matches.length;
 		};
@@ -262,10 +258,7 @@ export class ASTNode {
 				message: schema.deprecationMessage
 			});
 		}
-
-		if (matchingSchemas !== null) {
-			matchingSchemas.push({ node: this, schema: schema });
-		}
+		matchingSchemas.add({ node: this, schema: schema });
 	}
 }
 
@@ -332,11 +325,11 @@ export class ArrayASTNode extends ASTNode {
 		return ctn;
 	}
 
-	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
-		if (offset !== -1 && !this.contains(offset)) {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
+		if (!matchingSchemas.include(this)) {
 			return;
 		}
-		super.validate(schema, validationResult, matchingSchemas, offset);
+		super.validate(schema, validationResult, matchingSchemas);
 
 		if (Array.isArray(schema.items)) {
 			let subSchemas = <JSONSchema[]>schema.items;
@@ -344,7 +337,7 @@ export class ArrayASTNode extends ASTNode {
 				let itemValidationResult = new ValidationResult();
 				let item = this.items[index];
 				if (item) {
-					item.validate(subSchema, itemValidationResult, matchingSchemas, offset);
+					item.validate(subSchema, itemValidationResult, matchingSchemas);
 					validationResult.mergePropertyMatch(itemValidationResult);
 				} else if (this.items.length >= subSchemas.length) {
 					validationResult.propertiesValueMatches++;
@@ -354,7 +347,7 @@ export class ArrayASTNode extends ASTNode {
 				if (typeof schema.additionalItems === 'object') {
 					for (let i = subSchemas.length; i < this.items.length; i++) {
 						let itemValidationResult = new ValidationResult();
-						this.items[i].validate(<any>schema.additionalItems, itemValidationResult, matchingSchemas, offset);
+						this.items[i].validate(<any>schema.additionalItems, itemValidationResult, matchingSchemas);
 						validationResult.mergePropertyMatch(itemValidationResult);
 					}
 				} else if (schema.additionalItems === false) {
@@ -369,7 +362,7 @@ export class ArrayASTNode extends ASTNode {
 		else if (schema.items) {
 			this.items.forEach((item) => {
 				let itemValidationResult = new ValidationResult();
-				item.validate(<JSONSchema>schema.items, itemValidationResult, matchingSchemas, offset);
+				item.validate(<JSONSchema>schema.items, itemValidationResult, matchingSchemas);
 				validationResult.mergePropertyMatch(itemValidationResult);
 			});
 		}
@@ -423,8 +416,8 @@ export class NumberASTNode extends ASTNode {
 		return this.value;
 	}
 
-	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
-		if (offset !== -1 && !this.contains(offset)) {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
+		if (!matchingSchemas.include(this)) {
 			return;
 		}
 
@@ -436,7 +429,7 @@ export class NumberASTNode extends ASTNode {
 		if (typeIsInteger && this.isInteger === true) {
 			this.type = 'integer';
 		}
-		super.validate(schema, validationResult, matchingSchemas, offset);
+		super.validate(schema, validationResult, matchingSchemas);
 		this.type = 'number';
 
 		let val = this.getValue();
@@ -502,11 +495,11 @@ export class StringASTNode extends ASTNode {
 		return this.value;
 	}
 
-	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
-		if (offset !== -1 && !this.contains(offset)) {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
+		if (!matchingSchemas.include(this)) {
 			return;
 		}
-		super.validate(schema, validationResult, matchingSchemas, offset);
+		super.validate(schema, validationResult, matchingSchemas);
 
 		if (schema.minLength && this.value.length < schema.minLength) {
 			validationResult.problems.push({
@@ -568,12 +561,12 @@ export class PropertyASTNode extends ASTNode {
 		return visitor(this) && this.key.visit(visitor) && this.value && this.value.visit(visitor);
 	}
 
-	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
-		if (offset !== -1 && !this.contains(offset)) {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
+		if (!matchingSchemas.include(this)) {
 			return;
 		}
 		if (this.value) {
-			this.value.validate(schema, validationResult, matchingSchemas, offset);
+			this.value.validate(schema, validationResult, matchingSchemas);
 		}
 	}
 }
@@ -635,12 +628,12 @@ export class ObjectASTNode extends ASTNode {
 		return ctn;
 	}
 
-	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: IApplicableSchema[], offset: number = -1): void {
-		if (offset !== -1 && !this.contains(offset)) {
+	public validate(schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
+		if (!matchingSchemas.include(this)) {
 			return;
 		}
 
-		super.validate(schema, validationResult, matchingSchemas, offset);
+		super.validate(schema, validationResult, matchingSchemas);
 		let seenKeys: { [key: string]: ASTNode } = Object.create(null);
 		let unprocessedProperties: string[] = [];
 		this.properties.forEach((node) => {
@@ -678,9 +671,9 @@ export class ObjectASTNode extends ASTNode {
 				let prop = schema.properties[propertyName];
 				let child = seenKeys[propertyName];
 				if (child) {
-					let propertyvalidationResult = new ValidationResult();
-					child.validate(prop, propertyvalidationResult, matchingSchemas, offset);
-					validationResult.mergePropertyMatch(propertyvalidationResult);
+					let propertyValidationResult = new ValidationResult();
+					child.validate(prop, propertyValidationResult, matchingSchemas);
+					validationResult.mergePropertyMatch(propertyValidationResult);
 				}
 
 			});
@@ -694,9 +687,9 @@ export class ObjectASTNode extends ASTNode {
 						propertyProcessed(propertyName);
 						let child = seenKeys[propertyName];
 						if (child) {
-							let propertyvalidationResult = new ValidationResult();
-							child.validate(schema.patternProperties[propertyPattern], propertyvalidationResult, matchingSchemas, offset);
-							validationResult.mergePropertyMatch(propertyvalidationResult);
+							let propertyValidationResult = new ValidationResult();
+							child.validate(schema.patternProperties[propertyPattern], propertyValidationResult, matchingSchemas);
+							validationResult.mergePropertyMatch(propertyValidationResult);
 						}
 
 					}
@@ -709,7 +702,7 @@ export class ObjectASTNode extends ASTNode {
 				let child = seenKeys[propertyName];
 				if (child) {
 					let propertyValidationResult = new ValidationResult();
-					child.validate(<any>schema.additionalProperties, propertyValidationResult, matchingSchemas, offset);
+					child.validate(<any>schema.additionalProperties, propertyValidationResult, matchingSchemas);
 					validationResult.mergePropertyMatch(propertyValidationResult);
 				}
 			});
@@ -769,7 +762,7 @@ export class ObjectASTNode extends ASTNode {
 						});
 					} else if (propertyDep) {
 						let propertyvalidationResult = new ValidationResult();
-						this.validate(propertyDep, propertyvalidationResult, matchingSchemas, offset);
+						this.validate(propertyDep, propertyvalidationResult, matchingSchemas);
 						validationResult.mergePropertyMatch(propertyvalidationResult);
 					}
 				}
@@ -790,6 +783,40 @@ export interface IApplicableSchema {
 
 export enum EnumMatch {
 	Key, Enum
+}
+
+export interface ISchemaCollector {
+	schemas: IApplicableSchema[];
+	add(schema: IApplicableSchema): void;
+	merge(other: ISchemaCollector): void;
+	include(node: ASTNode): void;
+	newSub(): ISchemaCollector;
+}
+
+class SchemaCollector implements ISchemaCollector {
+	schemas: IApplicableSchema[] = [];
+	constructor(private focusOffset = -1, private exclude: ASTNode = null) {
+	}
+	add(schema: IApplicableSchema) {
+		this.schemas.push(schema);
+	}
+	merge(other: ISchemaCollector) {
+		this.schemas.push(...other.schemas);
+	}
+	include(node: ASTNode) {
+		return (this.focusOffset === -1 || node.contains(this.focusOffset)) && (node !== this.exclude);
+	}
+	newSub(): ISchemaCollector {
+		return new SchemaCollector(-1, this.exclude);
+	}
+}
+
+class NoOpSchemaCollector implements ISchemaCollector {
+	get schemas() { return []; }
+	add(schema: IApplicableSchema) { }
+	merge(other: ISchemaCollector) { }
+	include(node: ASTNode) { return true; }
+	newSub(): ISchemaCollector { return this; }
 }
 
 export class ValidationResult {
@@ -887,18 +914,18 @@ export class JSONDocument {
 	public validate(schema: JSONSchema): IProblem[] {
 		if (this.root && schema) {
 			let validationResult = new ValidationResult();
-			this.root.validate(schema, validationResult, null, -1);
+			this.root.validate(schema, validationResult, new NoOpSchemaCollector());
 			return validationResult.problems;
 		}
 		return null;
 	}
 
-	public getMatchingSchemas(schema: JSONSchema, offset: number = -1): IApplicableSchema[] {
-		let matchingSchemas = [];
+	public getMatchingSchemas(schema: JSONSchema, focusOffset: number = -1, exclude: ASTNode = null): IApplicableSchema[] {
+		let matchingSchemas = new SchemaCollector(focusOffset, exclude);
 		if (this.root && schema) {
-			this.root.validate(schema, new ValidationResult(), matchingSchemas, offset);
+			this.root.validate(schema, new ValidationResult(), matchingSchemas);
 		}
-		return matchingSchemas;
+		return matchingSchemas.schemas;
 	}
 }
 
