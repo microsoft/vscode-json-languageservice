@@ -580,15 +580,15 @@ suite('JSON Parser', () => {
 	test('Duplicate keys', function () {
 		let doc = Parser.parse('{"a": 1, "a": 2}');
 
-		assert.strictEqual(doc.syntaxErrors.length, 1, 'Keys should not be the same');
+		assert.strictEqual(doc.syntaxErrors.length, 2, 'Keys should not be the same');
 
 		doc = Parser.parse('{"a": { "a": 2, "a": 3}}');
 
-		assert.strictEqual(doc.syntaxErrors.length, 1, 'Keys should not be the same');
+		assert.strictEqual(doc.syntaxErrors.length, 2, 'Keys should not be the same');
 
-		doc = Parser.parse('[{ "a": 2, "a": 3}]');
+		doc = Parser.parse('[{ "a": 2, "a": 3, "a": 7}]');
 
-		assert.strictEqual(doc.syntaxErrors.length, 1, 'Keys should not be the same');
+		assert.strictEqual(doc.syntaxErrors.length, 3, 'Keys should not be the same');
 
 	});
 

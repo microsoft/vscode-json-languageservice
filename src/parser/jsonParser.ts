@@ -1069,10 +1069,16 @@ export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
 		}
 		let node = new PropertyASTNode(parent, key);
 
-		if (keysSeen[key.value]) {
+		let seen = keysSeen[key.value];
+		if (seen) {
 			problems.push({ location: { start: node.key.start, end: node.key.end }, message: localize('DuplicateKeyWarning', "Duplicate object key"), code: ErrorCode.Undefined, severity: ProblemSeverity.Warning });
+			if (seen instanceof PropertyASTNode) {
+				problems.push({ location: { start: seen.key.start, end: seen.key.end }, message: localize('DuplicateKeyWarning', "Duplicate object key"), code: ErrorCode.Undefined, severity: ProblemSeverity.Warning });
+			}
+			keysSeen[key.value] = true; // if the same key is duplicate again, avoid duplicate error reporting
+		} else {
+			keysSeen[key.value] = node;
 		}
-		keysSeen[key.value] = true;
 
 		if (scanner.getToken() === Json.SyntaxKind.ColonToken) {
 			node.colonOffset = scanner.getTokenOffset();
