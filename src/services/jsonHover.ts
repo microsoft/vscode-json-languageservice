@@ -68,19 +68,25 @@ export class JSONHover {
 			if (schema) {
 				let matchingSchemas = doc.getMatchingSchemas(schema.schema, node.start);
 
-				let title: string = null
-				let description: string = null;
-				let enumValueDescription = null, enumValue = null;;
+				let title: string = null;
+				let markdownDescription: string = null;
+				let markdownEnumValueDescription = null, enumValue = null;;
 				matchingSchemas.every((s) => {
 					if (s.node === node && !s.inverted && s.schema) {
 						title = title || s.schema.title;
-						description = description || s.schema.description;
-						if (s.schema.enum && s.schema.enumDescriptions) {
+						markdownDescription = markdownDescription || s.schema.markdownDescription || toMarkdown(s.schema.description);
+						if (s.schema.enum)  {
 							let idx = s.schema.enum.indexOf(node.getValue());
-							enumValueDescription =  s.schema.enumDescriptions[idx];
-							enumValue = s.schema.enum[idx];
-							if (typeof enumValue !== 'string') {
-								enumValue = JSON.stringify(enumValue);
+							if (s.schema.markdownEnumDescriptions) {
+								markdownEnumValueDescription = s.schema.markdownEnumDescriptions[idx];
+							} else if (s.schema.enumDescriptions) {
+								markdownEnumValueDescription = toMarkdown(s.schema.enumDescriptions[idx]);
+							}
+							if (markdownEnumValueDescription) {
+								enumValue = s.schema.enum[idx];
+								if (typeof enumValue !== 'string') {
+									enumValue = JSON.stringify(enumValue);
+								}
 							}
 						}
 					}
@@ -88,19 +94,19 @@ export class JSONHover {
 				});
 				let result = '';
 				if (title) {
-					result = toMarkdown(title);
+					result = toMarkdown(title)
 				}
-				if (description) {
+				if (markdownDescription) {
 					if (result.length > 0) {
 						result += "\n\n";
 					}
-					result += toMarkdown(description);
+					result += markdownDescription;
 				}
-				if (enumValueDescription) {
+				if (markdownEnumValueDescription) {
 					if (result.length > 0) {
 						result += "\n\n";
 					}
-					result += `\`${toMarkdown(enumValue)}\`: ${toMarkdown(enumValueDescription)}`;
+					result += `\`${toMarkdown(enumValue)}\`: ${markdownEnumValueDescription}`;
 				}
 				return createHover([result]);
 			}
@@ -110,6 +116,9 @@ export class JSONHover {
 }
 
 function toMarkdown(plain: string) {
-	let res = plain.replace(/([^\n\r])(\r?\n)([^\n\r])/gm, '$1\n\n$3'); // single new lines to \n\n (Markdown paragraph)
-	return res.replace(/[\\`*_{}[\]()#+\-.!]/g, "\\$&"); // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
+	if (plain) {
+		let res = plain.replace(/([^\n\r])(\r?\n)([^\n\r])/gm, '$1\n\n$3'); // single new lines to \n\n (Markdown paragraph)
+		return res.replace(/[\\`*_{}[\]()#+\-.!]/g, "\\$&"); // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
+	}
+	return void 0;
 }

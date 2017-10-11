@@ -117,6 +117,13 @@ suite('JSON Hover', () => {
 					description: "prop2",
 					enum: [null, 1, false ],
 					enumDescriptions: ['null', 'one', 'wrong' ],
+				},
+				'prop3': {
+					title: "title",
+					markdownDescription: "*prop3*",
+					description: "prop3",
+					enum: [null, 1 ],
+					markdownEnumDescriptions: ['Set to `null`', 'Set to `1`' ],
 				}
 			}
 		};
@@ -133,6 +140,9 @@ suite('JSON Hover', () => {
 			}),
 			testComputeInfo('{ "prop2": false', schema, { line: 0, character: 12 }).then(result => {
 				assert.deepEqual(result.contents, [ 'prop2\n\n`false`: wrong' ]);
+			}),
+			testComputeInfo('{ "prop3": null', schema, { line: 0, character: 12 }).then(result => {
+				assert.deepEqual(result.contents, [ 'title\n\n*prop3*\n\n`null`: Set to `null`' ]);
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});
