@@ -10,6 +10,7 @@ import * as objects from '../utils/objects';
 
 import * as nls from 'vscode-nls';
 import Uri from 'vscode-uri';
+import { TextDocument } from 'vscode-languageserver-types';
 
 const localize = nls.loadMessageBundle();
 
@@ -953,9 +954,10 @@ export class JSONDocument {
 	}
 }
 
-export function parse(text: string, config?: JSONDocumentConfig): JSONDocument {
+export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): JSONDocument {
 
 	let problems: IProblem[] = [];
+	let text = textDocument.getText();
 	let scanner = Json.createScanner(text, false);
 
 	let disallowComments = config && config.disallowComments;

@@ -24,7 +24,7 @@ suite('JSON Hover', () => {
 		schemaService.registerExternalSchema(id, ["*.json"], schema);
 
 		var document = TextDocument.create(uri, 'json', 0, value);
-		var jsonDoc = Parser.parse(value);
+		var jsonDoc = Parser.parse(document);
 		return hoverProvider.doHover(document, position, jsonDoc);
 	}
 

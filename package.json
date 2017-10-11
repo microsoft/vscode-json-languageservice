@@ -17,7 +17,8 @@
     "mocha": "^2.4.5",
     "typescript": "2.1.5",
     "@types/node": "^6.0.51",
-    "@types/mocha": "^2.2.33"
+    "@types/mocha": "^2.2.33",
+    "tslint": "^5.7.0"
   },
   "dependencies": {
     "jsonc-parser": "^1.0.0",

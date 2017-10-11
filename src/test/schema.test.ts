@@ -12,9 +12,14 @@ import Parser = require('../parser/jsonParser');
 import fs = require('fs');
 import url = require('url');
 import path = require('path');
+import { TextDocument } from 'vscode-languageserver-types';
 
+function toDocument(text: string, config?: Parser.JSONDocumentConfig): Parser.JSONDocument {
+	return Parser.parse(TextDocument.create('foo://bar/file.json', 'json', 0, text), config);
+}
 
 suite('JSON Schema', () => {
+
 	let fixureDocuments = {
 		'http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json': 'deploymentTemplate.json',
 		'http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json': 'deploymentParameters.json',
@@ -314,7 +319,7 @@ suite('JSON Schema', () => {
 		service.registerExternalSchema(id2, ['test.json'], schema2);
 
 		service.getSchemaForResource('test.json', null).then((schema) => {
-			let document = Parser.parse(JSON.stringify({ foo: true, bar: true }));
+			let document = toDocument(JSON.stringify({ foo: true, bar: true }));
 			let problems = document.validate(schema.schema);
 			assert.equal(problems.length, 2);
 		}).then(() => testDone(), (error) => {
@@ -543,7 +548,7 @@ suite('JSON Schema', () => {
 			]
 		}
 
-		let document = Parser.parse(JSON.stringify(input));
+		let document = toDocument(JSON.stringify(input));
 
 		service.getSchemaForResource('file://doc/mydoc.json', document).then(resolveSchema => {
 			assert.deepEqual(resolveSchema.errors, []);
@@ -575,7 +580,7 @@ suite('JSON Schema', () => {
 			]
 		}
 
-		let document = Parser.parse(JSON.stringify(input));
+		let document = toDocument(JSON.stringify(input));
 
 		service.getSchemaForResource('file://doc/mydoc.json', document).then(resolveSchema => {
 			assert.deepEqual(resolveSchema.errors, []);
@@ -679,7 +684,7 @@ suite('JSON Schema', () => {
 			]
 		}
 
-		let document = Parser.parse(JSON.stringify(input));
+		let document = toDocument(JSON.stringify(input));
 
 		service.getSchemaForResource('file://doc/mydoc.json', document).then(resolvedSchema => {
 			assert.deepEqual(resolvedSchema.errors, []);
@@ -754,7 +759,7 @@ test('Complex enums', function () {
 		}
 	};
 
-	let document = Parser.parse(JSON.stringify(input));
+	let document = toDocument(JSON.stringify(input));
 
 	let problems = document.validate(schema);
 

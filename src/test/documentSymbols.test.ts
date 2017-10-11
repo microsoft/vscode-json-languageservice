@@ -5,8 +5,6 @@
 'use strict';
 
 import assert = require('assert');
-import Parser = require('../parser/jsonParser');
-import SchemaService = require('../services/jsonSchemaService');
 import JsonSchema = require('../jsonSchema');
 import { JSONCompletion } from '../services/jsonCompletion';
 import { JSONDocumentSymbols } from '../services/jsonDocumentSymbols';
@@ -26,7 +24,7 @@ suite('JSON Document Symbols', () => {
 		let ls = getLanguageService({ schemaRequestService });
 
 		var document = TextDocument.create(uri, 'json', 0, value);
-		var jsonDoc = Parser.parse(value);
+		var jsonDoc = ls.parseJSONDocument(document);
 		return ls.findDocumentSymbols(document, jsonDoc);
 	}
 
@@ -35,10 +33,10 @@ suite('JSON Document Symbols', () => {
 		var schemaUri = "http://myschemastore/test1";
 
 		let ls = getLanguageService({ schemaRequestService });
-		ls.configure({ schemas: [{ fileMatch: ["*.json"], uri: schemaUri, schema }] })
+		ls.configure({ schemas: [{ fileMatch: ["*.json"], uri: schemaUri, schema }] });
 
 		var document = TextDocument.create(uri, 'json', 0, value);
-		var jsonDoc = Parser.parse(value);
+		var jsonDoc = ls.parseJSONDocument(document);
 		return ls.findDocumentColors(document, jsonDoc).then(colorInfos => {
 			let actualOffsets = colorInfos.map(r => document.offsetAt(r.range.start));
 			assert.deepEqual(actualOffsets, expectedOffsets);
