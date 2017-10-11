@@ -480,6 +480,35 @@ suite('JSON Parser', () => {
 
 		assert.strictEqual(semanticErrors.length, 1);
 
+		let schemaWithURI = {
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'string',
+					format: 'uri'
+				}
+			}
+		};
+
+
+		semanticErrors = result.validate(schemaWithURI);
+		assert.strictEqual(semanticErrors.length, 1);
+		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: Scheme must be defined.');
+
+		result = Parser.parse('{"one":"http://foo/bar"}');
+		semanticErrors = result.validate(schemaWithURI);
+		assert.strictEqual(semanticErrors.length, 0);
+		
+		result = Parser.parse('{"one":""}');
+		semanticErrors = result.validate(schemaWithURI);
+		assert.strictEqual(semanticErrors.length, 1);
+		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: String must not be empty.');	
+		
+		result = Parser.parse('{"one":"//foo/bar"}');
+		semanticErrors = result.validate(schemaWithURI);
+		assert.strictEqual(semanticErrors.length, 1);
+		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: Scheme must be defined.');		
+
 	});
 
 	test('Numbers', function () {

@@ -9,6 +9,8 @@ import { JSONSchema } from '../jsonSchema';
 import * as objects from '../utils/objects';
 
 import * as nls from 'vscode-nls';
+import Uri from 'vscode-uri';
+
 const localize = nls.loadMessageBundle();
 
 export interface IRange {
@@ -528,6 +530,28 @@ export class StringASTNode extends ASTNode {
 			}
 		}
 
+		if (schema.format === 'uri') {
+			let errorMessage;
+			if (!this.value) {
+				errorMessage = localize('iriEmpty', 'String must not be empty.');
+			} else {
+				try {
+					let uri = Uri.parse(this.value);
+					if (!uri.scheme) {
+						errorMessage = localize('schemeMessing', 'Scheme must be defined.');
+					}
+				} catch (e) {
+					errorMessage = e.message;
+				}
+			}
+			if (errorMessage) {
+				validationResult.problems.push({
+					location: { start: this.start, end: this.end },
+					severity: ProblemSeverity.Warning,
+					message: schema.patternErrorMessage || schema.errorMessage || localize('uriFormatWarning', 'String is not an URI: {0}', errorMessage)
+				});
+			}
+		}
 	}
 }
 
