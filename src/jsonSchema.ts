@@ -40,6 +40,11 @@ export interface JSONSchema {
 	enum?: any[];
 	format?: string;
 
+	// schema draft 06
+	const?: any;
+
+	// VSCode extensions
+
 	defaultSnippets?: { label?: string; description?: string; body?: any; bodyText?: string; }[]; // VSCode extension: body: a object that will be converted to a JSON string. bodyText: text with \t and \n
 	errorMessage?: string; // VSCode extension
 	patternErrorMessage?: string; // VSCode extension

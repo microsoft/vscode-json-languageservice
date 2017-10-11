@@ -254,6 +254,22 @@ export class ASTNode {
 			}
 		}
 
+		if (schema.const) {
+			let val = this.getValue();
+			if (!objects.equals(val, schema.const)) {
+				validationResult.problems.push({
+					location: { start: this.start, end: this.end },
+					severity: ProblemSeverity.Warning,
+					code: ErrorCode.EnumValueMismatch,
+					message: schema.errorMessage || localize('constWarning', 'Value must be {0}.', JSON.stringify(schema.const))
+				});
+				validationResult.enumValueMatch = false;
+			} else {
+				validationResult.enumValueMatch = true;
+			}
+			validationResult.enumValues = [schema.const];
+		}
+
 		if (schema.deprecationMessage && this.parent) {
 			validationResult.problems.push({
 				location: { start: this.parent.start, end: this.parent.end },

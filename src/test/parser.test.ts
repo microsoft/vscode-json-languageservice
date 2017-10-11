@@ -232,7 +232,7 @@ suite('JSON Parser', () => {
 	});
 
 	test('Missing colon', function () {
-		
+
 		let content = '{\n"key":32,\n"key2"\n"key3": 4 }';
 		let result = toDocument(content);
 		assert.equal(result.syntaxErrors.length, 1);
@@ -246,7 +246,7 @@ suite('JSON Parser', () => {
 	});
 
 	test('Missing comma', function () {
-		
+
 		let content = '{\n"key":32,\n"key2": 1 \n"key3": 4 }';
 		let result = toDocument(content);
 		assert.equal(result.syntaxErrors.length, 1);
@@ -257,7 +257,7 @@ suite('JSON Parser', () => {
 		assert.equal(root.getChildNodes().length, 3);
 		let keyList = (<Parser.ObjectASTNode>root).getKeyList();
 		assert.deepEqual(keyList, ['key', 'key2', 'key3']);
-	});		
+	});
 
 	test('Validate types', function () {
 
@@ -975,6 +975,36 @@ suite('JSON Parser', () => {
 			}
 		};
 
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
+	});
+
+	test('const', function () {
+		let schema: JsonSchema.JSONSchema = {
+			properties: {
+				'prop': {
+					const: 'violin'
+				}
+			}
+		};
+
+		let doc = toDocument('{"prop": "violin"}');
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
+
+		doc = toDocument('{"prop": "harmonica"}');
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
+		assert.strictEqual(semanticErrors[0].code, Parser.ErrorCode.EnumValueMismatch);
+
+		schema = {
+			properties: {
+				'prop': {
+					const: { foo: 2 }
+				}
+			}
+		};
+		doc = toDocument('{"prop": { "foo": 2 }');
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 0);
 	});
