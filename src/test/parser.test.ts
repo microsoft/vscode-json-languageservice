@@ -231,6 +231,34 @@ suite('JSON Parser', () => {
 		assert.deepEqual(keyList, ['key', 'key2']);
 	});
 
+	test('Missing colon', function () {
+		
+		let content = '{\n"key":32,\n"key2"\n"key3": 4 }';
+		let result = toDocument(content);
+		assert.equal(result.syntaxErrors.length, 1);
+		assert.equal(result.syntaxErrors[0].code, Parser.ErrorCode.ColonExpected);
+
+		let root = result.root;
+		assert.equal(root.type, 'object');
+		assert.equal(root.getChildNodes().length, 3);
+		let keyList = (<Parser.ObjectASTNode>root).getKeyList();
+		assert.deepEqual(keyList, ['key', 'key2', 'key3']);
+	});
+
+	test('Missing comma', function () {
+		
+		let content = '{\n"key":32,\n"key2": 1 \n"key3": 4 }';
+		let result = toDocument(content);
+		assert.equal(result.syntaxErrors.length, 1);
+		assert.equal(result.syntaxErrors[0].code, Parser.ErrorCode.CommaExpected);
+
+		let root = result.root;
+		assert.equal(root.type, 'object');
+		assert.equal(root.getChildNodes().length, 3);
+		let keyList = (<Parser.ObjectASTNode>root).getKeyList();
+		assert.deepEqual(keyList, ['key', 'key2', 'key3']);
+	});		
+
 	test('Validate types', function () {
 
 		let str = '{"number": 3.4, "integer": 42, "string": "some string", "boolean":true, "null":null, "object":{}, "array":[1, 2]}';

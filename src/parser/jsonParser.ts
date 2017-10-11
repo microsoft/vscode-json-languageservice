@@ -1111,9 +1111,10 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			_scanNext(); // consume ColonToken
 		} else {
 			_error(localize('ColonExpected', 'Colon expected'), ErrorCode.ColonExpected);
+			if (scanner.getToken() === Json.SyntaxKind.StringLiteral && textDocument.positionAt(key.end).line < textDocument.positionAt(scanner.getTokenOffset()).line) {
+				return node;
+			}
 		}
-
-
 
 		if (!node.setValue(_parseValue(node, key.value))) {
 			return _error(localize('ValueExpected', 'Value expected'), ErrorCode.ValueExpected, node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
