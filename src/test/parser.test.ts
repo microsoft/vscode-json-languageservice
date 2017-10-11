@@ -1032,6 +1032,22 @@ suite('JSON Parser', () => {
 		assert.strictEqual(semanticErrors.length, 1);
 	});
 
+	test('containsItem', function () {
+		
+		let schema: JsonSchema.JSONSchema = {
+			type: 'array',
+			contains: { type: "number", const: 3 }
+		};
+
+		let doc = toDocument('[1, 2, 3]');
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
+
+		doc = toDocument('[1, 2, 5]');
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
+	});
+
 	test('items as array', function () {
 
 		let doc = toDocument('[1, true, "string"]');

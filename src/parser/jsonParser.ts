@@ -386,6 +386,22 @@ export class ArrayASTNode extends ASTNode {
 			});
 		}
 
+		if (schema.contains) {
+			let contains = this.items.some(item => {
+				let itemValidationResult = new ValidationResult();
+				item.validate(<JSONSchema>schema.contains, itemValidationResult, NoOpSchemaCollector.instance);
+				return !itemValidationResult.hasProblems();
+			});
+
+			if (!contains) {
+				validationResult.problems.push({
+					location: { start: this.start, end: this.end },
+					severity: ProblemSeverity.Warning,
+					message: schema.errorMessage || localize('requiredItemMissingWarning', 'Array does not contain required item.', schema.minItems)
+				});
+			};
+		}
+
 		if (schema.minItems && this.items.length < schema.minItems) {
 			validationResult.problems.push({
 				location: { start: this.start, end: this.end },
@@ -853,11 +869,14 @@ class SchemaCollector implements ISchemaCollector {
 }
 
 class NoOpSchemaCollector implements ISchemaCollector {
+	private constructor() {}
 	get schemas() { return []; }
 	add(schema: IApplicableSchema) { }
 	merge(other: ISchemaCollector) { }
 	include(node: ASTNode) { return true; }
 	newSub(): ISchemaCollector { return this; }
+
+	static instance = new NoOpSchemaCollector();
 }
 
 export class ValidationResult {
@@ -955,7 +974,7 @@ export class JSONDocument {
 	public validate(schema: JSONSchema): IProblem[] {
 		if (this.root && schema) {
 			let validationResult = new ValidationResult();
-			this.root.validate(schema, validationResult, new NoOpSchemaCollector());
+			this.root.validate(schema, validationResult, NoOpSchemaCollector.instance);
 			return validationResult.problems;
 		}
 		return null;
