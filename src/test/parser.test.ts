@@ -1009,6 +1009,25 @@ suite('JSON Parser', () => {
 		assert.strictEqual(semanticErrors.length, 0);
 	});
 
+	test('propertyNames', function () {
+		let schema: JsonSchema.JSONSchema = {
+			propertyNames: {
+				type: 'string',
+				minLength: 2,
+				maxLength: 6
+			}
+		};
+
+		let doc = toDocument('{"violin": true}');
+		let semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
+
+		doc = toDocument('{"harmonica": false, "violin": true}');
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
+		assert.strictEqual(semanticErrors[0].message, "String is longer than the maximum length of 6.");
+	});	
+
 	test('uniqueItems', function () {
 
 		let doc = toDocument('[1, 2, 3]');

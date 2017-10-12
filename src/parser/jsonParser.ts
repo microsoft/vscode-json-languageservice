@@ -818,10 +818,19 @@ export class ObjectASTNode extends ASTNode {
 							}
 						});
 					} else if (propertyDep) {
-						let propertyvalidationResult = new ValidationResult();
-						this.validate(propertyDep, propertyvalidationResult, matchingSchemas);
-						validationResult.mergePropertyMatch(propertyvalidationResult);
+						let propertyValidationResult = new ValidationResult();
+						this.validate(propertyDep, propertyValidationResult, matchingSchemas);
+						validationResult.mergePropertyMatch(propertyValidationResult);
 					}
+				}
+			});
+		}
+
+		if (schema.propertyNames) {
+			this.properties.forEach(f => {
+				let key = f.key;
+				if (key) {
+					key.validate(schema.propertyNames, validationResult, NoOpSchemaCollector.instance);
 				}
 			});
 		}

@@ -43,6 +43,7 @@ export interface JSONSchema {
 	// schema draft 06
 	const?: any;
 	contains?: JSONSchema;
+	propertyNames?: JSONSchema;
 
 	// VSCode extensions
 
