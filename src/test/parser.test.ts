@@ -571,8 +571,8 @@ suite('JSON Parser', () => {
 				}
 			}
 		});
-
 		assert.strictEqual(semanticErrors.length, 1, 'below minimum');
+		assert.strictEqual(semanticErrors[0].message, 'Value is below the minimum of 200.');
 
 		semanticErrors = result.validate({
 			type: 'object',
@@ -583,8 +583,8 @@ suite('JSON Parser', () => {
 				}
 			}
 		});
-
 		assert.strictEqual(semanticErrors.length, 1, 'above maximum');
+		assert.strictEqual(semanticErrors[0].message, 'Value is above the maximum of 130.');
 
 		semanticErrors = result.validate({
 			type: 'object',
@@ -596,8 +596,32 @@ suite('JSON Parser', () => {
 				}
 			}
 		});
-
 		assert.strictEqual(semanticErrors.length, 1, 'at exclusive mininum');
+		assert.strictEqual(semanticErrors[0].message, 'Value is below the exclusive minimum of 134.5.');
+
+		semanticErrors = result.validate({
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'number',
+					minimum: 134.5,
+					exclusiveMinimum: false
+				}
+			}
+		});
+		assert.strictEqual(semanticErrors.length, 0);
+
+		semanticErrors = result.validate({
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'number',
+					exclusiveMinimum: 134.5
+				}
+			}
+		});
+		assert.strictEqual(semanticErrors.length, 1, 'at exclusive mininum');
+		assert.strictEqual(semanticErrors[0].message, 'Value is below the exclusive minimum of 134.5.');	
 
 		semanticErrors = result.validate({
 			type: 'object',
@@ -609,8 +633,32 @@ suite('JSON Parser', () => {
 				}
 			}
 		});
+		assert.strictEqual(semanticErrors.length, 1, 'at exclusive mininum');
+		assert.strictEqual(semanticErrors[0].message, 'Value is above the exclusive maximum of 134.5.');
 
-		assert.strictEqual(semanticErrors.length, 1, 'at exclusive maximum');
+		semanticErrors = result.validate({
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'number',
+					maximum: 134.5,
+					exclusiveMaximum: false
+				}
+			}
+		});
+		assert.strictEqual(semanticErrors.length, 0);
+
+		semanticErrors = result.validate({
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'number',
+					exclusiveMaximum: 134.5
+				}
+			}
+		});
+		assert.strictEqual(semanticErrors.length, 1, 'at exclusive mininum');
+		assert.strictEqual(semanticErrors[0].message, 'Value is above the exclusive maximum of 134.5.');		
 
 		semanticErrors = result.validate({
 			type: 'object',

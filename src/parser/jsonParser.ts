@@ -478,43 +478,57 @@ export class NumberASTNode extends ASTNode {
 				});
 			}
 		}
-
-		if (typeof schema.minimum === 'number') {
-			if (schema.exclusiveMinimum && val <= schema.minimum) {
-				validationResult.problems.push({
-					location: { start: this.start, end: this.end },
-					severity: ProblemSeverity.Warning,
-					message: localize('exclusiveMinimumWarning', 'Value is below the exclusive minimum of {0}.', schema.minimum)
-				});
+		function getExclusiveLimit(limit: number | undefined, exclusive: boolean | number | undefined) : number | undefined {
+			if (typeof exclusive === 'number') {
+				return exclusive;
 			}
-			if (!schema.exclusiveMinimum && val < schema.minimum) {
-				validationResult.problems.push({
-					location: { start: this.start, end: this.end },
-					severity: ProblemSeverity.Warning,
-					message: localize('minimumWarning', 'Value is below the minimum of {0}.', schema.minimum)
-				});
+			if (typeof exclusive === 'boolean' && exclusive) {
+				return limit;
 			}
+			return void 0;
 		}
-
-		if (typeof schema.maximum === 'number') {
-			if (schema.exclusiveMaximum && val >= schema.maximum) {
-				validationResult.problems.push({
-					location: { start: this.start, end: this.end },
-					severity: ProblemSeverity.Warning,
-					message: localize('exclusiveMaximumWarning', 'Value is above the exclusive maximum of {0}.', schema.maximum)
-				});
+		function getLimit(limit: number | undefined, exclusive: boolean | number | undefined) : number | undefined {
+			if (typeof exclusive !== 'boolean' || !exclusive) {
+				return limit;
 			}
-			if (!schema.exclusiveMaximum && val > schema.maximum) {
-				validationResult.problems.push({
-					location: { start: this.start, end: this.end },
-					severity: ProblemSeverity.Warning,
-					message: localize('maximumWarning', 'Value is above the maximum of {0}.', schema.maximum)
-				});
-			}
+			return void 0;
+		}
+		let exclusiveMinimum = getExclusiveLimit(schema.minimum, schema.exclusiveMinimum);
+		if (typeof exclusiveMinimum === 'number' && val <= exclusiveMinimum) {
+			validationResult.problems.push({
+				location: { start: this.start, end: this.end },
+				severity: ProblemSeverity.Warning,
+				message: localize('exclusiveMinimumWarning', 'Value is below the exclusive minimum of {0}.', exclusiveMinimum)
+			});
+		}
+		let exclusiveMaximum = getExclusiveLimit(schema.maximum, schema.exclusiveMaximum);
+		if (typeof exclusiveMaximum === 'number' && val >= schema.exclusiveMaximum) {
+			validationResult.problems.push({
+				location: { start: this.start, end: this.end },
+				severity: ProblemSeverity.Warning,
+				message: localize('exclusiveMaximumWarning', 'Value is above the exclusive maximum of {0}.', exclusiveMaximum)
+			});
+		}
+		let minimum = getLimit(schema.minimum, schema.exclusiveMinimum);
+		if (typeof minimum === 'number' && val < minimum) {
+			validationResult.problems.push({
+				location: { start: this.start, end: this.end },
+				severity: ProblemSeverity.Warning,
+				message: localize('minimumWarning', 'Value is below the minimum of {0}.', minimum)
+			});
+		}
+		let maximum = getLimit(schema.maximum, schema.exclusiveMaximum);
+		if (typeof maximum === 'number' && val > maximum) {
+			validationResult.problems.push({
+				location: { start: this.start, end: this.end },
+				severity: ProblemSeverity.Warning,
+				message: localize('maximumWarning', 'Value is above the maximum of {0}.', maximum)
+			});
 		}
 
 	}
 }
+
 
 export class StringASTNode extends ASTNode {
 	public isKey: boolean;
@@ -878,7 +892,7 @@ class SchemaCollector implements ISchemaCollector {
 }
 
 class NoOpSchemaCollector implements ISchemaCollector {
-	private constructor() {}
+	private constructor() { }
 	get schemas() { return []; }
 	add(schema: IApplicableSchema) { }
 	merge(other: ISchemaCollector) { }

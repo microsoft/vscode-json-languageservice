@@ -6,6 +6,7 @@
 
 export interface JSONSchema {
 	id?: string;
+	$id?: string;
 	$schema?: string;
 	type?: string | string[];
 	title?: string;
@@ -28,8 +29,8 @@ export interface JSONSchema {
 	maxLength?: number;
 	minimum?: number;
 	maximum?: number;
-	exclusiveMinimum?: boolean;
-	exclusiveMaximum?: boolean;
+	exclusiveMinimum?: boolean | number;
+	exclusiveMaximum?: boolean | number;
 	multipleOf?: number;
 	required?: string[];
 	$ref?: string;
