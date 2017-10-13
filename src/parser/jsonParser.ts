@@ -5,7 +5,7 @@
 'use strict';
 
 import Json = require('jsonc-parser');
-import { JSONSchema } from '../jsonSchema';
+import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import * as objects from '../utils/objects';
 
 import * as nls from 'vscode-nls';
@@ -156,14 +156,15 @@ export class ASTNode {
 			}
 		}
 		if (Array.isArray(schema.allOf)) {
-			schema.allOf.forEach((subSchema) => {
-				this.validate(subSchema, validationResult, matchingSchemas);
+			schema.allOf.forEach(subSchemaRef => {
+				this.validate(asSchema(subSchemaRef), validationResult, matchingSchemas);
 			});
 		}
-		if (schema.not) {
+		let notSchema = asSchema(schema.not);
+		if (notSchema) {
 			let subValidationResult = new ValidationResult();
 			let subMatchingSchemas = matchingSchemas.newSub();
-			this.validate(schema.not, subValidationResult, subMatchingSchemas);
+			this.validate(notSchema, subValidationResult, subMatchingSchemas);
 			if (!subValidationResult.hasProblems()) {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
@@ -177,12 +178,13 @@ export class ASTNode {
 			});
 		}
 
-		let testAlternatives = (alternatives: JSONSchema[], maxOneMatch: boolean) => {
+		let testAlternatives = (alternatives: JSONSchemaRef[], maxOneMatch: boolean) => {
 			let matches = [];
 
 			// remember the best match that is used for error messages
 			let bestMatch: { schema: JSONSchema; validationResult: ValidationResult; matchingSchemas: ISchemaCollector; } = null;
-			alternatives.forEach((subSchema) => {
+			alternatives.forEach(subSchemaRef => {
+				let subSchema = asSchema(subSchemaRef);
 				let subValidationResult = new ValidationResult();
 				let subMatchingSchemas = matchingSchemas.newSub();
 				this.validate(subSchema, subValidationResult, subMatchingSchemas);
@@ -351,8 +353,9 @@ export class ArrayASTNode extends ASTNode {
 		super.validate(schema, validationResult, matchingSchemas);
 
 		if (Array.isArray(schema.items)) {
-			let subSchemas = <JSONSchema[]>schema.items;
-			subSchemas.forEach((subSchema, index) => {
+			let subSchemas = schema.items;
+			subSchemas.forEach((subSchemaRef, index) => {
+				let subSchema = asSchema(subSchemaRef);
 				let itemValidationResult = new ValidationResult();
 				let item = this.items[index];
 				if (item) {
@@ -377,23 +380,26 @@ export class ArrayASTNode extends ASTNode {
 					});
 				}
 			}
-		}
-		else if (schema.items) {
-			this.items.forEach((item) => {
-				let itemValidationResult = new ValidationResult();
-				item.validate(<JSONSchema>schema.items, itemValidationResult, matchingSchemas);
-				validationResult.mergePropertyMatch(itemValidationResult);
-			});
+		} else {
+			let itemSchema = asSchema(schema.items);
+			if (itemSchema) {
+				this.items.forEach((item) => {
+					let itemValidationResult = new ValidationResult();
+					item.validate(itemSchema, itemValidationResult, matchingSchemas);
+					validationResult.mergePropertyMatch(itemValidationResult);
+				});
+			}
 		}
 
-		if (schema.contains) {
-			let contains = this.items.some(item => {
+		let containsSchema = asSchema(schema.contains);
+		if (containsSchema) {
+			let doesContain = this.items.some(item => {
 				let itemValidationResult = new ValidationResult();
-				item.validate(<JSONSchema>schema.contains, itemValidationResult, NoOpSchemaCollector.instance);
+				item.validate(containsSchema, itemValidationResult, NoOpSchemaCollector.instance);
 				return !itemValidationResult.hasProblems();
 			});
 
-			if (!contains) {
+			if (!doesContain) {
 				validationResult.problems.push({
 					location: { start: this.start, end: this.end },
 					severity: ProblemSeverity.Warning,
@@ -478,7 +484,7 @@ export class NumberASTNode extends ASTNode {
 				});
 			}
 		}
-		function getExclusiveLimit(limit: number | undefined, exclusive: boolean | number | undefined) : number | undefined {
+		function getExclusiveLimit(limit: number | undefined, exclusive: boolean | number | undefined): number | undefined {
 			if (typeof exclusive === 'number') {
 				return exclusive;
 			}
@@ -487,7 +493,7 @@ export class NumberASTNode extends ASTNode {
 			}
 			return void 0;
 		}
-		function getLimit(limit: number | undefined, exclusive: boolean | number | undefined) : number | undefined {
+		function getLimit(limit: number | undefined, exclusive: boolean | number | undefined): number | undefined {
 			if (typeof exclusive !== 'boolean' || !exclusive) {
 				return limit;
 			}
@@ -739,12 +745,26 @@ export class ObjectASTNode extends ASTNode {
 		if (schema.properties) {
 			Object.keys(schema.properties).forEach((propertyName: string) => {
 				propertyProcessed(propertyName);
-				let prop = schema.properties[propertyName];
+				let propertySchema = schema.properties[propertyName];
 				let child = seenKeys[propertyName];
 				if (child) {
-					let propertyValidationResult = new ValidationResult();
-					child.validate(prop, propertyValidationResult, matchingSchemas);
-					validationResult.mergePropertyMatch(propertyValidationResult);
+					if (typeof propertySchema === 'boolean') {
+						if (!propertySchema) {
+							let propertyNode = <PropertyASTNode>child.parent;
+							validationResult.problems.push({
+								location: { start: propertyNode.key.start, end: propertyNode.key.end },
+								severity: ProblemSeverity.Warning,
+								message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
+							});
+						} else {
+							validationResult.propertiesMatches++;
+							validationResult.propertiesValueMatches++;
+						}
+					} else {
+						let propertyValidationResult = new ValidationResult();
+						child.validate(propertySchema, propertyValidationResult, matchingSchemas);
+						validationResult.mergePropertyMatch(propertyValidationResult);
+					}
 				}
 
 			});
@@ -758,11 +778,25 @@ export class ObjectASTNode extends ASTNode {
 						propertyProcessed(propertyName);
 						let child = seenKeys[propertyName];
 						if (child) {
-							let propertyValidationResult = new ValidationResult();
-							child.validate(schema.patternProperties[propertyPattern], propertyValidationResult, matchingSchemas);
-							validationResult.mergePropertyMatch(propertyValidationResult);
+							let propertySchema = schema.patternProperties[propertyPattern];
+							if (typeof propertySchema === 'boolean') {
+								if (!propertySchema) {
+									let propertyNode = <PropertyASTNode>child.parent;
+									validationResult.problems.push({
+										location: { start: propertyNode.key.start, end: propertyNode.key.end },
+										severity: ProblemSeverity.Warning,
+										message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
+									});
+								} else {
+									validationResult.propertiesMatches++;
+									validationResult.propertiesValueMatches++;
+								}
+							} else {
+								let propertyValidationResult = new ValidationResult();
+								child.validate(propertySchema, propertyValidationResult, matchingSchemas);
+								validationResult.mergePropertyMatch(propertyValidationResult);
+							}
 						}
-
 					}
 				});
 			});
@@ -831,25 +865,37 @@ export class ObjectASTNode extends ASTNode {
 								validationResult.propertiesValueMatches++;
 							}
 						});
-					} else if (propertyDep) {
-						let propertyValidationResult = new ValidationResult();
-						this.validate(propertyDep, propertyValidationResult, matchingSchemas);
-						validationResult.mergePropertyMatch(propertyValidationResult);
+					} else {
+						let propertySchema = asSchema(propertyDep);
+						if (propertySchema) {
+							let propertyValidationResult = new ValidationResult();
+							this.validate(propertySchema, propertyValidationResult, matchingSchemas);
+							validationResult.mergePropertyMatch(propertyValidationResult);
+						}
 					}
 				}
 			});
 		}
 
-		if (schema.propertyNames) {
+		let propertyNames = asSchema(schema.propertyNames);
+		if (propertyNames) {
 			this.properties.forEach(f => {
 				let key = f.key;
 				if (key) {
-					key.validate(schema.propertyNames, validationResult, NoOpSchemaCollector.instance);
+					key.validate(propertyNames, validationResult, NoOpSchemaCollector.instance);
 				}
 			});
 		}
 	}
 }
+//region
+function asSchema(schema: JSONSchemaRef) {
+	if (typeof schema === 'boolean') {
+		return schema ? {} : { "not": {} };
+	}
+	return schema;
+}
+//endregion
 
 export interface JSONDocumentConfig {
 	disallowComments?: boolean;

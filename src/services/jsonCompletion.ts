@@ -8,7 +8,7 @@
 import Parser = require('../parser/jsonParser');
 import Json = require('jsonc-parser');
 import SchemaService = require('./jsonSchemaService');
-import { JSONSchema } from '../jsonSchema';
+import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import { JSONWorkerContribution, CompletionsCollector } from '../jsonContributions';
 import { PromiseConstructor, Thenable } from '../jsonLanguageService';
 import { stringifyObject } from '../utils/json';
@@ -198,7 +198,7 @@ export class JSONCompletion {
 				if (schemaProperties) {
 					Object.keys(schemaProperties).forEach((key: string) => {
 						let propertySchema = schemaProperties[key];
-						if (!propertySchema.deprecationMessage && !propertySchema.doNotSuggest) {
+						if (typeof propertySchema === 'object' && !propertySchema.deprecationMessage && !propertySchema.doNotSuggest) {
 							collector.add({
 								kind: CompletionItemKind.Property,
 								label: key,
@@ -347,7 +347,7 @@ export class JSONCompletion {
 		let offsetForSeparator = offset;
 		let parentKey: string = null;
 		let valueNode: Parser.ASTNode = null;
-		
+
 		if (node && (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')) {
 			offsetForSeparator = node.end;
 			valueNode = node;
@@ -358,7 +358,7 @@ export class JSONCompletion {
 			this.addSchemaValueCompletions(schema.schema, '', collector, types);
 			return;
 		}
-		
+
 		if ((node.type === 'property') && offset > (<Parser.PropertyASTNode>node).colonOffset) {
 			let propertyNode = <Parser.PropertyASTNode>node;
 			let valueNode = propertyNode.value;
@@ -404,7 +404,7 @@ export class JSONCompletion {
 				this.addNullValueCompletion(separatorAfter, collector);
 			}
 		}
-		
+
 	}
 
 	private getContributedValueCompletions(doc: Parser.JSONDocument, node: Parser.ASTNode, offset: number, document: TextDocument, collector: CompletionsCollector, collectionPromises: Thenable<any>[]) {
@@ -436,18 +436,20 @@ export class JSONCompletion {
 		}
 	}
 
-	private addSchemaValueCompletions(schema: JSONSchema, separatorAfter: string, collector: CompletionsCollector, types: { [type: string]: boolean }): void {
-		this.addDefaultValueCompletions(schema, separatorAfter, collector);
-		this.addEnumValueCompletions(schema, separatorAfter, collector);
-		this.collectTypes(schema, types);
-		if (Array.isArray(schema.allOf)) {
-			schema.allOf.forEach(s => this.addSchemaValueCompletions(s, separatorAfter, collector, types));
-		}
-		if (Array.isArray(schema.anyOf)) {
-			schema.anyOf.forEach(s => this.addSchemaValueCompletions(s, separatorAfter, collector, types));
-		}
-		if (Array.isArray(schema.oneOf)) {
-			schema.oneOf.forEach(s => this.addSchemaValueCompletions(s, separatorAfter, collector, types));
+	private addSchemaValueCompletions(schema: JSONSchemaRef, separatorAfter: string, collector: CompletionsCollector, types: { [type: string]: boolean }): void {
+		if (typeof schema === 'object') {
+			this.addDefaultValueCompletions(schema, separatorAfter, collector);
+			this.addEnumValueCompletions(schema, separatorAfter, collector);
+			this.collectTypes(schema, types);
+			if (Array.isArray(schema.allOf)) {
+				schema.allOf.forEach(s => this.addSchemaValueCompletions(s, separatorAfter, collector, types));
+			}
+			if (Array.isArray(schema.anyOf)) {
+				schema.anyOf.forEach(s => this.addSchemaValueCompletions(s, separatorAfter, collector, types));
+			}
+			if (Array.isArray(schema.oneOf)) {
+				schema.oneOf.forEach(s => this.addSchemaValueCompletions(s, separatorAfter, collector, types));
+			}
 		}
 	}
 
@@ -505,7 +507,7 @@ export class JSONCompletion {
 				hasProposals = true;
 			});
 		}
-		if (!hasProposals && schema.items && !Array.isArray(schema.items)) {
+		if (!hasProposals && typeof schema.items === 'object' && !Array.isArray(schema.items)) {
 			this.addDefaultValueCompletions(schema.items, separatorAfter, collector, arrayDepth + 1);
 		}
 	}

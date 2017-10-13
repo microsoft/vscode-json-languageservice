@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+export type JSONSchemaRef = JSONSchema | boolean;
+
 export interface JSONSchema {
 	id?: string;
 	$id?: string;
@@ -11,19 +13,19 @@ export interface JSONSchema {
 	type?: string | string[];
 	title?: string;
 	default?: any;
-	definitions?: JSONSchemaMap;
+	definitions?: { [name: string]: JSONSchema };
 	description?: string;
 	properties?: JSONSchemaMap;
 	patternProperties?: JSONSchemaMap;
-	additionalProperties?: boolean | JSONSchema;
+	additionalProperties?: boolean | JSONSchemaRef;
 	minProperties?: number;
 	maxProperties?: number;
-	dependencies?: JSONSchemaMap | { [prop:string]: string[]};
-	items?: JSONSchema | JSONSchema[];
+	dependencies?: JSONSchemaMap | { [prop: string]: string[] };
+	items?: JSONSchemaRef | JSONSchemaRef[];
 	minItems?: number;
 	maxItems?: number;
 	uniqueItems?: boolean;
-	additionalItems?: boolean | JSONSchema;
+	additionalItems?: boolean | JSONSchemaRef;
 	pattern?: string;
 	minLength?: number;
 	maxLength?: number;
@@ -34,17 +36,17 @@ export interface JSONSchema {
 	multipleOf?: number;
 	required?: string[];
 	$ref?: string;
-	anyOf?: JSONSchema[];
-	allOf?: JSONSchema[];
-	oneOf?: JSONSchema[];
-	not?: JSONSchema;
+	anyOf?: JSONSchemaRef[];
+	allOf?: JSONSchemaRef[];
+	oneOf?: JSONSchemaRef[];
+	not?: JSONSchemaRef;
 	enum?: any[];
 	format?: string;
 
 	// schema draft 06
 	const?: any;
-	contains?: JSONSchema;
-	propertyNames?: JSONSchema;
+	contains?: JSONSchemaRef;
+	propertyNames?: JSONSchemaRef;
 
 	// VSCode extensions
 
@@ -59,5 +61,5 @@ export interface JSONSchema {
 }
 
 export interface JSONSchemaMap {
-	[name: string]:JSONSchema;
+	[name: string]: JSONSchemaRef;
 }

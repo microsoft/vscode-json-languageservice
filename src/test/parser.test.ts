@@ -385,6 +385,24 @@ suite('JSON Parser', () => {
 		});
 
 		assert.strictEqual(semanticErrors.length, 2);
+
+		semanticErrors = result.validate({
+			type: 'object',
+			properties: {
+				"array": false,
+			}
+		});
+
+		assert.strictEqual(semanticErrors.length, 1);
+
+		semanticErrors = result.validate({
+			type: 'object',
+			properties: {
+				"array": true,
+			}
+		});
+
+		assert.strictEqual(semanticErrors.length, 0);
 	});
 
 	test('Required properties', function () {
@@ -621,7 +639,7 @@ suite('JSON Parser', () => {
 			}
 		});
 		assert.strictEqual(semanticErrors.length, 1, 'at exclusive mininum');
-		assert.strictEqual(semanticErrors[0].message, 'Value is below the exclusive minimum of 134.5.');	
+		assert.strictEqual(semanticErrors[0].message, 'Value is below the exclusive minimum of 134.5.');
 
 		semanticErrors = result.validate({
 			type: 'object',
@@ -658,7 +676,7 @@ suite('JSON Parser', () => {
 			}
 		});
 		assert.strictEqual(semanticErrors.length, 1, 'at exclusive mininum');
-		assert.strictEqual(semanticErrors[0].message, 'Value is above the exclusive maximum of 134.5.');		
+		assert.strictEqual(semanticErrors[0].message, 'Value is above the exclusive maximum of 134.5.');
 
 		semanticErrors = result.validate({
 			type: 'object',
@@ -826,9 +844,6 @@ suite('JSON Parser', () => {
 
 
 	test('not', function () {
-
-		let doc = toDocument('{"prop1": 42, "prop2": true}');
-
 		let schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			not: {
@@ -841,11 +856,11 @@ suite('JSON Parser', () => {
 
 		};
 
+		let doc = toDocument('{"prop1": 42, "prop2": true}');
 		let semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 
 		doc = toDocument('{"prop1": "test"}');
-
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 0);
 	});
@@ -895,9 +910,6 @@ suite('JSON Parser', () => {
 	});
 
 	test('patternProperties', function () {
-
-		let doc = toDocument('{"prop1": 42, "prop2": 42}');
-
 		let schema: JsonSchema.JSONSchema = {
 			id: 'main',
 			patternProperties: {
@@ -907,18 +919,31 @@ suite('JSON Parser', () => {
 			}
 		};
 
+		let doc = toDocument('{"prop1": 42, "prop2": 42}');
 		let semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 0);
 
 		doc = toDocument('{"prop1": 42, "prop2": true}');
-
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 
 		doc = toDocument('{"prop1": 42, "prop2": 123, "aprop3": true}');
-
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 0);
+
+		schema = {
+			id: 'main',
+			patternProperties: {
+				'^prop\\d$': true,
+				'^invalid$': false
+			}
+		};
+		doc = toDocument('{"prop1": 42 }');
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 0);
+		doc = toDocument('{"invalid": 42 }');
+		semanticErrors = doc.validate(schema);
+		assert.strictEqual(semanticErrors.length, 1);
 	});
 
 	test('additionalProperties', function () {
@@ -1074,7 +1099,7 @@ suite('JSON Parser', () => {
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
 		assert.strictEqual(semanticErrors[0].message, "String is longer than the maximum length of 6.");
-	});	
+	});
 
 	test('uniqueItems', function () {
 
@@ -1100,7 +1125,7 @@ suite('JSON Parser', () => {
 	});
 
 	test('containsItem', function () {
-		
+
 		let schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			contains: { type: "number", const: 3 }

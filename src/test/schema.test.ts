@@ -619,7 +619,7 @@ suite('JSON Schema', () => {
 		let fsm0 = service.registerExternalSchema(id0, ['*.json'], schema0);
 		let fsm1 = service.registerExternalSchema(id1, [], schema1);
 		fsm0.getResolvedSchema().then((fs0) => {
-			assert.equal(fs0.schema.allOf[0].type, 'object');
+			assert.equal((<JsonSchema.JSONSchema>fs0.schema.allOf[0]).type, 'object');
 		}).then(() => testDone(), (error) => {
 			testDone(error);
 		});
