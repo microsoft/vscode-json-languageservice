@@ -90,7 +90,7 @@ export class JSONDocumentSymbols {
 				let matchingSchemas = doc.getMatchingSchemas(schema.schema);
 				let visitedNode = {};
 				for (let s of matchingSchemas) {
-					if (!s.inverted && s.schema && s.schema.format === 'color' && s.node && s.node.type === 'string') {
+					if (!s.inverted && s.schema && (s.schema.format === 'color' || s.schema.format === 'color-hex') && s.node && s.node.type === 'string') {
 						let nodeId = String(s.node.start);
 						if (!visitedNode[nodeId]) {
 							let color = colorFromHex(s.node.getValue());
