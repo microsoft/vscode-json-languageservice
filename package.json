@@ -14,11 +14,11 @@
     "url": "https://github.com/Microsoft/vscode-json-languageservice"
   },
   "devDependencies": {
-    "mocha": "^2.4.5",
-    "typescript": "2.1.5",
-    "@types/node": "^6.0.51",
     "@types/mocha": "^2.2.33",
-    "tslint": "^5.7.0"
+    "@types/node": "^6.0.51",
+    "mocha": "^2.4.5",
+    "tslint": "^5.7.0",
+    "typescript": "2.1.5"
   },
   "dependencies": {
     "jsonc-parser": "^1.0.0",
