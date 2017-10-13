@@ -540,10 +540,9 @@ suite('JSON Parser', () => {
 			}
 		};
 
-
 		semanticErrors = result.validate(schemaWithURI);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: Scheme must be defined.');
+		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: URI with a scheme is expected.');
 
 		result = toDocument('{"one":"http://foo/bar"}');
 		semanticErrors = result.validate(schemaWithURI);
@@ -552,12 +551,69 @@ suite('JSON Parser', () => {
 		result = toDocument('{"one":""}');
 		semanticErrors = result.validate(schemaWithURI);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: String must not be empty.');
+		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: URI expected.');
 
 		result = toDocument('{"one":"//foo/bar"}');
 		semanticErrors = result.validate(schemaWithURI);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: Scheme must be defined.');
+		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: URI with a scheme is expected.');
+
+		let schemaWithURIReference = {
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'string',
+					format: 'uri-reference'
+				}
+			}
+		};
+
+		result = toDocument('{"one":""}');
+		semanticErrors = result.validate(schemaWithURIReference);
+		assert.strictEqual(semanticErrors.length, 1, 'uri-reference');
+		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: URI expected.');
+
+		result = toDocument('{"one":"//foo/bar"}');
+		semanticErrors = result.validate(schemaWithURIReference);
+		assert.strictEqual(semanticErrors.length, 0, 'uri-reference');
+
+		let schemaWithEMail = {
+			type: 'object',
+			properties: {
+				"mail": {
+					type: 'string',
+					format: 'email'
+				}
+			}
+		};
+
+		result = toDocument('{"mail":"foo@bar.com"}');
+		semanticErrors = result.validate(schemaWithEMail);
+		assert.strictEqual(semanticErrors.length, 0, "email");
+
+		result = toDocument('{"mail":"foo"}');
+		semanticErrors = result.validate(schemaWithEMail);
+		assert.strictEqual(semanticErrors.length, 1, "email");
+		assert.strictEqual(semanticErrors[0].message, 'String is not an e-mail address.');
+
+		let schemaWithColor = {
+			type: 'object',
+			properties: {
+				"color": {
+					type: 'string',
+					format: 'color-hex'
+				}
+			}
+		};
+
+		result = toDocument('{"color":"#FF00FF"}');
+		semanticErrors = result.validate(schemaWithColor);
+		assert.strictEqual(semanticErrors.length, 0, "email");
+
+		result = toDocument('{"color":"#FF00F"}');
+		semanticErrors = result.validate(schemaWithColor);
+		assert.strictEqual(semanticErrors.length, 1, "email");
+		assert.strictEqual(semanticErrors[0].message, 'Invalid color format. Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.');		
 
 	});
 

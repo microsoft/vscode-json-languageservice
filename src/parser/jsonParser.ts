@@ -37,6 +37,9 @@ export enum ErrorCode {
 	CommaOrCloseBraceExpected = 0x206
 }
 
+const colorHexPattern = /^#([0-9A-Fa-f]{3,4}|([0-9A-Fa-f]{2}){3,4})$/;
+const emailPattern = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+
 export enum ProblemSeverity {
 	Error, Warning
 }
@@ -583,26 +586,53 @@ export class StringASTNode extends ASTNode {
 			}
 		}
 
-		if (schema.format === 'uri') {
-			let errorMessage;
-			if (!this.value) {
-				errorMessage = localize('iriEmpty', 'String must not be empty.');
-			} else {
-				try {
-					let uri = Uri.parse(this.value);
-					if (!uri.scheme) {
-						errorMessage = localize('schemeMessing', 'Scheme must be defined.');
+		if (schema.format) {
+			switch (schema.format) {
+				case 'uri':
+				case 'uri-reference': {
+					let errorMessage;
+					if (!this.value) {
+						errorMessage = localize('uriEmpty', 'URI expected.');
+					} else {
+						try {
+							let uri = Uri.parse(this.value);
+							if (!uri.scheme && schema.format === 'uri') {
+								errorMessage = localize('uriSchemeMissing', 'URI with a scheme is expected.');
+							}
+						} catch (e) {
+							errorMessage = e.message;
+						}
 					}
-				} catch (e) {
-					errorMessage = e.message;
+					if (errorMessage) {
+						validationResult.problems.push({
+							location: { start: this.start, end: this.end },
+							severity: ProblemSeverity.Warning,
+							message: schema.patternErrorMessage || schema.errorMessage || localize('uriFormatWarning', 'String is not an URI: {0}', errorMessage)
+						});
+					}
 				}
-			}
-			if (errorMessage) {
-				validationResult.problems.push({
-					location: { start: this.start, end: this.end },
-					severity: ProblemSeverity.Warning,
-					message: schema.patternErrorMessage || schema.errorMessage || localize('uriFormatWarning', 'String is not an URI: {0}', errorMessage)
-				});
+				break;
+				case 'email': {
+					if (!this.value.match(emailPattern)) {
+						validationResult.problems.push({
+							location: { start: this.start, end: this.end },
+							severity: ProblemSeverity.Warning,
+							message: schema.patternErrorMessage || schema.errorMessage || localize('emailFormatWarning', 'String is not an e-mail address.')
+						});
+					}
+				}
+				break;	
+				case 'color-hex': {
+					if (!this.value.match(colorHexPattern)) {
+						validationResult.problems.push({
+							location: { start: this.start, end: this.end },
+							severity: ProblemSeverity.Warning,
+							message: schema.patternErrorMessage || schema.errorMessage || localize('colorHexFormatWarning', 'Invalid color format. Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.')
+						});
+					}
+				}
+				break;
+				default:
 			}
 		}
 	}
