@@ -175,7 +175,7 @@ suite('JSON Completion', () => {
 					type: 'string',
 					description: 'B'
 				},
-				'c': {
+				'cool': {
 					type: 'boolean',
 					description: 'C'
 				}
@@ -187,7 +187,7 @@ suite('JSON Completion', () => {
 				items: [
 					{ label: 'a', documentation: 'A', resultText: '{"a": ${1:0}}' },
 					{ label: 'b', documentation: 'B', resultText: '{"b": "$1"}' },
-					{ label: 'c', documentation: 'C', resultText: '{"c": ${1:false}}' }
+					{ label: 'cool', documentation: 'C', resultText: '{"cool": ${1:false}}' }
 				]
 			}),
 			testCompletionsFor('{ "a|}', schema, {
@@ -218,21 +218,28 @@ suite('JSON Completion', () => {
 				count: 2,
 				items: [
 					{ label: 'b', documentation: 'B', resultText: '{ "a": 1,"b": "$1"}' },
-					{ label: 'c', documentation: 'C', resultText: '{ "a": 1,"c": ${1:false}}' }
+					{ label: 'cool', documentation: 'C', resultText: '{ "a": 1,"cool": ${1:false}}' }
 				]
 			}),
 			testCompletionsFor('{ |, "a": 1}', schema, {
 				count: 2,
 				items: [
 					{ label: 'b', documentation: 'B', resultText: '{ "b": "$1", "a": 1}' },
-					{ label: 'c', documentation: 'C', resultText: '{ "c": ${1:false}, "a": 1}' }
+					{ label: 'cool', documentation: 'C', resultText: '{ "cool": ${1:false}, "a": 1}' }
 				]
 			}),
 			testCompletionsFor('{ "a": 1 "b|"}', schema, {
 				items: [
 					{ label: 'b', documentation: 'B', resultText: '{ "a": 1 "b": "$1"}' },
 				]
-			})
+			}),
+			testCompletionsFor('{ "c|"\n"b": "v"}', schema, {
+				items: [
+					{ label: 'a', resultText: '{ "a": ${1:0},\n"b": "v"}' },
+					{ label: 'cool', resultText: '{ "cool": ${1:false},\n"b": "v"}' },
+					{ label: 'b', notAvailable: true }
+				]
+			})		
 		]).then(() => testDone(), (error) => testDone(error));
 
 	});

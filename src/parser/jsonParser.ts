@@ -1246,6 +1246,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		} else {
 			_error(localize('ColonExpected', 'Colon expected'), ErrorCode.ColonExpected);
 			if (scanner.getToken() === Json.SyntaxKind.StringLiteral && textDocument.positionAt(key.end).line < textDocument.positionAt(scanner.getTokenOffset()).line) {
+				node.end = key.end;
 				return node;
 			}
 		}
