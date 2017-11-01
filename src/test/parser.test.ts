@@ -205,7 +205,7 @@ suite('JSON Parser', () => {
 
 		let content = '{\n"key":32,\nerror\n}';
 		let result = toDocument(content);
-		assert.equal(result.syntaxErrors.length, 1);
+		assert.equal(result.syntaxErrors.length, 3);
 		assert.equal(result.syntaxErrors[0].location.start, content.indexOf('error'));
 		assert.equal(result.syntaxErrors[0].location.end, content.indexOf('error') + 5);
 	});

@@ -1220,12 +1220,13 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		if (!key) {
 			if (scanner.getToken() === Json.SyntaxKind.Unknown) {
 				// give a more helpful error message
-				let value = scanner.getTokenValue();
-				if (value.match(/^['\w]/)) {
-					_error(localize('DoubleQuotesExpected', 'Property keys must be doublequoted'), ErrorCode.Undefined);
-				}
+				_error(localize('DoubleQuotesExpected', 'Property keys must be doublequoted'), ErrorCode.Undefined);
+				key = new StringASTNode(null, null, true, scanner.getTokenOffset(), scanner.getTokenOffset() + scanner.getTokenLength());
+				key.value = scanner.getTokenValue();
+				_scanNext(); // consume Unknown
+			} else {
+				return null;
 			}
-			return null;
 		}
 		let node = new PropertyASTNode(parent, key);
 

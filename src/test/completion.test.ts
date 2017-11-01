@@ -239,7 +239,14 @@ suite('JSON Completion', () => {
 					{ label: 'cool', resultText: '{ "cool": ${1:false},\n"b": "v"}' },
 					{ label: 'b', notAvailable: true }
 				]
-			})		
+			}),
+			testCompletionsFor('{ c|\n"b": "v"}', schema, {
+				items: [
+					{ label: 'a', resultText: '{ "a": ${1:0},\n"b": "v"}' },
+					{ label: 'cool', resultText: '{ "cool": ${1:false},\n"b": "v"}' },
+					{ label: 'b', notAvailable: true }
+				]
+			})	
 		]).then(() => testDone(), (error) => testDone(error));
 
 	});
