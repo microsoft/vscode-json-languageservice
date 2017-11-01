@@ -38,7 +38,7 @@ export interface LanguageService {
 	/** deprecated, use findDocumentColors instead */
 	findColorSymbols(document: TextDocument, doc: JSONDocument): Thenable<Range[]>;
 	findDocumentColors(document: TextDocument, doc: JSONDocument): Thenable<ColorInformation[]>;
-	getColorPresentations(document: TextDocument, doc: JSONDocument, colorInfo: ColorInformation): ColorPresentation[];
+	getColorPresentations(document: TextDocument, doc: JSONDocument, color: Color, range: Range): ColorPresentation[];
 	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
 }

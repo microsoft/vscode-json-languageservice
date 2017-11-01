@@ -9,7 +9,7 @@ import Strings = require('../utils/strings');
 import { colorFromHex } from '../utils/colors';
 
 import { SymbolInformation, SymbolKind, TextDocument, Range, Location, TextEdit } from 'vscode-languageserver-types';
-import { Thenable, ColorInformation, ColorPresentation } from "../jsonLanguageService";
+import { Thenable, ColorInformation, ColorPresentation, Color } from "../jsonLanguageService";
 import { IJSONSchemaService } from "./jsonSchemaService";
 
 export class JSONDocumentSymbols {
@@ -107,9 +107,8 @@ export class JSONDocumentSymbols {
 		});
 	}
 
-	public getColorPresentations(document: TextDocument, doc: Parser.JSONDocument, colorInfo: ColorInformation): ColorPresentation[] {
+	public getColorPresentations(document: TextDocument, doc: Parser.JSONDocument, color: Color, range: Range): ColorPresentation[] {
 		let result: ColorPresentation[] = [];
-		let color = colorInfo.color;
 		let red256 = Math.round(color.red * 255), green256 = Math.round(color.green * 255), blue256 = Math.round(color.blue * 255);
 
 		function toTwoDigitHex(n: number): string {
@@ -123,7 +122,7 @@ export class JSONDocumentSymbols {
 		} else {
 			label = `#${toTwoDigitHex(red256)}${toTwoDigitHex(green256)}${toTwoDigitHex(blue256)}${toTwoDigitHex(Math.round(color.alpha * 255))}`;
 		}
-		result.push({ label: label, textEdit: TextEdit.replace(colorInfo.range, JSON.stringify(label)) });
+		result.push({ label: label, textEdit: TextEdit.replace(range, JSON.stringify(label)) });
 
 		return result;
 	}
