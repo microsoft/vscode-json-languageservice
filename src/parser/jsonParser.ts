@@ -511,7 +511,7 @@ export class NumberASTNode extends ASTNode {
 			});
 		}
 		let exclusiveMaximum = getExclusiveLimit(schema.maximum, schema.exclusiveMaximum);
-		if (typeof exclusiveMaximum === 'number' && val >= schema.exclusiveMaximum) {
+		if (typeof exclusiveMaximum === 'number' && val >= exclusiveMaximum) {
 			validationResult.problems.push({
 				location: { start: this.start, end: this.end },
 				severity: ProblemSeverity.Warning,
