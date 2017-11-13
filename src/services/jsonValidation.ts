@@ -47,7 +47,7 @@ export class JSONValidation {
 				let severity = problem.severity === ProblemSeverity.Error ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
 				diagnostics.push({ severity, range, message: problem.message });
 			}
-		}
+		};
 		jsonDocument.syntaxErrors.forEach(addProblem);
 
 		return this.jsonSchemaService.getSchemaForResource(textDocument.uri, jsonDocument).then(schema => {

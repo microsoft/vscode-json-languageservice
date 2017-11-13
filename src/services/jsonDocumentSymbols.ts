@@ -114,7 +114,7 @@ export class JSONDocumentSymbols {
 		function toTwoDigitHex(n: number): string {
 			const r = n.toString(16);
 			return r.length !== 2 ? '0' + r : r;
-		};
+		}
 
 		let label;
 		if (color.alpha === 1) {

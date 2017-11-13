@@ -72,5 +72,5 @@ export function colorFrom256RGB(red: number, green: number, blue: number, alpha:
 		green: green / 255.0,
 		blue: blue / 255.0,
 		alpha
-	}
+	};
 }

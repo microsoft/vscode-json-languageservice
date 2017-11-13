@@ -58,7 +58,7 @@ suite('JSON Completion', () => {
 					schema,
 					fileMatch: ["*.json"]
 				}]
-			})
+			});
 		}
 
 		let document = TextDocument.create('test://test/test.json', 'json', 0, value);

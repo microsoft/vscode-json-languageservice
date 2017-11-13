@@ -29,7 +29,7 @@ export class JSONHover {
 		let offset = document.offsetAt(position);
 		let node = doc.getNodeFromOffset(offset);
 		if (!node || (node.type === 'object' || node.type === 'array') && offset > node.start + 1 && offset < node.end - 1) {
-			return this.promise.resolve(void 0);
+			return this.promise.resolve(null);
 		}
 		let hoverRangeNode = node;
 
@@ -40,7 +40,7 @@ export class JSONHover {
 				let propertyNode = <Parser.PropertyASTNode>node.parent;
 				node = propertyNode.value;
 				if (!node) {
-					return this.promise.resolve(void 0);
+					return this.promise.resolve(null);
 				}	
 			}
 		}
@@ -70,7 +70,7 @@ export class JSONHover {
 
 				let title: string = null;
 				let markdownDescription: string = null;
-				let markdownEnumValueDescription = null, enumValue = null;;
+				let markdownEnumValueDescription = null, enumValue = null;
 				matchingSchemas.every((s) => {
 					if (s.node === node && !s.inverted && s.schema) {
 						title = title || s.schema.title;
@@ -94,7 +94,7 @@ export class JSONHover {
 				});
 				let result = '';
 				if (title) {
-					result = toMarkdown(title)
+					result = toMarkdown(title);
 				}
 				if (markdownDescription) {
 					if (result.length > 0) {
@@ -110,7 +110,7 @@ export class JSONHover {
 				}
 				return createHover([result]);
 			}
-			return void 0;
+			return null;
 		});
 	}
 }

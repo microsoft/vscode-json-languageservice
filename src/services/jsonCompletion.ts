@@ -638,7 +638,7 @@ export class JSONCompletion {
 				}
 			}
 			return JSON.stringify(value);
-		}
+		};
 		return stringifyObject(value, '', replacer) + separatorAfter;
 	}
 

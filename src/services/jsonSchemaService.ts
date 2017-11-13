@@ -5,7 +5,7 @@
 'use strict';
 
 import Json = require('jsonc-parser');
-import { JSONSchema, JSONSchemaMap } from '../jsonSchema';
+import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
 import URI from 'vscode-uri';
 import Strings = require('../utils/strings');
 import Parser = require('../parser/jsonParser');
@@ -156,16 +156,16 @@ export class ResolvedSchema {
 	}
 
 	public getSection(path: string[]): JSONSchema {
-		return this.getSectionRecursive(path, this.schema);
+		return Parser.asSchema(this.getSectionRecursive(path, this.schema));
 	}
 
-	private getSectionRecursive(path: string[], schema: JSONSchema): JSONSchema {
-		if (!schema || path.length === 0) {
+	private getSectionRecursive(path: string[], schema: JSONSchemaRef): JSONSchemaRef {
+		if (!schema || typeof schema === 'boolean' || path.length === 0) {
 			return schema;
 		}
 		let next = path.shift();
 
-		if (schema.properties && schema.properties[next]) {
+		if (schema.properties && typeof schema.properties[next]) {
 			return this.getSectionRecursive(path, schema.properties[next]);
 		} else if (schema.patternProperties) {
 			Object.keys(schema.patternProperties).forEach((pattern) => {
@@ -419,7 +419,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 			let openPromises: Thenable<any>[] = [];
 
-			let collectEntries = (...entries: JSONSchema[]) => {
+			let collectEntries = (...entries: JSONSchemaRef[]) => {
 				for (let entry of entries) {
 					if (typeof entry === 'object') {
 						toWalk.push(entry);
@@ -431,15 +431,21 @@ export class JSONSchemaService implements IJSONSchemaService {
 					if (typeof map === 'object') {
 						for (let key in map) {
 							let entry = map[key];
-							toWalk.push(entry);
+							if (typeof entry === 'object') {
+								toWalk.push(entry);
+							}
 						}
 					}
 				}
 			};
-			let collectArrayEntries = (...arrays: JSONSchema[][]) => {
+			let collectArrayEntries = (...arrays: JSONSchemaRef[][]) => {
 				for (let array of arrays) {
 					if (Array.isArray(array)) {
-						toWalk.push.apply(toWalk, array);
+						for (let entry of array) {
+							if (typeof entry === 'object') {
+								toWalk.push(entry);
+							}
+						}
 					}
 				}
 			};

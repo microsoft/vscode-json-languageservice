@@ -30,7 +30,7 @@ suite('JSON Hover', () => {
 
 	let requestService = function(uri: string): Promise<string> {
 		return Promise.reject<string>('Resource not found');
-	}
+	};
 
 	test('Simple schema', function(testDone) {
 
@@ -169,4 +169,4 @@ suite('JSON Hover', () => {
 			})
 		]).then(() => testDone(), (error) => testDone(error));
 	});	
-})
+});

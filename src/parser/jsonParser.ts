@@ -408,7 +408,7 @@ export class ArrayASTNode extends ASTNode {
 					severity: ProblemSeverity.Warning,
 					message: schema.errorMessage || localize('requiredItemMissingWarning', 'Array does not contain required item.', schema.minItems)
 				});
-			};
+			}
 		}
 
 		if (schema.minItems && this.items.length < schema.minItems) {
@@ -882,7 +882,7 @@ export class ObjectASTNode extends ASTNode {
 			Object.keys(schema.dependencies).forEach((key: string) => {
 				let prop = seenKeys[key];
 				if (prop) {
-					let propertyDep = schema.dependencies[key]
+					let propertyDep = schema.dependencies[key];
 					if (Array.isArray(propertyDep)) {
 						propertyDep.forEach((requiredProp: string) => {
 							if (!seenKeys[requiredProp]) {
@@ -919,7 +919,7 @@ export class ObjectASTNode extends ASTNode {
 	}
 }
 //region
-function asSchema(schema: JSONSchemaRef) {
+export function asSchema(schema: JSONSchemaRef) {
 	if (typeof schema === 'boolean') {
 		return schema ? {} : { "not": {} };
 	}

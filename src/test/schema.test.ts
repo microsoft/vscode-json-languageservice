@@ -29,7 +29,7 @@ suite('JSON Schema', () => {
 		'http://schema.management.azure.com/schemas/2014-06-01/Microsoft.Web.json': 'Microsoft.Web.json',
 		'http://schema.management.azure.com/schemas/2014-04-01/SuccessBricks.ClearDB.json': 'SuccessBricks.ClearDB.json',
 		'http://schema.management.azure.com/schemas/2015-08-01/Microsoft.Compute.json': 'Microsoft.Compute.json'
-	}
+	};
 
 	let requestServiceMock = function (uri: string): Promise<string> {
 		if (uri.length && uri[uri.length - 1] === '#') {
@@ -40,12 +40,12 @@ suite('JSON Schema', () => {
 			return new Promise<string>((c, e) => {
 				let fixturePath = path.join(__dirname, '../../src/test/fixtures', fileName);
 				fs.readFile(fixturePath, 'UTF-8', (err, result) => {
-					err ? e("Resource not found.") : c(result.toString())
+					err ? e("Resource not found.") : c(result.toString());
 				});
 			});
 		}
 		return Promise.reject<string>("Resource not found.");
-	}
+	};
 
 	let workspaceContext = {
 		resolveRelativePath: (relativePath: string, resource: string) => {
@@ -546,7 +546,7 @@ suite('JSON Schema', () => {
 					}
 				}
 			]
-		}
+		};
 
 		let document = toDocument(JSON.stringify(input));
 
@@ -578,7 +578,7 @@ suite('JSON Schema', () => {
 					"apiVersion": "2015-01-01",
 				}
 			]
-		}
+		};
 
 		let document = toDocument(JSON.stringify(input));
 
@@ -682,7 +682,7 @@ suite('JSON Schema', () => {
 					}
 				}
 			]
-		}
+		};
 
 		let document = toDocument(JSON.stringify(input));
 

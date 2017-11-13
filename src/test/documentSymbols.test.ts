@@ -17,7 +17,7 @@ suite('JSON Document Symbols', () => {
 
 	let schemaRequestService = function (uri: string): Promise<string> {
 		return Promise.reject<string>('Resource not found');
-	}
+	};
 
 	function getOutline(value: string): SymbolInformation[] {
 		var uri = 'test://test.json';
@@ -42,7 +42,7 @@ suite('JSON Document Symbols', () => {
 			assert.deepEqual(actualOffsets, expectedOffsets);
 			let actualColors = colorInfos.map(r => r.color);
 			assert.deepEqual(actualColors, expectedColors);
-		})
+		});
 	}
 
 	function assertColorPresentations(color: Color, ...expected: string[]) {
@@ -65,7 +65,7 @@ suite('JSON Document Symbols', () => {
 			assert.equal(actual[i].name, expected[i].label, message);
 			assert.equal(actual[i].kind, expected[i].kind, message);
 		}
-	};
+	}
 
 
 	test('Base types', function () {

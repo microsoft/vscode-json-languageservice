@@ -39,7 +39,7 @@ export interface LanguageService {
 	findColorSymbols(document: TextDocument, doc: JSONDocument): Thenable<Range[]>;
 	findDocumentColors(document: TextDocument, doc: JSONDocument): Thenable<ColorInformation[]>;
 	getColorPresentations(document: TextDocument, doc: JSONDocument, color: Color, range: Range): ColorPresentation[];
-	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover>;
+	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover | null>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
 }
 
@@ -80,7 +80,7 @@ export interface LanguageSettings {
 	/**
 	 * If set, comments are toleranted. If not set, a syntax error is emmited for comments.
 	 */
-	allowComments?: boolean,
+	allowComments?: boolean;
 	/**
 	 * A list of known schemas and/or associations of schemas to file names.
 	 */
@@ -196,7 +196,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 				settings.schemas.forEach(settings => {
 					jsonSchemaService.registerExternalSchema(settings.uri, settings.fileMatch, settings.schema);
 				});
-			};
+			}
 			jsonValidation.configure(settings);
 			disallowComments = settings && !settings.allowComments;
 		},
