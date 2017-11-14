@@ -1346,13 +1346,15 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return _parseArray(parent, name) || _parseObject(parent, name) || _parseString(parent, name, false) || _parseNumber(parent, name) || _parseLiteral(parent, name);
 	}
 
-	_scanNext();
-
-	let _root = _parseValue(null, null);
-	if (!_root) {
-		_error(localize('Invalid symbol', 'Expected a JSON object, array or literal.'), ErrorCode.Undefined);
-	} else if (scanner.getToken() !== Json.SyntaxKind.EOF) {
-		_error(localize('End of file expected', 'End of file expected.'), ErrorCode.Undefined);
+	let _root = null; 
+	let token = _scanNext();
+	if (token !== Json.SyntaxKind.EOF) {
+		_root = _parseValue(null, null);
+		if (!_root) {
+			_error(localize('Invalid symbol', 'Expected a JSON object, array or literal.'), ErrorCode.Undefined);
+		} else if (scanner.getToken() !== Json.SyntaxKind.EOF) {
+			_error(localize('End of file expected', 'End of file expected.'), ErrorCode.Undefined);
+		}
 	}
 	return new JSONDocument(_root, problems);
 }

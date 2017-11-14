@@ -43,6 +43,12 @@ suite('JSON Parser', () => {
 		isValid('{}\n\n');
 	});
 
+	test('No content', function () {
+		isValid('');
+		isValid('   ');
+		isValid('\n\n');
+		isValid('/*hello*/  ');
+	});	
 
 	test('Objects', function () {
 		isValid('{}');
