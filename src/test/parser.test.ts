@@ -1497,11 +1497,11 @@ suite('JSON Parser', () => {
 
 	});
 
-	test('parse with comments disabled', function () {
+	test('parse with comments collected', function () {
 
-		function assertParse(v: string, expectedErrors: number): void {
-			let result = toDocument(v, { disallowComments: true });
-			assert.equal(result.syntaxErrors.length, expectedErrors);
+		function assertParse(v: string, expectedComments: number): void {
+			let result = toDocument(v, { collectComments: true });
+			assert.equal(result.comments.length, expectedComments);
 		}
 
 		assertParse('// comment\n{\n"far": "boo"\n}', 1);

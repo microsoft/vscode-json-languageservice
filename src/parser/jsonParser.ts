@@ -22,7 +22,6 @@ export interface IRange {
 export enum ErrorCode {
 	Undefined = 0,
 	EnumValueMismatch = 1,
-	CommentsNotAllowed = 2,
 	UnexpectedEndOfComment = 0x101,
 	UnexpectedEndOfString = 0x102,
 	UnexpectedEndOfNumber = 0x103,
@@ -928,7 +927,7 @@ export function asSchema(schema: JSONSchemaRef) {
 //endregion
 
 export interface JSONDocumentConfig {
-	disallowComments?: boolean;
+	collectComments?: boolean;
 }
 
 export interface IApplicableSchema {
@@ -1053,7 +1052,7 @@ export class ValidationResult {
 
 export class JSONDocument {
 
-	constructor(public readonly root: ASTNode, public readonly syntaxErrors: IProblem[]) {
+	constructor(public readonly root: ASTNode, public readonly syntaxErrors: IProblem[], public readonly comments: IRange[]) {
 	}
 
 	public getNodeFromOffset(offset: number): ASTNode {
@@ -1094,7 +1093,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 	let text = textDocument.getText();
 	let scanner = Json.createScanner(text, false);
 
-	let disallowComments = config && config.disallowComments;
+	let comments = config && config.collectComments ? [] : void 0;
 
 	function _scanNext(): Json.SyntaxKind {
 		while (true) {
@@ -1102,8 +1101,8 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			switch (token) {
 				case Json.SyntaxKind.LineCommentTrivia:
 				case Json.SyntaxKind.BlockCommentTrivia:
-					if (disallowComments) {
-						_error(localize('InvalidCommentTokem', 'Comments are not allowed.'), ErrorCode.CommentsNotAllowed);
+					if (Array.isArray(comments)) {
+						comments.push({ start: scanner.getTokenOffset(), end: scanner.getTokenOffset() + scanner.getTokenLength() });
 					}
 					break;
 				case Json.SyntaxKind.Trivia:
@@ -1356,5 +1355,5 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			_error(localize('End of file expected', 'End of file expected.'), ErrorCode.Undefined);
 		}
 	}
-	return new JSONDocument(_root, problems);
+	return new JSONDocument(_root, problems, comments);
 }

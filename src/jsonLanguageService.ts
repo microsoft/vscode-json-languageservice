@@ -29,7 +29,7 @@ export {
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;
-	doValidation(document: TextDocument, jsonDocument: JSONDocument): Thenable<Diagnostic[]>;
+	doValidation(document: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings): Thenable<Diagnostic[]>;
 	parseJSONDocument(document: TextDocument): JSONDocument;
 	resetSchema(uri: string): boolean;
 	doResolve(item: CompletionItem): Thenable<CompletionItem>;
@@ -85,6 +85,13 @@ export interface LanguageSettings {
 	 * A list of known schemas and/or associations of schemas to file names.
 	 */
 	schemas?: SchemaConfiguration[];
+}
+
+export interface DocumentLanguageSettings {
+	/**
+	 * If set, comments are toleranted. If not set, a syntax error is emmited for comments.
+	 */
+	allowComments?: boolean;
 }
 
 export interface SchemaConfiguration {
@@ -188,7 +195,6 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 	let jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
 	let jsonValidation = new JSONValidation(jsonSchemaService, promise);
 
-	let disallowComments = false;
 	return {
 		configure: (settings: LanguageSettings) => {
 			jsonSchemaService.clearExternalSchemas();
@@ -198,11 +204,10 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 				});
 			}
 			jsonValidation.configure(settings);
-			disallowComments = settings && !settings.allowComments;
 		},
 		resetSchema: (uri: string) => jsonSchemaService.onResourceChange(uri),
 		doValidation: jsonValidation.doValidation.bind(jsonValidation),
-		parseJSONDocument: (document: TextDocument) => parseJSON(document, { disallowComments }),
+		parseJSONDocument: (document: TextDocument) => parseJSON(document, { collectComments: true }),
 		doResolve: jsonCompletion.doResolve.bind(jsonCompletion),
 		doComplete: jsonCompletion.doComplete.bind(jsonCompletion),
 		findDocumentSymbols: jsonDocumentSymbols.findDocumentSymbols.bind(jsonDocumentSymbols),

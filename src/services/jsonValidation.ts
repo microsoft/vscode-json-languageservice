@@ -5,9 +5,12 @@
 'use strict';
 
 import { JSONSchemaService } from './jsonSchemaService';
-import { JSONDocument, ObjectASTNode, IProblem, ProblemSeverity } from '../parser/jsonParser';
+import { JSONDocument, ObjectASTNode, IProblem, ProblemSeverity, ErrorCode } from '../parser/jsonParser';
 import { TextDocument, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver-types';
-import { PromiseConstructor, Thenable, LanguageSettings } from '../jsonLanguageService';
+import { PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings } from '../jsonLanguageService';
+import * as nls from 'vscode-nls';
+
+const localize = nls.loadMessageBundle();
 
 export class JSONValidation {
 
@@ -15,7 +18,7 @@ export class JSONValidation {
 	private promise: PromiseConstructor;
 
 	private validationEnabled: boolean;
-	private comments: boolean;
+	private allowComments: boolean;
 
 	public constructor(jsonSchemaService: JSONSchemaService, promiseConstructor: PromiseConstructor) {
 		this.jsonSchemaService = jsonSchemaService;
@@ -26,10 +29,11 @@ export class JSONValidation {
 	public configure(raw: LanguageSettings) {
 		if (raw) {
 			this.validationEnabled = raw.validate;
+			this.allowComments = raw.allowComments !== false;
 		}
 	}
 
-	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument): Thenable<Diagnostic[]> {
+	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings): Thenable<Diagnostic[]> {
 		if (!this.validationEnabled) {
 			return this.promise.resolve([]);
 		}
@@ -49,6 +53,18 @@ export class JSONValidation {
 			}
 		};
 		jsonDocument.syntaxErrors.forEach(addProblem);
+
+		let allowComments = documentSettings ? documentSettings.allowComments !== false : this.allowComments;
+		if (!allowComments) {
+			let message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');
+			jsonDocument.comments.forEach(c => {
+				let range = {
+					start: textDocument.positionAt(c.start),
+					end: textDocument.positionAt(c.end)
+				};
+				diagnostics.push({ severity: DiagnosticSeverity.Error, range, message });
+			});
+		}
 
 		return this.jsonSchemaService.getSchemaForResource(textDocument.uri, jsonDocument).then(schema => {
 			if (schema) {
