@@ -1,3 +1,12 @@
+3.0.1 / 2017-01-27
+==================
+* Added document specific validation parameters: `DocumentLanguageSettings`
+* API to define the severity of reported comments and trailing commas (`DocumentLanguageSettings.comments`, `DocumentLanguageSettings.trailingCommas`)
+
+3.0.0 / 2017-01-11
+==================
+* Chaged parameters of API `LanguageService.getColorPresentations` to separate color and range
+.
 2.0.19 / 2017-09-21
 ==================
   * New API `LanguageService.getColorPresentations` returning presentations for a given color. 

@@ -48,7 +48,7 @@ suite('JSON Parser', () => {
 		isValid('   ');
 		isValid('\n\n');
 		isValid('/*hello*/  ');
-	});	
+	});
 
 	test('Objects', function () {
 		isValid('{}');
@@ -61,8 +61,8 @@ suite('JSON Parser', () => {
 		isInvalid('{\'key\': 3}');
 		isInvalid('{"key" 3}', Parser.ErrorCode.ColonExpected);
 		isInvalid('{"key":3 "key2": 4}', Parser.ErrorCode.CommaExpected);
-		isInvalid('{"key":42, }', Parser.ErrorCode.PropertyExpected);
-		isInvalid('{"key:42', Parser.ErrorCode.UnexpectedEndOfString, Parser.ErrorCode.ColonExpected, Parser.ErrorCode.ValueExpected, Parser.ErrorCode.CommaOrCloseBraceExpected);
+		isInvalid('{"key":42, }', Parser.ErrorCode.TrailingComma);
+		isInvalid('{"key:42', Parser.ErrorCode.UnexpectedEndOfString, Parser.ErrorCode.ColonExpected);
 	});
 
 	test('Arrays', function () {
@@ -71,11 +71,11 @@ suite('JSON Parser', () => {
 		isValid('[1, "string", false, {}, [null]]');
 
 		isInvalid('[');
-		isInvalid('[,]');
-		isInvalid('[1 2]');
-		isInvalid('[true false]');
-		isInvalid('[1, ]');
-		isInvalid('[[]');
+		isInvalid('[,]', Parser.ErrorCode.ValueExpected);
+		isInvalid('[1 2]', Parser.ErrorCode.CommaExpected);
+		isInvalid('[true false]', Parser.ErrorCode.CommaExpected);
+		isInvalid('[1, ]', Parser.ErrorCode.TrailingComma);
+		isInvalid('[[]', Parser.ErrorCode.CommaOrCloseBacketExpected);
 		isInvalid('["something"');
 		isInvalid('[magic]');
 	});
@@ -211,7 +211,7 @@ suite('JSON Parser', () => {
 
 		let content = '{\n"key":32,\nerror\n}';
 		let result = toDocument(content);
-		assert.equal(result.syntaxErrors.length, 3);
+		assert.equal(result.syntaxErrors.length, 2);
 		assert.equal(result.syntaxErrors[0].location.start, content.indexOf('error'));
 		assert.equal(result.syntaxErrors[0].location.end, content.indexOf('error') + 5);
 	});
@@ -619,7 +619,7 @@ suite('JSON Parser', () => {
 		result = toDocument('{"color":"#FF00F"}');
 		semanticErrors = result.validate(schemaWithColor);
 		assert.strictEqual(semanticErrors.length, 1, "email");
-		assert.strictEqual(semanticErrors[0].message, 'Invalid color format. Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.');		
+		assert.strictEqual(semanticErrors[0].message, 'Invalid color format. Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.');
 
 	});
 

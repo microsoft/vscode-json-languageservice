@@ -5,7 +5,7 @@
 'use strict';
 
 import {
-	TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
+	TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic, DiagnosticSeverity,
 	TextEdit, FormattingOptions, MarkedString
 } from 'vscode-languageserver-types';
 
@@ -74,24 +74,33 @@ export interface ColorPresentation {
 
 export interface LanguageSettings {
 	/**
-	 * If set, the validator will return syntax errors.
+	 * If set, the validator will return syntax and semantic errors.
 	 */
 	validate?: boolean;
 	/**
-	 * If set, comments are toleranted. If not set, a syntax error is emmited for comments.
+	 * Defines whether comments are allowed or not. If set to false, comments will be reported as errors.
+	 * DocumentLanguageSettings.allowComments will override this setting.
 	 */
 	allowComments?: boolean;
+
 	/**
 	 * A list of known schemas and/or associations of schemas to file names.
 	 */
 	schemas?: SchemaConfiguration[];
 }
 
+export type SeverityLevel = 'error' | 'warning' | 'ignore';
+
 export interface DocumentLanguageSettings {
 	/**
-	 * If set, comments are toleranted. If not set, a syntax error is emmited for comments.
+	 * The severity of reported comments. If not set, 'LanguageSettings.allowComments' defines wheter comments are ignored or reported as errors.
 	 */
-	allowComments?: boolean;
+	comments?: SeverityLevel;
+
+	/**
+	 * The severity of reported trailing commas. If not set, trailing commas will be reported as errors.
+	 */
+	trailingCommas?: SeverityLevel;
 }
 
 export interface SchemaConfiguration {

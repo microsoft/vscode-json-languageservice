@@ -33,7 +33,8 @@ export enum ErrorCode {
 	ColonExpected = 0x203,
 	ValueExpected = 0x204,
 	CommaOrCloseBacketExpected = 0x205,
-	CommaOrCloseBraceExpected = 0x206
+	CommaOrCloseBraceExpected = 0x206,
+	TrailingComma = 0x207
 }
 
 const colorHexPattern = /^#([0-9A-Fa-f]{3,4}|([0-9A-Fa-f]{2}){3,4})$/;
@@ -610,7 +611,7 @@ export class StringASTNode extends ASTNode {
 						});
 					}
 				}
-				break;
+					break;
 				case 'email': {
 					if (!this.value.match(emailPattern)) {
 						validationResult.problems.push({
@@ -620,7 +621,7 @@ export class StringASTNode extends ASTNode {
 						});
 					}
 				}
-				break;	
+					break;
 				case 'color-hex': {
 					if (!this.value.match(colorHexPattern)) {
 						validationResult.problems.push({
@@ -630,7 +631,7 @@ export class StringASTNode extends ASTNode {
 						});
 					}
 				}
-				break;
+					break;
 				default:
 			}
 		}
@@ -1122,20 +1123,23 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return false;
 	}
 
-	function _error<T extends ASTNode>(message: string, code: ErrorCode, node: T = null, skipUntilAfter: Json.SyntaxKind[] = [], skipUntil: Json.SyntaxKind[] = []): T {
-		if (problems.length === 0 || problems[0].location.start !== scanner.getTokenOffset()) {
-			// ignore multiple errors on the same offset
-			let start = scanner.getTokenOffset();
-			let end = scanner.getTokenOffset() + scanner.getTokenLength();
-			if (start === end && start > 0) {
-				start--;
-				while (start > 0 && /\s/.test(text.charAt(start))) {
-					start--;
-				}
-				end = start + 1;
-			}
-			problems.push({ message, location: { start, end }, code, severity: ProblemSeverity.Error });
+	function _errorAtRange<T extends ASTNode>(message: string, code: ErrorCode, location: IRange): void {
+		if (problems.length === 0 || problems[problems.length - 1].location.start !== location.start) {
+			problems.push({ message, location, code, severity: ProblemSeverity.Error });
 		}
+	}
+
+	function _error<T extends ASTNode>(message: string, code: ErrorCode, node: T = null, skipUntilAfter: Json.SyntaxKind[] = [], skipUntil: Json.SyntaxKind[] = []): T {
+		let start = scanner.getTokenOffset();
+		let end = scanner.getTokenOffset() + scanner.getTokenLength();
+		if (start === end && start > 0) {
+			start--;
+			while (start > 0 && /\s/.test(text.charAt(start))) {
+				start--;
+			}
+			end = start + 1;
+		}
+		_errorAtRange(message, code, { start, end });
 
 		if (node) {
 			_finalize(node, false);
@@ -1197,13 +1201,27 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		_scanNext(); // consume OpenBracketToken
 
 		let count = 0;
-		if (node.addItem(_parseValue(node, count++))) {
-			while (_accept(Json.SyntaxKind.CommaToken)) {
-				if (!node.addItem(_parseValue(node, count++))) {
+		let needsComma = false;
+		while (scanner.getToken() !== Json.SyntaxKind.CloseBracketToken && scanner.getToken() !== Json.SyntaxKind.EOF) {
+			if (scanner.getToken() === Json.SyntaxKind.CommaToken) {
+				if (!needsComma) {
 					_error(localize('ValueExpected', 'Value expected'), ErrorCode.ValueExpected);
-					// report error, but continue
 				}
+				let commaOffset = scanner.getTokenOffset();
+				_scanNext(); // consume comma
+				if (scanner.getToken() === Json.SyntaxKind.CloseBracketToken) {
+					if (needsComma) {
+						_errorAtRange(localize('TrailingComma', 'Trailing comma'), ErrorCode.TrailingComma, { start: commaOffset, end: commaOffset + 1 });
+					}
+					continue;
+				}
+			} else if (needsComma) {
+				_error(localize('ExpectedComma', 'Expected comma'), ErrorCode.CommaExpected);
 			}
+			if (!node.addItem(_parseValue(node, count++))) {
+				_error(localize('PropertyExpected', 'Value expected'), ErrorCode.ValueExpected, null, [], [Json.SyntaxKind.CloseBracketToken, Json.SyntaxKind.CommaToken]);
+			}
+			needsComma = true;
 		}
 
 		if (scanner.getToken() !== Json.SyntaxKind.CloseBracketToken) {
@@ -1272,9 +1290,16 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 				if (!needsComma) {
 					_error(localize('PropertyExpected', 'Property expected'), ErrorCode.PropertyExpected);
 				}
+				let commaOffset = scanner.getTokenOffset();
 				_scanNext(); // consume comma
+				if (scanner.getToken() === Json.SyntaxKind.CloseBraceToken) {
+					if (needsComma) {
+						_errorAtRange(localize('TrailingComma', 'Trailing comma'), ErrorCode.TrailingComma, { start: commaOffset, end: commaOffset + 1 });
+					}
+					continue;
+				}
 			} else if (needsComma) {
-				_error(localize('ExpectedComma', 'Expected comma'), ErrorCode.CommaExpected, node);
+				_error(localize('ExpectedComma', 'Expected comma'), ErrorCode.CommaExpected);
 			}
 			if (!node.addProperty(_parseProperty(node, keysSeen))) {
 				_error(localize('PropertyExpected', 'Property expected'), ErrorCode.PropertyExpected, null, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
@@ -1345,7 +1370,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return _parseArray(parent, name) || _parseObject(parent, name) || _parseString(parent, name, false) || _parseNumber(parent, name) || _parseLiteral(parent, name);
 	}
 
-	let _root = null; 
+	let _root = null;
 	let token = _scanNext();
 	if (token !== Json.SyntaxKind.EOF) {
 		_root = _parseValue(null, null);

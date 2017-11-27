@@ -7,7 +7,7 @@
 import { JSONSchemaService } from './jsonSchemaService';
 import { JSONDocument, ObjectASTNode, IProblem, ProblemSeverity, ErrorCode } from '../parser/jsonParser';
 import { TextDocument, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver-types';
-import { PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings } from '../jsonLanguageService';
+import { PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel } from '../jsonLanguageService';
 import * as nls from 'vscode-nls';
 
 const localize = nls.loadMessageBundle();
@@ -18,7 +18,7 @@ export class JSONValidation {
 	private promise: PromiseConstructor;
 
 	private validationEnabled: boolean;
-	private allowComments: boolean;
+	private commentSeverity: DiagnosticSeverity | undefined;
 
 	public constructor(jsonSchemaService: JSONSchemaService, promiseConstructor: PromiseConstructor) {
 		this.jsonSchemaService = jsonSchemaService;
@@ -29,7 +29,16 @@ export class JSONValidation {
 	public configure(raw: LanguageSettings) {
 		if (raw) {
 			this.validationEnabled = raw.validate;
-			this.allowComments = raw.allowComments !== false;
+			this.commentSeverity = raw.allowComments ? void 0 : DiagnosticSeverity.Error;
+		}
+	}
+
+	private getSeverity(setting: SeverityLevel | undefined, def: DiagnosticSeverity | undefined): DiagnosticSeverity | undefined {
+		switch (setting) {
+			case 'error': return DiagnosticSeverity.Error;
+			case 'warning': return DiagnosticSeverity.Error;
+			case 'ignore': return void 0;
+			default: return def;
 		}
 	}
 
@@ -39,6 +48,7 @@ export class JSONValidation {
 		}
 		let diagnostics: Diagnostic[] = [];
 		let added: { [signature: string]: boolean } = {};
+		let trailingCommaSeverity = this.getSeverity(documentSettings ? documentSettings.trailingCommas : void 0, DiagnosticSeverity.Error);
 		let addProblem = (problem: IProblem) => {
 			// remove duplicated messages
 			let signature = problem.location.start + ' ' + problem.location.end + ' ' + problem.message;
@@ -48,14 +58,19 @@ export class JSONValidation {
 					start: textDocument.positionAt(problem.location.start),
 					end: textDocument.positionAt(problem.location.end)
 				};
-				let severity = problem.severity === ProblemSeverity.Error ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
-				diagnostics.push({ severity, range, message: problem.message });
+				let severity: DiagnosticSeverity = problem.severity === ProblemSeverity.Error ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
+				if (problem.code === ErrorCode.TrailingComma) {
+					severity = trailingCommaSeverity;
+				}
+				if (severity) {
+					diagnostics.push({ severity, range, message: problem.message });
+				}
 			}
 		};
 		jsonDocument.syntaxErrors.forEach(addProblem);
 
-		let allowComments = documentSettings ? documentSettings.allowComments !== false : this.allowComments;
-		if (!allowComments) {
+		let commentSeverity = this.getSeverity(documentSettings ? documentSettings.trailingCommas : void 0, this.commentSeverity);
+		if (commentSeverity) {
 			let message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');
 			jsonDocument.comments.forEach(c => {
 				let range = {
