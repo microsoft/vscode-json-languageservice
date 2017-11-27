@@ -1,4 +1,4 @@
-3.0.1 / 2017-01-27
+3.0.2 / 2017-01-27
 ==================
 * Added document specific validation parameters: `DocumentLanguageSettings`
 * API to define the severity of reported comments and trailing commas (`DocumentLanguageSettings.comments`, `DocumentLanguageSettings.trailingCommas`)
