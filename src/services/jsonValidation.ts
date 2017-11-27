@@ -7,8 +7,9 @@
 import { JSONSchemaService } from './jsonSchemaService';
 import { JSONDocument, ObjectASTNode, IProblem, ProblemSeverity, ErrorCode } from '../parser/jsonParser';
 import { TextDocument, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver-types';
-import { PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel } from '../jsonLanguageService';
+import { PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings } from '../jsonLanguageService';
 import * as nls from 'vscode-nls';
+import { JSONSchemaRef } from '../jsonSchema';
 
 const localize = nls.loadMessageBundle();
 
@@ -18,7 +19,7 @@ export class JSONValidation {
 	private promise: PromiseConstructor;
 
 	private validationEnabled: boolean;
-	private commentSeverity: DiagnosticSeverity | undefined;
+	private commentSeverity: ProblemSeverity;
 
 	public constructor(jsonSchemaService: JSONSchemaService, promiseConstructor: PromiseConstructor) {
 		this.jsonSchemaService = jsonSchemaService;
@@ -29,16 +30,7 @@ export class JSONValidation {
 	public configure(raw: LanguageSettings) {
 		if (raw) {
 			this.validationEnabled = raw.validate;
-			this.commentSeverity = raw.allowComments ? void 0 : DiagnosticSeverity.Error;
-		}
-	}
-
-	private getSeverity(setting: SeverityLevel | undefined, def: DiagnosticSeverity | undefined): DiagnosticSeverity | undefined {
-		switch (setting) {
-			case 'error': return DiagnosticSeverity.Error;
-			case 'warning': return DiagnosticSeverity.Error;
-			case 'ignore': return void 0;
-			default: return def;
+			this.commentSeverity = raw.allowComments ? ProblemSeverity.Ignore : ProblemSeverity.Error;
 		}
 	}
 
@@ -48,8 +40,11 @@ export class JSONValidation {
 		}
 		let diagnostics: Diagnostic[] = [];
 		let added: { [signature: string]: boolean } = {};
-		let trailingCommaSeverity = this.getSeverity(documentSettings ? documentSettings.trailingCommas : void 0, DiagnosticSeverity.Error);
 		let addProblem = (problem: IProblem) => {
+			if (problem.severity === ProblemSeverity.Ignore) {
+				return;
+			}
+
 			// remove duplicated messages
 			let signature = problem.location.start + ' ' + problem.location.end + ' ' + problem.message;
 			if (!added[signature]) {
@@ -59,29 +54,14 @@ export class JSONValidation {
 					end: textDocument.positionAt(problem.location.end)
 				};
 				let severity: DiagnosticSeverity = problem.severity === ProblemSeverity.Error ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
-				if (problem.code === ErrorCode.TrailingComma) {
-					severity = trailingCommaSeverity;
-				}
-				if (severity) {
-					diagnostics.push({ severity, range, message: problem.message });
-				}
+				diagnostics.push({ severity, range, message: problem.message });
 			}
 		};
-		jsonDocument.syntaxErrors.forEach(addProblem);
-
-		let commentSeverity = this.getSeverity(documentSettings ? documentSettings.trailingCommas : void 0, this.commentSeverity);
-		if (commentSeverity) {
-			let message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');
-			jsonDocument.comments.forEach(c => {
-				let range = {
-					start: textDocument.positionAt(c.start),
-					end: textDocument.positionAt(c.end)
-				};
-				diagnostics.push({ severity: DiagnosticSeverity.Error, range, message });
-			});
-		}
 
 		return this.jsonSchemaService.getSchemaForResource(textDocument.uri, jsonDocument).then(schema => {
+			let trailingCommaSeverity = documentSettings ? <ProblemSeverity>documentSettings.trailingCommas : ProblemSeverity.Error;
+			let commentSeverity = documentSettings ? <ProblemSeverity>documentSettings.comments : this.commentSeverity;
+
 			if (schema) {
 				if (schema.errors.length && jsonDocument.root) {
 					let astRoot = jsonDocument.root;
@@ -98,8 +78,37 @@ export class JSONValidation {
 						semanticErrors.forEach(addProblem);
 					}
 				}
+				if (schemaAllowsComments(schema.schema)) {
+					trailingCommaSeverity = commentSeverity = ProblemSeverity.Ignore;
+				}
+			}
+
+			jsonDocument.syntaxErrors.forEach(p => {
+				if (p.code === ErrorCode.TrailingComma) {
+					p.severity = trailingCommaSeverity;
+				}
+				addProblem(p);
+			});
+
+			if (commentSeverity !== ProblemSeverity.Ignore) {
+				let message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');
+				jsonDocument.comments.forEach(c => {
+					addProblem({ location: c, severity: commentSeverity, message });
+				});
 			}
 			return diagnostics;
 		});
 	}
+}
+
+function schemaAllowsComments(schemaRef: JSONSchemaRef) {
+	if (schemaRef && typeof schemaRef === 'object') {
+		if (schemaRef.allowComments) {
+			return true;
+		}
+		if (schemaRef.allOf) {
+			return schemaRef.allOf.some(schemaAllowsComments);
+		}
+	}
+	return false;
 }
