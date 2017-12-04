@@ -470,4 +470,15 @@ suite('JSON Formatter', () => {
 
 		format(content, expected);
 	});
+	test('random content', () => {
+		var content = [
+			'a 1 b 1 3 true'
+		].join('\n');
+
+		var expected = [
+			'a 1 b 1 3 true',
+		].join('\n');
+
+		format(content, expected);
+	});	
 });

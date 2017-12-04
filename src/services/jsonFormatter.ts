@@ -142,6 +142,9 @@ export function format(document: TextDocument, range: Range, options: Formatting
 						hasError = true;
 					}
 					break;
+				case Json.SyntaxKind.Unknown:
+					hasError = true;
+					break;
 			}
 			if (lineBreak && (secondToken === Json.SyntaxKind.LineCommentTrivia || secondToken === Json.SyntaxKind.BlockCommentTrivia)) {
 				replaceContent = newLineAndIndent();
