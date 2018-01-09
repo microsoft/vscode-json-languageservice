@@ -607,7 +607,7 @@ export class StringASTNode extends ASTNode {
 						validationResult.problems.push({
 							location: { start: this.start, end: this.end },
 							severity: ProblemSeverity.Warning,
-							message: schema.patternErrorMessage || schema.errorMessage || localize('uriFormatWarning', 'String is not an URI: {0}', errorMessage)
+							message: schema.patternErrorMessage || schema.errorMessage || localize('uriFormatWarning', 'String is not a URI: {0}', errorMessage)
 						});
 					}
 				}
