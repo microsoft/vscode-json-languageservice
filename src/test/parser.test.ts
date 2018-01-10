@@ -548,7 +548,7 @@ suite('JSON Parser', () => {
 
 		semanticErrors = result.validate(schemaWithURI);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: URI with a scheme is expected.');
+		assert.strictEqual(semanticErrors[0].message, 'String is not a URI: URI with a scheme is expected.');
 
 		result = toDocument('{"one":"http://foo/bar"}');
 		semanticErrors = result.validate(schemaWithURI);
@@ -557,12 +557,12 @@ suite('JSON Parser', () => {
 		result = toDocument('{"one":""}');
 		semanticErrors = result.validate(schemaWithURI);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: URI expected.');
+		assert.strictEqual(semanticErrors[0].message, 'String is not a URI: URI expected.');
 
 		result = toDocument('{"one":"//foo/bar"}');
 		semanticErrors = result.validate(schemaWithURI);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: URI with a scheme is expected.');
+		assert.strictEqual(semanticErrors[0].message, 'String is not a URI: URI with a scheme is expected.');
 
 		let schemaWithURIReference = {
 			type: 'object',
@@ -577,7 +577,7 @@ suite('JSON Parser', () => {
 		result = toDocument('{"one":""}');
 		semanticErrors = result.validate(schemaWithURIReference);
 		assert.strictEqual(semanticErrors.length, 1, 'uri-reference');
-		assert.strictEqual(semanticErrors[0].message, 'String is not an URI: URI expected.');
+		assert.strictEqual(semanticErrors[0].message, 'String is not a URI: URI expected.');
 
 		result = toDocument('{"one":"//foo/bar"}');
 		semanticErrors = result.validate(schemaWithURIReference);
