@@ -21,7 +21,7 @@
     "typescript": "2.6.1"
   },
   "dependencies": {
-    "jsonc-parser": "^1.0.0",
+    "jsonc-parser": "^1.0.1",
     "vscode-languageserver-types": "^3.5.0",
     "vscode-nls": "^2.0.2",
     "vscode-uri": "^1.0.1"

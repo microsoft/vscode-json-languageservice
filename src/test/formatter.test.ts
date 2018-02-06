@@ -6,11 +6,13 @@
 
 import Json = require('jsonc-parser');
 import {TextDocument, Range, Position, FormattingOptions, TextEdit} from 'vscode-languageserver-types';
-import Formatter = require('../services/jsonFormatter');
+import * as jsonLanguageService from '../jsonLanguageService';
 import assert = require('assert');
 import {applyEdits} from './textEditSupport';
 
 suite('JSON Formatter', () => {
+
+	const ls = jsonLanguageService.getLanguageService({});
 
 	function format(unformatted: string, expected: string, insertSpaces = true) {
 		let range: Range = null;
@@ -23,12 +25,12 @@ suite('JSON Formatter', () => {
 			unformatted = unformatted.substring(0, rangeStart) + unformatted.substring(rangeStart + 1, rangeEnd) + unformatted.substring(rangeEnd + 1);
 			var unformattedDoc = TextDocument.create(uri, 'json', 0, unformatted);
 			let startPos = unformattedDoc.positionAt(rangeStart);
-			let endPos = unformattedDoc.positionAt(rangeEnd-1);
+			let endPos = unformattedDoc.positionAt(rangeEnd);
 			range = Range.create(startPos, endPos);
 		}
 
 		var document = TextDocument.create(uri, 'json', 0, unformatted);
-		let edits = Formatter.format(document, range, { tabSize: 2, insertSpaces: insertSpaces });
+		let edits = ls.format(document, range, { tabSize: 2, insertSpaces: insertSpaces });
 		let formatted  = applyEdits(document, edits);
 		assert.equal(formatted, expected);
 	}
@@ -391,7 +393,7 @@ suite('JSON Formatter', () => {
 			'\t\tnull',
 			'\t],',
 			'\t"c": {}',
-			'}    ',
+			'}',
 		].join('\n');
 
 		format(content, expected, false);

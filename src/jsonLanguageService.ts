@@ -18,7 +18,8 @@ import { parse as parseJSON, JSONDocumentConfig, JSONDocument as InternalJSONDoc
 import { schemaContributions } from './services/configuration';
 import { JSONSchemaService } from './services/jsonSchemaService';
 import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions';
-import { format as formatJSON } from './services/jsonFormatter';
+import { format as formatJSON } from 'jsonc-parser';
+import { format } from 'util';
 
 export type JSONDocument = {};
 export { JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector };
@@ -224,6 +225,17 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		findDocumentColors: jsonDocumentSymbols.findDocumentColors.bind(jsonDocumentSymbols),
 		getColorPresentations: jsonDocumentSymbols.getColorPresentations.bind(jsonDocumentSymbols),
 		doHover: jsonHover.doHover.bind(jsonHover),
-		format: formatJSON
+		format: (d, r, o) => {
+			let range = void 0;
+			if (r) {
+				let offset = d.offsetAt(r.start);
+				let length = d.offsetAt(r.end) - offset;
+				range = { offset, length };
+			}
+			let options = { tabSize: o ? o.tabSize : 4, insertSpaces: o ? o.insertSpaces : true, eol: '\n' };
+			return formatJSON(d.getText(), range, options).map(e => {
+				return TextEdit.replace(Range.create(d.positionAt(e.offset), d.positionAt(e.offset + e.length)), e.content);
+			});
+		}
 	};
 }
