@@ -410,7 +410,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		};
 
 		let resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentSchemaURL: string): Thenable<any> => {
-			if (!node) {
+			if (!node || typeof node !== 'object') {
 				return Promise.resolve(null);
 			}
 
