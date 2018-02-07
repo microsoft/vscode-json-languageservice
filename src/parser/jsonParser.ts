@@ -1053,7 +1053,7 @@ export class ValidationResult {
 
 export class JSONDocument {
 
-	constructor(public readonly root: ASTNode, public readonly syntaxErrors: IProblem[], public readonly comments: IRange[]) {
+	constructor(public readonly root: ASTNode, public readonly syntaxErrors: IProblem[] = [], public readonly comments: IRange[] = []) {
 	}
 
 	public getNodeFromOffset(offset: number): ASTNode {
