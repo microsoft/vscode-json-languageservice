@@ -477,6 +477,7 @@ export class JSONCompletion {
 				let value = s.body;
 				let label = s.label;
 				let insertText: string;
+				let filterText : string;
 				if (value) {
 					let type = schema.type;
 					for (let i = arrayDepth; i > 0; i--) {
@@ -484,6 +485,7 @@ export class JSONCompletion {
 						type = 'array';
 					}
 					insertText = this.getInsertTextForSnippetValue(value, separatorAfter);
+					filterText = this.getFilterTextForSnippetValue(value);
 					label = label || this.getLabelForSnippetValue(value);
 				} else if (s.bodyText) {
 					let prefix = '', suffix = '', indent = '';
@@ -495,6 +497,7 @@ export class JSONCompletion {
 					}
 					insertText = prefix + indent + s.bodyText.split('\n').join('\n' + indent) + suffix + separatorAfter;
 					label = label || insertText;
+					filterText = insertText.replace(/[\n]/g, '');   // remove new lines
 				}
 				collector.add({
 					kind: this.getSuggestionKind(type),
@@ -502,7 +505,7 @@ export class JSONCompletion {
 					documentation: s.description,
 					insertText,
 					insertTextFormat: InsertTextFormat.Snippet,
-					filterText: insertText,
+					filterText
 				});
 				hasProposals = true;
 			});
@@ -589,7 +592,7 @@ export class JSONCompletion {
 		schemaIds.forEach(schemaId => collector.add({
 			kind: CompletionItemKind.Module,
 			label: this.getLabelForValue(schemaId),
-			filterText: JSON.stringify(schemaId),
+			filterText: this.getFilterTextForValue(schemaId),
 			insertText: this.getInsertTextForValue(schemaId, separatorAfter),
 			insertTextFormat: InsertTextFormat.Snippet, documentation: ''
 		}));
@@ -606,6 +609,10 @@ export class JSONCompletion {
 	private getFilterTextForValue(value): string {
 		return JSON.stringify(value);
 	}
+
+	private getFilterTextForSnippetValue(value): string {
+		return JSON.stringify(value).replace(/\$\{\d+:([^}]+)\}|\$\d+/g, '$1');
+	}	
 
 	private getLabelForSnippetValue(value: any): string {
 		let label = JSON.stringify(value);
