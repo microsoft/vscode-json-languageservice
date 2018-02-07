@@ -12,6 +12,7 @@ import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import { JSONWorkerContribution, CompletionsCollector } from '../jsonContributions';
 import { PromiseConstructor, Thenable } from '../jsonLanguageService';
 import { stringifyObject } from '../utils/json';
+import { endsWith } from '../utils/strings';
 
 import { CompletionItem, CompletionItemKind, CompletionList, TextDocument, Position, Range, TextEdit, InsertTextFormat } from 'vscode-languageserver-types';
 
@@ -199,14 +200,21 @@ export class JSONCompletion {
 					Object.keys(schemaProperties).forEach((key: string) => {
 						let propertySchema = schemaProperties[key];
 						if (typeof propertySchema === 'object' && !propertySchema.deprecationMessage && !propertySchema.doNotSuggest) {
-							collector.add({
+							let proposal: CompletionItem = {
 								kind: CompletionItemKind.Property,
 								label: key,
 								insertText: this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter),
 								insertTextFormat: InsertTextFormat.Snippet,
 								filterText: this.getFilterTextForValue(key),
-								documentation: propertySchema.description || ''
-							});
+								documentation: propertySchema.description || '',
+							};
+							if (endsWith(proposal.insertText, `$1${separatorAfter}`)) {
+								proposal.command = {
+									title: 'Suggest',
+									command: 'editor.action.triggerSuggest'
+								};
+							}
+							collector.add(proposal);
 						}
 					});
 				}
@@ -477,7 +485,7 @@ export class JSONCompletion {
 				let value = s.body;
 				let label = s.label;
 				let insertText: string;
-				let filterText : string;
+				let filterText: string;
 				if (value) {
 					let type = schema.type;
 					for (let i = arrayDepth; i > 0; i--) {
@@ -612,7 +620,7 @@ export class JSONCompletion {
 
 	private getFilterTextForSnippetValue(value): string {
 		return JSON.stringify(value).replace(/\$\{\d+:([^}]+)\}|\$\d+/g, '$1');
-	}	
+	}
 
 	private getLabelForSnippetValue(value: any): string {
 		let label = JSON.stringify(value);
@@ -718,13 +726,28 @@ export class JSONCompletion {
 		}
 		let resultText = propertyText + ': ';
 
+		let value;
+		let nValueProposals = 0;
 		if (propertySchema) {
-			let defaultVal = propertySchema.default;
-			if (typeof defaultVal !== 'undefined') {
-				resultText += this.getInsertTextForGuessedValue(defaultVal, '');
-			} else if (propertySchema.enum && propertySchema.enum.length > 0) {
-				resultText += this.getInsertTextForGuessedValue(propertySchema.enum[0], '');
-			} else {
+			if (Array.isArray(propertySchema.defaultSnippets)) {
+				if (propertySchema.defaultSnippets.length === 1 && propertySchema.defaultSnippets[0].body) {
+					value = this.getInsertTextForSnippetValue(propertySchema.defaultSnippets[0].body, '');
+				}
+				nValueProposals += propertySchema.defaultSnippets.length;
+			}
+			if (propertySchema.enum) {
+				if (!value && propertySchema.enum.length === 1) {
+					value = this.getInsertTextForGuessedValue(propertySchema.enum[0], '');
+				}
+				nValueProposals += propertySchema.enum.length;
+			}
+			if (typeof propertySchema.default !== 'undefined') {
+				if (!value) {
+					value = this.getInsertTextForGuessedValue(propertySchema.default, '');
+				}
+				nValueProposals++;
+			}
+			if (nValueProposals === 0) {
 				var type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
 				if (!type) {
 					if (propertySchema.properties) {
@@ -732,37 +755,36 @@ export class JSONCompletion {
 					} else if (propertySchema.items) {
 						type = 'array';
 					}
-
 				}
 				switch (type) {
 					case 'boolean':
-						resultText += '${1:false}';
+						value = '$1';
 						break;
 					case 'string':
-						resultText += '"$1"';
+						value = '"$1"';
 						break;
 					case 'object':
-						resultText += '{\n\t$1\n}';
+						value = '{\n\t$1\n}';
 						break;
 					case 'array':
-						resultText += '[\n\t$1\n]';
+						value = '[\n\t$1\n]';
 						break;
 					case 'number':
 					case 'integer':
-						resultText += '${1:0}';
+						value = '${1:0}';
 						break;
 					case 'null':
-						resultText += '${1:null}';
+						value = '${1:null}';
 						break;
 					default:
 						return propertyText;
 				}
 			}
-		} else {
-			resultText += '$1';
 		}
-		resultText += separatorAfter;
-		return resultText;
+		if (!value || nValueProposals > 1) {
+			value = '$1';
+		}
+		return resultText + value + separatorAfter;
 	}
 
 	private getCurrentWord(document: TextDocument, offset: number) {

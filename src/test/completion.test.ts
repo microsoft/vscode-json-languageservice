@@ -76,7 +76,7 @@ suite('JSON Completion', () => {
 		});
 	};
 
-	test('Complete keys no schema', function (testDone) {
+	test('Complete property no schema', function (testDone) {
 		Promise.all([
 			testCompletionsFor('[ { "name": "John", "age": 44 }, { | }', null, {
 				count: 2,
@@ -163,7 +163,7 @@ suite('JSON Completion', () => {
 		]).then(() => testDone(), (error) => testDone(error));
 	});
 
-	test('Complete keys with schema', function (testDone) {
+	test('Complete property with schema', function (testDone) {
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
@@ -187,7 +187,7 @@ suite('JSON Completion', () => {
 				items: [
 					{ label: 'a', documentation: 'A', resultText: '{"a": ${1:0}}' },
 					{ label: 'b', documentation: 'B', resultText: '{"b": "$1"}' },
-					{ label: 'cool', documentation: 'C', resultText: '{"cool": ${1:false}}' }
+					{ label: 'cool', documentation: 'C', resultText: '{"cool": $1}' }
 				]
 			}),
 			testCompletionsFor('{ "a|}', schema, {
@@ -218,14 +218,14 @@ suite('JSON Completion', () => {
 				count: 2,
 				items: [
 					{ label: 'b', documentation: 'B', resultText: '{ "a": 1,"b": "$1"}' },
-					{ label: 'cool', documentation: 'C', resultText: '{ "a": 1,"cool": ${1:false}}' }
+					{ label: 'cool', documentation: 'C', resultText: '{ "a": 1,"cool": $1}' }
 				]
 			}),
 			testCompletionsFor('{ |, "a": 1}', schema, {
 				count: 2,
 				items: [
 					{ label: 'b', documentation: 'B', resultText: '{ "b": "$1", "a": 1}' },
-					{ label: 'cool', documentation: 'C', resultText: '{ "cool": ${1:false}, "a": 1}' }
+					{ label: 'cool', documentation: 'C', resultText: '{ "cool": $1, "a": 1}' }
 				]
 			}),
 			testCompletionsFor('{ "a": 1 "b|"}', schema, {
@@ -236,17 +236,17 @@ suite('JSON Completion', () => {
 			testCompletionsFor('{ "c|"\n"b": "v"}', schema, {
 				items: [
 					{ label: 'a', resultText: '{ "a": ${1:0},\n"b": "v"}' },
-					{ label: 'cool', resultText: '{ "cool": ${1:false},\n"b": "v"}' },
+					{ label: 'cool', resultText: '{ "cool": $1,\n"b": "v"}' },
 					{ label: 'b', notAvailable: true }
 				]
 			}),
 			testCompletionsFor('{ c|\n"b": "v"}', schema, {
 				items: [
 					{ label: 'a', resultText: '{ "a": ${1:0},\n"b": "v"}' },
-					{ label: 'cool', resultText: '{ "cool": ${1:false},\n"b": "v"}' },
+					{ label: 'cool', resultText: '{ "cool": $1,\n"b": "v"}' },
 					{ label: 'b', notAvailable: true }
 				]
-			})	
+			})
 		]).then(() => testDone(), (error) => testDone(error));
 
 	});
@@ -724,7 +724,7 @@ suite('JSON Completion', () => {
 		Promise.all([
 			testCompletionsFor('{ | }', schema, {
 				items: [
-					{ label: '{\\}', resultText: '{ "{\\\\\\\\\\}": "${1:{\\\\\\\\\\}}" }' }
+					{ label: '{\\}', resultText: '{ "{\\\\\\\\\\}": $1 }' }
 				]
 			}),
 			testCompletionsFor('{ "{\\\\}": | }', schema, {
@@ -978,6 +978,67 @@ suite('JSON Completion', () => {
 				items: [
 					{ label: '"foo"' },
 					{ label: '"bar"' }
+				]
+			})
+		]).then(() => testDone(), (error) => testDone(error));
+	});
+
+	test('Property with values', function (testDone) {
+		let schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				object: {
+					type: 'object'
+				},
+				string: {
+					type: 'string'
+				},
+				boolean: {
+					type: 'boolean'
+				},
+				array: {
+					type: 'array'
+				},
+				oneEnum: {
+					enum: ['foo'],
+				},
+				multiEnum: {
+					enum: ['foo', 'bar'],
+				},
+				default: {
+					default: 'foo',
+				},
+				defaultSnippet: {
+					defaultSnippets: [{ body: 'foo' }]
+				},
+				defaultSnippets: {
+					defaultSnippets: [{ body: 'foo' }, { body: 'bar' }]
+				},
+				snippetAndEnum: {
+					defaultSnippets: [{ body: 'foo' }],
+					enum: ['foo', 'bar']
+				},
+				defaultAndEnum: {
+					default: 'foo',
+					enum: ['foo', 'bar']
+				},
+			}
+		};
+
+		Promise.all([
+			testCompletionsFor('{ |', schema, {
+				items: [
+					{ label: 'object', resultText: '{ "object": {\n\t$1\n}' },
+					{ label: 'array', resultText: '{ "array": [\n\t$1\n]' },
+					{ label: 'string', resultText: '{ "string": "$1"' },
+					{ label: 'boolean', resultText: '{ "boolean": $1' },
+					{ label: 'oneEnum', resultText: '{ "oneEnum": "${1:foo}"' },
+					{ label: 'multiEnum', resultText: '{ "multiEnum": $1' },
+					{ label: 'default', resultText: '{ "default": "${1:foo}"' },
+					{ label: 'defaultSnippet', resultText: '{ "defaultSnippet": "foo"' },
+					{ label: 'defaultSnippets', resultText: '{ "defaultSnippets": $1' },
+					{ label: 'snippetAndEnum', resultText: '{ "snippetAndEnum": $1' },
+					{ label: 'defaultAndEnum', resultText: '{ "defaultAndEnum": $1' }
 				]
 			})
 		]).then(() => testDone(), (error) => testDone(error));
