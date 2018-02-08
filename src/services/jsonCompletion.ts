@@ -486,7 +486,7 @@ export class JSONCompletion {
 				let label = s.label;
 				let insertText: string;
 				let filterText: string;
-				if (typeof value === 'string') {
+				if (typeof value !== 'undefined') {
 					let type = schema.type;
 					for (let i = arrayDepth; i > 0; i--) {
 						value = [value];
@@ -732,7 +732,7 @@ export class JSONCompletion {
 			if (Array.isArray(propertySchema.defaultSnippets)) {
 				if (propertySchema.defaultSnippets.length === 1) {
 					let body = propertySchema.defaultSnippets[0].body;
-					if (typeof body === 'string') {
+					if (typeof body !== 'undefined') {
 						value = this.getInsertTextForSnippetValue(body, '');
 					}
 				}
