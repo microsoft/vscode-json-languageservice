@@ -486,7 +486,7 @@ export class JSONCompletion {
 				let label = s.label;
 				let insertText: string;
 				let filterText: string;
-				if (value) {
+				if (typeof value === 'string') {
 					let type = schema.type;
 					for (let i = arrayDepth; i > 0; i--) {
 						value = [value];
@@ -495,7 +495,7 @@ export class JSONCompletion {
 					insertText = this.getInsertTextForSnippetValue(value, separatorAfter);
 					filterText = this.getFilterTextForSnippetValue(value);
 					label = label || this.getLabelForSnippetValue(value);
-				} else if (s.bodyText) {
+				} else if (typeof s.bodyText === 'string') {
 					let prefix = '', suffix = '', indent = '';
 					for (let i = arrayDepth; i > 0; i--) {
 						prefix = prefix + indent + '[\n';
@@ -730,8 +730,11 @@ export class JSONCompletion {
 		let nValueProposals = 0;
 		if (propertySchema) {
 			if (Array.isArray(propertySchema.defaultSnippets)) {
-				if (propertySchema.defaultSnippets.length === 1 && propertySchema.defaultSnippets[0].body) {
-					value = this.getInsertTextForSnippetValue(propertySchema.defaultSnippets[0].body, '');
+				if (propertySchema.defaultSnippets.length === 1) {
+					let body = propertySchema.defaultSnippets[0].body;
+					if (typeof body === 'string') {
+						value = this.getInsertTextForSnippetValue(body, '');
+					}
 				}
 				nValueProposals += propertySchema.defaultSnippets.length;
 			}
