@@ -34,7 +34,7 @@ export interface LanguageService {
 	parseJSONDocument(document: TextDocument): JSONDocument;
 	resetSchema(uri: string): boolean;
 	doResolve(item: CompletionItem): Thenable<CompletionItem>;
-	doComplete(document: TextDocument, position: Position, doc: JSONDocument): Thenable<CompletionList>;
+	doComplete(document: TextDocument, position: Position, doc: JSONDocument): Thenable<CompletionList | null>;
 	findDocumentSymbols(document: TextDocument, doc: JSONDocument): SymbolInformation[];
 	/** deprecated, use findDocumentColors instead */
 	findColorSymbols(document: TextDocument, doc: JSONDocument): Thenable<Range[]>;
