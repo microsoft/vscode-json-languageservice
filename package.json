@@ -18,12 +18,12 @@
     "@types/node": "^7.0.43",
     "mocha": "^2.4.5",
     "tslint": "^5.8.0",
-    "typescript": "2.6.1"
+    "typescript": "^2.7.2"
   },
   "dependencies": {
-    "jsonc-parser": "^1.0.1",
-    "vscode-languageserver-types": "^3.6.0-next.1",
-    "vscode-nls": "^2.0.2",
+    "jsonc-parser": "^1.0.2",
+    "vscode-languageserver-types": "^3.6.0",
+    "vscode-nls": "^3.2.1",
     "vscode-uri": "^1.0.1"
   },
   "scripts": {
@@ -33,6 +33,8 @@
     "watch": "tsc -w -p ./src",
     "test": "npm run compile && mocha && npm run lint",
     "lint": "tslint src/**/*.ts",
-    "install-types-next": "npm install vscode-languageserver-types@next -f -S"
+    "install-types-next": "npm install vscode-languageserver-types@next -f -S",
+    "preversion": "npm test",
+    "postversion": "git push && git push --tags"
   }
 }
