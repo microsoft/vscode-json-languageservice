@@ -1099,6 +1099,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 	function _scanNext(): Json.SyntaxKind {
 		while (true) {
 			let token = scanner.scan();
+			_checkScanError();
 			switch (token) {
 				case Json.SyntaxKind.LineCommentTrivia:
 				case Json.SyntaxKind.BlockCommentTrivia:
@@ -1321,8 +1322,6 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		let node = new StringASTNode(parent, name, isKey, scanner.getTokenOffset());
 		node.value = scanner.getTokenValue();
 
-		_checkScanError();
-
 		return _finalize(node, true);
 	}
 
@@ -1332,7 +1331,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		}
 
 		let node = new NumberASTNode(parent, name, scanner.getTokenOffset());
-		if (!_checkScanError()) {
+		if (scanner.getTokenError() === Json.ScanError.None) {
 			let tokenValue = scanner.getTokenValue();
 			try {
 				let numberValue = JSON.parse(tokenValue);

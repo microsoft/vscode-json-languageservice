@@ -106,6 +106,11 @@ suite('JSON Parser', () => {
 		isInvalid('[-A]');
 	});
 
+	test('Comments', function () {
+		isValid('/*d*/ { } /*e*/');
+		isInvalid('/*d { }');
+	});
+
 	test('Simple AST', function () {
 
 		let result = toDocument('{}');
