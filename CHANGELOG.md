@@ -1,11 +1,15 @@
+3.0.9 2018-03-07
+==================
+  * Provide ems modules
+
 3.0.2 / 2017-01-27
 ==================
-* Added document specific validation parameters: `DocumentLanguageSettings`
-* API to define the severity of reported comments and trailing commas (`DocumentLanguageSettings.comments`, `DocumentLanguageSettings.trailingCommas`)
+  * Added document specific validation parameters: `DocumentLanguageSettings`
+  * API to define the severity of reported comments and trailing commas (`DocumentLanguageSettings.comments`, `DocumentLanguageSettings.trailingCommas`)
 
 3.0.0 / 2017-01-11
 ==================
-* Chaged parameters of API `LanguageService.getColorPresentations` to separate color and range
+  * Chaged parameters of API `LanguageService.getColorPresentations` to separate color and range
 .
 2.0.19 / 2017-09-21
 ==================
