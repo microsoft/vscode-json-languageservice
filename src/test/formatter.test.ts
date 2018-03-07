@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import Json = require('jsonc-parser');
+import * as Json from 'jsonc-parser';
 import {TextDocument, Range, Position, FormattingOptions, TextEdit} from 'vscode-languageserver-types';
 import * as jsonLanguageService from '../jsonLanguageService';
-import assert = require('assert');
+import * as assert from 'assert';
 import {applyEdits} from './textEditSupport';
 
 suite('JSON Formatter', () => {

@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import assert = require('assert');
-import Parser = require('../parser/jsonParser');
-import SchemaService = require('../services/jsonSchemaService');
-import JsonSchema = require('../jsonSchema');
+import * as assert from 'assert';
+import * as Parser from '../parser/jsonParser';
+import * as SchemaService from '../services/jsonSchemaService';
+import * as JsonSchema from '../jsonSchema';
 import { TextDocument } from 'vscode-languageserver-types';
 
 suite('JSON Parser', () => {

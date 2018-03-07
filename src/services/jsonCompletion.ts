@@ -5,9 +5,9 @@
 'use strict';
 
 
-import Parser = require('../parser/jsonParser');
-import Json = require('jsonc-parser');
-import SchemaService = require('./jsonSchemaService');
+import * as Parser from '../parser/jsonParser';
+import * as Json from 'jsonc-parser';
+import * as SchemaService from './jsonSchemaService';
 import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import { JSONWorkerContribution, CompletionsCollector } from '../jsonContributions';
 import { PromiseConstructor, Thenable } from '../jsonLanguageService';

@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import assert = require('assert');
-import JsonSchema = require('../jsonSchema');
+import * as assert from 'assert';
+import * as JsonSchema from '../jsonSchema';
 import * as jsonLanguageService from '../jsonLanguageService';
 
 import { CompletionList, CompletionItemKind, TextDocument, Position, TextEdit, InsertTextFormat } from 'vscode-languageserver-types';

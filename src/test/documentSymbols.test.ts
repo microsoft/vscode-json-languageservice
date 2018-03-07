@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import assert = require('assert');
-import JsonSchema = require('../jsonSchema');
+import * as assert from 'assert';
+import * as JsonSchema from '../jsonSchema';
 import { JSONCompletion } from '../services/jsonCompletion';
 import { JSONDocumentSymbols } from '../services/jsonDocumentSymbols';
 

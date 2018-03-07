@@ -2,8 +2,9 @@
   "name": "vscode-json-languageservice",
   "version": "3.0.8",
   "description": "Language service for JSON",
-  "main": "./lib/jsonLanguageService.js",
-  "typings": "./lib/jsonLanguageService",
+  "main": "./lib/umd/jsonLanguageService.js",
+  "typings": "./lib/umd/jsonLanguageService",
+  "module": "./lib/esm/jsonLanguageService.js",
   "author": "Microsoft Corporation",
   "repository": {
     "type": "git",
@@ -29,7 +30,7 @@
   "scripts": {
     "prepublish": "npm run test",
     "postpublish": "node ./build/post-publish.js",
-    "compile": "tsc -p ./src",
+    "compile": "tsc -p ./src && tsc -p ./src/tsconfig.esm.json",
     "watch": "tsc -w -p ./src",
     "test": "npm run compile && mocha && npm run lint",
     "lint": "tslint src/**/*.ts",

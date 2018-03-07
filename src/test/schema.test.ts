@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import assert = require('assert');
-import SchemaService = require('../services/jsonSchemaService');
-import JsonSchema = require('../jsonSchema');
-import Json = require('jsonc-parser');
-import Parser = require('../parser/jsonParser');
-import fs = require('fs');
-import url = require('url');
-import path = require('path');
+import * as assert from 'assert';
+import * as SchemaService from '../services/jsonSchemaService';
+import * as JsonSchema from '../jsonSchema';
+import * as Json from 'jsonc-parser';
+import * as Parser from '../parser/jsonParser';
+import * as fs from 'fs';
+import * as url from 'url';
+import * as path from 'path';
 import { TextDocument } from 'vscode-languageserver-types';
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig): Parser.JSONDocument {
@@ -38,7 +38,7 @@ suite('JSON Schema', () => {
 		let fileName = fixureDocuments[uri];
 		if (fileName) {
 			return new Promise<string>((c, e) => {
-				let fixturePath = path.join(__dirname, '../../src/test/fixtures', fileName);
+				let fixturePath = path.join(__dirname, '../../../src/test/fixtures', fileName);
 				fs.readFile(fixturePath, 'UTF-8', (err, result) => {
 					err ? e("Resource not found.") : c(result.toString());
 				});

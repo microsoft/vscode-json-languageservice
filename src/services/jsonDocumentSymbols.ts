@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import Parser = require('../parser/jsonParser');
-import Strings = require('../utils/strings');
+import * as Parser from '../parser/jsonParser';
+import * as Strings from '../utils/strings';
 import { colorFromHex } from '../utils/colors';
 
 import { SymbolInformation, SymbolKind, TextDocument, Range, Location, TextEdit } from 'vscode-languageserver-types';

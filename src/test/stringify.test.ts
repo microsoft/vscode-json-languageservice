@@ -5,7 +5,7 @@
 'use strict';
 
 import {stringifyObject} from '../utils/json';
-import assert = require('assert');
+import * as assert from 'assert';
 
 suite('JSON Stringify', () => {
 
