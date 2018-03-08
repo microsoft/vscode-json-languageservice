@@ -1,6 +1,6 @@
 3.0.9 2018-03-07
 ==================
-  * Provide ems modules
+  * Provide ems modules in lib/esm
 
 3.0.2 / 2017-01-27
 ==================
