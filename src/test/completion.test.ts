@@ -9,7 +9,8 @@ import * as JsonSchema from '../jsonSchema';
 import * as jsonLanguageService from '../jsonLanguageService';
 
 import { CompletionList, CompletionItemKind, TextDocument, Position, TextEdit, InsertTextFormat } from 'vscode-languageserver-types';
-import { applyEdits } from './textEditSupport';
+
+const applyEdits = TextDocument.applyEdits;
 
 interface ItemDescription {
 	label: string;

@@ -8,7 +8,8 @@ import * as Json from 'jsonc-parser';
 import {TextDocument, Range, Position, FormattingOptions, TextEdit} from 'vscode-languageserver-types';
 import * as jsonLanguageService from '../jsonLanguageService';
 import * as assert from 'assert';
-import {applyEdits} from './textEditSupport';
+
+const applyEdits = TextDocument.applyEdits;
 
 suite('JSON Formatter', () => {
 
