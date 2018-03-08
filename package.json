@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "jsonc-parser": "^2.0.0-next.1",
-    "vscode-languageserver-types": "^3.7.0-next.2",
+    "vscode-languageserver-types": "^3.6.1",
     "vscode-nls": "^3.2.1",
     "vscode-uri": "^1.0.3"
   },
