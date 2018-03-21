@@ -82,13 +82,14 @@ export class JSONValidation {
 					trailingCommaSeverity = commentSeverity = ProblemSeverity.Ignore;
 				}
 			}
-
-			jsonDocument.syntaxErrors.forEach(p => {
-				if (p.code === ErrorCode.TrailingComma) {
-					p.severity = trailingCommaSeverity;
-				}
-				addProblem(p);
-			});
+			if (jsonDocument.syntaxErrors != undefined) {
+				jsonDocument.syntaxErrors.forEach(p => {
+					if (p.code === ErrorCode.TrailingComma) {
+						p.severity = trailingCommaSeverity;
+					}
+					addProblem(p);
+				});
+			}
 
 			if (commentSeverity !== ProblemSeverity.Ignore) {
 				let message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');
