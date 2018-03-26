@@ -446,8 +446,8 @@ export class JSONCompletion {
 
 	private addSchemaValueCompletions(schema: JSONSchemaRef, separatorAfter: string, collector: CompletionsCollector, types: { [type: string]: boolean }): void {
 		if (typeof schema === 'object') {
-			this.addDefaultValueCompletions(schema, separatorAfter, collector);
 			this.addEnumValueCompletions(schema, separatorAfter, collector);
+			this.addDefaultValueCompletions(schema, separatorAfter, collector);
 			this.collectTypes(schema, types);
 			if (Array.isArray(schema.allOf)) {
 				schema.allOf.forEach(s => this.addSchemaValueCompletions(s, separatorAfter, collector, types));
@@ -544,6 +544,9 @@ export class JSONCompletion {
 	}
 
 	private collectTypes(schema: JSONSchema, types: { [type: string]: boolean }) {
+		if (Array.isArray(schema.enum)) {
+			return;
+		}
 		let type = schema.type;
 		if (Array.isArray(type)) {
 			type.forEach(t => types[t] = true);

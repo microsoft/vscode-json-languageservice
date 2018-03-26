@@ -727,6 +727,28 @@ suite('JSON Completion', () => {
 		});
 	});
 
+	test('Enum and defaults', async function () {
+		let schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				prop: {
+					type: ['boolean', 'string'],
+					enum: [false, 'rcodetools'],
+					default: false
+				}
+			}
+		};
+
+		await testCompletionsFor('{ "prop": | }', schema, {
+			items: [
+				{ label: 'false', resultText: '{ "prop": false }' },
+				{ label: '"rcodetools"', resultText: '{ "prop": "rcodetools" }' },
+			],
+			count: 2
+		});
+
+	});
+
 	test('$schema', async function () {
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
