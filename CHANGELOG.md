@@ -1,3 +1,8 @@
+3.1.0 2018-04-09
+==================
+ * new APIs: `newJSONDocument` to create a JSON Document from a custom AST
+ * new API types: ObjectASTNode, PropertyASTNode, ArrayASTNode, StringASTNode, NumberASTNode, BooleanASTNode, NullASTNode that allow creating a custom AST
+
 3.0.9 2018-03-07
 ==================
   * Provide ems modules in lib/esm

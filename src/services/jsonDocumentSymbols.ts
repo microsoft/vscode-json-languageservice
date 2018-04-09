@@ -9,7 +9,8 @@ import * as Strings from '../utils/strings';
 import { colorFromHex } from '../utils/colors';
 
 import { SymbolInformation, SymbolKind, TextDocument, Range, Location, TextEdit } from 'vscode-languageserver-types';
-import { Thenable, ColorInformation, ColorPresentation, Color } from "../jsonLanguageService";
+import { Thenable, ColorInformation, ColorPresentation, Color, ArrayASTNode, ObjectASTNode, ASTNode, PropertyASTNode } from "../jsonLanguageService";
+
 import { IJSONSchemaService } from "./jsonSchemaService";
 
 export class JSONDocumentSymbols {
@@ -29,12 +30,16 @@ export class JSONDocumentSymbols {
 		if ((resourceString === 'vscode://defaultsettings/keybindings.json') || Strings.endsWith(resourceString.toLowerCase(), '/user/keybindings.json')) {
 			if (root.type === 'array') {
 				let result: SymbolInformation[] = [];
-				(<Parser.ArrayASTNode>root).items.forEach((item) => {
+				root.items.forEach(item => {
 					if (item.type === 'object') {
-						let property = (<Parser.ObjectASTNode>item).getFirstProperty('key');
-						if (property && property.value) {
-							let location = Location.create(document.uri, Range.create(document.positionAt(item.start), document.positionAt(item.end)));
-							result.push({ name: property.value.getValue(), kind: SymbolKind.Function, location: location });
+						for (let property of item.properties) {
+							if (property.keyNode.value === 'key') {
+								if (property.valueNode) {
+									let location = Location.create(document.uri, Range.create(document.positionAt(item.offset), document.positionAt(item.offset + item.length)));
+									result.push({ name: Parser.getNodeValue(property.valueNode), kind: SymbolKind.Function, location: location });
+								}
+								return;
+							}
 						}
 					}
 				});
@@ -42,20 +47,16 @@ export class JSONDocumentSymbols {
 			}
 		}
 
-		let collectOutlineEntries = (result: SymbolInformation[], node: Parser.ASTNode, containerName: string): SymbolInformation[] => {
+		let collectOutlineEntries = (result: SymbolInformation[], node: ASTNode, containerName: string): SymbolInformation[] => {
 			if (node.type === 'array') {
-				(<Parser.ArrayASTNode>node).items.forEach((node: Parser.ASTNode) => {
-					collectOutlineEntries(result, node, containerName);
-				});
+				node.items.forEach(node => collectOutlineEntries(result, node, containerName));
 			} else if (node.type === 'object') {
-				let objectNode = <Parser.ObjectASTNode>node;
-
-				objectNode.properties.forEach((property: Parser.PropertyASTNode) => {
-					let location = Location.create(document.uri, Range.create(document.positionAt(property.start), document.positionAt(property.end)));
-					let valueNode = property.value;
+				node.properties.forEach((property: PropertyASTNode) => {
+					let location = Location.create(document.uri, Range.create(document.positionAt(property.offset), document.positionAt(property.offset + property.length)));
+					let valueNode = property.valueNode;
 					if (valueNode) {
-						let childContainerName = containerName ? containerName + '.' + property.key.value : property.key.value;
-						result.push({ name: property.key.getValue(), kind: this.getSymbolKind(valueNode.type), location: location, containerName: containerName });
+						let childContainerName = containerName ? containerName + '.' + property.keyNode.value : property.keyNode.value;
+						result.push({ name: property.keyNode.value, kind: this.getSymbolKind(valueNode.type), location: location, containerName: containerName });
 						collectOutlineEntries(result, valueNode, childContainerName);
 					}
 				});
@@ -91,11 +92,11 @@ export class JSONDocumentSymbols {
 				let visitedNode = {};
 				for (let s of matchingSchemas) {
 					if (!s.inverted && s.schema && (s.schema.format === 'color' || s.schema.format === 'color-hex') && s.node && s.node.type === 'string') {
-						let nodeId = String(s.node.start);
+						let nodeId = String(s.node.offset);
 						if (!visitedNode[nodeId]) {
-							let color = colorFromHex(s.node.getValue());
+							let color = colorFromHex(Parser.getNodeValue(s.node));
 							if (color) {
-								let range = Range.create(document.positionAt(s.node.start), document.positionAt(s.node.end));
+								let range = Range.create(document.positionAt(s.node.offset), document.positionAt(s.node.offset + s.node.length));
 								result.push({ color, range });
 							}
 							visitedNode[nodeId] = true;

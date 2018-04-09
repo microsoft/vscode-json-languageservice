@@ -7,10 +7,10 @@
 
 import * as Parser from '../parser/jsonParser';
 import * as SchemaService from './jsonSchemaService';
-import {JSONWorkerContribution} from '../jsonContributions';
-import {PromiseConstructor, Thenable} from '../jsonLanguageService';
+import { JSONWorkerContribution } from '../jsonContributions';
+import { PromiseConstructor, Thenable, PropertyASTNode } from '../jsonLanguageService';
 
-import {Hover, TextDocument, Position, Range, MarkedString} from 'vscode-languageserver-types';
+import { Hover, TextDocument, Position, Range, MarkedString } from 'vscode-languageserver-types';
 
 export class JSONHover {
 
@@ -28,24 +28,23 @@ export class JSONHover {
 
 		let offset = document.offsetAt(position);
 		let node = doc.getNodeFromOffset(offset);
-		if (!node || (node.type === 'object' || node.type === 'array') && offset > node.start + 1 && offset < node.end - 1) {
+		if (!node || (node.type === 'object' || node.type === 'array') && offset > node.offset + 1 && offset < node.offset + node.length - 1) {
 			return this.promise.resolve(null);
 		}
 		let hoverRangeNode = node;
 
 		// use the property description when hovering over an object key
 		if (node.type === 'string') {
-			let stringNode = <Parser.StringASTNode>node;
-			if (stringNode.isKey) {
-				let propertyNode = <Parser.PropertyASTNode>node.parent;
-				node = propertyNode.value;
+			let parent = node.parent;
+			if (parent.type === 'property' && parent.keyNode === node) {
+				node = parent.valueNode;
 				if (!node) {
 					return this.promise.resolve(null);
-				}	
+				}
 			}
 		}
 
-		let hoverRange = Range.create(document.positionAt(hoverRangeNode.start), document.positionAt(hoverRangeNode.end));
+		let hoverRange = Range.create(document.positionAt(hoverRangeNode.offset), document.positionAt(hoverRangeNode.offset + hoverRangeNode.length));
 
 		var createHover = (contents: MarkedString[]) => {
 			let result: Hover = {
@@ -55,7 +54,7 @@ export class JSONHover {
 			return result;
 		};
 
-		let location = node.getPath();
+		let location = Parser.getNodePath(node);
 		for (let i = this.contributions.length - 1; i >= 0; i--) {
 			let contribution = this.contributions[i];
 			let promise = contribution.getInfoContribution(document.uri, location);
@@ -66,7 +65,7 @@ export class JSONHover {
 
 		return this.schemaService.getSchemaForResource(document.uri, doc).then((schema) => {
 			if (schema) {
-				let matchingSchemas = doc.getMatchingSchemas(schema.schema, node.start);
+				let matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset);
 
 				let title: string = null;
 				let markdownDescription: string = null;
@@ -75,8 +74,8 @@ export class JSONHover {
 					if (s.node === node && !s.inverted && s.schema) {
 						title = title || s.schema.title;
 						markdownDescription = markdownDescription || s.schema.markdownDescription || toMarkdown(s.schema.description);
-						if (s.schema.enum)  {
-							let idx = s.schema.enum.indexOf(node.getValue());
+						if (s.schema.enum) {
+							let idx = s.schema.enum.indexOf(Parser.getNodeValue(node));
 							if (s.schema.markdownEnumDescriptions) {
 								markdownEnumValueDescription = s.schema.markdownEnumDescriptions[idx];
 							} else if (s.schema.enumDescriptions) {

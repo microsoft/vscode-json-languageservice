@@ -10,11 +10,14 @@ Why?
 The _vscode-json-languageservice_ contains the language smarts behind the JSON editing experience of Visual Studio Code
 and the Monaco editor.
  - *doValidation* analyses an input string and returns syntax and lint errros.
- - *doComplete* provides completion proposals for a given location.
+ - *doComplete* provides completion proposals for a given location. *doResolve* resolves a completion proposal
  - *doResolve* resolves a completion proposals.
  - *doHover* provides a hover text for a given location.
  - *findDocumentSymbols* provides all symbols in the given document
+ - *findDocumentColors* provides all color symbols in the given document, *getColorPresentations* returns available color formats for a color symbol.
  - *format* formats the code at the given range.
+
+ - use *parseJSONDocument* create a JSON document from source code, or *newJSONDocument* to create the document from an AST.
 
 Installation
 ------------

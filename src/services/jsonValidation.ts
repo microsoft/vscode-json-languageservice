@@ -5,9 +5,9 @@
 'use strict';
 
 import { JSONSchemaService } from './jsonSchemaService';
-import { JSONDocument, ObjectASTNode, IProblem, ProblemSeverity, ErrorCode } from '../parser/jsonParser';
+import { JSONDocument,IProblem, ProblemSeverity, ErrorCode } from '../parser/jsonParser';
 import { TextDocument, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver-types';
-import { PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings } from '../jsonLanguageService';
+import { ObjectASTNode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings } from '../jsonLanguageService';
 import * as nls from 'vscode-nls';
 import { JSONSchemaRef } from '../jsonSchema';
 
@@ -46,12 +46,12 @@ export class JSONValidation {
 			}
 
 			// remove duplicated messages
-			let signature = problem.location.start + ' ' + problem.location.end + ' ' + problem.message;
+			let signature = problem.location.offset + ' ' + problem.location.length + ' ' + problem.message;
 			if (!added[signature]) {
 				added[signature] = true;
 				let range = {
-					start: textDocument.positionAt(problem.location.start),
-					end: textDocument.positionAt(problem.location.end)
+					start: textDocument.positionAt(problem.location.offset),
+					end: textDocument.positionAt(problem.location.offset + problem.location.length)
 				};
 				let severity: DiagnosticSeverity = problem.severity === ProblemSeverity.Error ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
 				diagnostics.push({ severity, range, message: problem.message });
@@ -65,12 +65,12 @@ export class JSONValidation {
 			if (schema) {
 				if (schema.errors.length && jsonDocument.root) {
 					let astRoot = jsonDocument.root;
-					let property = astRoot.type === 'object' ? (<ObjectASTNode>astRoot).getFirstProperty('$schema') : null;
-					if (property) {
-						let node = property.value || property;
-						addProblem({ location: { start: node.start, end: node.end }, message: schema.errors[0], severity: ProblemSeverity.Warning });
+					let property = astRoot.type === 'object' ? astRoot.properties[0] : null;
+					if (property && property.keyNode.value === '$schema') {
+						let node = property.valueNode || property;
+						addProblem({ location: { offset: node.offset, length: node.length }, message: schema.errors[0], severity: ProblemSeverity.Warning });
 					} else {
-						addProblem({ location: { start: astRoot.start, end: astRoot.start + 1 }, message: schema.errors[0], severity: ProblemSeverity.Warning });
+						addProblem({ location: { offset: astRoot.offset, length: 1 }, message: schema.errors[0], severity: ProblemSeverity.Warning });
 					}
 				} else {
 					let semanticErrors = jsonDocument.validate(schema.schema);
@@ -89,6 +89,7 @@ export class JSONValidation {
 				}
 				addProblem(p);
 			});
+			diagnostics.push(...jsonDocument.externalDiagnostic);
 
 			if (commentSeverity !== ProblemSeverity.Ignore) {
 				let message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');

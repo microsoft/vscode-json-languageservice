@@ -5,10 +5,11 @@
 'use strict';
 
 import * as assert from 'assert';
-import * as Parser from '../parser/jsonParser';
+import { getNodePath, getNodeValue, ErrorCode, JSONDocumentConfig, parse, JSONDocument} from '../parser/jsonParser';
 import * as SchemaService from '../services/jsonSchemaService';
 import * as JsonSchema from '../jsonSchema';
 import { TextDocument } from 'vscode-languageserver-types';
+import { ASTNode, ObjectASTNode } from '../jsonLanguageService';
 
 suite('JSON Parser', () => {
 
@@ -17,7 +18,7 @@ suite('JSON Parser', () => {
 		assert.equal(result.syntaxErrors.length, 0);
 	}
 
-	function isInvalid(json: string, ...expectedErrors: Parser.ErrorCode[]): void {
+	function isInvalid(json: string, ...expectedErrors: ErrorCode[]): void {
 		let result = toDocument(json);
 		if (expectedErrors.length === 0) {
 			assert.ok(result.syntaxErrors.length > 0, json);
@@ -28,8 +29,15 @@ suite('JSON Parser', () => {
 		assert.notEqual(result.syntaxErrors[0].message, 'Invalid JSON', json);
 	}
 
-	function toDocument(text: string, config?: Parser.JSONDocumentConfig): Parser.JSONDocument {
-		return Parser.parse(TextDocument.create('foo://bar/file.json', 'json', 0, text), config);
+	function toDocument(text: string, config?: JSONDocumentConfig): JSONDocument {
+		return parse(TextDocument.create('foo://bar/file.json', 'json', 0, text), config);
+	}
+
+	function assertObject(node: ASTNode, expectedProperties: string[]) {
+		assert.equal(node.type, 'object');
+		assert.equal((<ObjectASTNode>node).properties.length, expectedProperties.length);
+		let keyList = (<ObjectASTNode>node).properties.map(p => p.keyNode.value);
+		assert.deepEqual(keyList, expectedProperties);
 	}
 
 	test('Invalid body', function () {
@@ -59,10 +67,10 @@ suite('JSON Parser', () => {
 		isInvalid('{');
 		isInvalid('{3:3}');
 		isInvalid('{\'key\': 3}');
-		isInvalid('{"key" 3}', Parser.ErrorCode.ColonExpected);
-		isInvalid('{"key":3 "key2": 4}', Parser.ErrorCode.CommaExpected);
-		isInvalid('{"key":42, }', Parser.ErrorCode.TrailingComma);
-		isInvalid('{"key:42', Parser.ErrorCode.UnexpectedEndOfString, Parser.ErrorCode.ColonExpected);
+		isInvalid('{"key" 3}', ErrorCode.ColonExpected);
+		isInvalid('{"key":3 "key2": 4}', ErrorCode.CommaExpected);
+		isInvalid('{"key":42, }', ErrorCode.TrailingComma);
+		isInvalid('{"key:42', ErrorCode.UnexpectedEndOfString, ErrorCode.ColonExpected);
 	});
 
 	test('Arrays', function () {
@@ -71,11 +79,11 @@ suite('JSON Parser', () => {
 		isValid('[1, "string", false, {}, [null]]');
 
 		isInvalid('[');
-		isInvalid('[,]', Parser.ErrorCode.ValueExpected);
-		isInvalid('[1 2]', Parser.ErrorCode.CommaExpected);
-		isInvalid('[true false]', Parser.ErrorCode.CommaExpected);
-		isInvalid('[1, ]', Parser.ErrorCode.TrailingComma);
-		isInvalid('[[]', Parser.ErrorCode.CommaOrCloseBacketExpected);
+		isInvalid('[,]', ErrorCode.ValueExpected);
+		isInvalid('[1 2]', ErrorCode.CommaExpected);
+		isInvalid('[true false]', ErrorCode.CommaExpected);
+		isInvalid('[1, ]', ErrorCode.TrailingComma);
+		isInvalid('[[]', ErrorCode.CommaOrCloseBacketExpected);
 		isInvalid('["something"');
 		isInvalid('[magic]');
 	});
@@ -92,7 +100,7 @@ suite('JSON Parser', () => {
 		isInvalid('["\\u123"]');
 		isInvalid('["\\u123Z"]');
 		isInvalid('[\'string\']');
-		isInvalid('"\tabc"', Parser.ErrorCode.InvalidCharacter);
+		isInvalid('"\tabc"', ErrorCode.InvalidCharacter);
 	});
 
 	test('Numbers', function () {
@@ -120,7 +128,7 @@ suite('JSON Parser', () => {
 		let node = result.getNodeFromOffset(1);
 
 		assert.equal(node.type, 'object');
-		assert.deepEqual(node.getPath(), []);
+		assert.deepEqual(getNodePath(node), []);
 
 		assert.strictEqual(result.getNodeFromOffset(2), null);
 
@@ -130,7 +138,7 @@ suite('JSON Parser', () => {
 		node = result.getNodeFromOffset(2);
 
 		assert.equal(node.type, 'null');
-		assert.deepEqual(node.getPath(), [0]);
+		assert.deepEqual(getNodePath(node), [0]);
 
 		result = toDocument('{"a":true}');
 		assert.strictEqual(result.syntaxErrors.length, 0);
@@ -138,8 +146,7 @@ suite('JSON Parser', () => {
 		node = result.getNodeFromOffset(3);
 
 		assert.equal(node.type, 'string');
-		assert.equal((<Parser.StringASTNode>node).isKey, true);
-		assert.deepEqual(node.getPath(), ['a']);
+		assert.deepEqual(getNodePath(node), ['a']);
 
 		node = result.getNodeFromOffset(4);
 
@@ -156,7 +163,7 @@ suite('JSON Parser', () => {
 		node = result.getNodeFromOffset(5);
 
 		assert.equal(node.type, 'boolean');
-		assert.deepEqual(node.getPath(), ['a']);
+		assert.deepEqual(getNodePath(node), ['a']);
 
 	});
 
@@ -168,12 +175,12 @@ suite('JSON Parser', () => {
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		let node = result.getNodeFromOffset(content.indexOf('key2') + 2);
-		let location = node.getPath();
+		let location = getNodePath(node);
 
 		assert.deepEqual(location, ['key', 'key2']);
 
 		node = result.getNodeFromOffset(content.indexOf('42') + 1);
-		location = node.getPath();
+		location = getNodePath(node);
 
 		assert.deepEqual(location, ['key', 'key2']);
 	});
@@ -185,7 +192,7 @@ suite('JSON Parser', () => {
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		let node = result.getNodeFromOffset(17);
-		let location = node.getPath();
+		let location = getNodePath(node);
 
 		assert.deepEqual(location, ['key', 0, 'key2']);
 
@@ -217,8 +224,8 @@ suite('JSON Parser', () => {
 		let content = '{\n"key":32,\nerror\n}';
 		let result = toDocument(content);
 		assert.equal(result.syntaxErrors.length, 2);
-		assert.equal(result.syntaxErrors[0].location.start, content.indexOf('error'));
-		assert.equal(result.syntaxErrors[0].location.end, content.indexOf('error') + 5);
+		assert.equal(result.syntaxErrors[0].location.offset, content.indexOf('error'));
+		assert.equal(result.syntaxErrors[0].location.length, 5);
 	});
 
 	test('Errors at the end of the file', function () {
@@ -226,8 +233,8 @@ suite('JSON Parser', () => {
 		let content = '{\n"key":32\n ';
 		let result = toDocument(content);
 		assert.equal(result.syntaxErrors.length, 1);
-		assert.equal(result.syntaxErrors[0].location.start, 9);
-		assert.equal(result.syntaxErrors[0].location.end, 10);
+		assert.equal(result.syntaxErrors[0].location.offset, 9);
+		assert.equal(result.syntaxErrors[0].location.length, 1);
 	});
 
 	test('Getting keys out of an object', function () {
@@ -236,10 +243,7 @@ suite('JSON Parser', () => {
 		let result = toDocument(content);
 		assert.equal(result.syntaxErrors.length, 0);
 		let node = result.getNodeFromOffset(content.indexOf('32,\n') + 4);
-
-		assert.equal(node.type, 'object');
-		let keyList = (<Parser.ObjectASTNode>node).getKeyList();
-		assert.deepEqual(keyList, ['key', 'key2']);
+		assertObject(node, ['key', 'key2']);
 	});
 
 	test('Missing colon', function () {
@@ -247,13 +251,10 @@ suite('JSON Parser', () => {
 		let content = '{\n"key":32,\n"key2"\n"key3": 4 }';
 		let result = toDocument(content);
 		assert.equal(result.syntaxErrors.length, 1);
-		assert.equal(result.syntaxErrors[0].code, Parser.ErrorCode.ColonExpected);
+		assert.equal(result.syntaxErrors[0].code, ErrorCode.ColonExpected);
 
 		let root = result.root;
-		assert.equal(root.type, 'object');
-		assert.equal(root.getChildNodes().length, 3);
-		let keyList = (<Parser.ObjectASTNode>root).getKeyList();
-		assert.deepEqual(keyList, ['key', 'key2', 'key3']);
+		assertObject(result.root, ['key', 'key2', 'key3']);
 	});
 
 	test('Missing comma', function () {
@@ -261,13 +262,8 @@ suite('JSON Parser', () => {
 		let content = '{\n"key":32,\n"key2": 1 \n"key3": 4 }';
 		let result = toDocument(content);
 		assert.equal(result.syntaxErrors.length, 1);
-		assert.equal(result.syntaxErrors[0].code, Parser.ErrorCode.CommaExpected);
-
-		let root = result.root;
-		assert.equal(root.type, 'object');
-		assert.equal(root.getChildNodes().length, 3);
-		let keyList = (<Parser.ObjectASTNode>root).getKeyList();
-		assert.deepEqual(keyList, ['key', 'key2', 'key3']);
+		assert.equal(result.syntaxErrors[0].code, ErrorCode.CommaExpected);
+		assertObject(result.root, ['key', 'key2', 'key3']);
 	});
 
 	test('Validate types', function () {
@@ -1135,7 +1131,7 @@ suite('JSON Parser', () => {
 		doc = toDocument('{"prop": "harmonica"}');
 		semanticErrors = doc.validate(schema);
 		assert.strictEqual(semanticErrors.length, 1);
-		assert.strictEqual(semanticErrors[0].code, Parser.ErrorCode.EnumValueMismatch);
+		assert.strictEqual(semanticErrors[0].code, ErrorCode.EnumValueMismatch);
 
 		schema = {
 			properties: {
@@ -1442,10 +1438,10 @@ suite('JSON Parser', () => {
 		assert.strictEqual(result.syntaxErrors.length, 0);
 
 		let node = result.getNodeFromOffset(9);
-		assert.strictEqual(node.getValue(), 'first string');
+		assert.strictEqual(getNodeValue(node), 'first string');
 
 		node = result.getNodeFromOffset(34);
-		assert.strictEqual(node.getValue(), 'second string');
+		assert.strictEqual(getNodeValue(node), 'second string');
 
 	});
 
@@ -1471,7 +1467,7 @@ suite('JSON Parser', () => {
 
 		let node = result.getNodeFromOffset(7);
 		assert.strictEqual(node.type, 'number');
-		assert.strictEqual(node.getValue(), 42);
+		assert.strictEqual(getNodeValue(node), 42);
 
 		let matchingSchemas = result.getMatchingSchemas(schema);
 		let schemas = matchingSchemas.filter((s) => s.node === node && !s.inverted).map((s) => s.schema);
@@ -1488,7 +1484,7 @@ suite('JSON Parser', () => {
 		function parse<T>(v: string): T {
 			let result = toDocument(v);
 			assert.equal(result.syntaxErrors.length, 0);
-			return <T>result.root.getValue();
+			return <T>getNodeValue(result.root);
 		}
 
 		let value = parse<{ far: string; }>('// comment\n{\n"far": "boo"\n}');

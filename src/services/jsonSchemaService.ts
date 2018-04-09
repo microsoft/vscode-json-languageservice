@@ -9,7 +9,7 @@ import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
 import URI from 'vscode-uri';
 import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable } from '../jsonLanguageService';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, ObjectASTNode } from '../jsonLanguageService';
 
 
 import * as nls from 'vscode-nls';
@@ -484,9 +484,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		// first use $schema if present
 		if (document && document.root && document.root.type === 'object') {
-			let schemaProperties = (<Parser.ObjectASTNode>document.root).properties.filter((p) => (p.key.value === '$schema') && !!p.value);
+			let schemaProperties = document.root.properties.filter(p => (p.keyNode.value === '$schema') && p.valueNode && p.valueNode.type === 'string');
 			if (schemaProperties.length > 0) {
-				let schemeId = <string>schemaProperties[0].value.getValue();
+				let schemeId = <string>Parser.getNodeValue(schemaProperties[0].valueNode);
 				if (schemeId && Strings.startsWith(schemeId, '.') && this.contextService) {
 					schemeId = this.contextService.resolveRelativePath(schemeId, resource);
 				}
