@@ -28,29 +28,32 @@ export {
 	TextEdit, FormattingOptions, MarkedString
 };
 
-export type ASTNodeParent = ObjectASTNode | ArrayASTNode | PropertyASTNode;
 export type ASTNode = ObjectASTNode | PropertyASTNode | ArrayASTNode | StringASTNode | NumberASTNode | BooleanASTNode | NullASTNode;
 
 export interface BaseASTNode {
 	readonly type: 'object' | 'array' | 'property' | 'string' | 'number' | 'boolean' | 'null';
-	readonly parent?: ASTNodeParent;
+	readonly parent?: ASTNode;
 	readonly offset: number;
 	readonly length: number;
-	readonly children: ASTNode[];
+	readonly children?: ASTNode[];
+	readonly value?: string | boolean | number | null;
 }
 export interface ObjectASTNode extends BaseASTNode {
 	readonly type: 'object';
 	readonly properties: PropertyASTNode[];
+	readonly children: ASTNode[];
 }
 export interface PropertyASTNode extends BaseASTNode {
 	readonly type: 'property';
 	readonly keyNode: StringASTNode;
-	readonly valueNode: ASTNode;
-	readonly colonOffset: number;
+	readonly valueNode?: ASTNode;
+	readonly colonOffset?: number;
+	readonly children: ASTNode[];
 }
 export interface ArrayASTNode extends BaseASTNode {
 	readonly type: 'array';
 	readonly items: ASTNode[];
+	readonly children: ASTNode[];
 }
 export interface StringASTNode extends BaseASTNode {
 	readonly type: 'string';
@@ -67,6 +70,7 @@ export interface BooleanASTNode extends BaseASTNode {
 }
 export interface NullASTNode extends BaseASTNode {
 	readonly type: 'null';
+	readonly value: null;
 }
 
 export interface LanguageService {

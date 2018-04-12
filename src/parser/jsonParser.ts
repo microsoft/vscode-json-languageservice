@@ -7,7 +7,7 @@
 import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import * as objects from '../utils/objects';
-import { ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, ASTNodeParent, JSONPath } from '../jsonLanguageService';
+import { ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath } from '../jsonLanguageService';
 
 import * as nls from 'vscode-nls';
 import Uri from 'vscode-uri';
@@ -58,9 +58,9 @@ export abstract class ASTNodeImpl {
 
 	public offset: number;
 	public length: number;
-	public readonly parent: ASTNodeParent;
+	public readonly parent: ASTNode;
 
-	constructor(parent: ASTNodeParent, offset: number, length?: number) {
+	constructor(parent: ASTNode, offset: number, length?: number) {
 		this.offset = offset;
 		this.length = length;
 		this.parent = parent;
@@ -78,8 +78,8 @@ export abstract class ASTNodeImpl {
 export class NullASTNodeImpl extends ASTNodeImpl implements NullASTNode {
 
 	public type: 'null' = 'null';
-
-	constructor(parent: ASTNodeParent, offset: number) {
+	public value: null = null;
+	constructor(parent: ASTNode, offset: number) {
 		super(parent, offset);
 	}
 }
@@ -89,7 +89,7 @@ export class BooleanASTNodeImpl extends ASTNodeImpl implements BooleanASTNode {
 	public type: 'boolean' = 'boolean';
 	public value: boolean;
 
-	constructor(parent: ASTNodeParent, boolValue: boolean, offset: number) {
+	constructor(parent: ASTNode, boolValue: boolean, offset: number) {
 		super(parent, offset);
 		this.value = boolValue;
 	}
@@ -100,7 +100,7 @@ export class ArrayASTNodeImpl extends ASTNodeImpl implements ArrayASTNode {
 	public type: 'array' = 'array';
 	public items: ASTNode[];
 
-	constructor(parent: ASTNodeParent, offset: number) {
+	constructor(parent: ASTNode, offset: number) {
 		super(parent, offset);
 		this.items = [];
 	}
@@ -116,7 +116,7 @@ export class NumberASTNodeImpl extends ASTNodeImpl implements NumberASTNode {
 	public isInteger: boolean;
 	public value: number;
 
-	constructor(parent: ASTNodeParent, offset: number) {
+	constructor(parent: ASTNode, offset: number) {
 		super(parent, offset);
 		this.isInteger = true;
 		this.value = Number.NaN;
@@ -127,7 +127,7 @@ export class StringASTNodeImpl extends ASTNodeImpl implements StringASTNode {
 	public type: 'string' = 'string';
 	public value: string;
 
-	constructor(parent: ASTNodeParent, offset: number, length?: number) {
+	constructor(parent: ASTNode, offset: number, length?: number) {
 		super(parent, offset, length);
 		this.value = '';
 	}
@@ -153,7 +153,7 @@ export class ObjectASTNodeImpl extends ASTNodeImpl implements ObjectASTNode {
 	public type: 'object' = 'object';
 	public properties: PropertyASTNode[];
 
-	constructor(parent: ASTNodeParent, offset: number) {
+	constructor(parent: ASTNode, offset: number) {
 		super(parent, offset);
 
 		this.properties = [];
@@ -311,38 +311,11 @@ export function newJSONDocument(root: ASTNode, diagnostics: Diagnostic[] = []) {
 }
 
 export function getNodeValue(node: ASTNode): any {
-	switch (node.type) {
-		case 'array':
-			return node.items.map(getNodeValue);
-		case 'object':
-			let obj = Object.create(null);
-			for (let prop of node.properties) {
-				obj[prop.keyNode.value] = getNodeValue(prop.valueNode);
-			}
-			return obj;
-		case 'string':
-		case 'number':
-		case 'boolean':
-			return node.value;
-	}
-	return null;
+	return Json.getNodeValue(node);
 }
 
 export function getNodePath(node: ASTNode): JSONPath {
-	if (!node.parent) {
-		return [];
-	}
-	let path = getNodePath(node.parent);
-	if (node.parent.type === 'property') {
-		let key = node.parent.keyNode.value;
-		path.push(key);
-	} else if (node.parent.type === 'array') {
-		let index = node.parent.items.indexOf(node);
-		if (index !== -1) {
-			path.push(index);
-		}
-	}
-	return path;
+	return Json.getNodePath(node);
 }
 
 export function contains(node: ASTNode, offset: number, includeRightBound = false): boolean {
@@ -354,38 +327,11 @@ export class JSONDocument {
 	constructor(public readonly root: ASTNode, public readonly syntaxErrors: IProblem[] = [], public readonly comments: IRange[] = [], public externalDiagnostic: Diagnostic[] = []) {
 	}
 
-	public getNodeFromOffset(offset: number): ASTNode {
-		let findNode = (node: ASTNode): ASTNode => {
-			if (offset >= node.offset && offset < (node.offset + node.length)) {
-				let children = node.children;
-				for (let i = 0; i < children.length && children[i].offset <= offset; i++) {
-					let item = findNode(children[i]);
-					if (item) {
-						return item;
-					}
-				}
-				return node;
-			}
-			return null;
-		};
-		return this.root && findNode(this.root);
-	}
-
-	public getNodeFromOffsetEndInclusive(offset: number): ASTNode {
-		let findNode = (node: ASTNode): ASTNode => {
-			if (offset >= node.offset && offset <= (node.offset + node.length)) {
-				let children = node.children;
-				for (let i = 0; i < children.length && children[i].offset <= offset; i++) {
-					let item = findNode(children[i]);
-					if (item) {
-						return item;
-					}
-				}
-				return node;
-			}
-			return null;
-		};
-		return this.root && findNode(this.root);
+	public getNodeFromOffset(offset: number, includeRightBound = false): ASTNode | undefined {
+		if (this.root) {
+			return <ASTNode>Json.findNodeAtOffset(this.root, offset, includeRightBound);
+		}
+		return void 0;
 	}
 
 	public visit(visitor: (node: ASTNode) => boolean): void {
@@ -393,8 +339,10 @@ export class JSONDocument {
 			let doVisit = (node: ASTNode): boolean => {
 				let ctn = visitor(node);
 				let children = node.children;
-				for (let i = 0; i < children.length && ctn; i++) {
-					ctn = doVisit(children[i]);
+				if (Array.isArray(children)) {
+					for (let i = 0; i < children.length && ctn; i++) {
+						ctn = doVisit(children[i]);
+					}
 				}
 				return ctn;
 			};
@@ -1113,7 +1061,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return node;
 	}
 
-	function _parseArray(parent: ASTNodeParent): ArrayASTNode {
+	function _parseArray(parent: ASTNode): ArrayASTNode {
 		if (scanner.getToken() !== Json.SyntaxKind.OpenBracketToken) {
 			return null;
 		}
@@ -1202,7 +1150,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return node;
 	}
 
-	function _parseObject(parent: ASTNodeParent): ObjectASTNode {
+	function _parseObject(parent: ASTNode): ObjectASTNode {
 		if (scanner.getToken() !== Json.SyntaxKind.OpenBraceToken) {
 			return null;
 		}
@@ -1242,7 +1190,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return _finalize(node, true);
 	}
 
-	function _parseString(parent: ASTNodeParent): StringASTNode {
+	function _parseString(parent: ASTNode): StringASTNode {
 		if (scanner.getToken() !== Json.SyntaxKind.StringLiteral) {
 			return null;
 		}
@@ -1253,7 +1201,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return _finalize(node, true);
 	}
 
-	function _parseNumber(parent: ASTNodeParent): NumberASTNode {
+	function _parseNumber(parent: ASTNode): NumberASTNode {
 		if (scanner.getToken() !== Json.SyntaxKind.NumericLiteral) {
 			return null;
 		}
@@ -1275,7 +1223,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return _finalize(node, true);
 	}
 
-	function _parseLiteral(parent: ASTNodeParent): ASTNode {
+	function _parseLiteral(parent: ASTNode): ASTNode {
 		let node: ASTNodeImpl;
 		switch (scanner.getToken()) {
 			case Json.SyntaxKind.NullKeyword:
@@ -1289,7 +1237,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		}
 	}
 
-	function _parseValue(parent: ASTNodeParent, name: Json.Segment): ASTNode {
+	function _parseValue(parent: ASTNode, name: Json.Segment): ASTNode {
 		return _parseArray(parent) || _parseObject(parent) || _parseString(parent) || _parseNumber(parent) || _parseLiteral(parent);
 	}
 

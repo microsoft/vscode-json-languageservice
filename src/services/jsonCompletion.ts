@@ -13,7 +13,7 @@ import { JSONWorkerContribution, CompletionsCollector } from '../jsonContributio
 import { PromiseConstructor, Thenable } from '../jsonLanguageService';
 import { stringifyObject } from '../utils/json';
 import { endsWith } from '../utils/strings';
-import { ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, ASTNodeParent, JSONPath } from '../jsonLanguageService';
+import { ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath } from '../jsonLanguageService';
 
 import { CompletionItem, CompletionItemKind, CompletionList, TextDocument, Position, Range, TextEdit, InsertTextFormat } from 'vscode-languageserver-types';
 
@@ -53,7 +53,7 @@ export class JSONCompletion {
 		};
 
 		let offset = document.offsetAt(position);
-		let node = doc.getNodeFromOffsetEndInclusive(offset);
+		let node = doc.getNodeFromOffset(offset, true);
 		if (this.isInComment(document, node ? node.offset : 0, offset)) {
 			return Promise.resolve(result);
 		}

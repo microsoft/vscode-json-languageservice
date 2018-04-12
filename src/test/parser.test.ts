@@ -130,7 +130,7 @@ suite('JSON Parser', () => {
 		assert.equal(node.type, 'object');
 		assert.deepEqual(getNodePath(node), []);
 
-		assert.strictEqual(result.getNodeFromOffset(2), null);
+		assert.strictEqual(result.getNodeFromOffset(2), void 0);
 
 		result = toDocument('[null]');
 		assert.strictEqual(result.syntaxErrors.length, 0);
@@ -158,7 +158,7 @@ suite('JSON Parser', () => {
 
 		node = result.getNodeFromOffset(10);
 
-		assert.equal(node, null);
+		assert.equal(node, void 0);
 
 		node = result.getNodeFromOffset(5);
 
