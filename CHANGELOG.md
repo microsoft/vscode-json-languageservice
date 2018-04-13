@@ -1,5 +1,6 @@
 3.1.2 2018-04-13
 ==================
+ * New API `LanguageService.getFoldingRegions`
  * doValidation can also be used with a given schema
 
 3.1.0 2018-04-09

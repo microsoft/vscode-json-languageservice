@@ -17,6 +17,7 @@ import { JSONDocumentSymbols } from './services/jsonDocumentSymbols';
 import { parse as parseJSON, JSONDocumentConfig, JSONDocument as InternalJSONDocument, newJSONDocument } from './parser/jsonParser';
 import { schemaContributions } from './services/configuration';
 import { JSONSchemaService } from './services/jsonSchemaService';
+import { getFoldingRegions } from './services/jsonFolding';
 import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions';
 import { format as formatJSON } from 'jsonc-parser';
 import { format } from 'util';
@@ -88,6 +89,7 @@ export interface LanguageService {
 	getColorPresentations(document: TextDocument, doc: JSONDocument, color: Color, range: Range): ColorPresentation[];
 	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover | null>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
+	getFoldingRegions(document: TextDocument, context?: { maxRanges?: number });
 }
 
 export interface Color {
@@ -117,6 +119,52 @@ export interface ColorPresentation {
 	 * selecting this color presentation. Edits must not overlap with the main [edit](#ColorPresentation.textEdit) nor with themselves.
 	 */
 	additionalTextEdits?: TextEdit[];
+}
+
+export interface FoldingRangeList {
+    /**
+     * The folding ranges.
+     */
+    ranges: FoldingRange[];
+}
+export const enum FoldingRangeType {
+    /**
+     * Folding range for a comment
+     */
+    Comment = "comment",
+    /**
+     * Folding range for a imports or includes
+     */
+    Imports = "imports",
+    /**
+     * Folding range for a region (e.g. `#region`)
+     */
+    Region = "region",
+}
+/**
+ * Represents a folding range.
+ */
+export interface FoldingRange {
+    /**
+     * The start line number of the folding range.
+     */
+    startLine: number;
+    /**
+     * The start column of the folding range. If not set, this defaults to the length of the start line.
+     */
+    startColumn?: number;
+    /**
+     * The end line number. The last line will be hidden.
+     */
+    endLine: number;
+    /**
+     * The start column of the folding range. If not set, this defaults to the length of the end line.
+     */
+    endColumn?: number;
+    /**
+     * The type of folding range.
+     */
+    type?: FoldingRangeType | string;
 }
 
 export interface LanguageSettings {
@@ -274,6 +322,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		findDocumentColors: jsonDocumentSymbols.findDocumentColors.bind(jsonDocumentSymbols),
 		getColorPresentations: jsonDocumentSymbols.getColorPresentations.bind(jsonDocumentSymbols),
 		doHover: jsonHover.doHover.bind(jsonHover),
+		getFoldingRegions: getFoldingRegions,
 		format: (d, r, o) => {
 			let range = void 0;
 			if (r) {
