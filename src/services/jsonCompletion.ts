@@ -331,9 +331,8 @@ export class JSONCompletion {
 				// suggest items of an array at the same key
 				let parentKey = node.parent.keyNode.value;
 				doc.visit((n) => {
-					let p = <PropertyASTNode>n;
-					if (n.type === 'property' && p.keyNode.value === parentKey && p.valueNode && p.valueNode.type === 'array') {
-						p.valueNode.items.forEach(collectSuggestionsForValues);
+					if (n.type === 'property' && n.keyNode.value === parentKey && n.valueNode && n.valueNode.type === 'array') {
+						n.valueNode.items.forEach(collectSuggestionsForValues);
 					}
 					return true;
 				});

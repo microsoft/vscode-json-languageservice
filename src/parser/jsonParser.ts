@@ -11,7 +11,8 @@ import { ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, St
 
 import * as nls from 'vscode-nls';
 import Uri from 'vscode-uri';
-import { TextDocument, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver-types';
+import { TextDocument, Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver-types';
+import { ErrorCode } from '../jsonErrorCodes';
 
 const localize = nls.loadMessageBundle();
 
@@ -20,34 +21,12 @@ export interface IRange {
 	length: number;
 }
 
-export enum ErrorCode {
-	Undefined = 0,
-	EnumValueMismatch = 1,
-	UnexpectedEndOfComment = 0x101,
-	UnexpectedEndOfString = 0x102,
-	UnexpectedEndOfNumber = 0x103,
-	InvalidUnicode = 0x104,
-	InvalidEscapeCharacter = 0x105,
-	InvalidCharacter = 0x106,
-	PropertyExpected = 0x201,
-	CommaExpected = 0x202,
-	ColonExpected = 0x203,
-	ValueExpected = 0x204,
-	CommaOrCloseBacketExpected = 0x205,
-	CommaOrCloseBraceExpected = 0x206,
-	TrailingComma = 0x207
-}
-
 const colorHexPattern = /^#([0-9A-Fa-f]{3,4}|([0-9A-Fa-f]{2}){3,4})$/;
 const emailPattern = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
-export enum ProblemSeverity {
-	Ignore = 'ignore', Error = 'error', Warning = 'warning'
-}
-
 export interface IProblem {
 	location: IRange;
-	severity: ProblemSeverity;
+	severity: DiagnosticSeverity;
 	code?: ErrorCode;
 	message: string;
 }
@@ -296,18 +275,8 @@ export class ValidationResult {
 
 }
 
-function toProblemSeverity(diagnosticsSeverity: DiagnosticSeverity) {
-	switch (diagnosticsSeverity) {
-		case DiagnosticSeverity.Error: return ProblemSeverity.Error;
-		case DiagnosticSeverity.Warning: return ProblemSeverity.Warning;
-		case DiagnosticSeverity.Information: return ProblemSeverity.Warning;
-	}
-	return ProblemSeverity.Ignore;
-}
-
-
 export function newJSONDocument(root: ASTNode, diagnostics: Diagnostic[] = []) {
-	return new JSONDocument(root, [], [], diagnostics);
+	return new JSONDocument(root, diagnostics, []);
 }
 
 export function getNodeValue(node: ASTNode): any {
@@ -324,7 +293,7 @@ export function contains(node: ASTNode, offset: number, includeRightBound = fals
 
 export class JSONDocument {
 
-	constructor(public readonly root: ASTNode, public readonly syntaxErrors: IProblem[] = [], public readonly comments: IRange[] = [], public externalDiagnostic: Diagnostic[] = []) {
+	constructor(public readonly root: ASTNode, public readonly syntaxErrors: Diagnostic[] = [], public readonly comments: Range[] = []) {
 	}
 
 	public getNodeFromOffset(offset: number, includeRightBound = false): ASTNode | undefined {
@@ -350,11 +319,14 @@ export class JSONDocument {
 		}
 	}
 
-	public validate(schema: JSONSchema): IProblem[] {
+	public validate(textDocument: TextDocument, schema: JSONSchema): Diagnostic[] {
 		if (this.root && schema) {
 			let validationResult = new ValidationResult();
 			validate(this.root, schema, validationResult, NoOpSchemaCollector.instance);
-			return validationResult.problems;
+			return validationResult.problems.map(p => {
+				let range = Range.create(textDocument.positionAt(p.location.offset), textDocument.positionAt(p.location.offset + p.location.length));
+				return Diagnostic.create(range, p.message, p.severity, p.code);
+			});
 		}
 		return null;
 	}
@@ -404,7 +376,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (!schema.type.some(matchesType)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					message: schema.errorMessage || localize('typeArrayMismatchWarning', 'Incorrect type. Expected one of {0}.', (<string[]>schema.type).join(', '))
 				});
 			}
@@ -413,7 +385,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (!matchesType(schema.type)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					message: schema.errorMessage || localize('typeMismatchWarning', 'Incorrect type. Expected "{0}".', schema.type)
 				});
 			}
@@ -431,7 +403,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (!subValidationResult.hasProblems()) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					message: localize('notSchemaWarning', "Matches a schema that is not allowed.")
 				});
 			}
@@ -479,7 +451,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (matches.length > 1 && maxOneMatch) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: 1 },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					message: localize('oneOfWarning', "Matches multiple schemas when only one must validate.")
 				});
 			}
@@ -512,7 +484,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (!enumValueMatch) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					code: ErrorCode.EnumValueMismatch,
 					message: schema.errorMessage || localize('enumWarning', 'Value is not accepted. Valid values: {0}.', schema.enum.map(v => JSON.stringify(v)).join(', '))
 				});
@@ -524,7 +496,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (!objects.equals(val, schema.const)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					code: ErrorCode.EnumValueMismatch,
 					message: schema.errorMessage || localize('constWarning', 'Value must be {0}.', JSON.stringify(schema.const))
 				});
@@ -538,7 +510,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 		if (schema.deprecationMessage && node.parent) {
 			validationResult.problems.push({
 				location: { offset: node.parent.offset, length: node.parent.length },
-				severity: ProblemSeverity.Warning,
+				severity: DiagnosticSeverity.Warning,
 				message: schema.deprecationMessage
 			});
 		}
@@ -553,7 +525,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (val % schema.multipleOf !== 0) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					message: localize('multipleOfWarning', 'Value is not divisible by {0}.', schema.multipleOf)
 				});
 			}
@@ -577,7 +549,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 		if (typeof exclusiveMinimum === 'number' && val <= exclusiveMinimum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: ProblemSeverity.Warning,
+				severity: DiagnosticSeverity.Warning,
 				message: localize('exclusiveMinimumWarning', 'Value is below the exclusive minimum of {0}.', exclusiveMinimum)
 			});
 		}
@@ -585,7 +557,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 		if (typeof exclusiveMaximum === 'number' && val >= exclusiveMaximum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: ProblemSeverity.Warning,
+				severity: DiagnosticSeverity.Warning,
 				message: localize('exclusiveMaximumWarning', 'Value is above the exclusive maximum of {0}.', exclusiveMaximum)
 			});
 		}
@@ -593,7 +565,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 		if (typeof minimum === 'number' && val < minimum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: ProblemSeverity.Warning,
+				severity: DiagnosticSeverity.Warning,
 				message: localize('minimumWarning', 'Value is below the minimum of {0}.', minimum)
 			});
 		}
@@ -601,7 +573,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 		if (typeof maximum === 'number' && val > maximum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: ProblemSeverity.Warning,
+				severity: DiagnosticSeverity.Warning,
 				message: localize('maximumWarning', 'Value is above the maximum of {0}.', maximum)
 			});
 		}
@@ -611,7 +583,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 		if (schema.minLength && node.value.length < schema.minLength) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: ProblemSeverity.Warning,
+				severity: DiagnosticSeverity.Warning,
 				message: localize('minLengthWarning', 'String is shorter than the minimum length of {0}.', schema.minLength)
 			});
 		}
@@ -619,7 +591,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 		if (schema.maxLength && node.value.length > schema.maxLength) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: ProblemSeverity.Warning,
+				severity: DiagnosticSeverity.Warning,
 				message: localize('maxLengthWarning', 'String is longer than the maximum length of {0}.', schema.maxLength)
 			});
 		}
@@ -629,7 +601,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (!regex.test(node.value)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					message: schema.patternErrorMessage || schema.errorMessage || localize('patternWarning', 'String does not match the pattern of "{0}".', schema.pattern)
 				});
 			}
@@ -655,7 +627,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 					if (errorMessage) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
-							severity: ProblemSeverity.Warning,
+							severity: DiagnosticSeverity.Warning,
 							message: schema.patternErrorMessage || schema.errorMessage || localize('uriFormatWarning', 'String is not a URI: {0}', errorMessage)
 						});
 					}
@@ -665,7 +637,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 					if (!node.value.match(emailPattern)) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
-							severity: ProblemSeverity.Warning,
+							severity: DiagnosticSeverity.Warning,
 							message: schema.patternErrorMessage || schema.errorMessage || localize('emailFormatWarning', 'String is not an e-mail address.')
 						});
 					}
@@ -675,7 +647,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 					if (!node.value.match(colorHexPattern)) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
-							severity: ProblemSeverity.Warning,
+							severity: DiagnosticSeverity.Warning,
 							message: schema.patternErrorMessage || schema.errorMessage || localize('colorHexFormatWarning', 'Invalid color format. Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.')
 						});
 					}
@@ -710,7 +682,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 				} else if (schema.additionalItems === false) {
 					validationResult.problems.push({
 						location: { offset: node.offset, length: node.length },
-						severity: ProblemSeverity.Warning,
+						severity: DiagnosticSeverity.Warning,
 						message: localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer.', subSchemas.length)
 					});
 				}
@@ -737,7 +709,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (!doesContain) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					message: schema.errorMessage || localize('requiredItemMissingWarning', 'Array does not contain required item.', schema.minItems)
 				});
 			}
@@ -746,7 +718,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 		if (schema.minItems && node.items.length < schema.minItems) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: ProblemSeverity.Warning,
+				severity: DiagnosticSeverity.Warning,
 				message: localize('minItemsWarning', 'Array has too few items. Expected {0} or more.', schema.minItems)
 			});
 		}
@@ -754,7 +726,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 		if (schema.maxItems && node.items.length > schema.maxItems) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: ProblemSeverity.Warning,
+				severity: DiagnosticSeverity.Warning,
 				message: localize('maxItemsWarning', 'Array has too many items. Expected {0} or fewer.', schema.minItems)
 			});
 		}
@@ -767,7 +739,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (duplicates) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					message: localize('uniqueItemsWarning', 'Array has duplicate items.')
 				});
 			}
@@ -791,7 +763,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 					let location = keyNode ? { offset: keyNode.offset, length: keyNode.length } : { offset: node.offset, length: 1 };
 					validationResult.problems.push({
 						location: location,
-						severity: ProblemSeverity.Warning,
+						severity: DiagnosticSeverity.Warning,
 						message: localize('MissingRequiredPropWarning', 'Missing property "{0}".', propertyName)
 					});
 				}
@@ -817,7 +789,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 							let propertyNode = <PropertyASTNode>child.parent;
 							validationResult.problems.push({
 								location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-								severity: ProblemSeverity.Warning,
+								severity: DiagnosticSeverity.Warning,
 								message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
 							});
 						} else {
@@ -848,7 +820,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 									let propertyNode = <PropertyASTNode>child.parent;
 									validationResult.problems.push({
 										location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-										severity: ProblemSeverity.Warning,
+										severity: DiagnosticSeverity.Warning,
 										message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
 									});
 								} else {
@@ -884,7 +856,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 
 						validationResult.problems.push({
 							location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-							severity: ProblemSeverity.Warning,
+							severity: DiagnosticSeverity.Warning,
 							message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
 						});
 					}
@@ -896,7 +868,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (node.properties.length > schema.maxProperties) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					message: localize('MaxPropWarning', 'Object has more properties than limit of {0}.', schema.maxProperties)
 				});
 			}
@@ -906,7 +878,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			if (node.properties.length < schema.minProperties) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: ProblemSeverity.Warning,
+					severity: DiagnosticSeverity.Warning,
 					message: localize('MinPropWarning', 'Object has fewer properties than the required number of {0}', schema.minProperties)
 				});
 			}
@@ -922,7 +894,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 							if (!seenKeys[requiredProp]) {
 								validationResult.problems.push({
 									location: { offset: node.offset, length: node.length },
-									severity: ProblemSeverity.Warning,
+									severity: DiagnosticSeverity.Warning,
 									message: localize('RequiredDependentPropWarning', 'Object is missing property {0} required by property {1}.', requiredProp, key)
 								});
 							} else {
@@ -957,11 +929,12 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 
 export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): JSONDocument {
 
-	let problems: IProblem[] = [];
+	let problems: Diagnostic[] = [];
+	let lastProblemOffset = -1;
 	let text = textDocument.getText();
 	let scanner = Json.createScanner(text, false);
 
-	let comments: IRange[] = config && config.collectComments ? [] : void 0;
+	let commentRanges: Range[] = config && config.collectComments ? [] : void 0;
 
 	function _scanNext(): Json.SyntaxKind {
 		while (true) {
@@ -970,8 +943,8 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			switch (token) {
 				case Json.SyntaxKind.LineCommentTrivia:
 				case Json.SyntaxKind.BlockCommentTrivia:
-					if (Array.isArray(comments)) {
-						comments.push({ offset: scanner.getTokenOffset(), length: scanner.getTokenLength() });
+					if (Array.isArray(commentRanges)) {
+						commentRanges.push(Range.create(textDocument.positionAt(scanner.getTokenOffset()), textDocument.positionAt(scanner.getTokenOffset() + scanner.getTokenLength())));
 					}
 					break;
 				case Json.SyntaxKind.Trivia:
@@ -991,9 +964,12 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return false;
 	}
 
-	function _errorAtRange<T extends ASTNode>(message: string, code: ErrorCode, location: IRange): void {
-		if (problems.length === 0 || problems[problems.length - 1].location.offset !== location.offset) {
-			problems.push({ message, location, code, severity: ProblemSeverity.Error });
+	function _errorAtRange<T extends ASTNode>(message: string, code: ErrorCode, startOffset: number, endOffset: number, severity : DiagnosticSeverity = DiagnosticSeverity.Error): void {
+		
+		if (problems.length === 0 || startOffset !== lastProblemOffset) {
+			let range = Range.create(textDocument.positionAt(startOffset), textDocument.positionAt(endOffset));
+			problems.push(Diagnostic.create(range, message, severity, code, textDocument.languageId));
+			lastProblemOffset = startOffset;
 		}
 	}
 
@@ -1007,7 +983,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			}
 			end = start + 1;
 		}
-		_errorAtRange(message, code, { offset: start, length: end - start });
+		_errorAtRange(message, code, start, end);
 
 		if (node) {
 			_finalize(node, false);
@@ -1079,7 +1055,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 				_scanNext(); // consume comma
 				if (scanner.getToken() === Json.SyntaxKind.CloseBracketToken) {
 					if (needsComma) {
-						_errorAtRange(localize('TrailingComma', 'Trailing comma'), ErrorCode.TrailingComma, { offset: commaOffset, length: 1 });
+						_errorAtRange(localize('TrailingComma', 'Trailing comma'), ErrorCode.TrailingComma, commaOffset, commaOffset + 1);
 					}
 					continue;
 				}
@@ -1122,9 +1098,9 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 
 		let seen = keysSeen[key.value];
 		if (seen) {
-			problems.push({ location: { offset: node.keyNode.offset, length: node.keyNode.length }, message: localize('DuplicateKeyWarning', "Duplicate object key"), code: ErrorCode.Undefined, severity: ProblemSeverity.Warning });
+			_errorAtRange(localize('DuplicateKeyWarning', "Duplicate object key"), ErrorCode.DuplicateKey, node.keyNode.offset, node.keyNode.offset + node.keyNode.length, DiagnosticSeverity.Warning);
 			if (typeof seen === 'object') {
-				problems.push({ location: { offset: seen.keyNode.offset, length: seen.keyNode.length }, message: localize('DuplicateKeyWarning', "Duplicate object key"), code: ErrorCode.Undefined, severity: ProblemSeverity.Warning });
+				_errorAtRange(localize('DuplicateKeyWarning', "Duplicate object key"), ErrorCode.DuplicateKey, seen.keyNode.offset, seen.keyNode.offset + seen.keyNode.length, DiagnosticSeverity.Warning);
 			}
 			keysSeen[key.value] = true; // if the same key is duplicate again, avoid duplicate error reporting
 		} else {
@@ -1168,7 +1144,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 				_scanNext(); // consume comma
 				if (scanner.getToken() === Json.SyntaxKind.CloseBraceToken) {
 					if (needsComma) {
-						_errorAtRange(localize('TrailingComma', 'Trailing comma'), ErrorCode.TrailingComma, { offset: commaOffset, length: 1 });
+						_errorAtRange(localize('TrailingComma', 'Trailing comma'), ErrorCode.TrailingComma, commaOffset, commaOffset + 1);
 					}
 					continue;
 				}
@@ -1251,5 +1227,5 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			_error(localize('End of file expected', 'End of file expected.'), ErrorCode.Undefined);
 		}
 	}
-	return new JSONDocument(_root, problems, comments);
+	return new JSONDocument(_root, problems, commentRanges);
 }

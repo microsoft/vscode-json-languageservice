@@ -1,3 +1,7 @@
+3.1.2 2018-04-13
+==================
+ * doValidation can also be used with a given schema
+
 3.1.0 2018-04-09
 ==================
  * new APIs: `newJSONDocument` to create a JSON Document from a custom AST

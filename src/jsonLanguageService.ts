@@ -75,7 +75,7 @@ export interface NullASTNode extends BaseASTNode {
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;
-	doValidation(document: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings): Thenable<Diagnostic[]>;
+	doValidation(document: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): Thenable<Diagnostic[]>;
 	parseJSONDocument(document: TextDocument): JSONDocument;
 	newJSONDocument(rootNode: ASTNode, syntaxDiagnostics?: Diagnostic[]): JSONDocument;
 	resetSchema(uri: string): boolean;
@@ -239,6 +239,8 @@ export interface LanguageServiceParams {
 	 */
 	promiseConstructor?: PromiseConstructor;
 }
+
+
 
 export function getLanguageService(params: LanguageServiceParams): LanguageService {
 	let promise = params.promiseConstructor || Promise;

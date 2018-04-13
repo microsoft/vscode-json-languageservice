@@ -14,8 +14,10 @@ import * as url from 'url';
 import * as path from 'path';
 import { TextDocument } from 'vscode-languageserver-types';
 
-function toDocument(text: string, config?: Parser.JSONDocumentConfig): Parser.JSONDocument {
-	return Parser.parse(TextDocument.create('foo://bar/file.json', 'json', 0, text), config);
+function toDocument(text: string, config?: Parser.JSONDocumentConfig): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
+	let textDoc = TextDocument.create('foo://bar/file.json', 'json', 0, text);
+	let jsonDoc = Parser.parse(textDoc, config);
+	return { textDoc, jsonDoc };
 }
 
 suite('JSON Schema', () => {
@@ -305,8 +307,8 @@ suite('JSON Schema', () => {
 		service.registerExternalSchema(id2, ['test.json'], schema2);
 
 		return service.getSchemaForResource('test.json', null).then((schema) => {
-			let document = toDocument(JSON.stringify({ foo: true, bar: true }));
-			let problems = document.validate(schema.schema);
+			let { textDoc, jsonDoc } = toDocument(JSON.stringify({ foo: true, bar: true }));
+			let problems = jsonDoc.validate(textDoc, schema.schema);
 			assert.equal(problems.length, 2);
 		});
 	});
@@ -522,15 +524,15 @@ suite('JSON Schema', () => {
 			]
 		};
 
-		let document = toDocument(JSON.stringify(input));
+		let { textDoc, jsonDoc } = toDocument(JSON.stringify(input));
 
-		return service.getSchemaForResource('file://doc/mydoc.json', document).then(resolveSchema => {
+		return service.getSchemaForResource('file://doc/mydoc.json', jsonDoc).then(resolveSchema => {
 			assert.deepEqual(resolveSchema.errors, []);
 
 			let content = JSON.stringify(resolveSchema.schema);
 			assert.equal(content.indexOf('$ref'), -1); // no more $refs
 
-			let problems = document.validate(resolveSchema.schema);
+			let problems = jsonDoc.validate(textDoc, resolveSchema.schema);
 			assert.deepEqual(problems, []);
 		});
 
@@ -552,15 +554,15 @@ suite('JSON Schema', () => {
 			]
 		};
 
-		let document = toDocument(JSON.stringify(input));
+		let { textDoc, jsonDoc } = toDocument(JSON.stringify(input));
 
-		return service.getSchemaForResource('file://doc/mydoc.json', document).then(resolveSchema => {
+		return service.getSchemaForResource('file://doc/mydoc.json', jsonDoc).then(resolveSchema => {
 			assert.deepEqual(resolveSchema.errors, []);
 
 			let content = JSON.stringify(resolveSchema.schema);
 			assert.equal(content.indexOf('$ref'), -1); // no more $refs
 
-			let problems = document.validate(resolveSchema.schema);
+			let problems = jsonDoc.validate(textDoc, resolveSchema.schema);
 			assert.equal(problems.length, 1);
 		});
 
@@ -650,12 +652,12 @@ suite('JSON Schema', () => {
 			]
 		};
 
-		let document = toDocument(JSON.stringify(input));
+		let { textDoc, jsonDoc } = toDocument(JSON.stringify(input));
 
-		return service.getSchemaForResource('file://doc/mydoc.json', document).then(resolvedSchema => {
+		return service.getSchemaForResource('file://doc/mydoc.json', jsonDoc).then(resolvedSchema => {
 			assert.deepEqual(resolvedSchema.errors, []);
 
-			let problems = document.validate(resolvedSchema.schema);
+			let problems = jsonDoc.validate(textDoc, resolvedSchema.schema);
 
 			assert.equal(problems.length, 1);
 			assert.equal(problems[0].message, 'Missing property "computerName".');
@@ -723,9 +725,9 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		let document = toDocument(JSON.stringify(input));
+		let { textDoc, jsonDoc } = toDocument(JSON.stringify(input));
 
-		let problems = document.validate(schema);
+		let problems = jsonDoc.validate(textDoc, schema);
 
 		assert.equal(problems.length, 0);
 

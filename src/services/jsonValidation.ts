@@ -5,11 +5,12 @@
 'use strict';
 
 import { JSONSchemaService } from './jsonSchemaService';
-import { JSONDocument,IProblem, ProblemSeverity, ErrorCode } from '../parser/jsonParser';
-import { TextDocument, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver-types';
-import { ObjectASTNode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings } from '../jsonLanguageService';
+import { JSONDocument,IProblem } from '../parser/jsonParser';
+import { TextDocument, Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver-types';
+import { ObjectASTNode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel } from '../jsonLanguageService';
 import * as nls from 'vscode-nls';
-import { JSONSchemaRef } from '../jsonSchema';
+import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
+import { ErrorCode } from '../jsonErrorCodes';
 
 const localize = nls.loadMessageBundle();
 
@@ -19,7 +20,7 @@ export class JSONValidation {
 	private promise: PromiseConstructor;
 
 	private validationEnabled: boolean;
-	private commentSeverity: ProblemSeverity;
+	private commentSeverity: DiagnosticSeverity | undefined;
 
 	public constructor(jsonSchemaService: JSONSchemaService, promiseConstructor: PromiseConstructor) {
 		this.jsonSchemaService = jsonSchemaService;
@@ -30,37 +31,27 @@ export class JSONValidation {
 	public configure(raw: LanguageSettings) {
 		if (raw) {
 			this.validationEnabled = raw.validate;
-			this.commentSeverity = raw.allowComments ? ProblemSeverity.Ignore : ProblemSeverity.Error;
+			this.commentSeverity = raw.allowComments ? void 0 : DiagnosticSeverity.Error;
 		}
 	}
 
-	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings): Thenable<Diagnostic[]> {
+	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): Thenable<Diagnostic[]> {
 		if (!this.validationEnabled) {
 			return this.promise.resolve([]);
 		}
 		let diagnostics: Diagnostic[] = [];
 		let added: { [signature: string]: boolean } = {};
-		let addProblem = (problem: IProblem) => {
-			if (problem.severity === ProblemSeverity.Ignore) {
-				return;
-			}
-
+		let addProblem = (problem: Diagnostic) => {
 			// remove duplicated messages
-			let signature = problem.location.offset + ' ' + problem.location.length + ' ' + problem.message;
+			let signature = problem.range.start.line + ' ' + problem.range.start.character + ' ' + problem.message;
 			if (!added[signature]) {
 				added[signature] = true;
-				let range = {
-					start: textDocument.positionAt(problem.location.offset),
-					end: textDocument.positionAt(problem.location.offset + problem.location.length)
-				};
-				let severity: DiagnosticSeverity = problem.severity === ProblemSeverity.Error ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
-				diagnostics.push({ severity, range, message: problem.message });
+				diagnostics.push(problem);
 			}
 		};
-
-		return this.jsonSchemaService.getSchemaForResource(textDocument.uri, jsonDocument).then(schema => {
-			let trailingCommaSeverity = documentSettings ? <ProblemSeverity>documentSettings.trailingCommas : ProblemSeverity.Error;
-			let commentSeverity = documentSettings ? <ProblemSeverity>documentSettings.comments : this.commentSeverity;
+		let getDiagnostics = (schema) => {
+			let trailingCommaSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.trailingCommas) : DiagnosticSeverity.Error;
+			let commentSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.comments) : this.commentSeverity;
 
 			if (schema) {
 				if (schema.errors.length && jsonDocument.root) {
@@ -68,36 +59,46 @@ export class JSONValidation {
 					let property = astRoot.type === 'object' ? astRoot.properties[0] : null;
 					if (property && property.keyNode.value === '$schema') {
 						let node = property.valueNode || property;
-						addProblem({ location: { offset: node.offset, length: node.length }, message: schema.errors[0], severity: ProblemSeverity.Warning });
+						let range = Range.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
+						addProblem(Diagnostic.create(range, schema.errors[0], DiagnosticSeverity.Warning, ErrorCode.SchemaResolveError));
 					} else {
-						addProblem({ location: { offset: astRoot.offset, length: 1 }, message: schema.errors[0], severity: ProblemSeverity.Warning });
+						let range = Range.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
+						addProblem(Diagnostic.create(range, schema.errors[0], DiagnosticSeverity.Warning, ErrorCode.SchemaResolveError));
 					}
 				} else {
-					let semanticErrors = jsonDocument.validate(schema.schema);
+					let semanticErrors = jsonDocument.validate(textDocument, schema.schema);
 					if (semanticErrors) {
 						semanticErrors.forEach(addProblem);
 					}
 				}
 				if (schemaAllowsComments(schema.schema)) {
-					trailingCommaSeverity = commentSeverity = ProblemSeverity.Ignore;
+					trailingCommaSeverity = commentSeverity = void 0;
 				}
 			}
 
 			jsonDocument.syntaxErrors.forEach(p => {
 				if (p.code === ErrorCode.TrailingComma) {
-					p.severity = trailingCommaSeverity;
+					if (typeof commentSeverity === 'number') {
+						p.severity = trailingCommaSeverity;
+						addProblem(p);
+					}
 				}
-				addProblem(p);
 			});
-			diagnostics.push(...jsonDocument.externalDiagnostic);
 
-			if (commentSeverity !== ProblemSeverity.Ignore) {
+			if (typeof commentSeverity === 'number') {
 				let message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');
 				jsonDocument.comments.forEach(c => {
-					addProblem({ location: c, severity: commentSeverity, message });
+					addProblem(Diagnostic.create(c, message, commentSeverity, ErrorCode.CommentNotPermitted));
 				});
 			}
 			return diagnostics;
+		};
+
+		if (schema) {
+			return this.promise.resolve(getDiagnostics(schema));
+		}
+		return this.jsonSchemaService.getSchemaForResource(textDocument.uri, jsonDocument).then(schema => {
+			return getDiagnostics(schema);
 		});
 	}
 }
@@ -113,3 +114,12 @@ function schemaAllowsComments(schemaRef: JSONSchemaRef) {
 	}
 	return false;
 }
+
+function toDiagnosticSeverity(severityLevel: SeverityLevel) : DiagnosticSeverity | undefined {
+	switch (severityLevel) {
+		case 'error' : return DiagnosticSeverity.Error;
+		case 'warning': return DiagnosticSeverity.Warning;
+		case 'ignore': return void 0;
+	}
+	return void 0;
+}	
