@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import { Color } from "../jsonLanguageService";
+import { Color } from "../jsonLanguageTypes";
 
 const Digit0 = 48;
 const Digit9 = 57;

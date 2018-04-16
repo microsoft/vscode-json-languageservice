@@ -9,8 +9,7 @@ import { getNodePath, getNodeValue, JSONDocumentConfig, parse, JSONDocument } fr
 import * as SchemaService from '../services/jsonSchemaService';
 import * as JsonSchema from '../jsonSchema';
 import { TextDocument, Diagnostic, Range } from 'vscode-languageserver-types';
-import { ASTNode, ObjectASTNode } from '../jsonLanguageService';
-import { ErrorCode } from '../jsonErrorCodes';
+import { ErrorCode, ASTNode, ObjectASTNode } from '../jsonLanguageService';
 
 suite('JSON Parser', () => {
 

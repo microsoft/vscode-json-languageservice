@@ -10,10 +10,13 @@ import * as Json from 'jsonc-parser';
 import * as SchemaService from './jsonSchemaService';
 import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import { JSONWorkerContribution, CompletionsCollector } from '../jsonContributions';
-import { PromiseConstructor, Thenable } from '../jsonLanguageService';
 import { stringifyObject } from '../utils/json';
 import { endsWith } from '../utils/strings';
-import { ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath } from '../jsonLanguageService';
+import {
+	PromiseConstructor, Thenable,
+	ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode,
+	JSONPath
+} from '../jsonLanguageTypes';
 
 import { CompletionItem, CompletionItemKind, CompletionList, TextDocument, Position, Range, TextEdit, InsertTextFormat } from 'vscode-languageserver-types';
 

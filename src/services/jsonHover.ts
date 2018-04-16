@@ -8,7 +8,7 @@
 import * as Parser from '../parser/jsonParser';
 import * as SchemaService from './jsonSchemaService';
 import { JSONWorkerContribution } from '../jsonContributions';
-import { PromiseConstructor, Thenable, PropertyASTNode } from '../jsonLanguageService';
+import { PromiseConstructor, Thenable, PropertyASTNode } from '../jsonLanguageTypes';
 
 import { Hover, TextDocument, Position, Range, MarkedString } from 'vscode-languageserver-types';
 

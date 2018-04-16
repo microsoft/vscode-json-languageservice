@@ -7,10 +7,9 @@
 import { JSONSchemaService } from './jsonSchemaService';
 import { JSONDocument,IProblem } from '../parser/jsonParser';
 import { TextDocument, Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver-types';
-import { ObjectASTNode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel } from '../jsonLanguageService';
+import { ErrorCode, ObjectASTNode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel } from '../jsonLanguageTypes';
 import * as nls from 'vscode-nls';
 import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
-import { ErrorCode } from '../jsonErrorCodes';
 
 const localize = nls.loadMessageBundle();
 

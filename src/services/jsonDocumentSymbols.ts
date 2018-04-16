@@ -9,7 +9,7 @@ import * as Strings from '../utils/strings';
 import { colorFromHex } from '../utils/colors';
 
 import { SymbolInformation, SymbolKind, TextDocument, Range, Location, TextEdit } from 'vscode-languageserver-types';
-import { Thenable, ColorInformation, ColorPresentation, Color, ArrayASTNode, ObjectASTNode, ASTNode, PropertyASTNode } from "../jsonLanguageService";
+import { Thenable, ColorInformation, ColorPresentation, Color, ArrayASTNode, ObjectASTNode, ASTNode, PropertyASTNode } from "../jsonLanguageTypes";
 
 import { IJSONSchemaService } from "./jsonSchemaService";
 
