@@ -5,7 +5,7 @@
 'use strict';
 
 import { JSONSchemaService } from './jsonSchemaService';
-import { JSONDocument,IProblem } from '../parser/jsonParser';
+import { JSONDocument, IProblem } from '../parser/jsonParser';
 import { TextDocument, Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver-types';
 import { ErrorCode, ObjectASTNode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel } from '../jsonLanguageTypes';
 import * as nls from 'vscode-nls';
@@ -77,11 +77,12 @@ export class JSONValidation {
 
 			jsonDocument.syntaxErrors.forEach(p => {
 				if (p.code === ErrorCode.TrailingComma) {
-					if (typeof commentSeverity === 'number') {
-						p.severity = trailingCommaSeverity;
-						addProblem(p);
+					if (typeof commentSeverity !== 'number') {
+						return;
 					}
+					p.severity = trailingCommaSeverity;
 				}
+				addProblem(p);
 			});
 
 			if (typeof commentSeverity === 'number') {
@@ -114,9 +115,9 @@ function schemaAllowsComments(schemaRef: JSONSchemaRef) {
 	return false;
 }
 
-function toDiagnosticSeverity(severityLevel: SeverityLevel) : DiagnosticSeverity | undefined {
+function toDiagnosticSeverity(severityLevel: SeverityLevel): DiagnosticSeverity | undefined {
 	switch (severityLevel) {
-		case 'error' : return DiagnosticSeverity.Error;
+		case 'error': return DiagnosticSeverity.Error;
 		case 'warning': return DiagnosticSeverity.Warning;
 		case 'ignore': return void 0;
 	}
