@@ -27,7 +27,7 @@ import {
 	ASTNode,
 	Color, ColorInformation, ColorPresentation,
 	ErrorCode, LanguageServiceParams, LanguageSettings, DocumentLanguageSettings, SeverityLevel,
-	FoldingRange, FoldingRangeList, FoldingRangeType, JSONSchema
+	FoldingRange, JSONSchema
 } from './jsonLanguageTypes';
 
 export type JSONDocument = {};
@@ -53,7 +53,7 @@ export interface LanguageService {
 	getColorPresentations(document: TextDocument, doc: JSONDocument, color: Color, range: Range): ColorPresentation[];
 	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover | null>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
-	getFoldingRanges(document: TextDocument, context?: { maxRanges?: number }): FoldingRangeList;
+	getFoldingRanges(document: TextDocument, context?: { rangeLimit?: number }): FoldingRange[];
 }
 
 

@@ -108,50 +108,55 @@ export interface ColorPresentation {
 	additionalTextEdits?: TextEdit[];
 }
 
-export interface FoldingRangeList {
-    /**
-     * The folding ranges.
-     */
-	ranges: FoldingRange[];
+/**
+ * Enum of known range kinds
+ */
+export enum FoldingRangeKind {
+	/**
+	 * Folding range for a comment
+	 */
+	Comment = 'comment',
+	/**
+	 * Folding range for a imports or includes
+	 */
+	Imports = 'imports',
+	/**
+	 * Folding range for a region (e.g. `#region`)
+	 */
+	Region = 'region'
 }
-export const enum FoldingRangeType {
-    /**
-     * Folding range for a comment
-     */
-	Comment = "comment",
-    /**
-     * Folding range for a imports or includes
-     */
-	Imports = "imports",
-    /**
-     * Folding range for a region (e.g. `#region`)
-     */
-	Region = "region",
-}
+
 /**
  * Represents a folding range.
  */
 export interface FoldingRange {
-    /**
-     * The start line number of the folding range.
-     */
+
+	/**
+	 * The zero-based line number from where the folded range starts.
+	 */
 	startLine: number;
-    /**
-     * The start column of the folding range. If not set, this defaults to the length of the start line.
-     */
-	startColumn?: number;
-    /**
-     * The end line number. The last line will be hidden.
-     */
+
+	/**
+	 * The zero-based character offset from where the folded range starts. If not defined, defaults to the length of the start line.
+	 */
+	startCharacter?: number;
+
+	/**
+	 * The zero-based line number where the folded range ends.
+	 */
 	endLine: number;
-    /**
-     * The start column of the folding range. If not set, this defaults to the length of the end line.
-     */
-	endColumn?: number;
-    /**
-     * The type of folding range.
-     */
-	type?: FoldingRangeType | string;
+
+	/**
+	 * The zero-based character offset before the folded range ends. If not defined, defaults to the length of the end line.
+	 */
+	endCharacter?: number;
+
+	/**
+	 * Describes the kind of the folding range such as `comment' or 'region'. The kind
+	 * is used to categorize folding ranges and used by commands like 'Fold all comments'. See
+	 * [FoldingRangeKind](#FoldingRangeKind) for an enumeration of standardized kinds.
+	 */
+	kind?: string;
 }
 
 export interface LanguageSettings {
