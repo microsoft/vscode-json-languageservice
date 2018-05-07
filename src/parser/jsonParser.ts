@@ -726,7 +726,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
 				severity: DiagnosticSeverity.Warning,
-				message: localize('maxItemsWarning', 'Array has too many items. Expected {0} or fewer.', schema.minItems)
+				message: localize('maxItemsWarning', 'Array has too many items. Expected {0} or fewer.', schema.maxItems)
 			});
 		}
 
