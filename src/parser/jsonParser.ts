@@ -709,7 +709,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
 					severity: DiagnosticSeverity.Warning,
-					message: schema.errorMessage || localize('requiredItemMissingWarning', 'Array does not contain required item.', schema.minItems)
+					message: schema.errorMessage || localize('requiredItemMissingWarning', 'Array does not contain required item.')
 				});
 			}
 		}
