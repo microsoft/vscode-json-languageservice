@@ -23,7 +23,7 @@
     "rimraf": "^2.6.2"
   },
   "dependencies": {
-    "jsonc-parser": "^2.0.0",
+    "jsonc-parser": "^2.0.1",
     "vscode-languageserver-types": "^3.7.2",
     "vscode-nls": "^3.2.2",
     "vscode-uri": "^1.0.3"

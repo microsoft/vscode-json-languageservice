@@ -1,12 +1,12 @@
 .vscode/
 .github/
+build/
 lib/**/test/
 lib/**/*.js.map
 lib/*/*/*.d.ts
 src/
 test/
-build/
-.eslintrc
-.travis.yml
 .gitignore
+.travis.yml
+tslint.json
 gulpfile.js
