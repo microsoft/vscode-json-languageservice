@@ -458,7 +458,7 @@ export class JSONCompletion {
 
 	private addDefaultValueCompletions(schema: JSONSchema, separatorAfter: string, collector: CompletionsCollector, arrayDepth = 0): void {
 		let hasProposals = false;
-		if (schema.default) {
+		if (isDefined(schema.default)) {
 			let type = schema.type;
 			let value = schema.default;
 			for (let i = arrayDepth; i > 0; i--) {
@@ -481,7 +481,7 @@ export class JSONCompletion {
 				let label = s.label;
 				let insertText: string;
 				let filterText: string;
-				if (typeof value !== 'undefined') {
+				if (isDefined(value)) {
 					let type = schema.type;
 					for (let i = arrayDepth; i > 0; i--) {
 						value = [value];
@@ -520,6 +520,16 @@ export class JSONCompletion {
 
 
 	private addEnumValueCompletions(schema: JSONSchema, separatorAfter: string, collector: CompletionsCollector): void {
+		if (isDefined(schema.const)) {
+			collector.add({
+				kind: this.getSuggestionKind(schema.type),
+				label: this.getLabelForValue(schema.const),
+				insertText: this.getInsertTextForValue(schema.const, separatorAfter),
+				insertTextFormat: InsertTextFormat.Snippet,
+				documentation: schema.description
+			});
+		}
+
 		if (Array.isArray(schema.enum)) {
 			for (let i = 0, length = schema.enum.length; i < length; i++) {
 				let enm = schema.enum[i];
@@ -539,7 +549,7 @@ export class JSONCompletion {
 	}
 
 	private collectTypes(schema: JSONSchema, types: { [type: string]: boolean }) {
-		if (Array.isArray(schema.enum)) {
+		if (Array.isArray(schema.enum) || isDefined(schema.const)) {
 			return;
 		}
 		let type = schema.type;
@@ -730,7 +740,7 @@ export class JSONCompletion {
 			if (Array.isArray(propertySchema.defaultSnippets)) {
 				if (propertySchema.defaultSnippets.length === 1) {
 					let body = propertySchema.defaultSnippets[0].body;
-					if (typeof body !== 'undefined') {
+					if (isDefined(body)) {
 						value = this.getInsertTextForSnippetValue(body, '');
 					}
 				}
@@ -742,7 +752,7 @@ export class JSONCompletion {
 				}
 				nValueProposals += propertySchema.enum.length;
 			}
-			if (typeof propertySchema.default !== 'undefined') {
+			if (isDefined(propertySchema.default)) {
 				if (!value) {
 					value = this.getInsertTextForGuessedValue(propertySchema.default, '');
 				}
@@ -840,4 +850,8 @@ export class JSONCompletion {
 		}
 		return (token === Json.SyntaxKind.LineCommentTrivia || token === Json.SyntaxKind.BlockCommentTrivia) && scanner.getTokenOffset() <= offset;
 	}
+}
+
+function isDefined(val: any): val is object {
+	return typeof val !== 'undefined';
 }

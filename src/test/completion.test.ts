@@ -734,7 +734,7 @@ suite('JSON Completion', () => {
 				prop: {
 					type: ['boolean', 'string'],
 					enum: [false, 'rcodetools'],
-					default: false
+					default: ''
 				}
 			}
 		};
@@ -743,9 +743,40 @@ suite('JSON Completion', () => {
 			items: [
 				{ label: 'false', resultText: '{ "prop": false }' },
 				{ label: '"rcodetools"', resultText: '{ "prop": "rcodetools" }' },
+				{ label: '""', resultText: '{ "prop": "" }' }
 			],
-			count: 2
+			count: 3
 		});
+
+	});
+
+	test('Const', async function () {
+		let schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				prop: {
+					type: 'string',
+					const: 'hello'
+				},
+				propBool: {
+					type: 'boolean',
+					const: false
+				}				
+			}
+		};
+
+		await testCompletionsFor('{ "prop": | }', schema, {
+			items: [
+				{ label: '"hello"', resultText: '{ "prop": "hello" }' },
+			]
+		});
+
+		await testCompletionsFor('{ "propBool": | }', schema, {
+			items: [
+				{ label: 'false', resultText: '{ "propBool": false }' }
+			],
+			count: 1
+		});		
 
 	});
 
