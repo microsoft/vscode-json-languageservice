@@ -460,7 +460,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 						merge(next, parentSchema, parentSchemaURL, segments[1]); // can set next.$ref again
 					}
 				}
-				
+
 				collectEntries(<JSONSchema>next.items, <JSONSchema>next.additionalProperties, next.not, next.contains, next.propertyNames, next.if, next.then, next.else);
 				collectMapEntries(next.definitions, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies);
 				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, <JSONSchema[]>next.items);

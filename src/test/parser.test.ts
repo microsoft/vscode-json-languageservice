@@ -952,19 +952,19 @@ suite('JSON Parser', () => {
 
 
 	test('if/then/else', function () {
-        let schema: JsonSchema.JSONSchema = {
-            id: 'main',
-            if: {
-            	properties: {
-            		foo: {
-            			const: 'bar'
+		let schema: JsonSchema.JSONSchema = {
+			id: 'main',
+			if: {
+				properties: {
+					foo: {
+						const: 'bar'
 					}
 				}
 			},
 			then: {
-            	properties: {
-            		abc: {
-            			type: 'boolean'
+				properties: {
+					abc: {
+						type: 'boolean'
 					}
 				}
 			},
@@ -975,62 +975,62 @@ suite('JSON Parser', () => {
 					}
 				}
 			}
-        };
+		};
 		{
-            let { textDoc, jsonDoc } = toDocument('{"foo": "bar", "abc": true}');
-            assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
-            let semanticErrors = jsonDoc.validate(textDoc, schema);
-            assert.strictEqual(semanticErrors.length, 0);
+			let { textDoc, jsonDoc } = toDocument('{"foo": "bar", "abc": true}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 0);
 		}
 		{
-            let { textDoc, jsonDoc } = toDocument('{"foo": "bar", "abc": "baz"}');
-            assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
-            let semanticErrors = jsonDoc.validate(textDoc, schema);
-            assert.strictEqual(semanticErrors.length, 1);
+			let { textDoc, jsonDoc } = toDocument('{"foo": "bar", "abc": "baz"}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 1);
 		}
-        {
-            let { textDoc, jsonDoc } = toDocument('{"foo": "test", "abc": true}');
-            assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
-            let semanticErrors = jsonDoc.validate(textDoc, schema);
-            assert.strictEqual(semanticErrors.length, 1);
-        }
-        {
-            let { textDoc, jsonDoc } = toDocument('{"foo": "test", "abc": "baz"}');
-            assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
-            let semanticErrors = jsonDoc.validate(textDoc, schema);
-            assert.strictEqual(semanticErrors.length, 0);
-        }
+		{
+			let { textDoc, jsonDoc } = toDocument('{"foo": "test", "abc": true}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 1);
+		}
+		{
+			let { textDoc, jsonDoc } = toDocument('{"foo": "test", "abc": "baz"}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 0);
+		}
 	});
 
-    test('nested if/then/else', function () {
-        let schema: JsonSchema.JSONSchema = {
-            id: 'main',
-            if: {
-                properties: {
-                    foo: {
-                        const: 'bar'
-                    }
-                }
-            },
-            then: {
-                properties: {
-                    abc: {
-                        type: 'boolean'
-                    }
-                }
-            },
-            else: {
-               	if: {
-               		properties: {
-               			foo: {
-               				const: 'baz'
+	test('nested if/then/else', function () {
+		let schema: JsonSchema.JSONSchema = {
+			id: 'main',
+			if: {
+				properties: {
+					foo: {
+						const: 'bar'
+					}
+				}
+			},
+			then: {
+				properties: {
+					abc: {
+						type: 'boolean'
+					}
+				}
+			},
+			else: {
+				if: {
+					properties: {
+						foo: {
+							const: 'baz'
 						}
 					}
 				},
 				then: {
-               		properties: {
-               			abc: {
-               				type: 'array'
+					properties: {
+						abc: {
+							type: 'array'
 						}
 					}
 				},
@@ -1041,45 +1041,45 @@ suite('JSON Parser', () => {
 						}
 					}
 				}
-            }
-        };
-        {
-            let { textDoc, jsonDoc } = toDocument('{"foo": "bar", "abc": true}');
-            assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
-            let semanticErrors = jsonDoc.validate(textDoc, schema);
-            assert.strictEqual(semanticErrors.length, 0);
-        }
-        {
-            let { textDoc, jsonDoc } = toDocument('{"foo": "bar", "abc": "baz"}');
-            assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
-            let semanticErrors = jsonDoc.validate(textDoc, schema);
-            assert.strictEqual(semanticErrors.length, 1);
-        }
-        {
-            let { textDoc, jsonDoc } = toDocument('{"foo": "baz", "abc": []}');
-            assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
-            let semanticErrors = jsonDoc.validate(textDoc, schema);
-            assert.strictEqual(semanticErrors.length, 0);
-        }
-        {
-            let { textDoc, jsonDoc } = toDocument('{"foo": "baz", "abc": "baz"}');
-            assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
-            let semanticErrors = jsonDoc.validate(textDoc, schema);
-            assert.strictEqual(semanticErrors.length, 1);
-        }
-        {
-            let { textDoc, jsonDoc } = toDocument('{"foo": "test", "abc": true}');
-            assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
-            let semanticErrors = jsonDoc.validate(textDoc, schema);
-            assert.strictEqual(semanticErrors.length, 1);
-        }
-        {
-            let { textDoc, jsonDoc } = toDocument('{"foo": "test", "abc": "baz"}');
-            assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
-            let semanticErrors = jsonDoc.validate(textDoc, schema);
-            assert.strictEqual(semanticErrors.length, 0);
-        }
-    });
+			}
+		};
+		{
+			let { textDoc, jsonDoc } = toDocument('{"foo": "bar", "abc": true}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 0);
+		}
+		{
+			let { textDoc, jsonDoc } = toDocument('{"foo": "bar", "abc": "baz"}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 1);
+		}
+		{
+			let { textDoc, jsonDoc } = toDocument('{"foo": "baz", "abc": []}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 0);
+		}
+		{
+			let { textDoc, jsonDoc } = toDocument('{"foo": "baz", "abc": "baz"}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 1);
+		}
+		{
+			let { textDoc, jsonDoc } = toDocument('{"foo": "test", "abc": true}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 1);
+		}
+		{
+			let { textDoc, jsonDoc } = toDocument('{"foo": "test", "abc": "baz"}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 0);
+		}
+	});
 
 	test('minProperties', function () {
 

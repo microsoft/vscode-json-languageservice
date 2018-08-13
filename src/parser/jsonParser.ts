@@ -470,33 +470,33 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 		}
 
 		let testBranch = (schema: JSONSchemaRef) => {
-            let subSchema = asSchema(schema);
-            let subValidationResult = new ValidationResult();
-            let subMatchingSchemas = matchingSchemas.newSub();
+			let subSchema = asSchema(schema);
+			let subValidationResult = new ValidationResult();
+			let subMatchingSchemas = matchingSchemas.newSub();
 
-            validate(node, subSchema, subValidationResult, subMatchingSchemas);
+			validate(node, subSchema, subValidationResult, subMatchingSchemas);
 
-            validationResult.merge(subValidationResult);
-            validationResult.propertiesMatches += subValidationResult.propertiesMatches;
-            validationResult.propertiesValueMatches += subValidationResult.propertiesValueMatches;
-            matchingSchemas.merge(subMatchingSchemas);
+			validationResult.merge(subValidationResult);
+			validationResult.propertiesMatches += subValidationResult.propertiesMatches;
+			validationResult.propertiesValueMatches += subValidationResult.propertiesValueMatches;
+			matchingSchemas.merge(subMatchingSchemas);
 		};
 
-        let testCondition =  (ifSchema: JSONSchemaRef, thenSchema: JSONSchemaRef, elseSchema: JSONSchemaRef) => {
-            let subSchema = asSchema(ifSchema);
-            let subValidationResult = new ValidationResult();
-            let subMatchingSchemas = matchingSchemas.newSub();
+		let testCondition = (ifSchema: JSONSchemaRef, thenSchema: JSONSchemaRef, elseSchema: JSONSchemaRef) => {
+			let subSchema = asSchema(ifSchema);
+			let subValidationResult = new ValidationResult();
+			let subMatchingSchemas = matchingSchemas.newSub();
 
-            validate(node, subSchema, subValidationResult, subMatchingSchemas);
+			validate(node, subSchema, subValidationResult, subMatchingSchemas);
 
-            if (!subValidationResult.hasProblems()) {
-                if (thenSchema) {
-                    testBranch(thenSchema);
-                }
-            } else if (elseSchema) {
-                testBranch(elseSchema);
-            }
-        };
+			if (!subValidationResult.hasProblems()) {
+				if (thenSchema) {
+					testBranch(thenSchema);
+				}
+			} else if (elseSchema) {
+				testBranch(elseSchema);
+			}
+		};
 
 		if (schema.if) {
 			testCondition(schema.if, schema.then, schema.else);
@@ -996,8 +996,8 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return false;
 	}
 
-	function _errorAtRange<T extends ASTNode>(message: string, code: ErrorCode, startOffset: number, endOffset: number, severity : DiagnosticSeverity = DiagnosticSeverity.Error): void {
-		
+	function _errorAtRange<T extends ASTNode>(message: string, code: ErrorCode, startOffset: number, endOffset: number, severity: DiagnosticSeverity = DiagnosticSeverity.Error): void {
+
 		if (problems.length === 0 || startOffset !== lastProblemOffset) {
 			let range = Range.create(textDocument.positionAt(startOffset), textDocument.positionAt(endOffset));
 			problems.push(Diagnostic.create(range, message, severity, code, textDocument.languageId));

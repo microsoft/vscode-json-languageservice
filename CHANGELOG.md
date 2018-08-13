@@ -1,3 +1,7 @@
+3.1.5 
+==================
+- support JSON schema draft-07
+
 3.1.2 2018-04-13
 ==================
  * New API `LanguageService.getFoldingRanges`
@@ -5,7 +9,7 @@
 
 3.1.0 2018-04-09
 ==================
- * new APIs: `newJSONDocument` to create a JSON Document from a custom AST
+ * new APIs: `newJSONDocument` to create a JSON document from a custom AST
  * new API types: ObjectASTNode, PropertyASTNode, ArrayASTNode, StringASTNode, NumberASTNode, BooleanASTNode, NullASTNode that allow creating a custom AST
 
 3.0.9 2018-03-07
@@ -19,7 +23,7 @@
 
 3.0.0 / 2017-01-11
 ==================
-  * Chaged parameters of API `LanguageService.getColorPresentations` to separate color and range
+  * Changed parameters of API `LanguageService.getColorPresentations` to separate color and range
 .
 2.0.19 / 2017-09-21
 ==================
