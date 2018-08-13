@@ -48,6 +48,11 @@ export interface JSONSchema {
 	contains?: JSONSchemaRef;
 	propertyNames?: JSONSchemaRef;
 
+	// schema draft 07
+	if?: JSONSchemaRef;
+	then?: JSONSchemaRef;
+	else?: JSONSchemaRef;
+
 	// VSCode extensions
 
 	defaultSnippets?: { label?: string; description?: string; body?: any; bodyText?: string; }[]; // VSCode extension: body: a object that will be converted to a JSON string. bodyText: text with \t and \n

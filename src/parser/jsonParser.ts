@@ -469,6 +469,39 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			testAlternatives(schema.oneOf, true);
 		}
 
+		let testBranch = (schema: JSONSchemaRef) => {
+            let subSchema = asSchema(schema);
+            let subValidationResult = new ValidationResult();
+            let subMatchingSchemas = matchingSchemas.newSub();
+
+            validate(node, subSchema, subValidationResult, subMatchingSchemas);
+
+            validationResult.merge(subValidationResult);
+            validationResult.propertiesMatches += subValidationResult.propertiesMatches;
+            validationResult.propertiesValueMatches += subValidationResult.propertiesValueMatches;
+            matchingSchemas.merge(subMatchingSchemas);
+		};
+
+        let testCondition =  (ifSchema: JSONSchemaRef, thenSchema: JSONSchemaRef, elseSchema: JSONSchemaRef) => {
+            let subSchema = asSchema(ifSchema);
+            let subValidationResult = new ValidationResult();
+            let subMatchingSchemas = matchingSchemas.newSub();
+
+            validate(node, subSchema, subValidationResult, subMatchingSchemas);
+
+            if (!subValidationResult.hasProblems()) {
+                if (thenSchema) {
+                    testBranch(thenSchema);
+                }
+            } else if (elseSchema) {
+                testBranch(elseSchema);
+            }
+        };
+
+		if (schema.if) {
+			testCondition(schema.if, schema.then, schema.else);
+		}
+
 		if (Array.isArray(schema.enum)) {
 			let val = getNodeValue(node);
 			let enumValueMatch = false;
