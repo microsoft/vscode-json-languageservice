@@ -1,18 +1,19 @@
-3.1.5 
+3.1.5 / 2018-08-14
 ==================
-- support JSON schema draft-07
+ * support for JSON schema draft-07
+ * New API `LanguageService.findDocumentSymbols2` to get document symbols as `DocumentSymbol[]`
 
-3.1.2 2018-04-13
+3.1.2 / 2018-07-25
 ==================
  * New API `LanguageService.getFoldingRanges`
  * doValidation can also be used with a given schema
 
-3.1.0 2018-04-09
+3.1.0 / 2018-04-09
 ==================
  * new APIs: `newJSONDocument` to create a JSON document from a custom AST
  * new API types: ObjectASTNode, PropertyASTNode, ArrayASTNode, StringASTNode, NumberASTNode, BooleanASTNode, NullASTNode that allow creating a custom AST
 
-3.0.9 2018-03-07
+3.0.9 / 2018-03-07
 ==================
   * Provide ems modules in lib/esm
 

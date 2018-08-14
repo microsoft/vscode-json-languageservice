@@ -6,7 +6,7 @@
 
 import {
 	TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions, MarkedString
+	TextEdit, FormattingOptions, MarkedString, DocumentSymbol
 } from 'vscode-languageserver-types';
 
 import { JSONCompletion } from './services/jsonCompletion';
@@ -14,19 +14,17 @@ import { JSONHover } from './services/jsonHover';
 import { JSONValidation } from './services/jsonValidation';
 
 import { JSONDocumentSymbols } from './services/jsonDocumentSymbols';
-import { parse as parseJSON, JSONDocumentConfig, JSONDocument as InternalJSONDocument, newJSONDocument } from './parser/jsonParser';
+import { parse as parseJSON, JSONDocument as InternalJSONDocument, newJSONDocument } from './parser/jsonParser';
 import { schemaContributions } from './services/configuration';
 import { JSONSchemaService } from './services/jsonSchemaService';
 import { getFoldingRanges } from './services/jsonFolding';
 
 import { format as formatJSON } from 'jsonc-parser';
-import { format } from 'util';
 import {
-	PromiseConstructor, Thenable,
-	SchemaConfiguration, SchemaRequestService,
+	Thenable,
 	ASTNode,
 	Color, ColorInformation, ColorPresentation,
-	ErrorCode, LanguageServiceParams, LanguageSettings, DocumentLanguageSettings, SeverityLevel,
+	LanguageServiceParams, LanguageSettings, DocumentLanguageSettings, SeverityLevel,
 	FoldingRange, JSONSchema
 } from './jsonLanguageTypes';
 
@@ -47,6 +45,7 @@ export interface LanguageService {
 	doResolve(item: CompletionItem): Thenable<CompletionItem>;
 	doComplete(document: TextDocument, position: Position, doc: JSONDocument): Thenable<CompletionList | null>;
 	findDocumentSymbols(document: TextDocument, doc: JSONDocument): SymbolInformation[];
+	findDocumentSymbols2(document: TextDocument, doc: JSONDocument): DocumentSymbol[];
 	/** deprecated, use findDocumentColors instead */
 	findColorSymbols(document: TextDocument, doc: JSONDocument): Thenable<Range[]>;
 	findDocumentColors(document: TextDocument, doc: JSONDocument): Thenable<ColorInformation[]>;
@@ -85,6 +84,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		doResolve: jsonCompletion.doResolve.bind(jsonCompletion),
 		doComplete: jsonCompletion.doComplete.bind(jsonCompletion),
 		findDocumentSymbols: jsonDocumentSymbols.findDocumentSymbols.bind(jsonDocumentSymbols),
+		findDocumentSymbols2: jsonDocumentSymbols.findDocumentSymbols2.bind(jsonDocumentSymbols),
 		findColorSymbols: (d, s) => jsonDocumentSymbols.findDocumentColors(d, <InternalJSONDocument>s).then(s => s.map(s => s.range)),
 		findDocumentColors: jsonDocumentSymbols.findDocumentColors.bind(jsonDocumentSymbols),
 		getColorPresentations: jsonDocumentSymbols.getColorPresentations.bind(jsonDocumentSymbols),

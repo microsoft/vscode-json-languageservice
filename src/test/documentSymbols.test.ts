@@ -9,7 +9,7 @@ import * as JsonSchema from '../jsonSchema';
 import { JSONCompletion } from '../services/jsonCompletion';
 import { JSONDocumentSymbols } from '../services/jsonDocumentSymbols';
 
-import { SymbolInformation, SymbolKind, TextDocumentIdentifier, TextDocument, Range, Position, TextEdit } from 'vscode-languageserver-types';
+import { SymbolInformation, SymbolKind, TextDocumentIdentifier, TextDocument, Range, Position, TextEdit, DocumentSymbol } from 'vscode-languageserver-types';
 import { Thenable, Color, getLanguageService } from "../jsonLanguageService";
 import { colorFrom256RGB } from '../utils/colors';
 
@@ -19,13 +19,22 @@ suite('JSON Document Symbols', () => {
 		return Promise.reject<string>('Resource not found');
 	};
 
-	function getOutline(value: string): SymbolInformation[] {
+	function getFlatOutline(value: string): SymbolInformation[] {
 		let uri = 'test://test.json';
 		let ls = getLanguageService({ schemaRequestService });
 
 		let document = TextDocument.create(uri, 'json', 0, value);
 		let jsonDoc = ls.parseJSONDocument(document);
 		return ls.findDocumentSymbols(document, jsonDoc);
+	}
+
+	function getHierarchicalOutline(value: string): DocumentSymbol[] {
+		let uri = 'test://test.json';
+		let ls = getLanguageService({ schemaRequestService });
+
+		let document = TextDocument.create(uri, 'json', 0, value);
+		let jsonDoc = ls.parseJSONDocument(document);
+		return ls.findDocumentSymbols2(document, jsonDoc);
 	}
 
 	function assertColors(value: string, schema: JsonSchema.JSONSchema, expectedOffsets: number[], expectedColors: Color[]): Thenable<any> {
@@ -58,7 +67,7 @@ suite('JSON Document Symbols', () => {
 	}
 
 	function assertOutline(value: string, expected: any[], message?: string) {
-		let actual = getOutline(value);
+		let actual = getFlatOutline(value);
 
 		assert.equal(actual.length, expected.length, message);
 		for (let i = 0; i < expected.length; i++) {
@@ -66,9 +75,35 @@ suite('JSON Document Symbols', () => {
 			assert.equal(actual[i].kind, expected[i].kind, message);
 		}
 	}
+	interface ExpectedDocumentSymbol {
+		label: string;
+		kind: SymbolKind;
+		children: ExpectedDocumentSymbol[];
+	}
+
+	function assertHierarchicalOutline(value: string, expected: ExpectedDocumentSymbol[], message?: string) {
+		function assertDocumentSymbols(actuals: DocumentSymbol[], expected: ExpectedDocumentSymbol[]) {
+			assert.equal(actuals.length, expected.length, message);
+			for (let i = 0; i < expected.length; i++) {
+				assert.equal(actuals[i].name, expected[i].label, message);
+				assert.equal(actuals[i].kind, expected[i].kind, message);
+				assertDocumentSymbols(actuals[i].children, expected[i].children);
+			}
+		}
+		let actual = getHierarchicalOutline(value);
+		assertDocumentSymbols(actual, expected);
 
 
-	test('Base types', function () {
+		assert.equal(actual.length, expected.length, message);
+		for (let i = 0; i < expected.length; i++) {
+			assert.equal(actual[i].name, expected[i].label, message);
+			assert.equal(actual[i].kind, expected[i].kind, message);
+			assert.equal(actual[i].kind, expected[i].kind, message);
+		}
+	}
+
+
+	test('Outline - Base types', function () {
 		let content = '{ "key1": 1, "key2": "foo", "key3" : true }';
 
 		let expected = [
@@ -80,7 +115,7 @@ suite('JSON Document Symbols', () => {
 		assertOutline(content, expected);
 	});
 
-	test('Arrays', function () {
+	test('Outline - Arrays', function () {
 		let content = '{ "key1": 1, "key2": [ 1, 2, 3 ], "key3" : [ { "k1": 1 }, {"k2": 2 } ] }';
 
 		let expected = [
@@ -94,7 +129,7 @@ suite('JSON Document Symbols', () => {
 		assertOutline(content, expected);
 	});
 
-	test('Objects', function () {
+	test('Outline - Objects', function () {
 		let content = '{ "key1": { "key2": true }, "key3" : { "k1":  { } }';
 
 		let expected = [
@@ -118,6 +153,30 @@ suite('JSON Document Symbols', () => {
 
 		assertOutline(content, expected);
 	});
+
+	test('Hierarchical Outline - Object', function () {
+		let content = '{ "key1": { "key2": true }, "key3" : { "k1":  { } }';
+
+		let expected: ExpectedDocumentSymbol[] = [
+			{ label: 'key1', kind: SymbolKind.Module, children: [{ label: 'key2', kind: SymbolKind.Boolean, children: [] }] },
+			{ label: 'key3', kind: SymbolKind.Module, children: [{ label: 'k1', kind: SymbolKind.Module, children: [] }] }
+		];
+
+		assertHierarchicalOutline(content, expected);
+	});
+
+	test('Hierarchical Outline - Array', function () {
+		let content = '{ "key1": [ { "key2": true }, { "k1": [] } ]';
+
+		let expected: ExpectedDocumentSymbol[] = [
+			{ label: 'key1', kind: SymbolKind.Array, children: [
+				{ label: '0', kind: SymbolKind.Module, children: [{ label: 'key2', kind: SymbolKind.Boolean, children: [] }]},
+				{ label: '1', kind: SymbolKind.Module, children: [{ label: 'k1', kind: SymbolKind.Array, children: [] }]}]
+			}
+		];
+
+		assertHierarchicalOutline(content, expected);
+	});	
 
 	test('Colors', async function () {
 		let content = '{ "a": "#FF00FF", "b": "#FF0000" }';
