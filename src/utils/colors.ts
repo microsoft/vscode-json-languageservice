@@ -9,7 +9,6 @@ import { Color } from "../jsonLanguageTypes";
 const Digit0 = 48;
 const Digit9 = 57;
 const A = 65;
-const F = 70;
 const a = 97;
 const f = 102;
 

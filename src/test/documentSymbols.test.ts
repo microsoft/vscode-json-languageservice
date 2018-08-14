@@ -6,10 +6,8 @@
 
 import * as assert from 'assert';
 import * as JsonSchema from '../jsonSchema';
-import { JSONCompletion } from '../services/jsonCompletion';
-import { JSONDocumentSymbols } from '../services/jsonDocumentSymbols';
 
-import { SymbolInformation, SymbolKind, TextDocumentIdentifier, TextDocument, Range, Position, TextEdit, DocumentSymbol } from 'vscode-languageserver-types';
+import { SymbolInformation, SymbolKind, TextDocument, Range, Position, TextEdit, DocumentSymbol } from 'vscode-languageserver-types';
 import { Thenable, Color, getLanguageService } from "../jsonLanguageService";
 import { colorFrom256RGB } from '../utils/colors';
 

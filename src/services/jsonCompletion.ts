@@ -14,8 +14,7 @@ import { stringifyObject } from '../utils/json';
 import { endsWith } from '../utils/strings';
 import {
 	PromiseConstructor, Thenable,
-	ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode,
-	JSONPath
+	ASTNode, ObjectASTNode, ArrayASTNode, PropertyASTNode
 } from '../jsonLanguageTypes';
 
 import { CompletionItem, CompletionItemKind, CompletionList, TextDocument, Position, Range, TextEdit, InsertTextFormat } from 'vscode-languageserver-types';

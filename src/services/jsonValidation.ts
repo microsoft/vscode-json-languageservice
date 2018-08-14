@@ -5,9 +5,9 @@
 'use strict';
 
 import { JSONSchemaService } from './jsonSchemaService';
-import { JSONDocument, IProblem } from '../parser/jsonParser';
+import { JSONDocument } from '../parser/jsonParser';
 import { TextDocument, Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver-types';
-import { ErrorCode, ObjectASTNode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel } from '../jsonLanguageTypes';
+import { ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel } from '../jsonLanguageTypes';
 import * as nls from 'vscode-nls';
 import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
 

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import {Thenable, MarkedString, CompletionItem} from './jsonLanguageService';
+import { Thenable, MarkedString, CompletionItem } from './jsonLanguageService';
 
 export interface JSONWorkerContribution {
 	getInfoContribution(uri: string, location: JSONPath): Thenable<MarkedString[]>;

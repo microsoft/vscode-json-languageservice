@@ -8,10 +8,9 @@ import * as assert from 'assert';
 import * as Parser from '../parser/jsonParser';
 import * as SchemaService from '../services/jsonSchemaService';
 import * as JsonSchema from '../jsonSchema';
-import { JSONCompletion } from '../services/jsonCompletion';
 import { JSONHover } from '../services/jsonHover';
 
-import { Hover, TextDocument, TextDocumentIdentifier, Range, Position, TextEdit, MarkedString } from 'vscode-languageserver-types';
+import { Hover, TextDocument, Position, MarkedString } from 'vscode-languageserver-types';
 
 suite('JSON Hover', () => {
 

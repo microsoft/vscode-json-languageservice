@@ -7,7 +7,6 @@
 import * as assert from 'assert';
 import * as SchemaService from '../services/jsonSchemaService';
 import * as JsonSchema from '../jsonSchema';
-import * as Json from 'jsonc-parser';
 import * as Parser from '../parser/jsonParser';
 import * as fs from 'fs';
 import * as url from 'url';

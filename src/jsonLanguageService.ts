@@ -24,7 +24,7 @@ import {
 	Thenable,
 	ASTNode,
 	Color, ColorInformation, ColorPresentation,
-	LanguageServiceParams, LanguageSettings, DocumentLanguageSettings, SeverityLevel,
+	LanguageServiceParams, LanguageSettings, DocumentLanguageSettings,
 	FoldingRange, JSONSchema
 } from './jsonLanguageTypes';
 

@@ -8,7 +8,7 @@ import * as assert from 'assert';
 import * as JsonSchema from '../jsonSchema';
 import * as jsonLanguageService from '../jsonLanguageService';
 
-import { CompletionList, CompletionItemKind, TextDocument, Position, TextEdit, InsertTextFormat } from 'vscode-languageserver-types';
+import { CompletionList, CompletionItemKind, TextDocument, Position } from 'vscode-languageserver-types';
 
 const applyEdits = TextDocument.applyEdits;
 
@@ -761,7 +761,7 @@ suite('JSON Completion', () => {
 				propBool: {
 					type: 'boolean',
 					const: false
-				}				
+				}
 			}
 		};
 
@@ -776,7 +776,7 @@ suite('JSON Completion', () => {
 				{ label: 'false', resultText: '{ "propBool": false }' }
 			],
 			count: 1
-		});		
+		});
 
 	});
 
