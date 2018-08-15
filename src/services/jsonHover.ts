@@ -36,7 +36,7 @@ export class JSONHover {
 		// use the property description when hovering over an object key
 		if (node.type === 'string') {
 			let parent = node.parent;
-			if (parent.type === 'property' && parent.keyNode === node) {
+			if (parent && parent.type === 'property' && parent.keyNode === node) {
 				node = parent.valueNode;
 				if (!node) {
 					return this.promise.resolve(null);
