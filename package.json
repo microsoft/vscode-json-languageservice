@@ -24,9 +24,9 @@
   },
   "dependencies": {
     "jsonc-parser": "^2.0.1",
-    "vscode-languageserver-types": "^3.10.1",
+    "vscode-languageserver-types": "^3.12.0",
     "vscode-nls": "^3.2.4",
-    "vscode-uri": "^1.0.5"
+    "vscode-uri": "^1.0.6"
   },
   "scripts": {
     "prepublishOnly": "npm run clean && npm run compile-esm && npm run test",
