@@ -49,6 +49,7 @@ export interface JSONSchema {
 	propertyNames?: JSONSchemaRef;
 
 	// schema draft 07
+	$comment?: string;
 	if?: JSONSchemaRef;
 	then?: JSONSchemaRef;
 	else?: JSONSchemaRef;
