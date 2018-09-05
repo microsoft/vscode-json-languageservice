@@ -482,12 +482,13 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			matchingSchemas.merge(subMatchingSchemas);
 		};
 
-		let testCondition = (ifSchema: JSONSchemaRef, thenSchema: JSONSchemaRef, elseSchema: JSONSchemaRef) => {
+		let testCondition = (ifSchema: JSONSchemaRef, thenSchema?: JSONSchemaRef, elseSchema?: JSONSchemaRef) => {
 			let subSchema = asSchema(ifSchema);
 			let subValidationResult = new ValidationResult();
 			let subMatchingSchemas = matchingSchemas.newSub();
 
 			validate(node, subSchema, subValidationResult, subMatchingSchemas);
+			matchingSchemas.merge(subMatchingSchemas);
 
 			if (!subValidationResult.hasProblems()) {
 				if (thenSchema) {
