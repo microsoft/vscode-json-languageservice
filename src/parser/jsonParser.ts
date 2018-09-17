@@ -6,7 +6,7 @@
 
 import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
-import * as objects from '../utils/objects';
+import { isNumber, isUndefined, equals, isBoolean, isString } from '../utils/objects';
 import { ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode } from '../jsonLanguageTypes';
 
 import * as nls from 'vscode-nls';
@@ -144,7 +144,7 @@ export class ObjectASTNodeImpl extends ASTNodeImpl implements ObjectASTNode {
 }
 
 export function asSchema(schema: JSONSchemaRef) {
-	if (typeof schema === 'boolean') {
+	if (isBoolean(schema)) {
 		return schema ? {} : { "not": {} };
 	}
 	return schema;
@@ -469,12 +469,11 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			testAlternatives(schema.oneOf, true);
 		}
 
-		let testBranch = (schema: JSONSchemaRef) => {
-			let subSchema = asSchema(schema);
+		let testBranch = (schema: JSONSchema) => {
 			let subValidationResult = new ValidationResult();
 			let subMatchingSchemas = matchingSchemas.newSub();
 
-			validate(node, subSchema, subValidationResult, subMatchingSchemas);
+			validate(node, schema, subValidationResult, subMatchingSchemas);
 
 			validationResult.merge(subValidationResult);
 			validationResult.propertiesMatches += subValidationResult.propertiesMatches;
@@ -482,12 +481,11 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			matchingSchemas.merge(subMatchingSchemas);
 		};
 
-		let testCondition = (ifSchema: JSONSchemaRef, thenSchema: JSONSchemaRef, elseSchema: JSONSchemaRef) => {
-			let subSchema = asSchema(ifSchema);
+		let testCondition = (ifSchema: JSONSchema, thenSchema: JSONSchema, elseSchema: JSONSchema) => {
 			let subValidationResult = new ValidationResult();
 			let subMatchingSchemas = matchingSchemas.newSub();
 
-			validate(node, subSchema, subValidationResult, subMatchingSchemas);
+			validate(node, ifSchema, subValidationResult, subMatchingSchemas);
 
 			if (!subValidationResult.hasProblems()) {
 				if (thenSchema) {
@@ -498,15 +496,16 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			}
 		};
 
-		if (schema.if) {
-			testCondition(schema.if, schema.then, schema.else);
+		let ifSchema = asSchema(schema.if);
+		if (ifSchema) {
+			testCondition(ifSchema, asSchema(schema.then), asSchema(schema.else));
 		}
 
 		if (Array.isArray(schema.enum)) {
 			let val = getNodeValue(node);
 			let enumValueMatch = false;
 			for (let e of schema.enum) {
-				if (objects.equals(val, e)) {
+				if (equals(val, e)) {
 					enumValueMatch = true;
 					break;
 				}
@@ -523,9 +522,9 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			}
 		}
 
-		if (schema.const) {
+		if (!isUndefined(schema.const)) {
 			let val = getNodeValue(node);
-			if (!objects.equals(val, schema.const)) {
+			if (!equals(val, schema.const)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
 					severity: DiagnosticSeverity.Warning,
@@ -553,7 +552,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 	function _validateNumberNode(node: NumberASTNode, schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
 		let val = node.value;
 
-		if (typeof schema.multipleOf === 'number') {
+		if (isNumber(schema.multipleOf)) {
 			if (val % schema.multipleOf !== 0) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
@@ -563,22 +562,22 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			}
 		}
 		function getExclusiveLimit(limit: number | undefined, exclusive: boolean | number | undefined): number | undefined {
-			if (typeof exclusive === 'number') {
+			if (isNumber(exclusive)) {
 				return exclusive;
 			}
-			if (typeof exclusive === 'boolean' && exclusive) {
+			if (isBoolean(exclusive) && exclusive) {
 				return limit;
 			}
 			return void 0;
 		}
 		function getLimit(limit: number | undefined, exclusive: boolean | number | undefined): number | undefined {
-			if (typeof exclusive !== 'boolean' || !exclusive) {
+			if (!isBoolean(exclusive) || !exclusive) {
 				return limit;
 			}
 			return void 0;
 		}
 		let exclusiveMinimum = getExclusiveLimit(schema.minimum, schema.exclusiveMinimum);
-		if (typeof exclusiveMinimum === 'number' && val <= exclusiveMinimum) {
+		if (isNumber(exclusiveMinimum) && val <= exclusiveMinimum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
 				severity: DiagnosticSeverity.Warning,
@@ -586,7 +585,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			});
 		}
 		let exclusiveMaximum = getExclusiveLimit(schema.maximum, schema.exclusiveMaximum);
-		if (typeof exclusiveMaximum === 'number' && val >= exclusiveMaximum) {
+		if (isNumber(exclusiveMaximum) && val >= exclusiveMaximum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
 				severity: DiagnosticSeverity.Warning,
@@ -594,7 +593,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			});
 		}
 		let minimum = getLimit(schema.minimum, schema.exclusiveMinimum);
-		if (typeof minimum === 'number' && val < minimum) {
+		if (isNumber(minimum) && val < minimum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
 				severity: DiagnosticSeverity.Warning,
@@ -602,7 +601,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			});
 		}
 		let maximum = getLimit(schema.maximum, schema.exclusiveMaximum);
-		if (typeof maximum === 'number' && val > maximum) {
+		if (isNumber(maximum) && val > maximum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
 				severity: DiagnosticSeverity.Warning,
@@ -612,7 +611,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 	}
 
 	function _validateStringNode(node: StringASTNode, schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
-		if (schema.minLength && node.value.length < schema.minLength) {
+		if (isNumber(schema.minLength) && node.value.length < schema.minLength) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
 				severity: DiagnosticSeverity.Warning,
@@ -620,7 +619,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			});
 		}
 
-		if (schema.maxLength && node.value.length > schema.maxLength) {
+		if (isNumber(schema.maxLength) && node.value.length > schema.maxLength) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
 				severity: DiagnosticSeverity.Warning,
@@ -628,7 +627,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			});
 		}
 
-		if (schema.pattern) {
+		if (isString(schema.pattern)) {
 			let regex = new RegExp(schema.pattern);
 			if (!regex.test(node.value)) {
 				validationResult.problems.push({
@@ -747,7 +746,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			}
 		}
 
-		if (schema.minItems && node.items.length < schema.minItems) {
+		if (isNumber(schema.minItems) && node.items.length < schema.minItems) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
 				severity: DiagnosticSeverity.Warning,
@@ -755,7 +754,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			});
 		}
 
-		if (schema.maxItems && node.items.length > schema.maxItems) {
+		if (isNumber(schema.maxItems) && node.items.length > schema.maxItems) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
 				severity: DiagnosticSeverity.Warning,
@@ -816,7 +815,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 				let propertySchema = schema.properties[propertyName];
 				let child = seenKeys[propertyName];
 				if (child) {
-					if (typeof propertySchema === 'boolean') {
+					if (isBoolean(propertySchema)) {
 						if (!propertySchema) {
 							let propertyNode = <PropertyASTNode>child.parent;
 							validationResult.problems.push({
@@ -847,7 +846,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 						let child = seenKeys[propertyName];
 						if (child) {
 							let propertySchema = schema.patternProperties[propertyPattern];
-							if (typeof propertySchema === 'boolean') {
+							if (isBoolean(propertySchema)) {
 								if (!propertySchema) {
 									let propertyNode = <PropertyASTNode>child.parent;
 									validationResult.problems.push({
@@ -896,7 +895,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			}
 		}
 
-		if (schema.maxProperties) {
+		if (isNumber(schema.maxProperties)) {
 			if (node.properties.length > schema.maxProperties) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
@@ -906,7 +905,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			}
 		}
 
-		if (schema.minProperties) {
+		if (isNumber(schema.minProperties)) {
 			if (node.properties.length < schema.minProperties) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
@@ -1219,7 +1218,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			let tokenValue = scanner.getTokenValue();
 			try {
 				let numberValue = JSON.parse(tokenValue);
-				if (typeof numberValue !== 'number') {
+				if (!isNumber(numberValue)) {
 					return _error(localize('InvalidNumberFormat', 'Invalid number format.'), ErrorCode.Undefined, node);
 				}
 				node.value = numberValue;

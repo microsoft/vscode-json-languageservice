@@ -13,12 +13,12 @@ import { ErrorCode, ASTNode, ObjectASTNode } from '../jsonLanguageService';
 suite('JSON Parser', () => {
 
 	function isValid(json: string): void {
-		let { textDoc, jsonDoc } = toDocument(json);
+		let { jsonDoc } = toDocument(json);
 		assert.equal(jsonDoc.syntaxErrors.length, 0);
 	}
 
 	function isInvalid(json: string, ...expectedErrors: ErrorCode[]): void {
-		let { textDoc, jsonDoc } = toDocument(json);
+		let { jsonDoc } = toDocument(json);
 		if (expectedErrors.length === 0) {
 			assert.ok(jsonDoc.syntaxErrors.length > 0, json);
 		} else {
@@ -52,7 +52,7 @@ suite('JSON Parser', () => {
 	}
 
 	test('Invalid body', function () {
-		let { textDoc, jsonDoc } = toDocument('*');
+		let { jsonDoc } = toDocument('*');
 		assert.equal(jsonDoc.syntaxErrors.length, 1);
 
 		isInvalid('{}[]');
@@ -132,7 +132,7 @@ suite('JSON Parser', () => {
 
 	test('Simple AST', function () {
 		{
-			let { textDoc, jsonDoc } = toDocument('{}');
+			let { jsonDoc } = toDocument('{}');
 
 			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 
@@ -144,7 +144,7 @@ suite('JSON Parser', () => {
 			assert.strictEqual(jsonDoc.getNodeFromOffset(2), void 0);
 		}
 		{
-			let { textDoc, jsonDoc } = toDocument('[null]');
+			let { jsonDoc } = toDocument('[null]');
 			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 
 			let node = jsonDoc.getNodeFromOffset(2);
@@ -153,7 +153,7 @@ suite('JSON Parser', () => {
 			assert.deepEqual(getNodePath(node), [0]);
 		}
 		{
-			let { textDoc, jsonDoc } = toDocument('{"a":true}');
+			let { jsonDoc } = toDocument('{"a":true}');
 			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 
 			let node = jsonDoc.getNodeFromOffset(3);
@@ -183,7 +183,7 @@ suite('JSON Parser', () => {
 	test('Nested AST', function () {
 
 		let content = '{\n\t"key" : {\n\t"key2": 42\n\t}\n}';
-		let { textDoc, jsonDoc } = toDocument(content);
+		let { jsonDoc } = toDocument(content);
 
 		assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 
@@ -200,7 +200,7 @@ suite('JSON Parser', () => {
 
 	test('Nested AST in Array', function () {
 
-		let { textDoc, jsonDoc } = toDocument('{"key":[{"key2":42}]}');
+		let { jsonDoc } = toDocument('{"key":[{"key2":42}]}');
 
 		assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 
@@ -214,7 +214,7 @@ suite('JSON Parser', () => {
 	test('Multiline', function () {
 		{
 			let content = '{\n\t\n}';
-			let { textDoc, jsonDoc } = toDocument(content);
+			let { jsonDoc } = toDocument(content);
 
 			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 
@@ -224,7 +224,7 @@ suite('JSON Parser', () => {
 		}
 		{
 			let content = '{\n"first":true\n\n}';
-			let { textDoc, jsonDoc } = toDocument(content);
+			let { jsonDoc } = toDocument(content);
 
 			let node = jsonDoc.getNodeFromOffset(content.length - 2);
 			assert.equal(node.type, 'object');
@@ -237,7 +237,7 @@ suite('JSON Parser', () => {
 	test('Expand errors to entire tokens', function () {
 
 		let content = '{\n"key":32,\nerror\n}';
-		let { textDoc, jsonDoc } = toDocument(content);
+		let { jsonDoc } = toDocument(content);
 		assert.equal(jsonDoc.syntaxErrors.length, 2);
 		assert.deepEqual(jsonDoc.syntaxErrors[0].range, toRange(content, content.indexOf('error'), 5));
 	});
@@ -245,7 +245,7 @@ suite('JSON Parser', () => {
 	test('Errors at the end of the file', function () {
 
 		let content = '{\n"key":32\n ';
-		let { textDoc, jsonDoc } = toDocument(content);
+		let { jsonDoc } = toDocument(content);
 		assert.equal(jsonDoc.syntaxErrors.length, 1);
 		assert.deepEqual(jsonDoc.syntaxErrors[0].range, toRange(content, 9, 1));
 	});
@@ -253,7 +253,7 @@ suite('JSON Parser', () => {
 	test('Getting keys out of an object', function () {
 
 		let content = '{\n"key":32,\n\n"key2":45}';
-		let { textDoc, jsonDoc } = toDocument(content);
+		let { jsonDoc } = toDocument(content);
 		assert.equal(jsonDoc.syntaxErrors.length, 0);
 		let node = jsonDoc.getNodeFromOffset(content.indexOf('32,\n') + 4);
 		assertObject(node, ['key', 'key2']);
@@ -262,7 +262,7 @@ suite('JSON Parser', () => {
 	test('Missing colon', function () {
 
 		let content = '{\n"key":32,\n"key2"\n"key3": 4 }';
-		let { textDoc, jsonDoc } = toDocument(content);
+		let { jsonDoc } = toDocument(content);
 		assert.equal(jsonDoc.syntaxErrors.length, 1);
 		assert.equal(jsonDoc.syntaxErrors[0].code, ErrorCode.ColonExpected);
 
@@ -273,7 +273,7 @@ suite('JSON Parser', () => {
 	test('Missing comma', function () {
 
 		let content = '{\n"key":32,\n"key2": 1 \n"key3": 4 }';
-		let { textDoc, jsonDoc } = toDocument(content);
+		let { jsonDoc } = toDocument(content);
 		assert.equal(jsonDoc.syntaxErrors.length, 1);
 		assert.equal(jsonDoc.syntaxErrors[0].code, ErrorCode.CommaExpected);
 		assertObject(jsonDoc.root, ['key', 'key2', 'key3']);
@@ -764,7 +764,7 @@ suite('JSON Parser', () => {
 
 	test('getNodeFromOffset', function () {
 		let content = '{"a": 1,\n\n"d": 2}';
-		let { textDoc, jsonDoc } = toDocument(content);
+		let { jsonDoc } = toDocument(content);
 
 		assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 
@@ -776,15 +776,15 @@ suite('JSON Parser', () => {
 
 	test('Duplicate keys', function () {
 		{
-			let { textDoc, jsonDoc } = toDocument('{"a": 1, "a": 2}');
+			let { jsonDoc } = toDocument('{"a": 1, "a": 2}');
 			assert.strictEqual(jsonDoc.syntaxErrors.length, 2, 'Keys should not be the same');
 		}
 		{
-			let { textDoc, jsonDoc } = toDocument('{"a": { "a": 2, "a": 3}}');
+			let { jsonDoc } = toDocument('{"a": { "a": 2, "a": 3}}');
 			assert.strictEqual(jsonDoc.syntaxErrors.length, 2, 'Keys should not be the same');
 		}
 		{
-			let { textDoc, jsonDoc } = toDocument('[{ "a": 2, "a": 3, "a": 7}]');
+			let { jsonDoc } = toDocument('[{ "a": 2, "a": 3, "a": 7}]');
 			assert.strictEqual(jsonDoc.syntaxErrors.length, 3, 'Keys should not be the same');
 		}
 	});
@@ -1169,8 +1169,6 @@ suite('JSON Parser', () => {
 
 	test('additionalProperties', function () {
 
-
-
 		let schema: JsonSchema.JSONSchema = {
 			additionalProperties: {
 				type: 'number'
@@ -1315,6 +1313,40 @@ suite('JSON Parser', () => {
 		}
 	});
 
+	test('oneOf const', function () {
+		let schema: JsonSchema.JSONSchema = {
+			properties: {
+				'prop': {
+					oneOf: [
+						{
+							"const": 0,
+							"title": "Value of 0"
+						},
+						{
+							"const": 1,
+							"title": "Value of 1"
+						},
+						{
+							"const": 2,
+							"title": "Value of 2"
+						}
+					]
+				}
+			}
+		};
+		{
+			let { textDoc, jsonDoc } = toDocument('{"prop": 0}');
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 0);
+		}
+		{
+			let { textDoc, jsonDoc } = toDocument('{"prop": 4}');
+			let semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors.length, 1);
+			assert.strictEqual(semanticErrors[0].code, ErrorCode.EnumValueMismatch);
+		}
+	});
+
 	test('propertyNames', function () {
 		let schema: JsonSchema.JSONSchema = {
 			propertyNames: {
@@ -1381,9 +1413,6 @@ suite('JSON Parser', () => {
 	});
 
 	test('items as array', function () {
-
-
-
 		let schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			items: [
@@ -1484,9 +1513,6 @@ suite('JSON Parser', () => {
 	});
 
 	test('multipleOf', function () {
-
-
-
 		let schema: JsonSchema.JSONSchema = {
 			type: 'array',
 			items: {
@@ -1509,9 +1535,6 @@ suite('JSON Parser', () => {
 	});
 
 	test('dependencies with array', function () {
-
-
-
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
@@ -1544,9 +1567,6 @@ suite('JSON Parser', () => {
 	});
 
 	test('dependencies with schema', function () {
-
-
-
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
@@ -1598,9 +1618,6 @@ suite('JSON Parser', () => {
 
 		{
 			let { textDoc, jsonDoc } = toDocument('{"prop": 42}');
-
-
-
 			let semanticErrors = jsonDoc.validate(textDoc, schema);
 			assert.strictEqual(semanticErrors.length, 0);
 		}
@@ -1649,7 +1666,7 @@ suite('JSON Parser', () => {
 
 	test('Schema information on node', function () {
 
-		let { textDoc, jsonDoc } = toDocument('{"key":42}');
+		let { jsonDoc } = toDocument('{"key":42}');
 		assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 
 		let schema: JsonSchema.JSONSchema = {
@@ -1684,7 +1701,7 @@ suite('JSON Parser', () => {
 	test('parse with comments', function () {
 
 		function parse<T>(v: string): T {
-			let { textDoc, jsonDoc } = toDocument(v);
+			let { jsonDoc } = toDocument(v);
 			assert.equal(jsonDoc.syntaxErrors.length, 0);
 			return <T>getNodeValue(jsonDoc.root);
 		}
@@ -1703,7 +1720,7 @@ suite('JSON Parser', () => {
 	test('parse with comments collected', function () {
 
 		function assertParse(v: string, expectedComments: number): void {
-			let { textDoc, jsonDoc } = toDocument(v, { collectComments: true });
+			let { jsonDoc } = toDocument(v, { collectComments: true });
 			assert.equal(jsonDoc.comments.length, expectedComments);
 		}
 
