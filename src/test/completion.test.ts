@@ -982,6 +982,18 @@ suite('JSON Completion', () => {
 				{ label: '"e2"', documentation: { kind: 'markdown', value: '*prop5*' } }
 			]
 		});
+
+		// without markdown capability
+		await testCompletionsFor('{ "prop1": |', schema, {
+			items: [
+				{ label: '"e1"', documentation: void 0 },
+			]
+		}, {});
+		await testCompletionsFor('{ "prop2": |', schema, {
+			items: [
+				{ label: '"e1"', documentation: 'E1' },
+			]
+		}, {});
 	});
 
 	test('In comment', async function () {

@@ -864,7 +864,7 @@ export class JSONCompletion {
 
 	private doesSupportMarkdown() {
 		if (!isDefined(this.supportsMarkdown)) {
-			const completion = this.clientCapabilities.completion;
+			const completion = this.clientCapabilities.textDocument && this.clientCapabilities.textDocument.completion;
 			this.supportsMarkdown = completion && completion.completionItem && Array.isArray(completion.completionItem.documentationFormat) && completion.completionItem.documentationFormat.indexOf(MarkupKind.Markdown) !== -1;
 		}
 		return this.supportsMarkdown;

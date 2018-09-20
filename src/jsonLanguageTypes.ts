@@ -212,40 +212,46 @@ export interface LanguageServiceParams {
  */
 export interface ClientCapabilities {
 	/**
-	 * Capabilities specific to completions.
+	 * The text document client capabilities
 	 */
-	completion?: {
+	textDocument?: {
 		/**
-		 * The client supports the following `CompletionItem` specific
-		 * capabilities.
+		 * Capabilities specific to completions.
 		 */
-		completionItem?: {
+		completion?: {
 			/**
-			 * Client supports the follow content formats for the documentation
+			 * The client supports the following `CompletionItem` specific
+			 * capabilities.
+			 */
+			completionItem?: {
+				/**
+				 * Client supports the follow content formats for the documentation
+				 * property. The order describes the preferred format of the client.
+				 */
+				documentationFormat?: MarkupKind[];
+			};
+
+		};
+		/**
+		 * Capabilities specific to hovers.
+		 */
+		hover?: {
+			/**
+			 * Client supports the follow content formats for the content
 			 * property. The order describes the preferred format of the client.
 			 */
-			documentationFormat?: MarkupKind[];
+			contentFormat?: MarkupKind[];
 		};
-
 	};
-	/**
-	 * Capabilities specific to hovers.
-	 */
-	hover?: {
-		/**
-		 * Client supports the follow content formats for the content
-		 * property. The order describes the preferred format of the client.
-		 */
-		contentFormat?: MarkupKind[];
-	};
-
 }
 
 export namespace ClientCapabilities {
 	export const LATEST: ClientCapabilities = {
-		completion: {
-			completionItem: {
-				documentationFormat: [MarkupKind.Markdown, MarkupKind.PlainText]
+		textDocument: {
+			completion: {
+				completionItem: {
+					documentationFormat: [MarkupKind.Markdown, MarkupKind.PlainText]
+				}
 			}
 		}
 	};
