@@ -1,3 +1,10 @@
+3.2.0 / 
+==================
+ * New API `LanguageServiceParams.ClientCapabilities` to define what LSP capabilities the client supports.
+ * For the best experiences, clients should always use `LanguageServiceParams.ClientCapabilities.LATEST`, which has all the latest LSP cpabilities enabled.
+ * `LanguageServiceParams.ClientCapabilities` can allow `MarkupKind.Markdown` as valid documentationFormat (used by completions if schemas use `markdownDescription` or `markdownEnumDescriptions`)
+ * snippets can now provide the description also in markdown format.
+
 3.1.5 / 2018-08-14
 ==================
  * support for JSON schema draft-07

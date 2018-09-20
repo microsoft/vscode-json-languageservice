@@ -62,7 +62,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 	let jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext, promise);
 	jsonSchemaService.setSchemaContributions(schemaContributions);
 
-	let jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise);
+	let jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise, params.clientCapabilities);
 	let jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
 	let jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
 	let jsonValidation = new JSONValidation(jsonSchemaService, promise);

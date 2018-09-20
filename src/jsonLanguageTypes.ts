@@ -6,7 +6,7 @@
 
 import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions';
 import { JSONSchema } from './jsonSchema';
-import { Range, TextEdit, Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind } from 'vscode-languageserver-types';
+import { Range, TextEdit, Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, MarkupKind } from 'vscode-languageserver-types';
 
 export {
 	Range, TextEdit, JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
@@ -201,6 +201,52 @@ export interface LanguageServiceParams {
 	 * A promise constructor. If not set, the ES5 Promise will be used.
 	 */
 	promiseConstructor?: PromiseConstructor;
+	/**
+	 * Describes the LSP capabilities the client supports.
+	 */
+	clientCapabilities?: ClientCapabilities;
 }
 
+/**
+ * Describes what LSP capabilities the client supports
+ */
+export interface ClientCapabilities {
+	/**
+	 * Capabilities specific to completions.
+	 */
+	completion?: {
+		/**
+		 * The client supports the following `CompletionItem` specific
+		 * capabilities.
+		 */
+		completionItem?: {
+			/**
+			 * Client supports the follow content formats for the documentation
+			 * property. The order describes the preferred format of the client.
+			 */
+			documentationFormat?: MarkupKind[];
+		};
 
+	};
+	/**
+	 * Capabilities specific to hovers.
+	 */
+	hover?: {
+		/**
+		 * Client supports the follow content formats for the content
+		 * property. The order describes the preferred format of the client.
+		 */
+		contentFormat?: MarkupKind[];
+	};
+
+}
+
+export namespace ClientCapabilities {
+	export const LATEST: ClientCapabilities = {
+		completion: {
+			completionItem: {
+				documentationFormat: [MarkupKind.Markdown, MarkupKind.PlainText]
+			}
+		}
+	};
+}

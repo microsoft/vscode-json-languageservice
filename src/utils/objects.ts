@@ -61,8 +61,8 @@ export function isNumber(val: any): val is number {
 	return typeof val === 'number';
 }
 
-export function isUndefined(val: any): val is undefined {
-	return typeof val === 'undefined';
+export function isDefined(val: any): val is object {
+	return typeof val !== 'undefined';
 }
 
 export function isBoolean(val: any): val is boolean {

@@ -8,14 +8,15 @@ import * as assert from 'assert';
 import * as JsonSchema from '../jsonSchema';
 import * as jsonLanguageService from '../jsonLanguageService';
 
-import { CompletionList, CompletionItemKind, TextDocument, Position } from 'vscode-languageserver-types';
+import { CompletionList, CompletionItemKind, TextDocument, Position, MarkupContent } from 'vscode-languageserver-types';
+import { ClientCapabilities } from '../jsonLanguageTypes';
 
 const applyEdits = TextDocument.applyEdits;
 
 interface ItemDescription {
 	label: string;
 	detail?: string;
-	documentation?: string;
+	documentation?: string | MarkupContent;
 	kind?: CompletionItemKind;
 	resultText?: string;
 	notAvailable?: boolean;
@@ -35,7 +36,7 @@ let assertCompletion = function (completions: CompletionList, expected: ItemDesc
 		assert.equal(match.detail, expected.detail);
 	}
 	if (expected.documentation) {
-		assert.equal(match.documentation, expected.documentation);
+		assert.deepEqual(match.documentation, expected.documentation);
 	}
 	if (expected.kind) {
 		assert.equal(match.kind, expected.kind);
@@ -47,11 +48,11 @@ let assertCompletion = function (completions: CompletionList, expected: ItemDesc
 
 suite('JSON Completion', () => {
 
-	let testCompletionsFor = function (value: string, schema: JsonSchema.JSONSchema, expected: { count?: number, items?: ItemDescription[] }): PromiseLike<void> {
+	let testCompletionsFor = function (value: string, schema: JsonSchema.JSONSchema, expected: { count?: number, items?: ItemDescription[] }, clientCapabilities = ClientCapabilities.LATEST): PromiseLike<void> {
 		let offset = value.indexOf('|');
 		value = value.substr(0, offset) + value.substr(offset + 1);
 
-		let ls = jsonLanguageService.getLanguageService({});
+		let ls = jsonLanguageService.getLanguageService({ clientCapabilities });
 		if (schema) {
 			ls.configure({
 				schemas: [{
@@ -899,6 +900,10 @@ suite('JSON Completion', () => {
 					enum: ['e1', 'e2', 'e3'],
 					enumDescriptions: ['E1', 'E2', 'E3'],
 				},
+				'prop2': {
+					description: 'prop2',
+					enum: ['e1', 'e2', 'e3'],
+				},
 			}
 		};
 
@@ -906,6 +911,75 @@ suite('JSON Completion', () => {
 			items: [
 				{ label: '"e1"', documentation: 'E1' },
 				{ label: '"e2"', documentation: 'E2' }
+			]
+		});
+		await testCompletionsFor('{ "prop2": |', schema, {
+			items: [
+				{ label: '"e1"', documentation: 'prop2' },
+				{ label: '"e2"', documentation: 'prop2' }
+			]
+		});
+	});
+
+	test('Enum markdown description', async function () {
+		let schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop1': {
+					enum: ['e1', 'e2', 'e3'],
+					markdownEnumDescriptions: ['*E1*', '*E2*', '*E3*'],
+				},
+				'prop2': {
+					enum: ['e1', 'e2', 'e3'],
+					enumDescriptions: ['E1', 'E2', 'E3'],
+					markdownEnumDescriptions: ['*E1*', '*E2*', '*E3*'],
+				},
+				'prop3': {
+					description: 'Hello',
+					markdownDescription: '*Hello*',
+					enum: ['e1', 'e2', 'e3'],
+					markdownEnumDescriptions: ['*E1*', '*E2*', '*E3*'],
+				},
+				'prop4': {
+					markdownDescription: '*prop4*',
+					enum: ['e1', 'e2', 'e3'],
+				},
+				'prop5': {
+					description: 'prop5',
+					markdownDescription: '*prop5*',
+					enum: ['e1', 'e2', 'e3'],
+				},
+			}
+		};
+
+		await testCompletionsFor('{ "prop1": |', schema, {
+			items: [
+				{ label: '"e1"', documentation: { kind: 'markdown', value: '*E1*' } },
+				{ label: '"e2"', documentation: { kind: 'markdown', value: '*E2*' } }
+			]
+		});
+		await testCompletionsFor('{ "prop2": |', schema, {
+			items: [
+				{ label: '"e1"', documentation: { kind: 'markdown', value: '*E1*' } },
+				{ label: '"e2"', documentation: { kind: 'markdown', value: '*E2*' } }
+			]
+		});
+		await testCompletionsFor('{ "prop3": |', schema, {
+			items: [
+				{ label: '"e1"', documentation: { kind: 'markdown', value: '*E1*' } },
+				{ label: '"e2"', documentation: { kind: 'markdown', value: '*E2*' } }
+			]
+		});
+		await testCompletionsFor('{ "prop4": |', schema, {
+			items: [
+				{ label: '"e1"', documentation: { kind: 'markdown', value: '*prop4*' } },
+				{ label: '"e2"', documentation: { kind: 'markdown', value: '*prop4*' } }
+			]
+		});
+		await testCompletionsFor('{ "prop5": |', schema, {
+			items: [
+				{ label: '"e1"', documentation: { kind: 'markdown', value: '*prop5*' } },
+				{ label: '"e2"', documentation: { kind: 'markdown', value: '*prop5*' } }
 			]
 		});
 	});

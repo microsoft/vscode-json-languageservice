@@ -6,7 +6,7 @@
 
 import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
-import { isNumber, isUndefined, equals, isBoolean, isString } from '../utils/objects';
+import { isNumber, equals, isBoolean, isString, isDefined } from '../utils/objects';
 import { ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode } from '../jsonLanguageTypes';
 
 import * as nls from 'vscode-nls';
@@ -168,7 +168,7 @@ export interface ISchemaCollector {
 	schemas: IApplicableSchema[];
 	add(schema: IApplicableSchema): void;
 	merge(other: ISchemaCollector): void;
-	include(node: ASTNode): void;
+	include(node: ASTNode): boolean;
 	newSub(): ISchemaCollector;
 }
 
@@ -522,7 +522,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			}
 		}
 
-		if (!isUndefined(schema.const)) {
+		if (isDefined(schema.const)) {
 			let val = getNodeValue(node);
 			if (!equals(val, schema.const)) {
 				validationResult.problems.push({
