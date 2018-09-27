@@ -168,12 +168,12 @@ export class ResolvedSchema {
 		if (schema.properties && typeof schema.properties[next]) {
 			return this.getSectionRecursive(path, schema.properties[next]);
 		} else if (schema.patternProperties) {
-			Object.keys(schema.patternProperties).forEach((pattern) => {
+			for (const pattern of Object.keys(schema.patternProperties)) {
 				let regex = new RegExp(pattern);
 				if (regex.test(next)) {
 					return this.getSectionRecursive(path, schema.patternProperties[pattern]);
 				}
-			});
+			}
 		} else if (typeof schema.additionalProperties === 'object') {
 			return this.getSectionRecursive(path, schema.additionalProperties);
 		} else if (next.match('[0-9]+')) {
@@ -267,10 +267,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 				this.contributionAssociations[pattern] = associations;
 
 				var fpa = this.getOrAddFilePatternAssociation(pattern);
-				associations.forEach(schemaId => {
+				for (const schemaId of associations) {
 					let id = this.normalizeId(schemaId);
 					fpa.addSchema(id);
-				});
+				}
 			}
 		}
 	}
@@ -300,9 +300,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 		this.registeredSchemasIds[id] = true;
 
 		if (filePatterns) {
-			filePatterns.forEach(pattern => {
+			for (const pattern of filePatterns) {
 				this.getOrAddFilePatternAssociation(pattern).addSchema(id);
-			});
+			}
 		}
 		return unresolvedSchemaContent ? this.addSchemaHandle(id, unresolvedSchemaContent) : this.getOrAddSchemaHandle(id);
 	}
@@ -319,10 +319,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 		}
 		for (let pattern in this.contributionAssociations) {
 			var fpa = this.getOrAddFilePatternAssociation(pattern);
-			this.contributionAssociations[pattern].forEach(schemaId => {
+			for (const schemaId of this.contributionAssociations[pattern]) {
 				let id = this.normalizeId(schemaId);
 				fpa.addSchema(id);
-			});
+			}
 		}
 	}
 
