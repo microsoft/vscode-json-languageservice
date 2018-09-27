@@ -473,6 +473,23 @@ export class JSONCompletion {
 			});
 			hasProposals = true;
 		}
+		if (Array.isArray(schema.examples)) {
+			schema.examples.forEach(example => {
+				let type = schema.type;
+				let value = example;
+				for (let i = arrayDepth; i > 0; i--) {
+					value = [value];
+					type = 'array';
+				}
+				collector.add({
+					kind: this.getSuggestionKind(type),
+					label: this.getLabelForValue(value),
+					insertText: this.getInsertTextForValue(value, separatorAfter),
+					insertTextFormat: InsertTextFormat.Snippet
+				});
+				hasProposals = true;
+			});
+		}
 		if (Array.isArray(schema.defaultSnippets)) {
 			schema.defaultSnippets.forEach(s => {
 				let type = schema.type;

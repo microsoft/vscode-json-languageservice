@@ -47,6 +47,7 @@ export interface JSONSchema {
 	const?: any;
 	contains?: JSONSchemaRef;
 	propertyNames?: JSONSchemaRef;
+	examples?: any[];
 
 	// schema draft 07
 	$comment?: string;

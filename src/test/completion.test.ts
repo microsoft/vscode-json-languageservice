@@ -751,6 +751,29 @@ suite('JSON Completion', () => {
 
 	});
 
+	test('examples', async function () {
+		let schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				prop: {
+					type: ['string'],
+					examples: ['a', 'b'],
+					default: 'c'
+				}
+			}
+		};
+
+		await testCompletionsFor('{ "prop": | }', schema, {
+			items: [
+				{ label: '"a"', resultText: '{ "prop": "a" }' },
+				{ label: '"b"', resultText: '{ "prop": "b" }' },
+				{ label: '"c"', resultText: '{ "prop": "c" }' }
+			],
+			count: 3
+		});
+
+	});
+
 	test('Const', async function () {
 		let schema: JsonSchema.JSONSchema = {
 			type: 'object',
