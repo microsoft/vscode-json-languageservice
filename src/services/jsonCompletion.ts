@@ -664,9 +664,9 @@ export class JSONCompletion {
 	private getInsertTextForValue(value: any, separatorAfter: string): string {
 		var text = JSON.stringify(value, null, '\t');
 		if (text === '{}') {
-			return '{\n\t$1\n}' + separatorAfter;
+			return '{$1}' + separatorAfter;
 		} else if (text === '[]') {
-			return '[\n\t$1\n]' + separatorAfter;
+			return '[$1]' + separatorAfter;
 		}
 		return this.getInsertTextForPlainText(text + separatorAfter);
 	}
