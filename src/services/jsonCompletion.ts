@@ -793,10 +793,10 @@ export class JSONCompletion {
 						value = '"$1"';
 						break;
 					case 'object':
-						value = '{\n\t$1\n}';
+						value = '{$1}';
 						break;
 					case 'array':
-						value = '[\n\t$1\n]';
+						value = '[$1]';
 						break;
 					case 'number':
 					case 'integer':
