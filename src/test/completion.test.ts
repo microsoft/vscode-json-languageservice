@@ -130,7 +130,7 @@ suite('JSON Completion', () => {
 		await testCompletionsFor('[ { "data": { "key": 1, "data": true } }, { "data": |', null, {
 			count: 3,
 			items: [
-				{ label: '{}', resultText: '[ { "data": { "key": 1, "data": true } }, { "data": {\n\t$1\n}' },
+				{ label: '{}', resultText: '[ { "data": { "key": 1, "data": true } }, { "data": {$1}' },
 				{ label: 'true', resultText: '[ { "data": { "key": 1, "data": true } }, { "data": true' },
 				{ label: 'false', resultText: '[ { "data": { "key": 1, "data": true } }, { "data": false' }
 			]
@@ -864,7 +864,7 @@ suite('JSON Completion', () => {
 		});
 		await testCompletionsFor('|', schema2, {
 			items: [
-				{ label: '{}', resultText: '{\n\t$1\n}' },
+				{ label: '{}', resultText: '{$1}' },
 				{ label: 'def1', documentation: 'def1Desc', resultText: '{\n\t"hello": "${1:world}"\n}' },
 				{ label: '{"hello":["world"]}', resultText: '{\n\t"${1:hello}": [\n\t\t"${2:world}"\n\t]\n}' }
 			]
@@ -1143,8 +1143,8 @@ suite('JSON Completion', () => {
 
 		await testCompletionsFor('{ |', schema, {
 			items: [
-				{ label: 'object', resultText: '{ "object": {\n\t$1\n}' },
-				{ label: 'array', resultText: '{ "array": [\n\t$1\n]' },
+				{ label: 'object', resultText: '{ "object": {$1}' },
+				{ label: 'array', resultText: '{ "array": [$1]' },
 				{ label: 'string', resultText: '{ "string": "$1"' },
 				{ label: 'boolean', resultText: '{ "boolean": $1' },
 				{ label: 'oneEnum', resultText: '{ "oneEnum": "${1:foo}"' },
