@@ -469,11 +469,11 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			testAlternatives(schema.oneOf, true);
 		}
 
-		let testBranch = (schema: JSONSchema) => {
+		let testBranch = (schema: JSONSchemaRef) => {
 			let subValidationResult = new ValidationResult();
 			let subMatchingSchemas = matchingSchemas.newSub();
 
-			validate(node, schema, subValidationResult, subMatchingSchemas);
+			validate(node, asSchema(schema), subValidationResult, subMatchingSchemas);
 
 			validationResult.merge(subValidationResult);
 			validationResult.propertiesMatches += subValidationResult.propertiesMatches;

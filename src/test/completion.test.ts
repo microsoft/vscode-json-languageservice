@@ -1158,23 +1158,23 @@ suite('JSON Completion', () => {
 		});
 	});
 
-	test('if then and else', async function() {
+	test('if then and else', async function () {
 		await testCompletionsFor('{|}', {
 			if: {
 				properties: {
 					a: { type: 'string' }
 				}
 			}
-		},
+		}, 
 			{ count: 1, items: [{ label: 'a', resultText: '{"a": "$1"}' }] });
 		await testCompletionsFor('{|}', {
 			if: {
 				properties: {
 					a: { type: 'string' }
 				}
-			}, 
+			},
 			then: {
-				properties:{
+				properties: {
 					b: {}
 				}
 			}
