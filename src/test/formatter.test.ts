@@ -5,14 +5,14 @@
 'use strict';
 
 import { TextDocument, Range } from 'vscode-languageserver-types';
-import * as jsonLanguageService from '../jsonLanguageService';
+import { getLanguageService, ClientCapabilities } from '../jsonLanguageService';
 import * as assert from 'assert';
 
 const applyEdits = TextDocument.applyEdits;
 
 suite('JSON Formatter', () => {
 
-	const ls = jsonLanguageService.getLanguageService({});
+	const ls = getLanguageService({ clientCapabilities: ClientCapabilities.LATEST });
 
 	function format(unformatted: string, expected: string, insertSpaces = true) {
 		let range: Range = null;

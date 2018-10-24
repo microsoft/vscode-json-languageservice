@@ -10,6 +10,7 @@ import * as JsonSchema from '../jsonSchema';
 import { SymbolInformation, SymbolKind, TextDocument, Range, Position, TextEdit, DocumentSymbol } from 'vscode-languageserver-types';
 import { Thenable, Color, getLanguageService } from "../jsonLanguageService";
 import { colorFrom256RGB } from '../utils/colors';
+import { ClientCapabilities } from '../jsonLanguageTypes';
 
 suite('JSON Document Symbols', () => {
 
@@ -19,7 +20,7 @@ suite('JSON Document Symbols', () => {
 
 	function getFlatOutline(value: string): SymbolInformation[] {
 		let uri = 'test://test.json';
-		let ls = getLanguageService({ schemaRequestService });
+		let ls = getLanguageService({ schemaRequestService, clientCapabilities: ClientCapabilities.LATEST });
 
 		let document = TextDocument.create(uri, 'json', 0, value);
 		let jsonDoc = ls.parseJSONDocument(document);
@@ -28,7 +29,7 @@ suite('JSON Document Symbols', () => {
 
 	function getHierarchicalOutline(value: string): DocumentSymbol[] {
 		let uri = 'test://test.json';
-		let ls = getLanguageService({ schemaRequestService });
+		let ls = getLanguageService({ schemaRequestService, clientCapabilities: ClientCapabilities.LATEST });
 
 		let document = TextDocument.create(uri, 'json', 0, value);
 		let jsonDoc = ls.parseJSONDocument(document);
@@ -39,7 +40,7 @@ suite('JSON Document Symbols', () => {
 		let uri = 'test://test.json';
 		let schemaUri = "http://myschemastore/test1";
 
-		let ls = getLanguageService({ schemaRequestService });
+		let ls = getLanguageService({ schemaRequestService, clientCapabilities: ClientCapabilities.LATEST });
 		ls.configure({ schemas: [{ fileMatch: ["*.json"], uri: schemaUri, schema }] });
 
 		let document = TextDocument.create(uri, 'json', 0, value);
@@ -53,7 +54,7 @@ suite('JSON Document Symbols', () => {
 	}
 
 	function assertColorPresentations(color: Color, ...expected: string[]) {
-		let ls = getLanguageService({ schemaRequestService });
+		let ls = getLanguageService({ schemaRequestService, clientCapabilities: ClientCapabilities.LATEST });
 
 		let document = TextDocument.create('test://test/test.css', 'css', 0, '');
 
@@ -167,14 +168,15 @@ suite('JSON Document Symbols', () => {
 		let content = '{ "key1": [ { "key2": true }, { "k1": [] } ]';
 
 		let expected: ExpectedDocumentSymbol[] = [
-			{ label: 'key1', kind: SymbolKind.Array, children: [
-				{ label: '0', kind: SymbolKind.Module, children: [{ label: 'key2', kind: SymbolKind.Boolean, children: [] }]},
-				{ label: '1', kind: SymbolKind.Module, children: [{ label: 'k1', kind: SymbolKind.Array, children: [] }]}]
+			{
+				label: 'key1', kind: SymbolKind.Array, children: [
+					{ label: '0', kind: SymbolKind.Module, children: [{ label: 'key2', kind: SymbolKind.Boolean, children: [] }] },
+					{ label: '1', kind: SymbolKind.Module, children: [{ label: 'k1', kind: SymbolKind.Array, children: [] }] }]
 			}
 		];
 
 		assertHierarchicalOutline(content, expected);
-	});	
+	});
 
 	test('Colors', async function () {
 		let content = '{ "a": "#FF00FF", "b": "#FF0000" }';
