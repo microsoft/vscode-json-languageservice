@@ -487,7 +487,7 @@ suite('JSON Schema', () => {
 			service.clearExternalSchemas();
 			return service.getSchemaForResource('main.bar', null).then(resolvedSchema => {
 				assert.equal(resolvedSchema.errors.length, 1);
-				assert.equal(resolvedSchema.errors[0], "Problems loading reference 'http://myschemastore/myschemafoo': Unable to load schema from 'http://myschemastore/myschemafoo': Resource not found.");
+				assert.equal(resolvedSchema.errors[0], "Problems loading reference 'http://myschemastore/myschemafoo': Resource not found.");
 
 				service.clearExternalSchemas();
 				service.registerExternalSchema(id2, null, schema2);
