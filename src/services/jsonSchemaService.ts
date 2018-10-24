@@ -354,7 +354,12 @@ export class JSONSchemaService implements IJSONSchemaService {
 				return new UnresolvedSchema(schemaContent, errors);
 			},
 			(error: any) => {
-				let errorMessage = localize('json.schema.unabletoload', 'Unable to load schema from \'{0}\': {1}', toDisplayString(url), error.toString());
+				let errorMessage = error.toString();
+				let errorSplit = error.toString().split('Error: ');
+				if(errorSplit.length > 1) {
+					// more concise error message, URL and context are attached by caller anyways
+					errorMessage = errorSplit[1];
+				}
 				return new UnresolvedSchema(<JSONSchema>{}, [errorMessage]);
 			}
 		);
