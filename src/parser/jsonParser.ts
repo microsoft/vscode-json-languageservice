@@ -449,7 +449,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 
 			if (matches.length > 1 && maxOneMatch) {
 				validationResult.problems.push({
-					location: { offset: node.offset, length: 1 },
+					location: { offset: node.offset, length: node.length },
 					severity: DiagnosticSeverity.Warning,
 					message: localize('oneOfWarning', "Matches multiple schemas when only one must validate.")
 				});
@@ -792,7 +792,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			for (const propertyName of schema.required) {
 				if (!seenKeys[propertyName]) {
 					let keyNode = node.parent && node.parent.type === 'property' && node.parent.keyNode;
-					let location = keyNode ? { offset: keyNode.offset, length: keyNode.length } : { offset: node.offset, length: 1 };
+					let location = keyNode ? { offset: keyNode.offset, length: keyNode.length } : { offset: node.offset, length: node.length };
 					validationResult.problems.push({
 						location: location,
 						severity: DiagnosticSeverity.Warning,
