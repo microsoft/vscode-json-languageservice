@@ -1157,4 +1157,19 @@ suite('JSON Completion', () => {
 			]
 		});
 	});
+
+	test("if then and else", async function () {
+		await testCompletionsFor("{|}", {
+			if: { properties: { a: { type: "string" } } }
+		}, { count: 1, items: [{ label: "a", resultText: '{"a": "$1"}' }] });
+		await testCompletionsFor("{|}", {
+			if: { properties: { a: { type: "string" } }, required: ["a"] }, then: { properties: { b: { type: "string" } } }, properties: { c: { type: "string" } }
+		}, { count: 2, items: [{ label: "a", resultText: '{"a": "$1"}' }, { label: "c", resultText: '{"c": "$1"}' }] });
+		await testCompletionsFor('{"a":"test",|}', {
+			if: { properties: { a: { type: "string" } }, required: ["a"] }, then: { properties: { b: { type: "string" } } }, else: { properties: { c: { type: "string" } } }
+		}, { count: 1, items: [{ label: "b", resultText: '{"a":"test","b": "$1"}' }] });
+		await testCompletionsFor('{"a":"test",|}', {
+			if: { properties: { a: { type: "string" } }, required: ["a"] }, then: { properties: { b: { type: "string" } } }
+		}, { count: 1, items: [{ label: "b", resultText: '{"a":"test","b": "$1"}' }] });
+	});
 });

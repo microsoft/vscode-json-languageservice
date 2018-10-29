@@ -469,11 +469,11 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			testAlternatives(schema.oneOf, true);
 		}
 
-		let testBranch = (schema: JSONSchema) => {
+		let testBranch = (schema: JSONSchemaRef) => {
 			let subValidationResult = new ValidationResult();
 			let subMatchingSchemas = matchingSchemas.newSub();
 
-			validate(node, schema, subValidationResult, subMatchingSchemas);
+			validate(node, asSchema(schema), subValidationResult, subMatchingSchemas);
 
 			validationResult.merge(subValidationResult);
 			validationResult.propertiesMatches += subValidationResult.propertiesMatches;
@@ -481,11 +481,13 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			matchingSchemas.merge(subMatchingSchemas);
 		};
 
-		let testCondition = (ifSchema: JSONSchema, thenSchema: JSONSchema, elseSchema: JSONSchema) => {
+		let testCondition = (ifSchema: JSONSchemaRef, thenSchema?: JSONSchemaRef, elseSchema?: JSONSchemaRef) => {
+			let subSchema = asSchema(ifSchema);
 			let subValidationResult = new ValidationResult();
 			let subMatchingSchemas = matchingSchemas.newSub();
 
-			validate(node, ifSchema, subValidationResult, subMatchingSchemas);
+			validate(node, subSchema, subValidationResult, subMatchingSchemas);
+			matchingSchemas.merge(subMatchingSchemas);
 
 			if (!subValidationResult.hasProblems()) {
 				if (thenSchema) {
