@@ -77,7 +77,7 @@ export class JSONValidation {
 
 			jsonDocument.syntaxErrors.forEach(p => {
 				if (p.code === ErrorCode.TrailingComma) {
-					if (typeof commentSeverity !== 'number') {
+					if (typeof trailingCommaSeverity !== 'number') {
 						return;
 					}
 					p.severity = trailingCommaSeverity;
