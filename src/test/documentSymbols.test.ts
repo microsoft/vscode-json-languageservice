@@ -153,6 +153,25 @@ suite('JSON Document Symbols', () => {
 		assertOutline(content, expected);
 	});
 
+
+	test('Outline - empty name', function () {
+		let content = '{ "": 1, " ": 2 }';
+
+		let expected = [
+			{ label: '""', kind: SymbolKind.Number },
+			{ label: '" "', kind: SymbolKind.Number }
+		];
+
+		assertOutline(content, expected);
+
+		let expected2: ExpectedDocumentSymbol[] = [
+			{ label: '""', kind: SymbolKind.Number, children: [] },
+			{ label: '" "', kind: SymbolKind.Number, children: [] }
+		];
+
+		assertHierarchicalOutline(content, expected2);
+	});
+
 	test('Hierarchical Outline - Object', function () {
 		let content = '{ "key1": { "key2": true }, "key3" : { "k1":  { } }';
 

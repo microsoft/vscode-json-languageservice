@@ -7,14 +7,11 @@
 import * as Parser from '../parser/jsonParser';
 import * as Strings from '../utils/strings';
 import { colorFromHex } from '../utils/colors';
-import * as nls from 'vscode-nls';
 
 import { SymbolInformation, SymbolKind, TextDocument, Range, Location, TextEdit, DocumentSymbol } from 'vscode-languageserver-types';
 import { Thenable, ColorInformation, ColorPresentation, Color, ASTNode, PropertyASTNode } from "../jsonLanguageTypes";
 
 import { IJSONSchemaService } from "./jsonSchemaService";
-
-const localize = nls.loadMessageBundle();
 
 export class JSONDocumentSymbols {
 
@@ -61,7 +58,7 @@ export class JSONDocumentSymbols {
 					let valueNode = property.valueNode;
 					if (valueNode) {
 						let childContainerName = containerName ? containerName + '.' + property.keyNode.value : property.keyNode.value;
-						result.push({ name: property.keyNode.value, kind: this.getSymbolKind(valueNode.type), location: location, containerName: containerName });
+						result.push({ name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), location: location, containerName: containerName });
 						collectOutlineEntries(result, valueNode, childContainerName);
 					}
 				});
@@ -119,9 +116,8 @@ export class JSONDocumentSymbols {
 					if (valueNode) {
 						let range = getRange(document, property);
 						let selectionRange = getRange(document, property.keyNode);
-						let name = property.keyNode.value;
 						let children = collectOutlineEntries([], valueNode);
-						result.push({ name, kind: this.getSymbolKind(valueNode.type), range, selectionRange, children });
+						result.push({ name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), range, selectionRange, children });
 					}
 				});
 			}
@@ -149,21 +145,12 @@ export class JSONDocumentSymbols {
 		}
 	}
 
-	private getSymbolDetail(nodeType: string): string {
-		switch (nodeType) {
-			case 'object':
-				return localize('kind.object', 'object');
-			case 'string':
-				return localize('kind.string', 'string');
-			case 'number':
-				return localize('kind.number', 'number');
-			case 'array':
-				return localize('kind.array', 'array');
-			case 'boolean':
-				return localize('kind.boolean', 'boolean');
-			default: // 'null'
-				return localize('kind.null', 'null');
+	private getKeyLabel(property: PropertyASTNode) {
+		const name =  property.keyNode.value;
+		if (name && name.trim()) {
+			return name;
 		}
+		return `"${name}"`;
 	}
 
 	public findDocumentColors(document: TextDocument, doc: Parser.JSONDocument): Thenable<ColorInformation[]> {
