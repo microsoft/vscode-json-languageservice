@@ -162,8 +162,9 @@ export class JSONCompletion {
 						kind: CompletionItemKind.Property,
 						label: this.getLabelForValue(currentWord),
 						insertText: this.getInsertTextForProperty(currentWord, null, false, separatorAfter),
-						insertTextFormat: InsertTextFormat.Snippet, documentation: ''
+						insertTextFormat: InsertTextFormat.Snippet, documentation: '',
 					});
+					collector.setAsIncomplete();
 				}
 			}
 
