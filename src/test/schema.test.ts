@@ -595,6 +595,48 @@ suite('JSON Schema', () => {
 
 	});
 
+	test('$refs in $ref - circular', async function () {
+		let service = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main": {
+					type: 'object',
+					properties: {
+						responseValue: {
+							"$ref": "#/definitions/shellConfiguration"
+						},
+						hops: {
+							"$ref": "#/definitions/hop1"
+						}
+					},
+					definitions: {
+						shellConfiguration: {
+							$ref: '#definitions/shellConfiguration',
+							type: 'object'
+						},
+						hop1: {
+							$ref: '#definitions/hop2',
+						},
+						hop2: {
+							$ref: '#definitions/hop1',
+							type: 'object'
+						}
+					}
+				}
+			}
+		});
+
+		return service.getResolvedSchema('https://myschemastore/main').then(fs => {
+			assert.deepEqual(fs.schema.properties['responseValue'], {
+				type: 'object'
+			});
+			assert.deepEqual(fs.schema.properties['hops'], {
+				type: 'object'
+			});
+		});
+
+	});
+
 
 	test('Validate Azure Resource Definition', async function () {
 		let service: SchemaService.IJSONSchemaService = new SchemaService.JSONSchemaService(requestServiceMock, workspaceContext);

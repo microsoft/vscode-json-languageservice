@@ -356,7 +356,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			(error: any) => {
 				let errorMessage = error.toString();
 				let errorSplit = error.toString().split('Error: ');
-				if(errorSplit.length > 1) {
+				if (errorSplit.length > 1) {
 					// more concise error message, URL and context are attached by caller anyways
 					errorMessage = errorSplit[1];
 				}
@@ -455,14 +455,19 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 			};
 			let handleRef = (next: JSONSchema) => {
+				let seenRefs = [];
 				while (next.$ref) {
-					let segments = next.$ref.split('#', 2);
+					const ref = next.$ref;
+					let segments = ref.split('#', 2);
 					delete next.$ref;
 					if (segments[0].length > 0) {
 						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL));
 						return;
 					} else {
-						merge(next, parentSchema, parentSchemaURL, segments[1]); // can set next.$ref again
+						if (seenRefs.indexOf(ref) === -1) {
+							merge(next, parentSchema, parentSchemaURL, segments[1]); // can set next.$ref again, use seenRefs to avoid circle
+							seenRefs.push(ref);
+						}
 					}
 				}
 
