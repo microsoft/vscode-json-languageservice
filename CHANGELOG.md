@@ -1,3 +1,7 @@
+NEXT
+==================
+* New API `LanguageService.getSelectionRanges` to get semantic selection ranges.
+
 3.2.0 / 2018-09-27
 ==================
  * New API `LanguageServiceParams.ClientCapabilities` to define what LSP capabilities the client supports.
