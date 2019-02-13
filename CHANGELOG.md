@@ -1,6 +1,7 @@
 NEXT
 ==================
 * New API `LanguageService.getSelectionRanges` to get semantic selection ranges.
+* Manage schema dependencies so that `resetSchema` also resets schemas that depend on the schema.
 
 3.2.0 / 2018-09-27
 ==================
