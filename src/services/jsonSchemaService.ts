@@ -98,9 +98,12 @@ class FilePatternAssociation {
 	}
 }
 
+type SchemaDependencies = { [uri: string]: true };
+
 class SchemaHandle implements ISchemaHandle {
 
 	public url: string;
+	public dependencies: SchemaDependencies;
 
 	private resolvedSchema: Thenable<ResolvedSchema>;
 	private unresolvedSchema: Thenable<UnresolvedSchema>;
@@ -109,6 +112,7 @@ class SchemaHandle implements ISchemaHandle {
 	constructor(service: JSONSchemaService, url: string, unresolvedSchemaContent?: JSONSchema) {
 		this.service = service;
 		this.url = url;
+		this.dependencies = {};
 		if (unresolvedSchemaContent) {
 			this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(unresolvedSchemaContent));
 		}
@@ -124,17 +128,19 @@ class SchemaHandle implements ISchemaHandle {
 	public getResolvedSchema(): Thenable<ResolvedSchema> {
 		if (!this.resolvedSchema) {
 			this.resolvedSchema = this.getUnresolvedSchema().then(unresolved => {
-				return this.service.resolveSchemaContent(unresolved, this.url);
+				return this.service.resolveSchemaContent(unresolved, this.url, this.dependencies);
 			});
 		}
 		return this.resolvedSchema;
 	}
 
-	public clearSchema(): void {
+	public clearSchema() {
 		this.resolvedSchema = null;
 		this.unresolvedSchema = null;
+		this.dependencies = {};
 	}
 }
+
 
 export class UnresolvedSchema {
 	public schema: JSONSchema;
@@ -238,13 +244,27 @@ export class JSONSchemaService implements IJSONSchemaService {
 	}
 
 	public onResourceChange(uri: string): boolean {
+		let hasChanges = false;
 		uri = this.normalizeId(uri);
-		let schemaFile = this.schemasById[uri];
-		if (schemaFile) {
-			schemaFile.clearSchema();
-			return true;
+
+		let toWalk = [uri];
+		let all: (SchemaHandle | undefined)[] = Object.keys(this.schemasById).map(key => this.schemasById[key]);
+
+		while (toWalk.length) {
+			const curr = toWalk.pop();
+			for (let i = 0; i < all.length; i++) {
+				const handle = all[i];
+				if (handle && (handle.url === curr || handle.dependencies[curr])) {
+					if (handle.url !== curr) {
+						toWalk.push(handle.url);
+					}
+					handle.clearSchema();
+					all[i] = undefined;
+					hasChanges = true;
+				}
+			}
 		}
-		return false;
+		return hasChanges;
 	}
 
 	private normalizeId(id: string) {
@@ -281,7 +301,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return schemaHandle;
 	}
 
-	private getOrAddSchemaHandle(id: string, unresolvedSchemaContent?: JSONSchema): ISchemaHandle {
+	private getOrAddSchemaHandle(id: string, unresolvedSchemaContent?: JSONSchema): SchemaHandle {
 		return this.schemasById[id] || this.addSchemaHandle(id, unresolvedSchemaContent);
 	}
 
@@ -365,7 +385,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		);
 	}
 
-	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, schemaURL: string): Thenable<ResolvedSchema> {
+	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, schemaURL: string, dependencies: SchemaDependencies): Thenable<ResolvedSchema> {
 
 		let resolveErrors: string[] = schemaToResolve.errors.slice(0);
 		let schema = schemaToResolve.schema;
@@ -399,22 +419,24 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		};
 
-		let resolveExternalLink = (node: JSONSchema, uri: string, linkPath: string, parentSchemaURL: string): Thenable<any> => {
+		let resolveExternalLink = (node: JSONSchema, uri: string, linkPath: string, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
 			if (contextService && !/^\w+:\/\/.*/.test(uri)) {
 				uri = contextService.resolveRelativePath(uri, parentSchemaURL);
 			}
 			uri = this.normalizeId(uri);
-			return this.getOrAddSchemaHandle(uri).getUnresolvedSchema().then(unresolvedSchema => {
+			const referencedHandle = this.getOrAddSchemaHandle(uri);
+			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
+				parentSchemaDependencies[uri] = true;
 				if (unresolvedSchema.errors.length) {
 					let loc = linkPath ? uri + '#' + linkPath : uri;
 					resolveErrors.push(localize('json.schema.problemloadingref', 'Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0]));
 				}
 				merge(node, unresolvedSchema.schema, uri, linkPath);
-				return resolveRefs(node, unresolvedSchema.schema, uri);
+				return resolveRefs(node, unresolvedSchema.schema, uri, referencedHandle.dependencies);
 			});
 		};
 
-		let resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentSchemaURL: string): Thenable<any> => {
+		let resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
 			if (!node || typeof node !== 'object') {
 				return Promise.resolve(null);
 			}
@@ -461,7 +483,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 					let segments = ref.split('#', 2);
 					delete next.$ref;
 					if (segments[0].length > 0) {
-						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL));
+						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL, parentSchemaDependencies));
 						return;
 					} else {
 						if (seenRefs.indexOf(ref) === -1) {
@@ -487,7 +509,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return this.promise.all(openPromises);
 		};
 
-		return resolveRefs(schema, schema, schemaURL).then(_ => new ResolvedSchema(schema, resolveErrors));
+		return resolveRefs(schema, schema, schemaURL, dependencies).then(_ => new ResolvedSchema(schema, resolveErrors));
 	}
 
 	public getSchemaForResource(resource: string, document: Parser.JSONDocument): Thenable<ResolvedSchema> {
