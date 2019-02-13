@@ -21,9 +21,9 @@ function assertRanges(content: string, expected: (number | string)[][]): void {
 	const document = TextDocument.create('test://foo.json', 'json', 1, content);
 	const jsonDoc = ls.parseJSONDocument(document);
 
-	const actualRanges = ls.getSelectionRanges(document, document.positionAt(offset), jsonDoc);
+	const actualRanges = ls.getSelectionRanges(document, [document.positionAt(offset)], jsonDoc)[0];
 	const offsetPairs = actualRanges.map(r => {
-		return [document.offsetAt(r.start), document.getText(r)];
+		return [document.offsetAt(r.range.start), document.getText(r.range)];
 	});
 
 	message += `\n${JSON.stringify(offsetPairs)} should equal to ${JSON.stringify(expected)}`;
