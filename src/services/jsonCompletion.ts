@@ -206,7 +206,7 @@ export class JSONCompletion {
 						if (typeof propertySchema === 'object' && !propertySchema.deprecationMessage && !propertySchema.doNotSuggest) {
 							let proposal: CompletionItem = {
 								kind: CompletionItemKind.Property,
-								label: key,
+								label: this.massageLabel(key),
 								insertText: this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter),
 								insertTextFormat: InsertTextFormat.Snippet,
 								filterText: this.getFilterTextForValue(key),
@@ -232,7 +232,7 @@ export class JSONCompletion {
 				let key = p.keyNode.value;
 				collector.add({
 					kind: CompletionItemKind.Property,
-					label: key,
+					label: this.massageLabel(key),
 					insertText: this.getInsertTextForValue(key, ''),
 					insertTextFormat: InsertTextFormat.Snippet,
 					filterText: this.getFilterTextForValue(key),
@@ -516,7 +516,7 @@ export class JSONCompletion {
 						type = 'array';
 					}
 					insertText = prefix + indent + s.bodyText.split('\n').join('\n' + indent) + suffix + separatorAfter;
-					label = label || insertText;
+					label = label || this.massageLabel(insertText),
 					filterText = insertText.replace(/[\n]/g, '');   // remove new lines
 				}
 				collector.add({
@@ -633,12 +633,15 @@ export class JSONCompletion {
 		}));
 	}
 
-	private getLabelForValue(value: any): string {
-		let label = JSON.stringify(value);
+	private massageLabel(label: string): string {
 		if (label.length > 57) {
-			return label.substr(0, 57).trim() + '...';
+			label = label.substr(0, 57).trim() + '...';
 		}
-		return label;
+		return label.replace(/[\n]/g, '');
+	}
+
+	private getLabelForValue(value: any): string {
+		return this.massageLabel(JSON.stringify(value));
 	}
 
 	private getFilterTextForValue(value): string {
@@ -652,10 +655,7 @@ export class JSONCompletion {
 	private getLabelForSnippetValue(value: any): string {
 		let label = JSON.stringify(value);
 		label = label.replace(/\$\{\d+:([^}]+)\}|\$\d+/g, '$1');
-		if (label.length > 57) {
-			return label.substr(0, 57).trim() + '...';
-		}
-		return label;
+		return this.massageLabel(label);
 	}
 
 	private getInsertTextForPlainText(text: string): string {
