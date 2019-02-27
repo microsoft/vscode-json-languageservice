@@ -146,7 +146,10 @@ export class JSONDocumentSymbols {
 	}
 
 	private getKeyLabel(property: PropertyASTNode) {
-		const name =  property.keyNode.value;
+		let name =  property.keyNode.value;
+		if (name) {
+			name = name.replace(/[\n]/g, '↵');
+		}
 		if (name && name.trim()) {
 			return name;
 		}

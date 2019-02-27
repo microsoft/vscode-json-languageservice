@@ -10,6 +10,7 @@ import * as jsonLanguageService from '../jsonLanguageService';
 
 import { CompletionList, CompletionItemKind, TextDocument, Position, MarkupContent } from 'vscode-languageserver-types';
 import { ClientCapabilities } from '../jsonLanguageTypes';
+import { repeat } from '../utils/strings';
 
 const applyEdits = TextDocument.applyEdits;
 
@@ -724,6 +725,29 @@ suite('JSON Completion', () => {
 		await testCompletionsFor('{ | }', schema, {
 			items: [
 				{ label: 'url', resultText: '{ "url": "${1:http://foo/bar}" }' }
+			]
+		});
+	});
+
+	test('Sanititize', async function () {
+		const longLabel = repeat('abcd', 20);
+
+		let schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'a\nb': {
+					default: 1
+				},
+				[longLabel]: {
+					default: 2
+				}
+			}
+		};
+
+		await testCompletionsFor('{ | }', schema, {
+			items: [
+				{ label: 'a↵b', resultText: '{ "a\\\\nb": ${1:1} }' },
+				{ label: 'abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcda...', resultText: `{ "${longLabel}": \${1:2} }` }
 			]
 		});
 	});
