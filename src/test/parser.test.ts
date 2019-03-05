@@ -1856,15 +1856,21 @@ suite('JSON Parser', () => {
 		let { textDoc, jsonDoc } = toDocument('{ "pages": [  "pages/index", "pages/log", ] }');
 
 		const ls = getLanguageService({});
-		const res = await ls.doValidation(textDoc, jsonDoc);
+		let res = await ls.doValidation(textDoc, jsonDoc);
 		assert.strictEqual(res.length, 1);
 		assert.strictEqual(res[0].message, 'Trailing comma');
 
-		const res2 = await ls.doValidation(textDoc, jsonDoc, { trailingCommas: 'error' });
+		res = await ls.doValidation(textDoc, jsonDoc, { trailingCommas: 'error' });
 		assert.strictEqual(res.length, 1);
 		assert.strictEqual(res[0].message, 'Trailing comma');
 
-		const res3 = await ls.doValidation(textDoc, jsonDoc, { trailingCommas: 'ignore' });
-		assert.strictEqual(res3.length, 0);
+		res = await ls.doValidation(textDoc, jsonDoc, { trailingCommas: 'ignore' });
+		assert.strictEqual(res.length, 0);
+
+		const schema : JsonSchema.JSONSchema = { type: 'object', required: ['foo'] };
+		res = await ls.doValidation(textDoc, jsonDoc, { trailingCommas: 'ignore' }, schema);
+		assert.strictEqual(res.length, 1);
+		assert.strictEqual(res[0].message, 'Missing property "foo".');
 	});
+	
 });
