@@ -103,7 +103,7 @@ export class JSONHover {
 					if (result.length > 0) {
 						result += "\n\n";
 					}
-					result += `\`${toMarkdown(enumValue)}\`: ${markdownEnumValueDescription}`;
+					result += `\`${toMarkdownCodeBlock(enumValue)}\`: ${markdownEnumValueDescription}`;
 				}
 				return createHover([result]);
 			}
@@ -118,4 +118,12 @@ function toMarkdown(plain: string) {
 		return res.replace(/[\\`*_{}[\]()#+\-.!]/g, "\\$&"); // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
 	}
 	return void 0;
+}
+
+function toMarkdownCodeBlock(content: string) {
+	// see https://daringfireball.net/projects/markdown/syntax#precode
+	if (content.indexOf('`') !== -1) {
+		return '`` ' + content + ' ``';
+	}
+	return content;
 }
