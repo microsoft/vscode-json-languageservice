@@ -223,7 +223,7 @@ export interface Thenable<R> {
 
 export interface LanguageServiceParams {
 	/**
-	 * The schema request service is used to fetch schemas. The result should the schema file comment, or,
+	 * The schema request service is used to fetch schemas from a URI. The provider returns the schema file content, or,
 	 * in case of an error, a displayable error string
 	 */
 	schemaRequestService?: SchemaRequestService;
