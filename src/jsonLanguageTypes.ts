@@ -4,52 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions';
 import { JSONSchema } from './jsonSchema';
-import { Range, TextEdit, Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, MarkupKind } from 'vscode-languageserver-types';
+import { Range, TextEdit, Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, MarkupKind, SelectionRange } from 'vscode-languageserver-types';
 
 export {
 	Range, TextEdit, JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
-	Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind
+	Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, SelectionRange
 };
-
-// #region Proposed types, remove once added to vscode-languageserver-types
-
-/**
- * Enum of known selection range kinds
- */
-export enum SelectionRangeKind {
-	/**
-	 * Empty Kind.
-	 */
-	Empty = '',
-	/**
-	 * The statment kind, its value is `statement`, possible extensions can be
-	 * `statement.if` etc
-	 */
-	Statement = 'statement',
-	/**
-	 * The declaration kind, its value is `declaration`, possible extensions can be
-	 * `declaration.function`, `declaration.class` etc.
-	 */
-	Declaration = 'declaration',
-}
-
-/**
- * Represents a selection range
- */
-export interface SelectionRange {
-	/**
-	 * Range of the selection.
-	 */
-	range: Range;
-	/**
-	 * Describes the kind of the selection range such as `statemet' or 'declaration'. See
-	 * [SelectionRangeKind](#SelectionRangeKind) for an enumeration of standardized kinds.
-	 */
-	kind: string;
-}
-
-// #endregion
-
 
 /**
  * Error codes used by diagnostics

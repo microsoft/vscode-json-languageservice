@@ -16,17 +16,17 @@
   },
   "devDependencies": {
     "@types/mocha": "2.2.42",
-    "@types/node": "10.12.21",
-    "mocha": "^6.0.2",
+    "@types/node": "^10.12.21",
+    "mocha": "^6.1.4",
     "rimraf": "^2.6.3",
-    "tslint": "^5.13.1",
-    "typescript": "^3.3.3333"
+    "tslint": "^5.17.0",
+    "typescript": "^3.5.1"
   },
   "dependencies": {
-    "jsonc-parser": "^2.0.3",
-    "vscode-languageserver-types": "^3.14.0",
-    "vscode-nls": "^4.0.0",
-    "vscode-uri": "^1.0.6"
+    "jsonc-parser": "^2.1.0",
+    "vscode-languageserver-types": "3.15.0-next.2",
+    "vscode-nls": "^4.1.1",
+    "vscode-uri": "1.0.6"
   },
   "scripts": {
     "prepublishOnly": "npm run clean && npm run compile-esm && npm run test",

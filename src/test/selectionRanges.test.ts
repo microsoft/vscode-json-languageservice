@@ -19,10 +19,13 @@ function assertRanges(content: string, expected: (number | string)[][]): void {
 	const document = TextDocument.create('test://foo.json', 'json', 1, content);
 	const jsonDoc = ls.parseJSONDocument(document);
 
-	const actualRanges = ls.getSelectionRanges(document, [document.positionAt(offset)], jsonDoc)[0];
-	const offsetPairs = actualRanges.map(r => {
-		return [document.offsetAt(r.range.start), document.getText(r.range)];
-	});
+	const actualRanges = ls.getSelectionRanges(document, [document.positionAt(offset)], jsonDoc);
+	const offsetPairs: [number, string][] = [];
+	let curr = actualRanges[0];
+	while (curr) {
+		offsetPairs.push([document.offsetAt(curr.range.start), document.getText(curr.range)]);
+		curr = curr.parent;
+	}
 
 	message += `\n${JSON.stringify(offsetPairs)} should equal to ${JSON.stringify(expected)}`;
 	assert.deepEqual(offsetPairs, expected, message);

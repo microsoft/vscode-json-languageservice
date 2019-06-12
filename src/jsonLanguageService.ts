@@ -52,7 +52,7 @@ export interface LanguageService {
 	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover | null>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
 	getFoldingRanges(document: TextDocument, context?: { rangeLimit?: number }): FoldingRange[];
-	getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[][];
+	getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[];
 }
 
 

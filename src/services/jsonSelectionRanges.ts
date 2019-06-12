@@ -3,22 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Range, Position, TextDocument } from 'vscode-languageserver-types';
+import { Range, Position, TextDocument, SelectionRange } from 'vscode-languageserver-types';
 import { JSONDocument } from '../parser/jsonParser';
 import { SyntaxKind, createScanner } from 'jsonc-parser';
-import { notEqual } from 'assert';
-import { SelectionRange, SelectionRangeKind } from '../jsonLanguageTypes';
 
-export function getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[][] {
+export function getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[] {
 
-	function getSelectionRange(position: Position): SelectionRange[] {
+	function getSelectionRange(position: Position): SelectionRange {
 		let offset = document.offsetAt(position);
 		let node = doc.getNodeFromOffset(offset, true);
-		if (!node) {
-			return [];
-		}
 
-		const result: SelectionRange[] = [];
+		const result: Range[] = [];
 
 		while (node) {
 			switch (node.type) {
@@ -47,14 +42,18 @@ export function getSelectionRanges(document: TextDocument, positions: Position[]
 			}
 			node = node.parent;
 		}
-		return result;
+		let current: SelectionRange | undefined = undefined;
+		for (let index = result.length - 1; index >= 0; index--) {
+			current = SelectionRange.create(result[index], current);
+		}
+		if (!current) {
+			current = SelectionRange.create(Range.create(position, position));
+		}
+		return current;
 	}
 
-	function newRange(start: number, end: number): SelectionRange {
-		return {
-			range: Range.create(document.positionAt(start), document.positionAt(end)),
-			kind: SelectionRangeKind.Declaration
-		};
+	function newRange(start: number, end: number): Range {
+		return Range.create(document.positionAt(start), document.positionAt(end));
 	}
 
 	const scanner = createScanner(document.getText(), true);
