@@ -186,8 +186,8 @@ suite('JSON Schema', () => {
 
 		service.setSchemaContributions({
 			schemas: {
-				"main": {
-					id: 'main',
+				"test://schemas/main": {
+					id: 'test://schemas/main',
 					type: 'object',
 					properties: {
 						child: {
@@ -204,7 +204,7 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('main').then(fs => {
+		return service.getResolvedSchema('test://schemas/main').then(fs => {
 			let section = fs.getSection(['child', 'grandchild']);
 			assert.equal(section.description, 'Meaning of Life');
 		});
@@ -215,8 +215,8 @@ suite('JSON Schema', () => {
 
 		service.setSchemaContributions({
 			schemas: {
-				"main": {
-					id: 'main',
+				"test://schemas/main": {
+					id: 'test://schemas/main',
 					type: 'object',
 					properties: {
 						child: {
@@ -236,7 +236,7 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('main').then(fs => {
+		return service.getResolvedSchema('test://schemas/main').then(fs => {
 			let section = fs.getSection(['child', '0', 'grandchild']);
 			assert.equal(section.description, 'Meaning of Life');
 		});
@@ -247,8 +247,8 @@ suite('JSON Schema', () => {
 
 		service.setSchemaContributions({
 			schemas: {
-				"main": {
-					id: 'main',
+				"test://schemas/main": {
+					id: 'test://schemas/main',
 					type: 'object',
 					properties: {
 						child: {
@@ -259,7 +259,7 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('main').then(fs => {
+		return service.getResolvedSchema('test://schemas/main').then(fs => {
 			let section = fs.getSection(['child', 'grandchild']);
 			assert.strictEqual(section, null);
 		});
@@ -355,7 +355,7 @@ suite('JSON Schema', () => {
 		let id = 'https://myschemastore/test1';
 
 		let schema: JSONSchema = {
-			id: 'main',
+			id: 'test://schemas/main',
 			type: 'object',
 			definitions: {
 				'grandchild': {
@@ -390,7 +390,7 @@ suite('JSON Schema', () => {
 		let service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		let id = 'https://myschemastore/test1';
 		let schema: JSONSchema = {
-			id: 'main',
+			id: 'test://schemas/main',
 			type: 'object',
 			definitions: {
 				'grandchild': {
@@ -466,7 +466,7 @@ suite('JSON Schema', () => {
 		service.setSchemaContributions({
 			schemas: {
 				"http://myschemastore/myschemabar": {
-					id: 'main',
+					id: 'http://myschemastore/myschemabar',
 					type: 'object',
 					properties: {
 						foo: {

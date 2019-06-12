@@ -5,7 +5,7 @@
 
 import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
-import URI from 'vscode-uri';
+import { URI }  from 'vscode-uri';
 import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
 import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable } from '../jsonLanguageTypes';
@@ -268,7 +268,12 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	private normalizeId(id: string) {
 		// remove trailing '#', normalize drive capitalization
-		return URI.parse(id).toString();
+		try {
+			return URI.parse(id).toString();
+		} catch (e) {
+			return id;
+		}
+		
 	}
 
 	public setSchemaContributions(schemaContributions: ISchemaContributions): void {

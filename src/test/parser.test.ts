@@ -794,7 +794,7 @@ suite('JSON Parser', () => {
 
 
 		let schema: JsonSchema.JSONSchema = {
-			id: 'main',
+			id: 'test://schemas/main',
 			allOf: [
 				{
 					type: 'object'
@@ -836,7 +836,7 @@ suite('JSON Parser', () => {
 
 
 		let schema: JsonSchema.JSONSchema = {
-			id: 'main',
+			id: 'test://schemas/main',
 			anyOf: [
 				{
 					properties: {
@@ -884,7 +884,7 @@ suite('JSON Parser', () => {
 
 
 		let schema: JsonSchema.JSONSchema = {
-			id: 'main',
+			id: 'test://schemas/main',
 			oneOf: [
 				{
 					properties: {
@@ -928,7 +928,7 @@ suite('JSON Parser', () => {
 
 	test('not', function () {
 		let schema: JsonSchema.JSONSchema = {
-			id: 'main',
+			id: 'test://schemas/main',
 			not: {
 				properties: {
 					'prop1': {
@@ -953,7 +953,7 @@ suite('JSON Parser', () => {
 
 	test('if/then/else', function () {
 		let schema: JsonSchema.JSONSchema = {
-			id: 'main',
+			id: 'test://schemas/main',
 			if: {
 				properties: {
 					foo: {
@@ -1004,7 +1004,7 @@ suite('JSON Parser', () => {
 
 	test('nested if/then/else', function () {
 		let schema: JsonSchema.JSONSchema = {
-			id: 'main',
+			id: 'test://schemas/main',
 			if: {
 				properties: {
 					foo: {
@@ -1127,7 +1127,7 @@ suite('JSON Parser', () => {
 
 	test('patternProperties', function () {
 		let schema: JsonSchema.JSONSchema = {
-			id: 'main',
+			id: 'test://schemas/main',
 			patternProperties: {
 				'^prop\\d$': {
 					type: 'number'
@@ -1150,7 +1150,7 @@ suite('JSON Parser', () => {
 			assert.strictEqual(semanticErrors.length, 0);
 		}
 		schema = {
-			id: 'main',
+			id: 'test://schemas/main',
 			patternProperties: {
 				'^prop\\d$': true,
 				'^invalid$': false
