@@ -629,6 +629,63 @@ suite('JSON Parser', () => {
 		assert.strictEqual(semanticErrors.length, 1, "email");
 		assert.strictEqual(semanticErrors[0].message, 'Invalid color format. Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.');
 
+
+		let schemaWithDateTime = {
+			type: 'object',
+			properties: {
+				"date-time": {
+					type: 'string',
+					format: 'date-time'
+				},
+				"date": {
+					type: 'string',
+					format: 'date'
+				},
+				"time": {
+					type: 'string',
+					format: 'time'
+				}
+
+			}
+		};
+
+		semanticErrors = validate('{"date-time":"1985-04-12T23:20:50.52Z"}', schemaWithDateTime);
+		assert.strictEqual(semanticErrors.length, 0, "date-time");
+
+		semanticErrors = validate('{"date-time":"1996-12-19T16:39:57-08:00"}', schemaWithDateTime);
+		assert.strictEqual(semanticErrors.length, 0, "date-time");
+
+		semanticErrors = validate('{"date-time":"1990-12-31T23:59:60Z"}', schemaWithDateTime);
+		assert.strictEqual(semanticErrors.length, 0, "date-time");
+
+		semanticErrors = validate('{"date-time":"1937-01-01T12:00:27.87+00:20"}', schemaWithDateTime);
+		assert.strictEqual(semanticErrors.length, 0, "date-time");
+
+		semanticErrors = validate('{"date-time":"198a-04-12T23:20:50.52Z"}', schemaWithDateTime);
+		assert.strictEqual(semanticErrors.length, 1, "date-time");
+		assert.strictEqual(semanticErrors[0].message, 'String is not a RFC3339 date-time.');
+
+		semanticErrors = validate('{"date-time":"198a-04-12"}', schemaWithDateTime);
+		assert.strictEqual(semanticErrors.length, 1, "date-time");
+		assert.strictEqual(semanticErrors[0].message, 'String is not a RFC3339 date-time.');
+
+		semanticErrors = validate('{"date-time":""}', schemaWithDateTime);
+		assert.strictEqual(semanticErrors.length, 1, "date-time");
+		assert.strictEqual(semanticErrors[0].message, 'String is not a RFC3339 date-time.');
+
+		semanticErrors = validate('{"date":"1937-01-01"}', schemaWithDateTime);
+		assert.strictEqual(semanticErrors.length, 0, "date");
+
+		semanticErrors = validate('{"date":"23:20:50.52Z"}', schemaWithDateTime);
+		assert.strictEqual(semanticErrors.length, 1, "date");
+		assert.strictEqual(semanticErrors[0].message, 'String is not a RFC3339 date.');
+
+		semanticErrors = validate('{"time":"23:20:50.52Z"}', schemaWithDateTime);
+		assert.strictEqual(semanticErrors.length, 0, "time");	
+
+		semanticErrors = validate('{"time":"198a-04-12T23:20:50.52Z"}', schemaWithDateTime);
+		assert.strictEqual(semanticErrors.length, 1, "time");
+		assert.strictEqual(semanticErrors[0].message, 'String is not a RFC3339 time.');		
 	});
 
 	test('Numbers', function () {
