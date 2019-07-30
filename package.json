@@ -17,10 +17,10 @@
   "devDependencies": {
     "@types/mocha": "2.2.42",
     "@types/node": "^10.12.21",
-    "mocha": "^6.1.4",
+    "mocha": "^6.2.0",
     "rimraf": "^2.6.3",
-    "tslint": "^5.17.0",
-    "typescript": "^3.5.1"
+    "tslint": "^5.18.0",
+    "typescript": "^3.5.3"
   },
   "dependencies": {
     "jsonc-parser": "^2.1.0",
