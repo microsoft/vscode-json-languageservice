@@ -134,6 +134,13 @@ suite('JSON SelectionRange', () => {
 			[1, ' "foo": true, "bar": "bit" '],
 			[0, '{ "foo": true, "bar": "bit" }'],
 		]);
+		assertRanges('{ "line1": "Foo|Bar" }', [
+			[12, 'FooBar'],
+			[11, '"FooBar"'],
+			[2, '"line1": "FooBar"'],
+			[1, ' "line1": "FooBar" '],
+			[0, '{ "line1": "FooBar" }'],
+		]);
 	});
 	test('Objects', () => {
 		assertRanges('|{}', [
