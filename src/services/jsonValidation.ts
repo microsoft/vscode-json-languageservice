@@ -9,6 +9,7 @@ import { TextDocument, Diagnostic, DiagnosticSeverity, Range } from 'vscode-lang
 import { ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel } from '../jsonLanguageTypes';
 import * as nls from 'vscode-nls';
 import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
+import { isDefined, isBoolean } from '../utils/objects';
 
 const localize = nls.loadMessageBundle();
 
@@ -69,8 +70,13 @@ export class JSONValidation {
 						semanticErrors.forEach(addProblem);
 					}
 				}
+
 				if (schemaAllowsComments(schema.schema)) {
-					trailingCommaSeverity = commentSeverity = void 0;
+					commentSeverity = void 0;
+				}
+
+				if (schemaAllowsTrailingCommas(schema.schema)) {
+					trailingCommaSeverity = void 0;
 				}
 			}
 
@@ -107,16 +113,38 @@ export class JSONValidation {
 
 let idCounter = 0;
 
-function schemaAllowsComments(schemaRef: JSONSchemaRef) {
+function schemaAllowsComments(schemaRef: JSONSchemaRef) : boolean | undefined {
 	if (schemaRef && typeof schemaRef === 'object') {
-		if (schemaRef.allowComments) {
-			return true;
+		if (isBoolean(schemaRef.allowComments)) {
+			return schemaRef.allowComments;
 		}
 		if (schemaRef.allOf) {
-			return schemaRef.allOf.some(schemaAllowsComments);
+			for (const schema of schemaRef.allOf) {
+				const allow = schemaAllowsComments(schema);
+				if (isBoolean(allow)) {
+					return allow;
+				}
+			}
 		}
 	}
-	return false;
+	return undefined;
+}
+
+function schemaAllowsTrailingCommas(schemaRef: JSONSchemaRef) : boolean | undefined {
+	if (schemaRef && typeof schemaRef === 'object') {
+		if (isBoolean(schemaRef.allowsTrailingCommas)) {
+			return schemaRef.allowsTrailingCommas;
+		}
+		if (schemaRef.allOf) {
+			for (const schema of schemaRef.allOf) {
+				const allow = schemaAllowsTrailingCommas(schema);
+				if (isBoolean(allow)) {
+					return allow;
+				}
+			}
+		}
+	}
+	return undefined;
 }
 
 function toDiagnosticSeverity(severityLevel: SeverityLevel): DiagnosticSeverity | undefined {

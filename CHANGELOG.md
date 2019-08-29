@@ -1,3 +1,7 @@
+3.3.3 / 2019-0829
+=================
+Schemas can configure wheter comments and/or trailing are permitted.
+
 3.3.0 / 2019-06-12
 ==================
 * New API `LanguageService.getSelectionRanges` to get semantic selection ranges.
