@@ -1,6 +1,10 @@
-3.3.3 / 2019-0829
+3.3.4 / 2019-09-20
 =================
-Schemas can configure wheter comments and/or trailing are permitted.
+* Renamed `schema.allowsTrailingCommas` -> `schema.allowTrailingCommas`
+
+3.3.3 / 2019-08-29
+=================
+* Schemas can configure whether comments and/or trailing commas are permitted.
 
 3.3.0 / 2019-06-12
 ==================
