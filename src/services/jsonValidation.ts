@@ -132,8 +132,11 @@ function schemaAllowsComments(schemaRef: JSONSchemaRef) : boolean | undefined {
 
 function schemaAllowsTrailingCommas(schemaRef: JSONSchemaRef) : boolean | undefined {
 	if (schemaRef && typeof schemaRef === 'object') {
-		if (isBoolean(schemaRef.allowsTrailingCommas)) {
-			return schemaRef.allowsTrailingCommas;
+		if (isBoolean(schemaRef.allowTrailingCommas)) {
+			return schemaRef.allowTrailingCommas;
+		}
+		if (isBoolean(schemaRef['allowsTrailingCommas'])) { // deprecated
+			return schemaRef['allowsTrailingCommas'];
 		}
 		if (schemaRef.allOf) {
 			for (const schema of schemaRef.allOf) {
