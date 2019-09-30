@@ -15,16 +15,16 @@
     "url": "https://github.com/Microsoft/vscode-json-languageservice"
   },
   "devDependencies": {
-    "@types/mocha": "2.2.42",
+    "@types/mocha": "^5.2.7",
     "@types/node": "^10.12.21",
-    "mocha": "^6.2.0",
-    "rimraf": "^2.6.3",
-    "tslint": "^5.18.0",
-    "typescript": "^3.5.3"
+    "mocha": "^6.2.1",
+    "rimraf": "^3.0.0",
+    "tslint": "^5.20.0",
+    "typescript": "^3.6.3"
   },
   "dependencies": {
     "jsonc-parser": "^2.1.1",
-    "vscode-languageserver-types": "^3.15.0-next.2",
+    "vscode-languageserver-types": "^3.15.0-next.5",
     "vscode-nls": "^4.1.1",
     "vscode-uri": "^2.0.3"
   },
