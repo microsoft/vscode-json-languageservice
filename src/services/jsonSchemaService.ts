@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Json from 'jsonc-parser';
+import * as yaml from 'js-yaml';
 import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
 import { URI }  from 'vscode-uri';
 import * as Strings from '../utils/strings';
@@ -372,9 +373,20 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 
 				let schemaContent: JSONSchema = {};
+				let errors = [];
 				let jsonErrors: Json.ParseError[] = [];
 				schemaContent = Json.parse(content, jsonErrors);
-				let errors = jsonErrors.length ? [localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset)] : [];
+				
+				if (jsonErrors.length) {
+					errors = jsonErrors.length ? [localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset)] : [];
+					try {
+						schemaContent = yaml.safeLoad(content);
+						errors = [];
+					} catch (yamlError) {
+						errors.push(localize('json.schema.invalidFormat', "Unable to parse content from '{0}': {1}.", toDisplayString(url), yamlError));
+					}
+				}
+
 				return new UnresolvedSchema(schemaContent, errors);
 			},
 			(error: any) => {
