@@ -360,6 +360,40 @@ suite('JSON Completion', () => {
 		});
 	});
 
+	test('Complete array value with schema 3 (issue #81459)', async function () {
+
+		let schema: JsonSchema.JSONSchema = {
+			type: "object",
+			properties: {
+				"a": {
+					type: 'array',
+					items: {
+						type: 'object',
+						properties: {
+							foo: {
+								type: 'string'
+							},
+							bar: {
+								type: 'string'
+							}
+						}
+					}
+				}
+			}
+
+		};
+		await testCompletionsFor('{ "a" : [ { "foo": "a", | } ] }', schema, {
+			items: [
+				{ label: 'bar', resultText: '{ "a" : [ { "foo": "a", "bar": "$1" } ] }' }
+			]
+		});
+		await testCompletionsFor('{ "a" : [ { "bar": "a" }|, { } ] }', schema, {
+			items: [
+				{ label: 'foo', notAvailable: true }
+			]
+		});
+	});
+
 
 	test('Complete value with schema: booleans, null', async function () {
 

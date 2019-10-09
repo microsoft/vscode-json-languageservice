@@ -52,10 +52,19 @@ export class JSONCompletion {
 			isIncomplete: false
 		};
 
+		const text = document.getText();
+
 		let offset = document.offsetAt(position);
 		let node = doc.getNodeFromOffset(offset, true);
 		if (this.isInComment(document, node ? node.offset : 0, offset)) {
 			return Promise.resolve(result);
+		}
+		if (node && (offset === node.offset + node.length) && offset > 0) {
+			const ch = text[offset - 1];
+			if (node.type === 'object' && ch === '}' || node.type === 'array' && ch === ']') {
+				// after ] or }
+				node = node.parent;
+			}
 		}
 
 		let currentWord = this.getCurrentWord(document, offset);
@@ -65,7 +74,7 @@ export class JSONCompletion {
 			overwriteRange = Range.create(document.positionAt(node.offset), document.positionAt(node.offset + node.length));
 		} else {
 			let overwriteStart = offset - currentWord.length;
-			if (overwriteStart > 0 && document.getText()[overwriteStart - 1] === '"') {
+			if (overwriteStart > 0 && text[overwriteStart - 1] === '"') {
 				overwriteStart--;
 			}
 			overwriteRange = Range.create(document.positionAt(overwriteStart), position);
@@ -114,7 +123,7 @@ export class JSONCompletion {
 					if (parent && parent.type === 'property' && parent.keyNode === node) {
 						addValue = !parent.valueNode;
 						currentProperty = parent;
-						currentKey = document.getText().substr(node.offset + 1, node.length - 2);
+						currentKey = text.substr(node.offset + 1, node.length - 2);
 						if (parent) {
 							node = parent.parent;
 						}
@@ -155,7 +164,7 @@ export class JSONCompletion {
 						collectionPromises.push(collectPromise);
 					}
 				});
-				if ((!schema && currentWord.length > 0 && document.getText().charAt(offset - currentWord.length - 1) !== '"')) {
+				if ((!schema && currentWord.length > 0 && text.charAt(offset - currentWord.length - 1) !== '"')) {
 					collector.add({
 						kind: CompletionItemKind.Property,
 						label: this.getLabelForValue(currentWord),
@@ -515,7 +524,7 @@ export class JSONCompletion {
 					}
 					insertText = prefix + indent + s.bodyText.split('\n').join('\n' + indent) + suffix + separatorAfter;
 					label = label || this.sanitizeLabel(insertText),
-					filterText = insertText.replace(/[\n]/g, '');   // remove new lines
+						filterText = insertText.replace(/[\n]/g, '');   // remove new lines
 				}
 				collector.add({
 					kind: this.getSuggestionKind(type),
