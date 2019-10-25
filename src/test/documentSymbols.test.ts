@@ -17,22 +17,22 @@ suite('JSON Document Symbols', () => {
 		return Promise.reject<string>('Resource not found');
 	};
 
-	function getFlatOutline(value: string): SymbolInformation[] {
+	function getFlatOutline(value: string, context?: { resultLimit?: number }): SymbolInformation[] {
 		let uri = 'test://test.json';
 		let ls = getLanguageService({ schemaRequestService, clientCapabilities: ClientCapabilities.LATEST });
 
 		let document = TextDocument.create(uri, 'json', 0, value);
 		let jsonDoc = ls.parseJSONDocument(document);
-		return ls.findDocumentSymbols(document, jsonDoc);
+		return ls.findDocumentSymbols(document, jsonDoc, context);
 	}
 
-	function getHierarchicalOutline(value: string): DocumentSymbol[] {
+	function getHierarchicalOutline(value: string, context?: { resultLimit?: number }): DocumentSymbol[] {
 		let uri = 'test://test.json';
 		let ls = getLanguageService({ schemaRequestService, clientCapabilities: ClientCapabilities.LATEST });
 
 		let document = TextDocument.create(uri, 'json', 0, value);
 		let jsonDoc = ls.parseJSONDocument(document);
-		return ls.findDocumentSymbols2(document, jsonDoc);
+		return ls.findDocumentSymbols2(document, jsonDoc, context);
 	}
 
 	function assertColors(value: string, schema: JsonSchema.JSONSchema, expectedOffsets: number[], expectedColors: Color[]): Thenable<any> {
@@ -210,6 +210,21 @@ suite('JSON Document Symbols', () => {
 		];
 
 		assertHierarchicalOutline(content, expected);
+	});
+
+	test('Outline - limit', function () {
+		let content = '{';
+		for (let i =0; i < 100; i++) {
+			content += `"prop${i}": ${i}`;
+		}
+		content += '}';
+
+		const flatOutline = getFlatOutline(content, { resultLimit: 10 });
+		assert.equal(flatOutline.length, 10, 'flat');
+
+
+		const hierarchicalOutline = getHierarchicalOutline(content, { resultLimit: 10 });
+		assert.equal(hierarchicalOutline.length, 10, 'hierarchical');
 	});
 
 	test('Colors', async function () {

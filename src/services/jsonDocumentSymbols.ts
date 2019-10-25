@@ -17,12 +17,14 @@ export class JSONDocumentSymbols {
 	constructor(private schemaService: IJSONSchemaService) {
 	}
 
-	public findDocumentSymbols(document: TextDocument, doc: Parser.JSONDocument): SymbolInformation[] {
+	public findDocumentSymbols(document: TextDocument, doc: Parser.JSONDocument, context?: { resultLimit?: number }): SymbolInformation[] {
 
 		let root = doc.root;
 		if (!root) {
 			return null;
 		}
+
+		let limit = context && typeof context.resultLimit === 'number' ? context.resultLimit : Number.MAX_VALUE;
 
 		// special handling for key bindings
 		let resourceString = document.uri;
@@ -30,11 +32,12 @@ export class JSONDocumentSymbols {
 			if (root.type === 'array') {
 				let result: SymbolInformation[] = [];
 				root.items.forEach(item => {
-					if (item.type === 'object') {
+					if (limit > 0 && item.type === 'object') {
 						for (let property of item.properties) {
-							if (property.keyNode.value === 'key') {
+							if (limit > 0 && property.keyNode.value === 'key') {
 								if (property.valueNode) {
 									if (property.valueNode) {
+										limit--;
 										let location = Location.create(document.uri, getRange(document, item));
 										result.push({ name: Parser.getNodeValue(property.valueNode), kind: SymbolKind.Function, location: location });
 									}
@@ -49,18 +52,23 @@ export class JSONDocumentSymbols {
 		}
 
 		let collectOutlineEntries = (result: SymbolInformation[], node: ASTNode, containerName: string): SymbolInformation[] => {
-			if (node.type === 'array') {
-				node.items.forEach(node => collectOutlineEntries(result, node, containerName));
-			} else if (node.type === 'object') {
-				node.properties.forEach((property: PropertyASTNode) => {
-					let location = Location.create(document.uri, getRange(document, property));
-					let valueNode = property.valueNode;
-					if (valueNode) {
-						let childContainerName = containerName ? containerName + '.' + property.keyNode.value : property.keyNode.value;
-						result.push({ name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), location: location, containerName: containerName });
-						collectOutlineEntries(result, valueNode, childContainerName);
-					}
-				});
+			if (limit > 0) {
+				if (node.type === 'array') {
+					node.items.forEach(node => collectOutlineEntries(result, node, containerName));
+				} else if (node.type === 'object') {
+					node.properties.forEach((property: PropertyASTNode) => {
+						if (limit > 0) {
+							limit--;
+							let location = Location.create(document.uri, getRange(document, property));
+							let valueNode = property.valueNode;
+							if (valueNode) {
+								let childContainerName = containerName ? containerName + '.' + property.keyNode.value : property.keyNode.value;
+								result.push({ name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), location: location, containerName: containerName });
+								collectOutlineEntries(result, valueNode, childContainerName);
+							}
+						}
+					});
+				}
 			}
 			return result;
 		};
@@ -68,12 +76,14 @@ export class JSONDocumentSymbols {
 		return result;
 	}
 
-	public findDocumentSymbols2(document: TextDocument, doc: Parser.JSONDocument): DocumentSymbol[] {
+	public findDocumentSymbols2(document: TextDocument, doc: Parser.JSONDocument, context?: { resultLimit?: number }): DocumentSymbol[] {
 
 		let root = doc.root;
 		if (!root) {
 			return null;
 		}
+
+		let limit = context && typeof context.resultLimit === 'number' ? context.resultLimit : Number.MAX_VALUE;
 
 		// special handling for key bindings
 		let resourceString = document.uri;
@@ -81,10 +91,11 @@ export class JSONDocumentSymbols {
 			if (root.type === 'array') {
 				let result: DocumentSymbol[] = [];
 				root.items.forEach(item => {
-					if (item.type === 'object') {
+					if (limit > 0 && item.type === 'object') {
 						for (let property of item.properties) {
-							if (property.keyNode.value === 'key') {
+							if (limit > 0 && property.keyNode.value === 'key') {
 								if (property.valueNode) {
+									limit--;
 									let range = getRange(document, item);
 									let selectionRange = getRange(document, property.keyNode);
 									result.push({ name: Parser.getNodeValue(property.valueNode), kind: SymbolKind.Function, range, selectionRange });
@@ -99,26 +110,31 @@ export class JSONDocumentSymbols {
 		}
 
 		let collectOutlineEntries = (result: DocumentSymbol[], node: ASTNode): DocumentSymbol[] => {
-			if (node.type === 'array') {
-				node.items.forEach((node, index) => {
-					if (node) {
-						let range = getRange(document, node);
-						let selectionRange = range;
-						let name = String(index);
-						let children = collectOutlineEntries([], node);
-						result.push({ name, kind: this.getSymbolKind(node.type), range, selectionRange, children });
-					}
-				});
-			} else if (node.type === 'object') {
-				node.properties.forEach((property: PropertyASTNode) => {
-					let valueNode = property.valueNode;
-					if (valueNode) {
-						let range = getRange(document, property);
-						let selectionRange = getRange(document, property.keyNode);
-						let children = collectOutlineEntries([], valueNode);
-						result.push({ name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), range, selectionRange, children });
-					}
-				});
+			if (limit > 0) {
+				if (node.type === 'array') {
+					node.items.forEach((node, index) => {
+						if (node && limit > 0) {
+							limit--;
+							let range = getRange(document, node);
+							let selectionRange = range;
+							let name = String(index);
+							let children = collectOutlineEntries([], node);
+							result.push({ name, kind: this.getSymbolKind(node.type), range, selectionRange, children });
+						}
+					});
+				} else if (node.type === 'object') {
+					node.properties.forEach((property: PropertyASTNode) => {
+						let valueNode = property.valueNode;
+						if (valueNode && limit > 0) {
+							limit--;
+							let range = getRange(document, property);
+							let selectionRange = getRange(document, property.keyNode);
+							let children = collectOutlineEntries([], valueNode);
+							result.push({ name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), range, selectionRange, children });
+
+						}
+					});
+				}
 			}
 			return result;
 		};
@@ -145,7 +161,7 @@ export class JSONDocumentSymbols {
 	}
 
 	private getKeyLabel(property: PropertyASTNode) {
-		let name =  property.keyNode.value;
+		let name = property.keyNode.value;
 		if (name) {
 			name = name.replace(/[\n]/g, '↵');
 		}
@@ -155,14 +171,15 @@ export class JSONDocumentSymbols {
 		return `"${name}"`;
 	}
 
-	public findDocumentColors(document: TextDocument, doc: Parser.JSONDocument): Thenable<ColorInformation[]> {
+	public findDocumentColors(document: TextDocument, doc: Parser.JSONDocument, context?: { resultLimit?: number }): Thenable<ColorInformation[]> {
 		return this.schemaService.getSchemaForResource(document.uri, doc).then(schema => {
 			let result: ColorInformation[] = [];
 			if (schema) {
+				let limit = context && typeof context.resultLimit === 'number' ? context.resultLimit : Number.MAX_VALUE;
 				let matchingSchemas = doc.getMatchingSchemas(schema.schema);
 				let visitedNode = {};
 				for (let s of matchingSchemas) {
-					if (!s.inverted && s.schema && (s.schema.format === 'color' || s.schema.format === 'color-hex') && s.node && s.node.type === 'string') {
+					if (limit > 0 && !s.inverted && s.schema && (s.schema.format === 'color' || s.schema.format === 'color-hex') && s.node && s.node.type === 'string') {
 						let nodeId = String(s.node.offset);
 						if (!visitedNode[nodeId]) {
 							let color = colorFromHex(Parser.getNodeValue(s.node));
@@ -171,6 +188,7 @@ export class JSONDocumentSymbols {
 								result.push({ color, range });
 							}
 							visitedNode[nodeId] = true;
+							limit--;
 						}
 					}
 				}

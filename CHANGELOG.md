@@ -1,9 +1,13 @@
+3.3.6 / 2019-10-25
+==================
+* Added `context` with `resultLimit` to `findDocumentSymbols` and `findDocumentColors`.
+
 3.3.4 / 2019-09-20
-=================
+==================
 * Renamed `schema.allowsTrailingCommas` -> `schema.allowTrailingCommas`
 
 3.3.3 / 2019-08-29
-=================
+==================
 * Schemas can configure whether comments and/or trailing commas are permitted.
 
 3.3.0 / 2019-06-12
@@ -14,9 +18,9 @@
 3.2.0 / 2018-09-27
 ==================
  * New API `LanguageServiceParams.ClientCapabilities` to define what LSP capabilities the client supports.
- * For the best experiences, clients should always use `LanguageServiceParams.ClientCapabilities.LATEST`, which has all the latest LSP cpabilities enabled.
+ * For the best experiences, clients should always use `LanguageServiceParams.ClientCapabilities.LATEST`, which has all the latest LSP capabilities enabled.
  * `LanguageServiceParams.ClientCapabilities` can allow `MarkupKind.Markdown` as valid documentationFormat (used by completions if schemas use `markdownDescription` or `markdownEnumDescriptions`).
- * snippets can now provide the description also in markdown format.
+ * Snippets can now provide the description also in markdown format.
  * Bundled draft-07-schema with descriptions.
  * Propose `examples` in code completions.
 
@@ -49,12 +53,12 @@
   * Changed parameters of API `LanguageService.getColorPresentations` to separate color and range
 .
 2.0.19 / 2017-09-21
-==================
+===================
   * New API `LanguageService.getColorPresentations` returning presentations for a given color. 
   * New API type `ColorPresentation` added.
   
 2.0.15 / 2017-08-28
-==================
+===================
   * New API `LanguageService.findDocumentColors` returning the location and value of all colors in a document. 
   * New API types `ColorInformation` and `Color` added.
   * Deprecated `LanguageService.findColorSymbols`. Use `LanguageService.findDocumentColors` instead.
