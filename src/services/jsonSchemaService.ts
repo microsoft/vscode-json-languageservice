@@ -12,6 +12,7 @@ import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Then
 
 
 import * as nls from 'vscode-nls';
+
 const localize = nls.loadMessageBundle();
 
 export interface IJSONSchemaService {
@@ -393,6 +394,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		let resolveErrors: string[] = schemaToResolve.errors.slice(0);
 		let schema = schemaToResolve.schema;
+
+		if (schema.$schema && this.normalizeId(schema.$schema) === 'http://json-schema.org/draft-03/schema') {
+			return this.promise.resolve(new ResolvedSchema({}, [ localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.") ]));
+		}
+
 		let contextService = this.contextService;
 
 		let findSection = (schema: JSONSchema, path: string): any => {
