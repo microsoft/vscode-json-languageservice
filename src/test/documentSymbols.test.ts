@@ -9,7 +9,7 @@ import * as JsonSchema from '../jsonSchema';
 import { SymbolInformation, SymbolKind, TextDocument, Range, Position, TextEdit, DocumentSymbol } from 'vscode-languageserver-types';
 import { Thenable, Color, getLanguageService } from "../jsonLanguageService";
 import { colorFrom256RGB } from '../utils/colors';
-import { ClientCapabilities } from '../jsonLanguageTypes';
+import { ClientCapabilities, DocumentSymbolsContext } from '../jsonLanguageTypes';
 
 suite('JSON Document Symbols', () => {
 
@@ -219,12 +219,15 @@ suite('JSON Document Symbols', () => {
 		}
 		content += '}';
 
-		const flatOutline = getFlatOutline(content, { resultLimit: 10 });
+		let context : DocumentSymbolsContext = { resultLimit: 10 };
+		const flatOutline = getFlatOutline(content, context);
 		assert.equal(flatOutline.length, 10, 'flat');
+		assert.equal(context.resultLimitExceeded, true);
 
-
-		const hierarchicalOutline = getHierarchicalOutline(content, { resultLimit: 10 });
+		context = { resultLimit: 10 };
+		const hierarchicalOutline = getHierarchicalOutline(content, context);
 		assert.equal(hierarchicalOutline.length, 10, 'hierarchical');
+		assert.equal(context.resultLimitExceeded, true);
 	});
 
 	test('Colors', async function () {

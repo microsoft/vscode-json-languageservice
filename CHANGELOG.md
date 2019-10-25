@@ -1,6 +1,6 @@
 3.3.6 / 2019-10-25
 ==================
-* Added `context` with `resultLimit` to `findDocumentSymbols` and `findDocumentColors`.
+* Added `DocumentSymbolsContext` and `ColorInformationContext` with `resultLimit` and `resultLimitExceeded`. `resultLimitExceeded` is set on return when the result was cropped.
 * Added commit characters for completion proposals (if supported by ClientCapabilities)
 
 3.3.4 / 2019-09-20

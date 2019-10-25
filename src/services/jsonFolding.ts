@@ -5,9 +5,9 @@
 
 import { TextDocument, Position } from 'vscode-languageserver-types';
 import { createScanner, SyntaxKind, ScanError } from 'jsonc-parser';
-import { FoldingRangeKind, FoldingRange } from '../jsonLanguageTypes';
+import { FoldingRangeKind, FoldingRange, FoldingRangesContext } from '../jsonLanguageTypes';
 
-export function getFoldingRanges(document: TextDocument, context?: { rangeLimit?: number }): FoldingRange[] {
+export function getFoldingRanges(document: TextDocument, context?: FoldingRangesContext): FoldingRange[] {
 	let ranges: FoldingRange[] = [];
 	let nestingLevels: number[] = [];
 	let stack: FoldingRange[] = [];
@@ -92,6 +92,8 @@ export function getFoldingRanges(document: TextDocument, context?: { rangeLimit?
 	if (typeof rangeLimit !== 'number' || ranges.length <= rangeLimit) {
 		return ranges;
 	}
+	context.rangeLimitExceeded = true;
+	
 	let counts: number[] = [];
 	for (let level of nestingLevels) {
 		if (level < 30) {

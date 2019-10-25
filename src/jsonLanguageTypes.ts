@@ -260,3 +260,36 @@ export namespace ClientCapabilities {
 		}
 	};
 }
+
+export interface FoldingRangesContext {
+	/**
+	 * The maximal number of ranges returned.
+	 */
+	rangeLimit?: number;
+	/**
+	 * Set on return when the result was cropped.
+	 */
+	rangeLimitExceeded?: boolean;
+}
+
+export interface DocumentSymbolsContext {
+	/**
+	 * The maximal number of document symbols returned.
+	 */
+	resultLimit?: number;
+	/**
+	 * Set on return when the result was cropped.
+	 */
+	resultLimitExceeded?: boolean;
+}
+
+export interface ColorInformationContext {
+	/**
+	 * The maximal number of color informations returned.
+	 */
+	resultLimit?: number;
+	/**
+	 * Set on return when the result was cropped.
+	 */
+	resultLimitExceeded?: boolean;
+}
