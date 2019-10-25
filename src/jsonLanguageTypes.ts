@@ -227,6 +227,11 @@ export interface ClientCapabilities {
 				 * property. The order describes the preferred format of the client.
 				 */
 				documentationFormat?: MarkupKind[];
+
+				/**
+				 * The client supports commit characters on a completion item.
+				 */
+				commitCharactersSupport?: boolean
 			};
 
 		};
@@ -248,7 +253,8 @@ export namespace ClientCapabilities {
 		textDocument: {
 			completion: {
 				completionItem: {
-					documentationFormat: [MarkupKind.Markdown, MarkupKind.PlainText]
+					documentationFormat: [MarkupKind.Markdown, MarkupKind.PlainText],
+					commitCharactersSupport: true
 				}
 			}
 		}

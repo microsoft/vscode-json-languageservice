@@ -21,10 +21,13 @@ import { CompletionItem, CompletionItemKind, CompletionList, TextDocument, Posit
 import * as nls from 'vscode-nls';
 const localize = nls.loadMessageBundle();
 
+const valueCommitCharacters = [',', '}', ']'];
+const propertyCommitCharacters = [':'];
 
 export class JSONCompletion {
 
 	private supportsMarkdown: boolean | undefined;
+	private supportsCommitCharacters: boolean | undefined;
 
 	constructor(
 		private schemaService: SchemaService.IJSONSchemaService,
@@ -80,6 +83,8 @@ export class JSONCompletion {
 			overwriteRange = Range.create(document.positionAt(overwriteStart), position);
 		}
 
+		const supportsCommitCharacters = this.doesSupportsCommitCharacters();
+
 		let proposed: { [key: string]: CompletionItem } = {};
 		let collector: CompletionsCollector = {
 			add: (suggestion: CompletionItem) => {
@@ -88,6 +93,9 @@ export class JSONCompletion {
 					proposed[suggestion.label] = suggestion;
 					if (overwriteRange) {
 						suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
+					}
+					if (supportsCommitCharacters) {
+						suggestion.commitCharacters = suggestion.kind === CompletionItemKind.Property ? propertyCommitCharacters : valueCommitCharacters;
 					}
 
 					result.items.push(suggestion);
@@ -894,6 +902,14 @@ export class JSONCompletion {
 			this.supportsMarkdown = completion && completion.completionItem && Array.isArray(completion.completionItem.documentationFormat) && completion.completionItem.documentationFormat.indexOf(MarkupKind.Markdown) !== -1;
 		}
 		return this.supportsMarkdown;
+	}
+
+	private doesSupportsCommitCharacters() {
+		if (!isDefined(this.supportsCommitCharacters)) {
+			const completion = this.clientCapabilities.textDocument && this.clientCapabilities.textDocument.completion;
+			this.supportsCommitCharacters = completion && completion.completionItem && !!completion.completionItem.commitCharactersSupport;
+		}
+		return this.supportsCommitCharacters;
 	}
 
 }
