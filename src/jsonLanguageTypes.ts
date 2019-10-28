@@ -267,9 +267,9 @@ export interface FoldingRangesContext {
 	 */
 	rangeLimit?: number;
 	/**
-	 * Set on return when the result was cropped.
+	 * Called when the result was cropped.
 	 */
-	rangeLimitExceeded?: boolean;
+	onRangeLimitExceeded?: (uri: string) => void;
 }
 
 export interface DocumentSymbolsContext {
@@ -278,9 +278,9 @@ export interface DocumentSymbolsContext {
 	 */
 	resultLimit?: number;
 	/**
-	 * Set on return when the result was cropped.
+	 * Called when the result was cropped.
 	 */
-	resultLimitExceeded?: boolean;
+	onResultLimitExceeded?: (uri: string) => void;
 }
 
 export interface ColorInformationContext {
@@ -289,7 +289,7 @@ export interface ColorInformationContext {
 	 */
 	resultLimit?: number;
 	/**
-	 * Set on return when the result was cropped.
+	 * Called when the result was cropped.
 	 */
-	resultLimitExceeded?: boolean;
+	onResultLimitExceeded?: (uri: string) => void;
 }

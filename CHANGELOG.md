@@ -1,6 +1,6 @@
 3.4.0 / 2019-10-28
 ==================
-* Added `DocumentSymbolsContext` and `ColorInformationContext` with `resultLimit` and `resultLimitExceeded`. `resultLimitExceeded` is set on return when the result was cropped.
+* Added `DocumentSymbolsContext` and `ColorInformationContext` with `resultLimit` and `onResultLimitExceeded`. `onResultLimitExceeded` is called when the result was cropped.
 * Added commit characters for completion proposals (if supported by ClientCapabilities)
 * Warn when using draft-03 or draft-08 schemas
 

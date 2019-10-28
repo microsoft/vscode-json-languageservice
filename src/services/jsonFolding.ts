@@ -92,7 +92,9 @@ export function getFoldingRanges(document: TextDocument, context?: FoldingRanges
 	if (typeof rangeLimit !== 'number' || ranges.length <= rangeLimit) {
 		return ranges;
 	}
-	context.rangeLimitExceeded = true;
+	if (context && context.onRangeLimitExceeded) {
+		context.onRangeLimitExceeded(document.uri);
+	}
 	
 	let counts: number[] = [];
 	for (let level of nestingLevels) {

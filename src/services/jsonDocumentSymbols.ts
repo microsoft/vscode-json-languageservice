@@ -39,7 +39,9 @@ export class JSONDocumentSymbols {
 								result.push({ name: Parser.getNodeValue(property.valueNode), kind: SymbolKind.Function, location: location });
 								limit--;
 								if (limit <= 0) {
-									context.resultLimitExceeded = true;
+									if (context && context.onResultLimitExceeded) {
+										context.onResultLimitExceeded(resourceString);
+									}
 									return result;
 								}
 							}
@@ -74,7 +76,9 @@ export class JSONDocumentSymbols {
 		let result = collectOutlineEntries([], root, void 0);
 		if (limit < 0) {
 			result.pop();
-			context.resultLimitExceeded = true;
+			if (context && context.onResultLimitExceeded) {
+				context.onResultLimitExceeded(resourceString);
+			}
 		}
 		return result;
 	}
@@ -102,7 +106,9 @@ export class JSONDocumentSymbols {
 								result.push({ name: Parser.getNodeValue(property.valueNode), kind: SymbolKind.Function, range, selectionRange });
 								limit--;
 								if (limit <= 0) {
-									context.resultLimitExceeded = true;
+									if (context && context.onResultLimitExceeded) {
+										context.onResultLimitExceeded(resourceString);
+									}
 									return result;
 								}
 							}
@@ -144,7 +150,9 @@ export class JSONDocumentSymbols {
 		let result = collectOutlineEntries([], root);
 		if (limit < 0) {
 			result.pop();
-			context.resultLimitExceeded = true;
+			if (context && context.onResultLimitExceeded) {
+				context.onResultLimitExceeded(resourceString);
+			}
 		}
 		return result;
 	}
@@ -197,8 +205,8 @@ export class JSONDocumentSymbols {
 							visitedNode[nodeId] = true;
 							limit--;
 							if (limit <= 0) {
-								if (context) {
-									context.resultLimitExceeded = true;
+								if (context && context.onResultLimitExceeded) {
+									context.onResultLimitExceeded(document.uri);
 								}
 								return result;
 							}

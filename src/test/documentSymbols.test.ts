@@ -219,15 +219,19 @@ suite('JSON Document Symbols', () => {
 		}
 		content += '}';
 
-		let context : DocumentSymbolsContext = { resultLimit: 10 };
+		let exceededUris: string[] = [];
+
+		let context : DocumentSymbolsContext = { resultLimit: 10, onResultLimitExceeded: (uri: string) => exceededUris.push(uri) };
+		
 		const flatOutline = getFlatOutline(content, context);
 		assert.equal(flatOutline.length, 10, 'flat');
-		assert.equal(context.resultLimitExceeded, true);
+		assert.equal(exceededUris.length, 1);
 
-		context = { resultLimit: 10 };
+		exceededUris = [];
+
 		const hierarchicalOutline = getHierarchicalOutline(content, context);
 		assert.equal(hierarchicalOutline.length, 10, 'hierarchical');
-		assert.equal(context.resultLimitExceeded, true);
+		assert.equal(exceededUris.length, 1);
 	});
 
 	test('Colors', async function () {
