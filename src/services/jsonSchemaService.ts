@@ -385,7 +385,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 					// more concise error message, URL and context are attached by caller anyways
 					errorMessage = errorSplit[1];
 				}
-				return new UnresolvedSchema(<JSONSchema>{}, [errorMessage]);
+				return new UnresolvedSchema(<JSONSchema>{}, [localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': {1}.', toDisplayString(url), errorMessage) ]);
 			}
 		);
 	}

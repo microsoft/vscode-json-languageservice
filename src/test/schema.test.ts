@@ -51,11 +51,11 @@ suite('JSON Schema', () => {
 				return new Promise<string>((c, e) => {
 					let fixturePath = path.join(__dirname, '../../../src/test/fixtures', fileName);
 					fs.readFile(fixturePath, 'UTF-8', (err, result) => {
-						err ? e("Resource not found.") : c(result.toString());
+						err ? e("Resource not found") : c(result.toString());
 					});
 				});
 			}
-			return Promise.reject<string>("Resource not found.");
+			return Promise.reject<string>("Resource not found");
 		};
 	}
 
@@ -498,7 +498,7 @@ suite('JSON Schema', () => {
 			service.clearExternalSchemas();
 			return service.getSchemaForResource('main.bar', null).then(resolvedSchema => {
 				assert.equal(resolvedSchema.errors.length, 1);
-				assert.equal(resolvedSchema.errors[0], "Problems loading reference 'http://myschemastore/myschemafoo': Resource not found.");
+				assert.equal(resolvedSchema.errors[0], "Problems loading reference 'http://myschemastore/myschemafoo': Unable to load schema from 'http://myschemastore/myschemafoo': Resource not found.");
 
 				service.clearExternalSchemas();
 				service.registerExternalSchema(id2, null, schema2);
