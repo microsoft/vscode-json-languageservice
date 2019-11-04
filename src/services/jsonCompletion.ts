@@ -13,11 +13,10 @@ import { endsWith } from '../utils/strings';
 import { isDefined } from '../utils/objects';
 import {
 	PromiseConstructor, Thenable,
-	ASTNode, ObjectASTNode, ArrayASTNode, PropertyASTNode, ClientCapabilities
+	ASTNode, ObjectASTNode, ArrayASTNode, PropertyASTNode, ClientCapabilities,
+	TextDocument,
+	CompletionItem, CompletionItemKind, CompletionList, Position, Range, TextEdit, InsertTextFormat, MarkupContent, MarkupKind
 } from '../jsonLanguageTypes';
-
-import { CompletionItem, CompletionItemKind, CompletionList, Position, Range, TextEdit, InsertTextFormat, MarkupContent, MarkupKind } from 'vscode-languageserver-types';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import * as nls from 'vscode-nls';
 const localize = nls.loadMessageBundle();

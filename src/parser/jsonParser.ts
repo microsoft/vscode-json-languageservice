@@ -6,11 +6,9 @@
 import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import { isNumber, equals, isBoolean, isString, isDefined } from '../utils/objects';
-import { ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode } from '../jsonLanguageTypes';
+import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range } from '../jsonLanguageTypes';
 
 import * as nls from 'vscode-nls';
-import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver-types';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 
 const localize = nls.loadMessageBundle();
 

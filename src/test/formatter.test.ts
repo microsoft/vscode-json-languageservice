@@ -3,9 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Range } from 'vscode-languageserver-types';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLanguageService, ClientCapabilities } from '../jsonLanguageService';
+import { getLanguageService, ClientCapabilities, Range } from '../jsonLanguageService';
 import * as assert from 'assert';
 
 const applyEdits = TextDocument.applyEdits;

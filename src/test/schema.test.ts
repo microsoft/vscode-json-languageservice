@@ -11,7 +11,7 @@ import * as url from 'url';
 import * as path from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLanguageService } from '../jsonLanguageService';
-import { JSONSchema, SchemaRequestService, ErrorCode } from '../jsonLanguageTypes';
+import { JSONSchema, SchemaRequestService } from '../jsonLanguageTypes';
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
 	let textDoc = TextDocument.create('foo://bar/file.json', 'json', 0, text);

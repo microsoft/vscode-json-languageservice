@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import { getNodePath, getNodeValue, JSONDocumentConfig, parse, JSONDocument } from '../parser/jsonParser';
 import * as JsonSchema from '../jsonSchema';
-import { Range } from 'vscode-languageserver-types';
+import { Range } from '../jsonLanguageTypes';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ErrorCode, ASTNode, ObjectASTNode, getLanguageService } from '../jsonLanguageService';
 

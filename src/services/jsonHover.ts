@@ -6,10 +6,7 @@
 import * as Parser from '../parser/jsonParser';
 import * as SchemaService from './jsonSchemaService';
 import { JSONWorkerContribution } from '../jsonContributions';
-import { PromiseConstructor, Thenable } from '../jsonLanguageTypes';
-
-import { Hover, Position, Range, MarkedString } from 'vscode-languageserver-types';
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import { TextDocument, PromiseConstructor, Thenable, Position, Range, Hover, MarkedString } from '../jsonLanguageTypes';
 
 export class JSONHover {
 

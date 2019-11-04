@@ -3,10 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Position } from 'vscode-languageserver-types';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { createScanner, SyntaxKind, ScanError } from 'jsonc-parser';
-import { FoldingRangeKind, FoldingRange, FoldingRangesContext } from '../jsonLanguageTypes';
+import { TextDocument, FoldingRangeKind, FoldingRange, FoldingRangesContext, Position } from '../jsonLanguageTypes';
 
 export function getFoldingRanges(document: TextDocument, context?: FoldingRangesContext): FoldingRange[] {
 	let ranges: FoldingRange[] = [];

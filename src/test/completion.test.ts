@@ -7,10 +7,7 @@ import * as assert from 'assert';
 import * as JsonSchema from '../jsonSchema';
 import * as jsonLanguageService from '../jsonLanguageService';
 
-import { CompletionList, CompletionItemKind, Position, MarkupContent } from 'vscode-languageserver-types';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-
-import { ClientCapabilities } from '../jsonLanguageTypes';
+import { TextDocument, ClientCapabilities, CompletionList, CompletionItemKind, Position, MarkupContent } from '../jsonLanguageTypes';
 import { repeat } from '../utils/strings';
 
 const applyEdits = TextDocument.applyEdits;

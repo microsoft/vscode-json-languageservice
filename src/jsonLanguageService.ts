@@ -2,12 +2,6 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import {
-	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions, MarkedString, DocumentSymbol
-} from 'vscode-languageserver-types';
-
-import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { JSONCompletion } from './services/jsonCompletion';
 import { JSONHover } from './services/jsonHover';
@@ -26,16 +20,14 @@ import {
 	ASTNode,
 	Color, ColorInformation, ColorPresentation,
 	LanguageServiceParams, LanguageSettings, DocumentLanguageSettings,
-	FoldingRange, JSONSchema, SelectionRange, FoldingRangesContext, DocumentSymbolsContext, ColorInformationContext as DocumentColorsContext
+	FoldingRange, JSONSchema, SelectionRange, FoldingRangesContext, DocumentSymbolsContext, ColorInformationContext as DocumentColorsContext,
+	TextDocument,
+	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
+	TextEdit, FormattingOptions, DocumentSymbol
 } from './jsonLanguageTypes';
 
 export type JSONDocument = {};
 export * from './jsonLanguageTypes';
-
-export {
-	TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions, MarkedString
-};
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;

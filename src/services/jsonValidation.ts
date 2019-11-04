@@ -5,10 +5,8 @@
 
 import { JSONSchemaService, ResolvedSchema, UnresolvedSchema } from './jsonSchemaService';
 import { JSONDocument } from '../parser/jsonParser';
-import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver-types';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel } from '../jsonLanguageTypes';
+import { TextDocument, ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range  } from '../jsonLanguageTypes';
 import * as nls from 'vscode-nls';
 import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
 import { isDefined, isBoolean } from '../utils/objects';

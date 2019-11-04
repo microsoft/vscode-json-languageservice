@@ -4,11 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions';
 import { JSONSchema } from './jsonSchema';
-import { Range, TextEdit, Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, MarkupKind, SelectionRange } from 'vscode-languageserver-types';
+import {
+	TextDocument, Range, TextEdit, Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, MarkupKind, SelectionRange,
+	Diagnostic, DiagnosticSeverity,
+	CompletionItem, CompletionItemKind, CompletionList, Position,
+	InsertTextFormat, MarkupContent,
+	SymbolInformation, SymbolKind, DocumentSymbol, Location,  Hover, MarkedString, FormattingOptions
+} from 'vscode-languageserver-types';
 
 export {
-	Range, TextEdit, JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
-	Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, SelectionRange
+	TextDocument, Range, TextEdit, JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
+	Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, SelectionRange,
+	Diagnostic, DiagnosticSeverity,
+	CompletionItem, CompletionItemKind, CompletionList, Position,
+	InsertTextFormat, MarkupContent, MarkupKind,
+	SymbolInformation, SymbolKind, DocumentSymbol, Location,  Hover, MarkedString, FormattingOptions
 };
 
 /**
