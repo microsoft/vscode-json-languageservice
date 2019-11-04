@@ -7,7 +7,9 @@ import * as Parser from '../parser/jsonParser';
 import * as Strings from '../utils/strings';
 import { colorFromHex } from '../utils/colors';
 
-import { SymbolInformation, SymbolKind, TextDocument, Range, Location, TextEdit, DocumentSymbol } from 'vscode-languageserver-types';
+import { SymbolInformation, SymbolKind, Range, Location, TextEdit, DocumentSymbol } from 'vscode-languageserver-types';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+
 import { Thenable, ColorInformation, ColorPresentation, Color, ASTNode, PropertyASTNode, DocumentSymbolsContext } from "../jsonLanguageTypes";
 
 import { IJSONSchemaService } from "./jsonSchemaService";

@@ -8,7 +8,8 @@ import * as SchemaService from './jsonSchemaService';
 import { JSONWorkerContribution } from '../jsonContributions';
 import { PromiseConstructor, Thenable } from '../jsonLanguageTypes';
 
-import { Hover, TextDocument, Position, Range, MarkedString } from 'vscode-languageserver-types';
+import { Hover, Position, Range, MarkedString } from 'vscode-languageserver-types';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 export class JSONHover {
 

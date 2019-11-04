@@ -16,7 +16,8 @@ import {
 	ASTNode, ObjectASTNode, ArrayASTNode, PropertyASTNode, ClientCapabilities
 } from '../jsonLanguageTypes';
 
-import { CompletionItem, CompletionItemKind, CompletionList, TextDocument, Position, Range, TextEdit, InsertTextFormat, MarkupContent, MarkupKind } from 'vscode-languageserver-types';
+import { CompletionItem, CompletionItemKind, CompletionList, Position, Range, TextEdit, InsertTextFormat, MarkupContent, MarkupKind } from 'vscode-languageserver-types';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import * as nls from 'vscode-nls';
 const localize = nls.loadMessageBundle();

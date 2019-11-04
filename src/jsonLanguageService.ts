@@ -3,9 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import {
-	TextDocument, Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
+	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
 	TextEdit, FormattingOptions, MarkedString, DocumentSymbol
 } from 'vscode-languageserver-types';
+
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { JSONCompletion } from './services/jsonCompletion';
 import { JSONHover } from './services/jsonHover';

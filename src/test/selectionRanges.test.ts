@@ -5,7 +5,7 @@
 
 import 'mocha';
 import * as assert from 'assert';
-import { TextDocument } from 'vscode-languageserver-types';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLanguageService } from '../jsonLanguageService';
 
 function assertRanges(content: string, expected: (number | string)[][]): void {

@@ -9,7 +9,8 @@ import { isNumber, equals, isBoolean, isString, isDefined } from '../utils/objec
 import { ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode } from '../jsonLanguageTypes';
 
 import * as nls from 'vscode-nls';
-import { TextDocument, Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver-types';
+import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver-types';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 const localize = nls.loadMessageBundle();
 

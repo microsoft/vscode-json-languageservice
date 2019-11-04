@@ -9,7 +9,7 @@ import * as Parser from '../parser/jsonParser';
 import * as fs from 'fs';
 import * as url from 'url';
 import * as path from 'path';
-import { TextDocument } from 'vscode-languageserver-types';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLanguageService } from '../jsonLanguageService';
 import { JSONSchema, SchemaRequestService, ErrorCode } from '../jsonLanguageTypes';
 

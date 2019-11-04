@@ -7,7 +7,9 @@ import * as assert from 'assert';
 import * as JsonSchema from '../jsonSchema';
 import * as jsonLanguageService from '../jsonLanguageService';
 
-import { CompletionList, CompletionItemKind, TextDocument, Position, MarkupContent } from 'vscode-languageserver-types';
+import { CompletionList, CompletionItemKind, Position, MarkupContent } from 'vscode-languageserver-types';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+
 import { ClientCapabilities } from '../jsonLanguageTypes';
 import { repeat } from '../utils/strings';
 

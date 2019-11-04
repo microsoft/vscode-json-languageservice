@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { TextDocument, Position } from 'vscode-languageserver-types';
+import { Position } from 'vscode-languageserver-types';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { createScanner, SyntaxKind, ScanError } from 'jsonc-parser';
 import { FoldingRangeKind, FoldingRange, FoldingRangesContext } from '../jsonLanguageTypes';
 
