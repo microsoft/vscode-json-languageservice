@@ -1,3 +1,7 @@
+3.4.4 / 2019-11-04
+==================
+ * Using `vscode-languageserver-textdocument` for TextDocument
+
 3.4.0 / 2019-10-28
 ==================
 * Added `DocumentSymbolsContext` and `ColorInformationContext` with `resultLimit` and `onResultLimitExceeded`. `onResultLimitExceeded` is called when the result was cropped.
