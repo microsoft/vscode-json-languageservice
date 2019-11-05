@@ -620,10 +620,15 @@ typescript@^3.6.4:
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.6.4.tgz#b18752bb3792bc1a0281335f7f6ebf1bbfc5b91d"
   integrity sha512-unoCll1+l+YK4i4F8f22TaNVPRHcD9PA3yCuZ8g5e0qGqlVlJ/8FSateOLLSagn+Yg5+ZwuPkL8LFUc0Jcvksg==
 
-vscode-languageserver-types@^3.15.0-next.5:
-  version "3.15.0-next.5"
-  resolved "https://registry.yarnpkg.com/vscode-languageserver-types/-/vscode-languageserver-types-3.15.0-next.5.tgz#863d711bf47b338ff5e63ae19fb20d4fcd4d713b"
-  integrity sha512-7hrELhTeWieUgex3+6692KjCkcmO/+V/bFItM5MHGcBotzwmjEuXjapLLYTYhIspuJ1ibRSik5MhX5YwLpsPiw==
+vscode-languageserver-textdocument@^1.0.0-next.3:
+  version "1.0.0-next.3"
+  resolved "https://registry.yarnpkg.com/vscode-languageserver-textdocument/-/vscode-languageserver-textdocument-1.0.0-next.3.tgz#653bf15b0eb11d87eceba1360fa0bd240a98d61b"
+  integrity sha512-uAz2tOpYJI27Q3xJYlVwj5QAgA32gkJLi5Th5nP2uIj5EtQ6ZwBrA7Hqgy85evprLGinsdJddkPgBYEFka1v7w==
+
+vscode-languageserver-types@^3.15.0-next.6:
+  version "3.15.0-next.6"
+  resolved "https://registry.yarnpkg.com/vscode-languageserver-types/-/vscode-languageserver-types-3.15.0-next.6.tgz#7a990d00c39ad4e744335afb4cc422a3e687ff25"
+  integrity sha512-+4jfvmZ26oFMSX6EgPRB75PWHoT8pzyWuSSWk0erC4hTzmJq2gWxVLh20bZutZjMmiivawvPshtM3XZhX2SttA==
 
 vscode-nls@^4.1.1:
   version "4.1.1"
