@@ -12,10 +12,10 @@ import {
 	SymbolInformation, SymbolKind, DocumentSymbol, Location,  Hover, MarkedString, FormattingOptions
 } from 'vscode-languageserver-types';
 
-import { TextDocument, TextDocumentsConfiguration } from 'vscode-languageserver-textdocument';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 export {
-	TextDocument, TextDocumentsConfiguration, 
+	TextDocument, 
 	Range, TextEdit, JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
 	Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, SelectionRange,
 	Diagnostic, DiagnosticSeverity,
