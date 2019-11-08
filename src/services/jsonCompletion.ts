@@ -793,6 +793,12 @@ export class JSONCompletion {
 				}
 				nValueProposals++;
 			}
+			if (Array.isArray(propertySchema.examples) && propertySchema.examples.length) {
+				if (!value) {
+					value = this.getInsertTextForGuessedValue(propertySchema.examples[0], '');
+				}
+				nValueProposals += propertySchema.examples.length;
+			}
 			if (nValueProposals === 0) {
 				var type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
 				if (!type) {
