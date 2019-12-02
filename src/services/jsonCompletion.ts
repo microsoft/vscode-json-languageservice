@@ -83,7 +83,7 @@ export class JSONCompletion {
 			overwriteRange = Range.create(document.positionAt(overwriteStart), position);
 		}
 
-		const supportsCommitCharacters = this.doesSupportsCommitCharacters();
+		const supportsCommitCharacters = false; //this.doesSupportsCommitCharacters(); disabled for now, waiting for new API: https://github.com/microsoft/vscode/issues/42544
 
 		let proposed: { [key: string]: CompletionItem } = {};
 		let collector: CompletionsCollector = {
