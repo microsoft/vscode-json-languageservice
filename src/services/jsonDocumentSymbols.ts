@@ -7,7 +7,7 @@ import * as Parser from '../parser/jsonParser';
 import * as Strings from '../utils/strings';
 import { colorFromHex } from '../utils/colors';
 
-import { 
+import {
 	TextDocument, Thenable, ColorInformation, ColorPresentation, Color, ASTNode, PropertyASTNode, DocumentSymbolsContext, Range, TextEdit,
 	SymbolInformation, SymbolKind, DocumentSymbol, Location
 } from "../jsonLanguageTypes";
@@ -19,7 +19,7 @@ export class JSONDocumentSymbols {
 	constructor(private schemaService: IJSONSchemaService) {
 	}
 
-	public findDocumentSymbols(document: TextDocument, doc: Parser.JSONDocument, context: DocumentSymbolsContext= { resultLimit: Number.MAX_VALUE }): SymbolInformation[] {
+	public findDocumentSymbols(document: TextDocument, doc: Parser.JSONDocument, context: DocumentSymbolsContext = { resultLimit: Number.MAX_VALUE }): SymbolInformation[] {
 
 		let root = doc.root;
 		if (!root) {
@@ -54,33 +54,47 @@ export class JSONDocumentSymbols {
 			}
 		}
 
-		let collectOutlineEntries = (result: SymbolInformation[], node: ASTNode, containerName: string): SymbolInformation[] => {
-			if (limit >= 0) {
-				if (node.type === 'array') {
-					node.items.forEach(node => collectOutlineEntries(result, node, containerName));
-				} else if (node.type === 'object') {
-					node.properties.forEach((property: PropertyASTNode) => {
-						if (limit >= 0) {
-							let valueNode = property.valueNode;
-							if (valueNode) {
-								limit--;
-								const location = Location.create(document.uri, getRange(document, property));
-								const childContainerName = containerName ? containerName + '.' + property.keyNode.value : property.keyNode.value;
-								result.push({ name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), location: location, containerName: containerName });
-								collectOutlineEntries(result, valueNode, childContainerName);
-							}
+		const toVisit: { node: ASTNode, containerName: string }[] = [
+			{ node: root, containerName: '' }
+		];
+		let nextToVisit = 0;
+		let limitExceeded = false;
+
+		const result: SymbolInformation[] = [];
+
+		let collectOutlineEntries = (node: ASTNode, containerName: string): void => {
+			if (node.type === 'array') {
+				node.items.forEach(node => {
+					if (node) {
+						toVisit.push({ node, containerName });
+					}
+				});
+			} else if (node.type === 'object') {
+				node.properties.forEach((property: PropertyASTNode) => {
+					let valueNode = property.valueNode;
+					if (valueNode) {
+						if (limit > 0) {
+							limit--;
+							const location = Location.create(document.uri, getRange(document, property));
+							const childContainerName = containerName ? containerName + '.' + property.keyNode.value : property.keyNode.value;
+							result.push({ name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), location: location, containerName: containerName });
+							toVisit.push({ node: valueNode, containerName: childContainerName });
+						} else {
+							limitExceeded = true;
 						}
-					});
-				}
+					}
+				});
 			}
-			return result;
 		};
-		let result = collectOutlineEntries([], root, void 0);
-		if (limit < 0) {
-			result.pop();
-			if (context && context.onResultLimitExceeded) {
-				context.onResultLimitExceeded(resourceString);
-			}
+
+		// breath first traversal
+		while (nextToVisit < toVisit.length) {
+			const next = toVisit[nextToVisit++];
+			collectOutlineEntries(next.node, next.containerName);
+		}
+
+		if (limitExceeded && context && context.onResultLimitExceeded) {
+			context.onResultLimitExceeded(resourceString);
 		}
 		return result;
 	}
@@ -121,40 +135,57 @@ export class JSONDocumentSymbols {
 			}
 		}
 
-		let collectOutlineEntries = (result: DocumentSymbol[], node: ASTNode): DocumentSymbol[] => {
-			if (limit >= 0) { // collect one more to know that limit got exceeded
-				if (node.type === 'array') {
-					node.items.forEach((node, index) => {
-						if (node && limit >= 0) {
+		const result: DocumentSymbol[] = [];
+		const toVisit: { node: ASTNode, result: DocumentSymbol[] }[] = [
+			{ node: root, result }
+		];
+		let nextToVisit = 0;
+		let limitExceeded = false;
+
+		let collectOutlineEntries = (node: ASTNode, result: DocumentSymbol[]) => {
+			if (node.type === 'array') {
+				node.items.forEach((node, index) => {
+					if (node) {
+						if (limit > 0) {
 							limit--;
 							let range = getRange(document, node);
 							let selectionRange = range;
 							let name = String(index);
-							let children = collectOutlineEntries([], node);
-							result.push({ name, kind: this.getSymbolKind(node.type), range, selectionRange, children });
+							const symbol = { name, kind: this.getSymbolKind(node.type), range, selectionRange, children: [] };
+							result.push(symbol);
+							toVisit.push({ result: symbol.children, node });
+						} else {
+							limitExceeded = true;
 						}
-					});
-				} else if (node.type === 'object') {
-					node.properties.forEach((property: PropertyASTNode) => {
-						let valueNode = property.valueNode;
-						if (valueNode && limit >= 0) {
+					}
+				});
+			} else if (node.type === 'object') {
+				node.properties.forEach((property: PropertyASTNode) => {
+					let valueNode = property.valueNode;
+					if (valueNode) {
+						if (limit > 0) {
 							limit--;
 							let range = getRange(document, property);
 							let selectionRange = getRange(document, property.keyNode);
-							let children = collectOutlineEntries([], valueNode);
-							result.push({ name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), range, selectionRange, children });
+							const symbol = { name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), range, selectionRange, children: [] };
+							result.push(symbol);
+							toVisit.push({ result: symbol.children, node: valueNode });
+						} else {
+							limitExceeded = true;
 						}
-					});
-				}
+					}
+				});
 			}
-			return result;
 		};
-		let result = collectOutlineEntries([], root);
-		if (limit < 0) {
-			result.pop();
-			if (context && context.onResultLimitExceeded) {
-				context.onResultLimitExceeded(resourceString);
-			}
+
+		// breath first traversal
+		while (nextToVisit < toVisit.length) {
+			const next = toVisit[nextToVisit++];
+			collectOutlineEntries(next.node, next.result);
+		}
+
+		if (limitExceeded && context && context.onResultLimitExceeded) {
+			context.onResultLimitExceeded(resourceString);
 		}
 		return result;
 	}

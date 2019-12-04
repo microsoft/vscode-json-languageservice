@@ -133,8 +133,8 @@ suite('JSON Document Symbols', () => {
 
 		let expected = [
 			{ label: 'key1', kind: SymbolKind.Module },
-			{ label: 'key2', kind: SymbolKind.Boolean },
 			{ label: 'key3', kind: SymbolKind.Module },
+			{ label: 'key2', kind: SymbolKind.Boolean },
 			{ label: 'k1', kind: SymbolKind.Module }
 		];
 
@@ -213,10 +213,10 @@ suite('JSON Document Symbols', () => {
 		assertHierarchicalOutline(content, expected);
 	});
 
-	test('Outline - limit', function () {
+	test('Outline - limit 1', function () {
 		let content = '{';
 		for (let i =0; i < 100; i++) {
-			content += `"prop${i}": ${i}`;
+			content += `"prop${i}": ${i},`;
 		}
 		content += '}';
 
@@ -232,6 +232,37 @@ suite('JSON Document Symbols', () => {
 
 		const hierarchicalOutline = getHierarchicalOutline(content, context);
 		assert.equal(hierarchicalOutline.length, 10, 'hierarchical');
+		assert.equal(exceededUris.length, 1);
+	});
+
+	test('Outline - limit 2', function () {
+		let content = '[';
+		for (let i =0; i < 10; i++) {
+			content += '{';
+			
+			for (let k =0; k < 10; k++) {
+				content += `"${i}-${k}": ${k},`;
+			}
+			content += '},';
+		}
+		content += ']';
+
+		let exceededUris: string[] = [];
+
+		let context : DocumentSymbolsContext = { resultLimit: 25, onResultLimitExceeded: (uri: string) => exceededUris.push(uri) };
+		
+		const flatOutline = getFlatOutline(content, context);
+		assert.equal(flatOutline.length, 25, 'flat');
+		assert.equal(flatOutline.map(s => s.name).join(','), '0-0,0-1,0-2,0-3,0-4,0-5,0-6,0-7,0-8,0-9,1-0,1-1,1-2,1-3,1-4,1-5,1-6,1-7,1-8,1-9,2-0,2-1,2-2,2-3,2-4');
+		assert.equal(exceededUris.length, 1);
+
+		exceededUris = [];
+
+		const hierarchicalOutline = getHierarchicalOutline(content, context);
+		assert.equal(hierarchicalOutline.length, 10, 'hierarchical');
+		assert.equal(hierarchicalOutline[0].children.length, 10, 'hierarchical children of first');
+		assert.equal(hierarchicalOutline[1].children.length, 5, 'hierarchical children of second');
+		assert.equal(hierarchicalOutline[2].children.length, 0, 'hierarchical children of third');
 		assert.equal(exceededUris.length, 1);
 	});
 
