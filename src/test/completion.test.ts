@@ -1228,4 +1228,28 @@ suite('JSON Completion', () => {
 			if: { properties: { a: { type: "string" } }, required: ["a"] }, then: { properties: { b: { type: "string" } } }
 		}, { count: 1, items: [{ label: "b", resultText: '{"a":"test","b": "$1"}' }] });
 	});
+
+	test('Filering same label, issue #1062', async function () {
+		let schema: JsonSchema.JSONSchema = {
+			"type": "array",
+			"items": {
+				"enum": [
+					"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefg1",
+					"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefg2",
+					"_abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefg1",
+					"_abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefg2"
+				]
+			}
+		};
+
+		await testCompletionsFor('[ |', schema, {
+			count: 4,
+			items: [
+				{ label: '"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcd...', resultText: '[ "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefg1"' },
+				{ label: '"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefg2"', resultText: '[ "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefg2"' },
+				{ label: '"_abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc...', resultText: '[ "_abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefg1"' },
+				{ label: '"_abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefg2"', resultText: '[ "_abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefg2"' }
+			]
+		});
+	});
 });

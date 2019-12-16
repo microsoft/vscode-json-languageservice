@@ -88,16 +88,24 @@ export class JSONCompletion {
 		let proposed: { [key: string]: CompletionItem } = {};
 		let collector: CompletionsCollector = {
 			add: (suggestion: CompletionItem) => {
-				let existing = proposed[suggestion.label];
+				let label = suggestion.label;
+				let existing = proposed[label];
 				if (!existing) {
-					proposed[suggestion.label] = suggestion;
+					label = label.replace(/[\n]/g, '↵');
+					if (label.length > 60) {
+						const shortendedLabel = label.substr(0, 57).trim() + '...';
+						if (!proposed[shortendedLabel]) {
+							label = shortendedLabel;
+						}
+					}
 					if (overwriteRange) {
 						suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
 					}
 					if (supportsCommitCharacters) {
 						suggestion.commitCharacters = suggestion.kind === CompletionItemKind.Property ? propertyCommitCharacters : valueCommitCharacters;
 					}
-
+					suggestion.label = label;
+					proposed[label] = suggestion;
 					result.items.push(suggestion);
 				} else if (!existing.documentation) {
 					existing.documentation = suggestion.documentation;
@@ -221,7 +229,7 @@ export class JSONCompletion {
 						if (typeof propertySchema === 'object' && !propertySchema.deprecationMessage && !propertySchema.doNotSuggest) {
 							let proposal: CompletionItem = {
 								kind: CompletionItemKind.Property,
-								label: this.sanitizeLabel(key),
+								label: key,
 								insertText: this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter),
 								insertTextFormat: InsertTextFormat.Snippet,
 								filterText: this.getFilterTextForValue(key),
@@ -247,7 +255,7 @@ export class JSONCompletion {
 				let key = p.keyNode.value;
 				collector.add({
 					kind: CompletionItemKind.Property,
-					label: this.sanitizeLabel(key),
+					label: key,
 					insertText: this.getInsertTextForValue(key, ''),
 					insertTextFormat: InsertTextFormat.Snippet,
 					filterText: this.getFilterTextForValue(key),
@@ -531,7 +539,7 @@ export class JSONCompletion {
 						type = 'array';
 					}
 					insertText = prefix + indent + s.bodyText.split('\n').join('\n' + indent) + suffix + separatorAfter;
-					label = label || this.sanitizeLabel(insertText),
+					label = label || insertText,
 						filterText = insertText.replace(/[\n]/g, '');   // remove new lines
 				}
 				collector.add({
@@ -648,16 +656,8 @@ export class JSONCompletion {
 		}));
 	}
 
-	private sanitizeLabel(label: string): string {
-		label = label.replace(/[\n]/g, '↵');
-		if (label.length > 57) {
-			label = label.substr(0, 57).trim() + '...';
-		}
-		return label;
-	}
-
 	private getLabelForValue(value: any): string {
-		return this.sanitizeLabel(JSON.stringify(value));
+		return JSON.stringify(value);
 	}
 
 	private getFilterTextForValue(value): string {
@@ -670,8 +670,7 @@ export class JSONCompletion {
 
 	private getLabelForSnippetValue(value: any): string {
 		let label = JSON.stringify(value);
-		label = label.replace(/\$\{\d+:([^}]+)\}|\$\d+/g, '$1');
-		return this.sanitizeLabel(label);
+		return label.replace(/\$\{\d+:([^}]+)\}|\$\d+/g, '$1');
 	}
 
 	private getInsertTextForPlainText(text: string): string {
