@@ -9,8 +9,7 @@ import * as SchemaService from '../services/jsonSchemaService';
 import * as JsonSchema from '../jsonSchema';
 import { JSONHover } from '../services/jsonHover';
 
-import { Hover, Position, MarkedString } from '../jsonLanguageTypes';
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import { Hover, Position, MarkedString, TextDocument } from '../jsonLanguageService';
 
 suite('JSON Hover', () => {
 

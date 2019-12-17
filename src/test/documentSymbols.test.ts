@@ -6,11 +6,12 @@
 import * as assert from 'assert';
 import * as JsonSchema from '../jsonSchema';
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
-
-import { Thenable, Color, getLanguageService } from "../jsonLanguageService";
+import {
+	Thenable, getLanguageService,
+	ClientCapabilities, DocumentSymbolsContext,
+	TextDocument, Color, SymbolInformation, SymbolKind, Range, Position, TextEdit, DocumentSymbol
+} from "../jsonLanguageService";
 import { colorFrom256RGB } from '../utils/colors';
-import { ClientCapabilities, DocumentSymbolsContext, SymbolInformation, SymbolKind, Range, Position, TextEdit, DocumentSymbol } from '../jsonLanguageTypes';
 
 suite('JSON Document Symbols', () => {
 
@@ -215,15 +216,15 @@ suite('JSON Document Symbols', () => {
 
 	test('Outline - limit 1', function () {
 		let content = '{';
-		for (let i =0; i < 100; i++) {
+		for (let i = 0; i < 100; i++) {
 			content += `"prop${i}": ${i},`;
 		}
 		content += '}';
 
 		let exceededUris: string[] = [];
 
-		let context : DocumentSymbolsContext = { resultLimit: 10, onResultLimitExceeded: (uri: string) => exceededUris.push(uri) };
-		
+		let context: DocumentSymbolsContext = { resultLimit: 10, onResultLimitExceeded: (uri: string) => exceededUris.push(uri) };
+
 		const flatOutline = getFlatOutline(content, context);
 		assert.equal(flatOutline.length, 10, 'flat');
 		assert.equal(exceededUris.length, 1);
@@ -237,10 +238,10 @@ suite('JSON Document Symbols', () => {
 
 	test('Outline - limit 2', function () {
 		let content = '[';
-		for (let i =0; i < 10; i++) {
+		for (let i = 0; i < 10; i++) {
 			content += '{';
-			
-			for (let k =0; k < 10; k++) {
+
+			for (let k = 0; k < 10; k++) {
 				content += `"${i}-${k}": ${k},`;
 			}
 			content += '},';
@@ -249,8 +250,8 @@ suite('JSON Document Symbols', () => {
 
 		let exceededUris: string[] = [];
 
-		let context : DocumentSymbolsContext = { resultLimit: 25, onResultLimitExceeded: (uri: string) => exceededUris.push(uri) };
-		
+		let context: DocumentSymbolsContext = { resultLimit: 25, onResultLimitExceeded: (uri: string) => exceededUris.push(uri) };
+
 		const flatOutline = getFlatOutline(content, context);
 		assert.equal(flatOutline.length, 25, 'flat');
 		assert.equal(flatOutline.map(s => s.name).join(','), '0-0,0-1,0-2,0-3,0-4,0-5,0-6,0-7,0-8,0-9,1-0,1-1,1-2,1-3,1-4,1-5,1-6,1-7,1-8,1-9,2-0,2-1,2-2,2-3,2-4');

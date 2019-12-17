@@ -4,25 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions';
 import { JSONSchema } from './jsonSchema';
-import {
-	Range, TextEdit, Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, MarkupKind, SelectionRange,
-	Diagnostic, DiagnosticSeverity,
-	CompletionItem, CompletionItemKind, CompletionList, Position,
-	InsertTextFormat, MarkupContent,
-	SymbolInformation, SymbolKind, DocumentSymbol, Location,  Hover, MarkedString, FormattingOptions
-} from 'vscode-languageserver-types';
+import { MarkupKind } from 'vscode-languageserver-types';
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
-
-export {
-	TextDocument, 
-	Range, TextEdit, JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
-	Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, SelectionRange,
-	Diagnostic, DiagnosticSeverity,
-	CompletionItem, CompletionItemKind, CompletionList, Position,
-	InsertTextFormat, MarkupContent, MarkupKind,
-	SymbolInformation, SymbolKind, DocumentSymbol, Location,  Hover, MarkedString, FormattingOptions
-};
+export { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector, JSONSchema };
+export { TextDocument } from 'vscode-languageserver-textdocument';
+export * from 'vscode-languageserver-types';
 
 /**
  * Error codes used by diagnostics
