@@ -8,7 +8,7 @@ import { JSONHover } from './services/jsonHover';
 import { JSONValidation } from './services/jsonValidation';
 
 import { JSONDocumentSymbols } from './services/jsonDocumentSymbols';
-import { parse as parseJSON, JSONDocument as InternalJSONDocument, newJSONDocument } from './parser/jsonParser';
+import { parse as parseJSON, JSONDocument as InternalJSONDocument, newJSONDocument, IApplicableSchema } from './parser/jsonParser';
 import { schemaContributions } from './services/configuration';
 import { JSONSchemaService } from './services/jsonSchemaService';
 import { getFoldingRanges } from './services/jsonFolding';
@@ -28,6 +28,7 @@ import {
 
 export type JSONDocument = {};
 export * from './jsonLanguageTypes';
+export { IApplicableSchema } from './parser/jsonParser';
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;
@@ -35,6 +36,7 @@ export interface LanguageService {
 	parseJSONDocument(document: TextDocument): JSONDocument;
 	newJSONDocument(rootNode: ASTNode, syntaxDiagnostics?: Diagnostic[]): JSONDocument;
 	resetSchema(uri: string): boolean;
+	getMatchingSchemas(document: TextDocument, jsonDocument: JSONDocument): Thenable<IApplicableSchema[]>;
 	doResolve(item: CompletionItem): Thenable<CompletionItem>;
 	doComplete(document: TextDocument, position: Position, doc: JSONDocument): Thenable<CompletionList | null>;
 	findDocumentSymbols(document: TextDocument, doc: JSONDocument, context?: DocumentSymbolsContext): SymbolInformation[];
@@ -75,6 +77,9 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		doValidation: jsonValidation.doValidation.bind(jsonValidation),
 		parseJSONDocument: (document: TextDocument) => parseJSON(document, { collectComments: true }),
 		newJSONDocument: (root: ASTNode, diagnostics: Diagnostic[]) => newJSONDocument(root, diagnostics),
+		getMatchingSchemas: (document: TextDocument, jsonDocument: JSONDocument): Thenable<IApplicableSchema[]> =>
+			jsonSchemaService.getSchemaForResource(document.uri, jsonDocument as InternalJSONDocument).then( schema =>
+				(jsonDocument as InternalJSONDocument).getMatchingSchemas(schema.schema)),
 		doResolve: jsonCompletion.doResolve.bind(jsonCompletion),
 		doComplete: jsonCompletion.doComplete.bind(jsonCompletion),
 		findDocumentSymbols: jsonDocumentSymbols.findDocumentSymbols.bind(jsonDocumentSymbols),
