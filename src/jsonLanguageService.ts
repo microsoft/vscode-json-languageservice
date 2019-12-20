@@ -26,7 +26,10 @@ import {
 	TextEdit, FormattingOptions, DocumentSymbol
 } from './jsonLanguageTypes';
 
-export type JSONDocument = {};
+export type JSONDocument = {
+	root: ASTNode;
+	getNodeFromOffset(offset: number, includeRightBound?:boolean): ASTNode | undefined;
+};
 export * from './jsonLanguageTypes';
 export { IApplicableSchema } from './parser/jsonParser';
 
@@ -78,8 +81,8 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		parseJSONDocument: (document: TextDocument) => parseJSON(document, { collectComments: true }),
 		newJSONDocument: (root: ASTNode, diagnostics: Diagnostic[]) => newJSONDocument(root, diagnostics),
 		getMatchingSchemas: (document: TextDocument, jsonDocument: JSONDocument): Thenable<IApplicableSchema[]> =>
-			jsonSchemaService.getSchemaForResource(document.uri, jsonDocument as InternalJSONDocument).then( schema =>
-				(jsonDocument as InternalJSONDocument).getMatchingSchemas(schema.schema)),
+			jsonSchemaService.getSchemaForResource(document.uri, jsonDocument as InternalJSONDocument).then( schema => 
+				schema ? (jsonDocument as InternalJSONDocument).getMatchingSchemas(schema.schema) : []),
 		doResolve: jsonCompletion.doResolve.bind(jsonCompletion),
 		doComplete: jsonCompletion.doComplete.bind(jsonCompletion),
 		findDocumentSymbols: jsonDocumentSymbols.findDocumentSymbols.bind(jsonDocumentSymbols),
