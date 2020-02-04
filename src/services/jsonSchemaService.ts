@@ -169,13 +169,13 @@ export class ResolvedSchema {
 		if (!schema || typeof schema === 'boolean' || path.length === 0) {
 			return schema;
 		}
-		let next = path.shift();
+		const next = path.shift();
 
 		if (schema.properties && typeof schema.properties[next]) {
 			return this.getSectionRecursive(path, schema.properties[next]);
 		} else if (schema.patternProperties) {
 			for (const pattern of Object.keys(schema.patternProperties)) {
-				let regex = new RegExp(pattern);
+				const regex = new RegExp(pattern);
 				if (regex.test(next)) {
 					return this.getSectionRecursive(path, schema.patternProperties[pattern]);
 				}
@@ -184,7 +184,7 @@ export class ResolvedSchema {
 			return this.getSectionRecursive(path, schema.additionalProperties);
 		} else if (next.match('[0-9]+')) {
 			if (Array.isArray(schema.items)) {
-				let index = parseInt(next, 10);
+				const index = parseInt(next, 10);
 				if (!isNaN(index) && schema.items[index]) {
 					return this.getSectionRecursive(path, schema.items[index]);
 				}
@@ -212,6 +212,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 	private requestService: SchemaRequestService;
 	private promiseConstructor: PromiseConstructor;
 
+	private cachedSchemaForResource: { resource: string; resolvedSchema: Thenable<ResolvedSchema> } | undefined;
+
 	constructor(requestService: SchemaRequestService, contextService?: WorkspaceContextService, promiseConstructor?: PromiseConstructor) {
 		this.contextService = contextService;
 		this.requestService = requestService;
@@ -228,7 +230,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	public getRegisteredSchemaIds(filter?: (scheme) => boolean): string[] {
 		return Object.keys(this.registeredSchemasIds).filter(id => {
-			let scheme = URI.parse(id).scheme;
+			const scheme = URI.parse(id).scheme;
 			return scheme !== 'schemaservice' && (!filter || filter(scheme));
 		});
 	}
@@ -247,8 +249,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 		let hasChanges = false;
 		uri = this.normalizeId(uri);
 
-		let toWalk = [uri];
-		let all: (SchemaHandle | undefined)[] = Object.keys(this.schemasById).map(key => this.schemasById[key]);
+		const toWalk = [uri];
+		const all: (SchemaHandle | undefined)[] = Object.keys(this.schemasById).map(key => this.schemasById[key]);
 
 		while (toWalk.length) {
 			const curr = toWalk.pop();
@@ -279,21 +281,21 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	public setSchemaContributions(schemaContributions: ISchemaContributions): void {
 		if (schemaContributions.schemas) {
-			let schemas = schemaContributions.schemas;
-			for (let id in schemas) {
-				let normalizedId = this.normalizeId(id);
+			const schemas = schemaContributions.schemas;
+			for (const id in schemas) {
+				const normalizedId = this.normalizeId(id);
 				this.contributionSchemas[normalizedId] = this.addSchemaHandle(normalizedId, schemas[id]);
 			}
 		}
 		if (schemaContributions.schemaAssociations) {
-			let schemaAssociations = schemaContributions.schemaAssociations;
-			for (let pattern in schemaAssociations) {
-				let associations = schemaAssociations[pattern];
+			const schemaAssociations = schemaContributions.schemaAssociations;
+			for (const pattern in schemaAssociations) {
+				const associations = schemaAssociations[pattern];
 				this.contributionAssociations[pattern] = associations;
 
 				var fpa = this.getOrAddFilePatternAssociation(pattern);
 				for (const schemaId of associations) {
-					let id = this.normalizeId(schemaId);
+					const id = this.normalizeId(schemaId);
 					fpa.addSchema(id);
 				}
 			}
@@ -301,7 +303,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 	}
 
 	private addSchemaHandle(id: string, unresolvedSchemaContent?: JSONSchema): SchemaHandle {
-		let schemaHandle = new SchemaHandle(this, id, unresolvedSchemaContent);
+		const schemaHandle = new SchemaHandle(this, id, unresolvedSchemaContent);
 		this.schemasById[id] = schemaHandle;
 		return schemaHandle;
 	}
@@ -321,8 +323,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 	}
 
 	public registerExternalSchema(uri: string, filePatterns: string[] = null, unresolvedSchemaContent?: JSONSchema): ISchemaHandle {
-		let id = this.normalizeId(uri);
+		const id = this.normalizeId(uri);
 		this.registeredSchemasIds[id] = true;
+		this.cachedSchemaForResource = undefined;
 
 		if (filePatterns) {
 			for (const pattern of filePatterns) {
@@ -337,23 +340,24 @@ export class JSONSchemaService implements IJSONSchemaService {
 		this.filePatternAssociations = [];
 		this.filePatternAssociationById = {};
 		this.registeredSchemasIds = {};
+		this.cachedSchemaForResource = undefined;
 
-		for (let id in this.contributionSchemas) {
+		for (const id in this.contributionSchemas) {
 			this.schemasById[id] = this.contributionSchemas[id];
 			this.registeredSchemasIds[id] = true;
 		}
-		for (let pattern in this.contributionAssociations) {
+		for (const pattern in this.contributionAssociations) {
 			var fpa = this.getOrAddFilePatternAssociation(pattern);
 			for (const schemaId of this.contributionAssociations[pattern]) {
-				let id = this.normalizeId(schemaId);
+				const id = this.normalizeId(schemaId);
 				fpa.addSchema(id);
 			}
 		}
 	}
 
 	public getResolvedSchema(schemaId: string): Thenable<ResolvedSchema> {
-		let id = this.normalizeId(schemaId);
-		let schemaHandle = this.schemasById[id];
+		const id = this.normalizeId(schemaId);
+		const schemaHandle = this.schemasById[id];
 		if (schemaHandle) {
 			return schemaHandle.getResolvedSchema();
 		}
@@ -362,25 +366,25 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	public loadSchema(url: string): Thenable<UnresolvedSchema> {
 		if (!this.requestService) {
-			let errorMessage = localize('json.schema.norequestservice', 'Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
+			const errorMessage = localize('json.schema.norequestservice', 'Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
 			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [errorMessage]));
 		}
 		return this.requestService(url).then(
 			content => {
 				if (!content) {
-					let errorMessage = localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': No content.', toDisplayString(url));
+					const errorMessage = localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': No content.', toDisplayString(url));
 					return new UnresolvedSchema(<JSONSchema>{}, [errorMessage]);
 				}
 
 				let schemaContent: JSONSchema = {};
-				let jsonErrors: Json.ParseError[] = [];
+				const jsonErrors: Json.ParseError[] = [];
 				schemaContent = Json.parse(content, jsonErrors);
-				let errors = jsonErrors.length ? [localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset)] : [];
+				const errors = jsonErrors.length ? [localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset)] : [];
 				return new UnresolvedSchema(schemaContent, errors);
 			},
 			(error: any) => {
 				let errorMessage = error.toString() as string;
-				let errorSplit = error.toString().split('Error: ');
+				const errorSplit = error.toString().split('Error: ');
 				if (errorSplit.length > 1) {
 					// more concise error message, URL and context are attached by caller anyways
 					errorMessage = errorSplit[1];
@@ -395,8 +399,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, schemaURL: string, dependencies: SchemaDependencies): Thenable<ResolvedSchema> {
 
-		let resolveErrors: string[] = schemaToResolve.errors.slice(0);
-		let schema = schemaToResolve.schema;
+		const resolveErrors: string[] = schemaToResolve.errors.slice(0);
+		const schema = schemaToResolve.schema;
 
 		if (schema.$schema) {
 			const id = this.normalizeId(schema.$schema);
@@ -407,9 +411,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		}
 
-		let contextService = this.contextService;
+		const contextService = this.contextService;
 
-		let findSection = (schema: JSONSchema, path: string): any => {
+		const findSection = (schema: JSONSchema, path: string): any => {
 			if (!path) {
 				return schema;
 			}
@@ -424,10 +428,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return current;
 		};
 
-		let merge = (target: JSONSchema, sourceRoot: JSONSchema, sourceURI: string, path: string): void => {
-			let section = findSection(sourceRoot, path);
+		const merge = (target: JSONSchema, sourceRoot: JSONSchema, sourceURI: string, path: string): void => {
+			const section = findSection(sourceRoot, path);
 			if (section) {
-				for (let key in section) {
+				for (const key in section) {
 					if (section.hasOwnProperty(key) && !target.hasOwnProperty(key)) {
 						target[key] = section[key];
 					}
@@ -437,7 +441,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		};
 
-		let resolveExternalLink = (node: JSONSchema, uri: string, linkPath: string, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
+		const resolveExternalLink = (node: JSONSchema, uri: string, linkPath: string, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
 			if (contextService && !/^\w+:\/\/.*/.test(uri)) {
 				uri = contextService.resolveRelativePath(uri, parentSchemaURL);
 			}
@@ -446,7 +450,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
 				parentSchemaDependencies[uri] = true;
 				if (unresolvedSchema.errors.length) {
-					let loc = linkPath ? uri + '#' + linkPath : uri;
+					const loc = linkPath ? uri + '#' + linkPath : uri;
 					resolveErrors.push(localize('json.schema.problemloadingref', 'Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0]));
 				}
 				merge(node, unresolvedSchema.schema, uri, linkPath);
@@ -454,28 +458,28 @@ export class JSONSchemaService implements IJSONSchemaService {
 			});
 		};
 
-		let resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
+		const resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
 			if (!node || typeof node !== 'object') {
 				return Promise.resolve(null);
 			}
 
-			let toWalk: JSONSchema[] = [node];
-			let seen: JSONSchema[] = [];
+			const toWalk: JSONSchema[] = [node];
+			const seen: JSONSchema[] = [];
 
-			let openPromises: Thenable<any>[] = [];
+			const openPromises: Thenable<any>[] = [];
 
-			let collectEntries = (...entries: JSONSchemaRef[]) => {
-				for (let entry of entries) {
+			const collectEntries = (...entries: JSONSchemaRef[]) => {
+				for (const entry of entries) {
 					if (typeof entry === 'object') {
 						toWalk.push(entry);
 					}
 				}
 			};
-			let collectMapEntries = (...maps: JSONSchemaMap[]) => {
-				for (let map of maps) {
+			const collectMapEntries = (...maps: JSONSchemaMap[]) => {
+				for (const map of maps) {
 					if (typeof map === 'object') {
-						for (let key in map) {
-							let entry = map[key];
+						for (const key in map) {
+							const entry = map[key];
 							if (typeof entry === 'object') {
 								toWalk.push(entry);
 							}
@@ -483,10 +487,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 					}
 				}
 			};
-			let collectArrayEntries = (...arrays: JSONSchemaRef[][]) => {
-				for (let array of arrays) {
+			const collectArrayEntries = (...arrays: JSONSchemaRef[][]) => {
+				for (const array of arrays) {
 					if (Array.isArray(array)) {
-						for (let entry of array) {
+						for (const entry of array) {
 							if (typeof entry === 'object') {
 								toWalk.push(entry);
 							}
@@ -494,11 +498,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 					}
 				}
 			};
-			let handleRef = (next: JSONSchema) => {
-				let seenRefs = [];
+			const handleRef = (next: JSONSchema) => {
+				const seenRefs = [];
 				while (next.$ref) {
 					const ref = next.$ref;
-					let segments = ref.split('#', 2);
+					const segments = ref.split('#', 2);
 					delete next.$ref;
 					if (segments[0].length > 0) {
 						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL, parentSchemaDependencies));
@@ -517,7 +521,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			};
 
 			while (toWalk.length) {
-				let next = toWalk.pop();
+				const next = toWalk.pop();
 				if (seen.indexOf(next) >= 0) {
 					continue;
 				}
@@ -534,24 +538,28 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		// first use $schema if present
 		if (document && document.root && document.root.type === 'object') {
-			let schemaProperties = document.root.properties.filter(p => (p.keyNode.value === '$schema') && p.valueNode && p.valueNode.type === 'string');
+			const schemaProperties = document.root.properties.filter(p => (p.keyNode.value === '$schema') && p.valueNode && p.valueNode.type === 'string');
 			if (schemaProperties.length > 0) {
 				let schemeId = <string>Parser.getNodeValue(schemaProperties[0].valueNode);
 				if (schemeId && Strings.startsWith(schemeId, '.') && this.contextService) {
 					schemeId = this.contextService.resolveRelativePath(schemeId, resource);
 				}
 				if (schemeId) {
-					let id = this.normalizeId(schemeId);
+					const id = this.normalizeId(schemeId);
 					return this.getOrAddSchemaHandle(id).getResolvedSchema();
 				}
 			}
 		}
 
-		let seen: { [schemaId: string]: boolean } = Object.create(null);
-		let schemas: string[] = [];
-		for (let entry of this.filePatternAssociations) {
+		if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
+			return this.cachedSchemaForResource.resolvedSchema;
+		}
+
+		const seen: { [schemaId: string]: boolean } = Object.create(null);
+		const schemas: string[] = [];
+		for (const entry of this.filePatternAssociations) {
 			if (entry.matchesPattern(resource)) {
-				for (let schemaId of entry.getSchemas()) {
+				for (const schemaId of entry.getSchemas()) {
 					if (!seen[schemaId]) {
 						schemas.push(schemaId);
 						seen[schemaId] = true;
@@ -559,19 +567,17 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 			}
 		}
-		if (schemas.length > 0) {
-			return this.createCombinedSchema(resource, schemas).getResolvedSchema();
-		}
-
-		return this.promise.resolve(null);
+		const resolvedSchema = schemas.length > 0 ? this.createCombinedSchema(resource, schemas).getResolvedSchema() : this.promise.resolve(null);
+		this.cachedSchemaForResource = { resource, resolvedSchema };
+		return resolvedSchema;
 	}
 
 	private createCombinedSchema(resource: string, schemaIds: string[]): ISchemaHandle {
 		if (schemaIds.length === 1) {
 			return this.getOrAddSchemaHandle(schemaIds[0]);
 		} else {
-			let combinedSchemaId = 'schemaservice://combinedSchema/' + encodeURIComponent(resource);
-			let combinedSchema: JSONSchema = {
+			const combinedSchemaId = 'schemaservice://combinedSchema/' + encodeURIComponent(resource);
+			const combinedSchema: JSONSchema = {
 				allOf: schemaIds.map(schemaId => ({ $ref: schemaId }))
 			};
 			return this.addSchemaHandle(combinedSchemaId, combinedSchema);
@@ -581,7 +587,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 function toDisplayString(url: string) {
 	try {
-		let uri = URI.parse(url);
+		const uri = URI.parse(url);
 		if (uri.scheme === 'file') {
 			return uri.fsPath;
 		}
