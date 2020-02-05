@@ -553,7 +553,7 @@ export class JSONCompletion {
 				hasProposals = true;
 			});
 		}
-		if (!hasProposals && typeof schema.items === 'object' && !Array.isArray(schema.items)) {
+		if (!hasProposals && typeof schema.items === 'object' && !Array.isArray(schema.items) && arrayDepth < 5 /* beware of recursion */) {
 			this.addDefaultValueCompletions(schema.items, separatorAfter, collector, arrayDepth + 1);
 		}
 	}
