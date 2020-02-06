@@ -179,6 +179,54 @@ suite('JSON Schema', () => {
 
 	});
 
+	test('Resolving $refs 3', async function () {
+		let service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/schema1.json',
+					type: 'object',
+					properties: {
+						p1: {
+							'$ref': 'schema2.json#/definitions/hello'
+						},
+						p2: {
+							'$ref': './schema2.json#/definitions/hello'
+						},
+						p3: {
+							'$ref': '/main/schema2.json#/definitions/hello'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"hello": {
+							"type": "string",
+							"enum": ["object"],
+						}
+					}
+				}
+			}
+		});
+
+		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
+			assert.deepEqual(fs.schema.properties['p1'], {
+				type: 'string',
+				enum: ["object"]
+			});
+			assert.deepEqual(fs.schema.properties['p2'], {
+				type: 'string',
+				enum: ["object"]
+			});
+			assert.deepEqual(fs.schema.properties['p3'], {
+				type: 'string',
+				enum: ["object"]
+			});
+		});
+
+	});
+
 	test('FileSchema', async function () {
 		let service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 
@@ -642,6 +690,30 @@ suite('JSON Schema', () => {
 			assert.deepEqual(fs.schema.properties['hops'], {
 				type: 'object'
 			});
+		});
+
+	});
+
+	test('$refs with encoded characters', async function () {
+		let service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		let id0 = "foo://bar/bar0";
+		let schema: JSONSchema = {
+			definitions: {
+				'Foo<number>': {
+					type: 'object',
+				}
+			},
+			"type": "object",
+			"properties": {
+				"p1": { "enum": ["v1", "v2"] },
+				"p2": { "$ref": "#/definitions/Foo%3Cnumber%3E" }
+			}
+		};
+
+		let fsm0 = service.registerExternalSchema(id0, ['*.json'], schema);
+		return fsm0.getResolvedSchema().then((fs0) => {
+			assert.deepEqual(fs0.errors, []);
+			assert.equal((<JSONSchema>fs0.schema.properties.p2).type, 'object');
 		});
 
 	});

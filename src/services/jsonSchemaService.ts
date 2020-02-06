@@ -5,7 +5,7 @@
 
 import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
-import { URI }  from 'vscode-uri';
+import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
 import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable } from '../jsonLanguageTypes';
@@ -276,7 +276,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		} catch (e) {
 			return id;
 		}
-		
+
 	}
 
 	public setSchemaContributions(schemaContributions: ISchemaContributions): void {
@@ -392,7 +392,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				if (Strings.endsWith(errorMessage, '.')) {
 					errorMessage = errorMessage.substr(0, errorMessage.length - 1);
 				}
-				return new UnresolvedSchema(<JSONSchema>{}, [localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': {1}.', toDisplayString(url), errorMessage) ]);
+				return new UnresolvedSchema(<JSONSchema>{}, [localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': {1}.', toDisplayString(url), errorMessage)]);
 			}
 		);
 	}
@@ -405,7 +405,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		if (schema.$schema) {
 			const id = this.normalizeId(schema.$schema);
 			if (id === 'http://json-schema.org/draft-03/schema') {
-				return this.promise.resolve(new ResolvedSchema({}, [ localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.") ]));
+				return this.promise.resolve(new ResolvedSchema({}, [localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.")]));
 			} else if (id === 'https://json-schema.org/draft/2019-09/schema') {
 				schemaToResolve.errors.push(localize('json.schema.draft201909.notsupported', "Draft 2019-09 schemas are not yet fully supported."));
 			}
@@ -413,7 +413,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const contextService = this.contextService;
 
-		const findSection = (schema: JSONSchema, path: string): any => {
+		const findSection = (schema: JSONSchema, path: string | undefined): any => {
 			if (!path) {
 				return schema;
 			}
@@ -428,7 +428,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return current;
 		};
 
-		const merge = (target: JSONSchema, sourceRoot: JSONSchema, sourceURI: string, path: string): void => {
+		const merge = (target: JSONSchema, sourceRoot: JSONSchema, sourceURI: string, refSegment: string | undefined): void => {
+			const path = refSegment ? decodeURIComponent(refSegment) : undefined;
 			const section = findSection(sourceRoot, path);
 			if (section) {
 				for (const key in section) {
@@ -441,7 +442,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		};
 
-		const resolveExternalLink = (node: JSONSchema, uri: string, linkPath: string, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
+		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
 			if (contextService && !/^\w+:\/\/.*/.test(uri)) {
 				uri = contextService.resolveRelativePath(uri, parentSchemaURL);
 			}
@@ -450,10 +451,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
 				parentSchemaDependencies[uri] = true;
 				if (unresolvedSchema.errors.length) {
-					const loc = linkPath ? uri + '#' + linkPath : uri;
+					const loc = refSegment ? uri + '#' + refSegment : uri;
 					resolveErrors.push(localize('json.schema.problemloadingref', 'Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0]));
 				}
-				merge(node, unresolvedSchema.schema, uri, linkPath);
+				merge(node, unresolvedSchema.schema, uri, refSegment);
 				return resolveRefs(node, unresolvedSchema.schema, uri, referencedHandle.dependencies);
 			});
 		};
