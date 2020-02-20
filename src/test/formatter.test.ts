@@ -13,7 +13,7 @@ suite('JSON Formatter', () => {
 	const ls = getLanguageService({ clientCapabilities: ClientCapabilities.LATEST });
 
 	function format(unformatted: string, expected: string, insertSpaces = true) {
-		let range: Range = null;
+		let range: Range | undefined = undefined;
 		let uri = 'test://test.json';
 
 		let rangeStart = unformatted.indexOf('|');
@@ -28,7 +28,7 @@ suite('JSON Formatter', () => {
 		}
 
 		var document = TextDocument.create(uri, 'json', 0, unformatted);
-		let edits = ls.format(document, range, { tabSize: 2, insertSpaces: insertSpaces });
+		let edits = ls.format(document, range!, { tabSize: 2, insertSpaces: insertSpaces });
 		let formatted = applyEdits(document, edits);
 		assert.equal(formatted, expected);
 	}

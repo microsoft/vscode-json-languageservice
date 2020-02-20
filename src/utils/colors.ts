@@ -27,9 +27,9 @@ export function hexDigit(charCode: number) {
 	return 0;
 }
 
-export function colorFromHex(text: string): Color {
+export function colorFromHex(text: string): Color | undefined {
 	if (text[0] !== '#') {
-		return null;
+		return undefined;
 	}
 	switch (text.length) {
 		case 4:

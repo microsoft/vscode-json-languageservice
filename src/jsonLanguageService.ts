@@ -14,7 +14,7 @@ import { JSONSchemaService } from './services/jsonSchemaService';
 import { getFoldingRanges } from './services/jsonFolding';
 import { getSelectionRanges } from './services/jsonSelectionRanges';
 
-import { format as formatJSON } from 'jsonc-parser';
+import { format as formatJSON, Range as JSONCRange } from 'jsonc-parser';
 import {
 	Thenable,
 	ASTNode,
@@ -86,7 +86,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		getFoldingRanges,
 		getSelectionRanges,
 		format: (d, r, o) => {
-			let range = void 0;
+			let range: JSONCRange | undefined = undefined;
 			if (r) {
 				let offset = d.offsetAt(r.start);
 				let length = d.offsetAt(r.end) - offset;

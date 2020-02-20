@@ -468,7 +468,7 @@ export const schemaContributions: ISchemaContributions = {
 		}
 	}
 };
-const descriptions = {
+const descriptions: { [prop: string]: string } = {
 	id: localize('schema.json.id', "A unique identifier for the schema."),
 	$schema: localize('schema.json.$schema', "The schema to verify this document against."),
 	title: localize('schema.json.title', "A descriptive title of the element."),
@@ -521,7 +521,7 @@ for (const schemaName in schemaContributions.schemas) {
 	const schema = schemaContributions.schemas[schemaName];
 	for (const property in schema.properties) {
 		let propertyObject = schema.properties[property];
-		if (propertyObject === true) {
+		if (typeof propertyObject === 'boolean') {
 			propertyObject = schema.properties[property] = {};
 		}
 		const description = descriptions[property];

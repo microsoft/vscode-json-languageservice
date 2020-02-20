@@ -18,7 +18,7 @@ export interface IRange {
 }
 
 const formats = {
-	'color-hex': { errorMessage: localize('colorHexFormatWarning', 'Invalid color format. Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.'), pattern: /^#([0-9A-Fa-f]{3,4}|([0-9A-Fa-f]{2}){3,4})$/},
+	'color-hex': { errorMessage: localize('colorHexFormatWarning', 'Invalid color format. Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.'), pattern: /^#([0-9A-Fa-f]{3,4}|([0-9A-Fa-f]{2}){3,4})$/ },
 	'date-time': { errorMessage: localize('dateTimeFormatWarning', 'String is not a RFC3339 date-time.'), pattern: /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)(\.[0-9]+)?(Z|(\+|-)([01][0-9]|2[0-3]):([0-5][0-9]))$/i },
 	'date': { errorMessage: localize('dateFormatWarning', 'String is not a RFC3339 date.'), pattern: /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/i },
 	'time': { errorMessage: localize('timeFormatWarning', 'String is not a RFC3339 time.'), pattern: /^([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)(\.[0-9]+)?(Z|(\+|-)([01][0-9]|2[0-3]):([0-5][0-9]))$/i },
@@ -38,9 +38,9 @@ export abstract class ASTNodeImpl {
 
 	public offset: number;
 	public length: number;
-	public readonly parent: ASTNode;
+	public readonly parent: ASTNode | undefined;
 
-	constructor(parent: ASTNode, offset: number, length?: number) {
+	constructor(parent: ASTNode | undefined, offset: number, length: number = 0) {
 		this.offset = offset;
 		this.length = length;
 		this.parent = parent;
@@ -59,7 +59,7 @@ export class NullASTNodeImpl extends ASTNodeImpl implements NullASTNode {
 
 	public type: 'null' = 'null';
 	public value: null = null;
-	constructor(parent: ASTNode, offset: number) {
+	constructor(parent: ASTNode | undefined, offset: number) {
 		super(parent, offset);
 	}
 }
@@ -69,7 +69,7 @@ export class BooleanASTNodeImpl extends ASTNodeImpl implements BooleanASTNode {
 	public type: 'boolean' = 'boolean';
 	public value: boolean;
 
-	constructor(parent: ASTNode, boolValue: boolean, offset: number) {
+	constructor(parent: ASTNode | undefined, boolValue: boolean, offset: number) {
 		super(parent, offset);
 		this.value = boolValue;
 	}
@@ -80,7 +80,7 @@ export class ArrayASTNodeImpl extends ASTNodeImpl implements ArrayASTNode {
 	public type: 'array' = 'array';
 	public items: ASTNode[];
 
-	constructor(parent: ASTNode, offset: number) {
+	constructor(parent: ASTNode | undefined, offset: number) {
 		super(parent, offset);
 		this.items = [];
 	}
@@ -96,7 +96,7 @@ export class NumberASTNodeImpl extends ASTNodeImpl implements NumberASTNode {
 	public isInteger: boolean;
 	public value: number;
 
-	constructor(parent: ASTNode, offset: number) {
+	constructor(parent: ASTNode | undefined, offset: number) {
 		super(parent, offset);
 		this.isInteger = true;
 		this.value = Number.NaN;
@@ -107,7 +107,7 @@ export class StringASTNodeImpl extends ASTNodeImpl implements StringASTNode {
 	public type: 'string' = 'string';
 	public value: string;
 
-	constructor(parent: ASTNode, offset: number, length?: number) {
+	constructor(parent: ASTNode | undefined, offset: number, length?: number) {
 		super(parent, offset, length);
 		this.value = '';
 	}
@@ -116,12 +116,13 @@ export class StringASTNodeImpl extends ASTNodeImpl implements StringASTNode {
 export class PropertyASTNodeImpl extends ASTNodeImpl implements PropertyASTNode {
 	public type: 'property' = 'property';
 	public keyNode: StringASTNode;
-	public valueNode: ASTNode;
+	public valueNode?: ASTNode;
 	public colonOffset: number;
 
-	constructor(parent: ObjectASTNode, offset: number) {
+	constructor(parent: ObjectASTNode | undefined, offset: number, keyNode: StringASTNode) {
 		super(parent, offset);
 		this.colonOffset = -1;
+		this.keyNode = keyNode;
 	}
 
 	public get children(): ASTNode[] {
@@ -133,7 +134,7 @@ export class ObjectASTNodeImpl extends ASTNodeImpl implements ObjectASTNode {
 	public type: 'object' = 'object';
 	public properties: PropertyASTNode[];
 
-	constructor(parent: ASTNode, offset: number) {
+	constructor(parent: ASTNode | undefined, offset: number) {
 		super(parent, offset);
 
 		this.properties = [];
@@ -144,8 +145,9 @@ export class ObjectASTNodeImpl extends ASTNodeImpl implements ObjectASTNode {
 	}
 
 }
-
-export function asSchema(schema: JSONSchemaRef) {
+export function asSchema(schema: JSONSchemaRef): JSONSchema;
+export function asSchema(schema: JSONSchemaRef | undefined): JSONSchema | undefined;
+export function asSchema(schema: JSONSchemaRef | undefined): JSONSchema | undefined {
 	if (isBoolean(schema)) {
 		return schema ? {} : { "not": {} };
 	}
@@ -176,7 +178,7 @@ export interface ISchemaCollector {
 
 class SchemaCollector implements ISchemaCollector {
 	schemas: IApplicableSchema[] = [];
-	constructor(private focusOffset = -1, private exclude: ASTNode = null) {
+	constructor(private focusOffset = -1, private exclude?: ASTNode) {
 	}
 	add(schema: IApplicableSchema) {
 		this.schemas.push(schema);
@@ -210,7 +212,7 @@ export class ValidationResult {
 	public propertiesValueMatches: number;
 	public primaryValueMatches: number;
 	public enumValueMatch: boolean;
-	public enumValues: any[];
+	public enumValues: any[] | undefined;
 
 	constructor() {
 		this.problems = [];
@@ -218,7 +220,7 @@ export class ValidationResult {
 		this.propertiesValueMatches = 0;
 		this.primaryValueMatches = 0;
 		this.enumValueMatch = false;
-		this.enumValues = null;
+		this.enumValues = undefined;
 	}
 
 	public hasProblems(): boolean {
@@ -294,14 +296,14 @@ export function contains(node: ASTNode, offset: number, includeRightBound = fals
 
 export class JSONDocument {
 
-	constructor(public readonly root: ASTNode, public readonly syntaxErrors: Diagnostic[] = [], public readonly comments: Range[] = []) {
+	constructor(public readonly root: ASTNode | undefined, public readonly syntaxErrors: Diagnostic[] = [], public readonly comments: Range[] = []) {
 	}
 
 	public getNodeFromOffset(offset: number, includeRightBound = false): ASTNode | undefined {
 		if (this.root) {
 			return <ASTNode>Json.findNodeAtOffset(this.root, offset, includeRightBound);
 		}
-		return void 0;
+		return undefined;
 	}
 
 	public visit(visitor: (node: ASTNode) => boolean): void {
@@ -320,7 +322,7 @@ export class JSONDocument {
 		}
 	}
 
-	public validate(textDocument: TextDocument, schema: JSONSchema): Diagnostic[] {
+	public validate(textDocument: TextDocument, schema: JSONSchema | undefined): Diagnostic[] | undefined {
 		if (this.root && schema) {
 			let validationResult = new ValidationResult();
 			validate(this.root, schema, validationResult, NoOpSchemaCollector.instance);
@@ -329,10 +331,10 @@ export class JSONDocument {
 				return Diagnostic.create(range, p.message, p.severity, p.code);
 			});
 		}
-		return null;
+		return undefined;
 	}
 
-	public getMatchingSchemas(schema: JSONSchema, focusOffset: number = -1, exclude: ASTNode = null): IApplicableSchema[] {
+	public getMatchingSchemas(schema: JSONSchema, focusOffset: number = -1, exclude?: ASTNode): IApplicableSchema[] {
 		let matchingSchemas = new SchemaCollector(focusOffset, exclude);
 		if (this.root && schema) {
 			validate(this.root, schema, new ValidationResult(), matchingSchemas);
@@ -341,12 +343,12 @@ export class JSONDocument {
 	}
 }
 
-function validate(node: ASTNode, schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector) {
+function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
 
-	if (!node || !matchingSchemas.include(node)) {
+	if (!n || !matchingSchemas.include(n)) {
 		return;
 	}
-
+	const node = n;
 	switch (node.type) {
 		case 'object':
 			_validateObjectNode(node, schema, validationResult, matchingSchemas);
@@ -418,7 +420,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			let matches = [];
 
 			// remember the best match that is used for error messages
-			let bestMatch: { schema: JSONSchema; validationResult: ValidationResult; matchingSchemas: ISchemaCollector; } = null;
+			let bestMatch: { schema: JSONSchema; validationResult: ValidationResult; matchingSchemas: ISchemaCollector; } | undefined = undefined;
 			for (const subSchemaRef of alternatives) {
 				let subSchema = asSchema(subSchemaRef);
 				let subValidationResult = new ValidationResult();
@@ -456,7 +458,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 					message: localize('oneOfWarning', "Matches multiple schemas when only one must validate.")
 				});
 			}
-			if (bestMatch !== null) {
+			if (bestMatch) {
 				validationResult.merge(bestMatch.validationResult);
 				validationResult.propertiesMatches += bestMatch.validationResult.propertiesMatches;
 				validationResult.propertiesValueMatches += bestMatch.validationResult.propertiesValueMatches;
@@ -725,7 +727,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 			}
 		}
 
-		let containsSchema = asSchema(schema.contains);
+		const containsSchema = asSchema(schema.contains);
 		if (containsSchema) {
 			let doesContain = node.items.some(item => {
 				let itemValidationResult = new ValidationResult();
@@ -760,7 +762,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 
 		if (schema.uniqueItems === true) {
 			let values = getNodeValue(node);
-			let duplicates = values.some((value, index) => {
+			let duplicates = values.some((value: any, index: number) => {
 				return index !== values.lastIndexOf(value);
 			});
 			if (duplicates) {
@@ -775,7 +777,7 @@ function validate(node: ASTNode, schema: JSONSchema, validationResult: Validatio
 	}
 
 	function _validateObjectNode(node: ObjectASTNode, schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
-		let seenKeys: { [key: string]: ASTNode } = Object.create(null);
+		let seenKeys: { [key: string]: ASTNode | undefined } = Object.create(null);
 		let unprocessedProperties: string[] = [];
 		for (const propertyNode of node.properties) {
 			let key = propertyNode.keyNode.value;
@@ -961,7 +963,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 	let text = textDocument.getText();
 	let scanner = Json.createScanner(text, false);
 
-	let commentRanges: Range[] = config && config.collectComments ? [] : void 0;
+	let commentRanges: Range[] | undefined = config && config.collectComments ? [] : undefined;
 
 	function _scanNext(): Json.SyntaxKind {
 		while (true) {
@@ -1000,7 +1002,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		}
 	}
 
-	function _error<T extends ASTNodeImpl>(message: string, code: ErrorCode, node: T = null, skipUntilAfter: Json.SyntaxKind[] = [], skipUntil: Json.SyntaxKind[] = []): T {
+	function _error<T extends ASTNodeImpl>(message: string, code: ErrorCode, node: T | undefined = undefined, skipUntilAfter: Json.SyntaxKind[] = [], skipUntil: Json.SyntaxKind[] = []): T | undefined {
 		let start = scanner.getTokenOffset();
 		let end = scanner.getTokenOffset() + scanner.getTokenLength();
 		if (start === end && start > 0) {
@@ -1064,9 +1066,9 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return node;
 	}
 
-	function _parseArray(parent: ASTNode): ArrayASTNode {
+	function _parseArray(parent: ASTNode | undefined): ArrayASTNode | undefined {
 		if (scanner.getToken() !== Json.SyntaxKind.OpenBracketToken) {
-			return null;
+			return undefined;
 		}
 		let node = new ArrayASTNodeImpl(parent, scanner.getTokenOffset());
 		_scanNext(); // consume OpenBracketToken
@@ -1089,9 +1091,9 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			} else if (needsComma) {
 				_error(localize('ExpectedComma', 'Expected comma'), ErrorCode.CommaExpected);
 			}
-			let item = _parseValue(node, count++);
+			let item = _parseValue(node);
 			if (!item) {
-				_error(localize('PropertyExpected', 'Value expected'), ErrorCode.ValueExpected, null, [], [Json.SyntaxKind.CloseBracketToken, Json.SyntaxKind.CommaToken]);
+				_error(localize('PropertyExpected', 'Value expected'), ErrorCode.ValueExpected, undefined, [], [Json.SyntaxKind.CloseBracketToken, Json.SyntaxKind.CommaToken]);
 			} else {
 				node.items.push(item);
 			}
@@ -1105,9 +1107,10 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return _finalize(node, true);
 	}
 
-	function _parseProperty(parent: ObjectASTNode, keysSeen: { [key: string]: (PropertyASTNode | boolean) }): PropertyASTNode {
+	const keyPlaceholder = new StringASTNodeImpl(undefined, 0, 0);
 
-		let node = new PropertyASTNodeImpl(parent, scanner.getTokenOffset());
+	function _parseProperty(parent: ObjectASTNode | undefined, keysSeen: { [key: string]: (PropertyASTNode | boolean) }): PropertyASTNode | undefined {
+		let node = new PropertyASTNodeImpl(parent, scanner.getTokenOffset(), keyPlaceholder);
 		let key = _parseString(node);
 		if (!key) {
 			if (scanner.getToken() === Json.SyntaxKind.Unknown) {
@@ -1118,7 +1121,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 				key = keyNode;
 				_scanNext(); // consume Unknown
 			} else {
-				return null;
+				return undefined;
 			}
 		}
 		node.keyNode = key;
@@ -1144,7 +1147,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 				return node;
 			}
 		}
-		let value = _parseValue(node, key.value);
+		let value = _parseValue(node);
 		if (!value) {
 			return _error(localize('ValueExpected', 'Value expected'), ErrorCode.ValueExpected, node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
 		}
@@ -1153,9 +1156,9 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return node;
 	}
 
-	function _parseObject(parent: ASTNode): ObjectASTNode {
+	function _parseObject(parent: ASTNode | undefined): ObjectASTNode | undefined {
 		if (scanner.getToken() !== Json.SyntaxKind.OpenBraceToken) {
-			return null;
+			return undefined;
 		}
 		let node = new ObjectASTNodeImpl(parent, scanner.getTokenOffset());
 		let keysSeen: any = Object.create(null);
@@ -1180,7 +1183,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			}
 			let property = _parseProperty(node, keysSeen);
 			if (!property) {
-				_error(localize('PropertyExpected', 'Property expected'), ErrorCode.PropertyExpected, null, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
+				_error(localize('PropertyExpected', 'Property expected'), ErrorCode.PropertyExpected, undefined, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
 			} else {
 				node.properties.push(property);
 			}
@@ -1193,9 +1196,9 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return _finalize(node, true);
 	}
 
-	function _parseString(parent: ASTNode): StringASTNode {
+	function _parseString(parent: ASTNode | undefined): StringASTNode | undefined {
 		if (scanner.getToken() !== Json.SyntaxKind.StringLiteral) {
-			return null;
+			return undefined;
 		}
 
 		let node = new StringASTNodeImpl(parent, scanner.getTokenOffset());
@@ -1204,9 +1207,9 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return _finalize(node, true);
 	}
 
-	function _parseNumber(parent: ASTNode): NumberASTNode {
+	function _parseNumber(parent: ASTNode | undefined): NumberASTNode | undefined {
 		if (scanner.getToken() !== Json.SyntaxKind.NumericLiteral) {
-			return null;
+			return undefined;
 		}
 
 		let node = new NumberASTNodeImpl(parent, scanner.getTokenOffset());
@@ -1226,7 +1229,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		return _finalize(node, true);
 	}
 
-	function _parseLiteral(parent: ASTNode): ASTNode {
+	function _parseLiteral(parent: ASTNode | undefined): ASTNode | undefined {
 		let node: ASTNodeImpl;
 		switch (scanner.getToken()) {
 			case Json.SyntaxKind.NullKeyword:
@@ -1236,18 +1239,18 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			case Json.SyntaxKind.FalseKeyword:
 				return _finalize(new BooleanASTNodeImpl(parent, false, scanner.getTokenOffset()), true);
 			default:
-				return null;
+				return undefined;
 		}
 	}
 
-	function _parseValue(parent: ASTNode, name: Json.Segment): ASTNode {
+	function _parseValue(parent: ASTNode | undefined): ASTNode | undefined {
 		return _parseArray(parent) || _parseObject(parent) || _parseString(parent) || _parseNumber(parent) || _parseLiteral(parent);
 	}
 
-	let _root = null;
+	let _root: ASTNode | undefined = undefined;
 	let token = _scanNext();
 	if (token !== Json.SyntaxKind.EOF) {
-		_root = _parseValue(null, null);
+		_root = _parseValue(_root);
 		if (!_root) {
 			_error(localize('Invalid symbol', 'Expected a JSON object, array or literal.'), ErrorCode.Undefined);
 		} else if (scanner.getToken() !== Json.SyntaxKind.EOF) {
