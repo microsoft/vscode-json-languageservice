@@ -520,9 +520,13 @@ suite('JSON Schema', () => {
 						}
 					}
 				}
-			}, schemaAssociations: {
-				'*.bar': ['http://myschemastore/myschemabar', 'http://myschemastore/myschemafoo']
-			}
+			},
+			schemaAssociations: [
+				{
+					pattern: ['*.bar'],
+					uris: ['http://myschemastore/myschemabar', 'http://myschemastore/myschemafoo']
+				}
+			]
 		});
 
 		let id2 = 'http://myschemastore/myschemafoo';
@@ -554,6 +558,34 @@ suite('JSON Schema', () => {
 			});
 		});
 	});
+
+	test('Exclusive file patterns', async function () {
+		let service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+
+		service.setSchemaContributions({
+			schemas: {
+				"http://myschemastore/myschemabar": {
+					maxProperties: 0
+				}
+			},
+			schemaAssociations: [
+				{
+					pattern: ['/folder/*.json', '!/folder/bar/*.json', '/folder/bar/zoo.json'],
+					uris: ['http://myschemastore/myschemabar']
+				}
+			]
+		});
+		const positives = ['/folder/a.json', '/folder/bar.json', '/folder/bar/zoo.json'];
+		const negatives = ['/folder/bar/a.json', '/folder/bar/z.json'];
+
+		for (let positive of positives) {
+			assert.ok(await service.getSchemaForResource(positive, null), positive);
+		}
+		for (let negative of negatives) {
+			assert.ok(!await service.getSchemaForResource(negative, null), negative);
+		}
+	});
+
 
 	test('Resolving circular $refs', async function () {
 

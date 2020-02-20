@@ -10,7 +10,6 @@ import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
 import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable } from '../jsonLanguageTypes';
 
-
 import * as nls from 'vscode-nls';
 
 const localize = nls.loadMessageBundle();
@@ -43,13 +42,14 @@ export interface IJSONSchemaService {
 	getRegisteredSchemaIds(filter?: (scheme) => boolean): string[];
 }
 
-export interface ISchemaAssociations {
-	[pattern: string]: string[];
+export interface SchemaAssociation {
+	pattern: string[];
+	uris: string[];
 }
 
 export interface ISchemaContributions {
 	schemas?: { [id: string]: JSONSchema };
-	schemaAssociations?: ISchemaAssociations;
+	schemaAssociations?: SchemaAssociation[];
 }
 
 export interface ISchemaHandle {
@@ -72,29 +72,45 @@ export interface ISchemaHandle {
 
 class FilePatternAssociation {
 
-	private schemas: string[];
-	private patternRegExp: RegExp;
+	private readonly uris: string[];
+	private readonly patternRegExps: RegExp[];
+	private readonly isInclude: boolean[];
 
-	constructor(pattern: string) {
+	constructor(pattern: string[], uris: string[]) {
+		this.patternRegExps = [];
+		this.isInclude = [];
 		try {
-			this.patternRegExp = new RegExp(Strings.convertSimple2RegExpPattern(pattern) + '$');
+			for (let p of pattern) {
+				const include = p[0] !== '!';
+				if (!include) {
+					p = p.substring(1);
+				}
+				this.patternRegExps.push(new RegExp(Strings.convertSimple2RegExpPattern(p) + '$'));
+				this.isInclude.push(include);
+			}
+			this.uris = uris;
 		} catch (e) {
 			// invalid pattern
-			this.patternRegExp = null;
+			this.patternRegExps.length = 0;
+			this.isInclude.length = 0;
+			this.uris = [];
 		}
-		this.schemas = [];
-	}
 
-	public addSchema(id: string) {
-		this.schemas.push(id);
 	}
 
 	public matchesPattern(fileName: string): boolean {
-		return this.patternRegExp && this.patternRegExp.test(fileName);
+		let match = false;
+		for (let i = 0; i < this.patternRegExps.length; i++) {
+			const regExp = this.patternRegExps[i];
+			if (regExp.test(fileName)) {
+				match = this.isInclude[i];
+			}
+		}
+		return match;
 	}
 
-	public getSchemas() {
-		return this.schemas;
+	public getURIs() {
+		return this.uris;
 	}
 }
 
@@ -200,11 +216,10 @@ export class ResolvedSchema {
 export class JSONSchemaService implements IJSONSchemaService {
 
 	private contributionSchemas: { [id: string]: SchemaHandle };
-	private contributionAssociations: { [id: string]: string[] };
+	private contributionAssociations: FilePatternAssociation[];
 
 	private schemasById: { [id: string]: SchemaHandle };
 	private filePatternAssociations: FilePatternAssociation[];
-	private filePatternAssociationById: { [id: string]: FilePatternAssociation };
 	private registeredSchemasIds: { [id: string]: boolean };
 
 	private contextService: WorkspaceContextService;
@@ -221,10 +236,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 		this.callOnDispose = [];
 
 		this.contributionSchemas = {};
-		this.contributionAssociations = {};
+		this.contributionAssociations = [];
 		this.schemasById = {};
 		this.filePatternAssociations = [];
-		this.filePatternAssociationById = {};
 		this.registeredSchemasIds = {};
 	}
 
@@ -247,7 +261,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	public onResourceChange(uri: string): boolean {
 		let hasChanges = false;
-		uri = this.normalizeId(uri);
+		uri = normalizeId(uri);
 
 		const toWalk = [uri];
 		const all: (SchemaHandle | undefined)[] = Object.keys(this.schemasById).map(key => this.schemasById[key]);
@@ -269,35 +283,20 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return hasChanges;
 	}
 
-	private normalizeId(id: string) {
-		// remove trailing '#', normalize drive capitalization
-		try {
-			return URI.parse(id).toString();
-		} catch (e) {
-			return id;
-		}
-
-	}
-
 	public setSchemaContributions(schemaContributions: ISchemaContributions): void {
 		if (schemaContributions.schemas) {
 			const schemas = schemaContributions.schemas;
 			for (const id in schemas) {
-				const normalizedId = this.normalizeId(id);
+				const normalizedId = normalizeId(id);
 				this.contributionSchemas[normalizedId] = this.addSchemaHandle(normalizedId, schemas[id]);
 			}
 		}
-		if (schemaContributions.schemaAssociations) {
+		if (Array.isArray(schemaContributions.schemaAssociations)) {
 			const schemaAssociations = schemaContributions.schemaAssociations;
-			for (const pattern in schemaAssociations) {
-				const associations = schemaAssociations[pattern];
-				this.contributionAssociations[pattern] = associations;
-
-				var fpa = this.getOrAddFilePatternAssociation(pattern);
-				for (const schemaId of associations) {
-					const id = this.normalizeId(schemaId);
-					fpa.addSchema(id);
-				}
+			for (let schemaAssociation of schemaAssociations) {
+				const uris = schemaAssociation.uris.map(normalizeId);
+				const association = this.addFilePatternAssociation(schemaAssociation.pattern, uris);
+				this.contributionAssociations.push(association);
 			}
 		}
 	}
@@ -312,25 +311,19 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return this.schemasById[id] || this.addSchemaHandle(id, unresolvedSchemaContent);
 	}
 
-	private getOrAddFilePatternAssociation(pattern: string) {
-		let fpa = this.filePatternAssociationById[pattern];
-		if (!fpa) {
-			fpa = new FilePatternAssociation(pattern);
-			this.filePatternAssociationById[pattern] = fpa;
-			this.filePatternAssociations.push(fpa);
-		}
+	private addFilePatternAssociation(pattern: string[], uris?: string[]): FilePatternAssociation {
+		const fpa = new FilePatternAssociation(pattern, uris);
+		this.filePatternAssociations.push(fpa);
 		return fpa;
 	}
 
 	public registerExternalSchema(uri: string, filePatterns: string[] = null, unresolvedSchemaContent?: JSONSchema): ISchemaHandle {
-		const id = this.normalizeId(uri);
+		const id = normalizeId(uri);
 		this.registeredSchemasIds[id] = true;
 		this.cachedSchemaForResource = undefined;
 
 		if (filePatterns) {
-			for (const pattern of filePatterns) {
-				this.getOrAddFilePatternAssociation(pattern).addSchema(id);
-			}
+			this.addFilePatternAssociation(filePatterns, [uri]);
 		}
 		return unresolvedSchemaContent ? this.addSchemaHandle(id, unresolvedSchemaContent) : this.getOrAddSchemaHandle(id);
 	}
@@ -338,7 +331,6 @@ export class JSONSchemaService implements IJSONSchemaService {
 	public clearExternalSchemas(): void {
 		this.schemasById = {};
 		this.filePatternAssociations = [];
-		this.filePatternAssociationById = {};
 		this.registeredSchemasIds = {};
 		this.cachedSchemaForResource = undefined;
 
@@ -346,17 +338,13 @@ export class JSONSchemaService implements IJSONSchemaService {
 			this.schemasById[id] = this.contributionSchemas[id];
 			this.registeredSchemasIds[id] = true;
 		}
-		for (const pattern in this.contributionAssociations) {
-			var fpa = this.getOrAddFilePatternAssociation(pattern);
-			for (const schemaId of this.contributionAssociations[pattern]) {
-				const id = this.normalizeId(schemaId);
-				fpa.addSchema(id);
-			}
+		for (const contributionAssociation of this.contributionAssociations) {
+			this.filePatternAssociations.push(contributionAssociation);
 		}
 	}
 
 	public getResolvedSchema(schemaId: string): Thenable<ResolvedSchema> {
-		const id = this.normalizeId(schemaId);
+		const id = normalizeId(schemaId);
 		const schemaHandle = this.schemasById[id];
 		if (schemaHandle) {
 			return schemaHandle.getResolvedSchema();
@@ -403,7 +391,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const schema = schemaToResolve.schema;
 
 		if (schema.$schema) {
-			const id = this.normalizeId(schema.$schema);
+			const id = normalizeId(schema.$schema);
 			if (id === 'http://json-schema.org/draft-03/schema') {
 				return this.promise.resolve(new ResolvedSchema({}, [localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.")]));
 			} else if (id === 'https://json-schema.org/draft/2019-09/schema') {
@@ -446,7 +434,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			if (contextService && !/^\w+:\/\/.*/.test(uri)) {
 				uri = contextService.resolveRelativePath(uri, parentSchemaURL);
 			}
-			uri = this.normalizeId(uri);
+			uri = normalizeId(uri);
 			const referencedHandle = this.getOrAddSchemaHandle(uri);
 			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
 				parentSchemaDependencies[uri] = true;
@@ -546,7 +534,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 					schemeId = this.contextService.resolveRelativePath(schemeId, resource);
 				}
 				if (schemeId) {
-					const id = this.normalizeId(schemeId);
+					const id = normalizeId(schemeId);
 					return this.getOrAddSchemaHandle(id).getResolvedSchema();
 				}
 			}
@@ -560,7 +548,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const schemas: string[] = [];
 		for (const entry of this.filePatternAssociations) {
 			if (entry.matchesPattern(resource)) {
-				for (const schemaId of entry.getSchemas()) {
+				for (const schemaId of entry.getURIs()) {
 					if (!seen[schemaId]) {
 						schemas.push(schemaId);
 						seen[schemaId] = true;
@@ -584,6 +572,16 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return this.addSchemaHandle(combinedSchemaId, combinedSchema);
 		}
 	}
+}
+
+function normalizeId(id: string): string {
+	// remove trailing '#', normalize drive capitalization
+	try {
+		return URI.parse(id).toString();
+	} catch (e) {
+		return id;
+	}
+
 }
 
 function toDisplayString(url: string) {

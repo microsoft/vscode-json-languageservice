@@ -1,3 +1,7 @@
+3.5.0 / 2020-02-20
+==================
+ * Support for exclusive file pattern starting with '!'. A file match consists of an array of patterns. A match succeeds when there is at least one pattern matching and last matching pattern does not start with '!'.
+
 3.4.4 / 2019-11-04
 ==================
  * Using `vscode-languageserver-textdocument` for TextDocument

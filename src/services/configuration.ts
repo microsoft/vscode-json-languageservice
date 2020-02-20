@@ -9,9 +9,7 @@ import * as nls from 'vscode-nls';
 const localize = nls.loadMessageBundle();
 
 export const schemaContributions: ISchemaContributions = {
-	schemaAssociations: {
-
-	},
+	schemaAssociations: [],
 	schemas: {
 		// refer to the latest schema
 		'http://json-schema.org/schema#': {
