@@ -21,7 +21,7 @@ export class JSONDocumentSymbols {
 
 	public findDocumentSymbols(document: TextDocument, doc: Parser.JSONDocument, context: DocumentSymbolsContext = { resultLimit: Number.MAX_VALUE }): SymbolInformation[] {
 
-		let root = doc.root;
+		const root = doc.root;
 		if (!root) {
 			return [];
 		}
@@ -29,15 +29,15 @@ export class JSONDocumentSymbols {
 		let limit = context.resultLimit || Number.MAX_VALUE;
 
 		// special handling for key bindings
-		let resourceString = document.uri;
+		const resourceString = document.uri;
 		if ((resourceString === 'vscode://defaultsettings/keybindings.json') || Strings.endsWith(resourceString.toLowerCase(), '/user/keybindings.json')) {
 			if (root.type === 'array') {
-				let result: SymbolInformation[] = [];
-				for (let item of root.items) {
+				const result: SymbolInformation[] = [];
+				for (const item of root.items) {
 					if (item.type === 'object') {
-						for (let property of item.properties) {
+						for (const property of item.properties) {
 							if (property.keyNode.value === 'key' && property.valueNode) {
-								let location = Location.create(document.uri, getRange(document, item));
+								const location = Location.create(document.uri, getRange(document, item));
 								result.push({ name: Parser.getNodeValue(property.valueNode), kind: SymbolKind.Function, location: location });
 								limit--;
 								if (limit <= 0) {
@@ -62,7 +62,7 @@ export class JSONDocumentSymbols {
 
 		const result: SymbolInformation[] = [];
 
-		let collectOutlineEntries = (node: ASTNode, containerName: string): void => {
+		const collectOutlineEntries = (node: ASTNode, containerName: string): void => {
 			if (node.type === 'array') {
 				node.items.forEach(node => {
 					if (node) {
@@ -71,7 +71,7 @@ export class JSONDocumentSymbols {
 				});
 			} else if (node.type === 'object') {
 				node.properties.forEach((property: PropertyASTNode) => {
-					let valueNode = property.valueNode;
+					const valueNode = property.valueNode;
 					if (valueNode) {
 						if (limit > 0) {
 							limit--;
@@ -101,7 +101,7 @@ export class JSONDocumentSymbols {
 
 	public findDocumentSymbols2(document: TextDocument, doc: Parser.JSONDocument, context: DocumentSymbolsContext = { resultLimit: Number.MAX_VALUE }): DocumentSymbol[] {
 
-		let root = doc.root;
+		const root = doc.root;
 		if (!root) {
 			return [];
 		}
@@ -109,16 +109,16 @@ export class JSONDocumentSymbols {
 		let limit = context.resultLimit || Number.MAX_VALUE;
 
 		// special handling for key bindings
-		let resourceString = document.uri;
+		const resourceString = document.uri;
 		if ((resourceString === 'vscode://defaultsettings/keybindings.json') || Strings.endsWith(resourceString.toLowerCase(), '/user/keybindings.json')) {
 			if (root.type === 'array') {
-				let result: DocumentSymbol[] = [];
-				for (let item of root.items) {
+				const result: DocumentSymbol[] = [];
+				for (const item of root.items) {
 					if (item.type === 'object') {
-						for (let property of item.properties) {
+						for (const property of item.properties) {
 							if (property.keyNode.value === 'key' && property.valueNode) {
-								let range = getRange(document, item);
-								let selectionRange = getRange(document, property.keyNode);
+								const range = getRange(document, item);
+								const selectionRange = getRange(document, property.keyNode);
 								result.push({ name: Parser.getNodeValue(property.valueNode), kind: SymbolKind.Function, range, selectionRange });
 								limit--;
 								if (limit <= 0) {
@@ -142,15 +142,15 @@ export class JSONDocumentSymbols {
 		let nextToVisit = 0;
 		let limitExceeded = false;
 
-		let collectOutlineEntries = (node: ASTNode, result: DocumentSymbol[]) => {
+		const collectOutlineEntries = (node: ASTNode, result: DocumentSymbol[]) => {
 			if (node.type === 'array') {
 				node.items.forEach((node, index) => {
 					if (node) {
 						if (limit > 0) {
 							limit--;
-							let range = getRange(document, node);
-							let selectionRange = range;
-							let name = String(index);
+							const range = getRange(document, node);
+							const selectionRange = range;
+							const name = String(index);
 							const symbol = { name, kind: this.getSymbolKind(node.type), range, selectionRange, children: [] };
 							result.push(symbol);
 							toVisit.push({ result: symbol.children, node });
@@ -161,12 +161,12 @@ export class JSONDocumentSymbols {
 				});
 			} else if (node.type === 'object') {
 				node.properties.forEach((property: PropertyASTNode) => {
-					let valueNode = property.valueNode;
+					const valueNode = property.valueNode;
 					if (valueNode) {
 						if (limit > 0) {
 							limit--;
-							let range = getRange(document, property);
-							let selectionRange = getRange(document, property.keyNode);
+							const range = getRange(document, property);
+							const selectionRange = getRange(document, property.keyNode);
 							const symbol = { name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), range, selectionRange, children: [] };
 							result.push(symbol);
 							toVisit.push({ result: symbol.children, node: valueNode });
@@ -221,18 +221,18 @@ export class JSONDocumentSymbols {
 
 	public findDocumentColors(document: TextDocument, doc: Parser.JSONDocument, context?: DocumentSymbolsContext): Thenable<ColorInformation[]> {
 		return this.schemaService.getSchemaForResource(document.uri, doc).then(schema => {
-			let result: ColorInformation[] = [];
+			const result: ColorInformation[] = [];
 			if (schema) {
 				let limit = context && typeof context.resultLimit === 'number' ? context.resultLimit : Number.MAX_VALUE;
-				let matchingSchemas = doc.getMatchingSchemas(schema.schema);
-				let visitedNode: { [nodeId: string]: boolean } = {};
-				for (let s of matchingSchemas) {
+				const matchingSchemas = doc.getMatchingSchemas(schema.schema);
+				const visitedNode: { [nodeId: string]: boolean } = {};
+				for (const s of matchingSchemas) {
 					if (!s.inverted && s.schema && (s.schema.format === 'color' || s.schema.format === 'color-hex') && s.node && s.node.type === 'string') {
-						let nodeId = String(s.node.offset);
+						const nodeId = String(s.node.offset);
 						if (!visitedNode[nodeId]) {
-							let color = colorFromHex(Parser.getNodeValue(s.node));
+							const color = colorFromHex(Parser.getNodeValue(s.node));
 							if (color) {
-								let range = getRange(document, s.node);
+								const range = getRange(document, s.node);
 								result.push({ color, range });
 							}
 							visitedNode[nodeId] = true;
@@ -252,8 +252,8 @@ export class JSONDocumentSymbols {
 	}
 
 	public getColorPresentations(document: TextDocument, doc: Parser.JSONDocument, color: Color, range: Range): ColorPresentation[] {
-		let result: ColorPresentation[] = [];
-		let red256 = Math.round(color.red * 255), green256 = Math.round(color.green * 255), blue256 = Math.round(color.blue * 255);
+		const result: ColorPresentation[] = [];
+		const red256 = Math.round(color.red * 255), green256 = Math.round(color.green * 255), blue256 = Math.round(color.blue * 255);
 
 		function toTwoDigitHex(n: number): string {
 			const r = n.toString(16);

@@ -14,15 +14,15 @@ import { Hover, Position, MarkedString, TextDocument } from '../jsonLanguageServ
 suite('JSON Hover', () => {
 
 	function testComputeInfo(value: string, schema: JsonSchema.JSONSchema, position: Position): PromiseLike<Hover> {
-		var uri = 'test://test.json';
+		const uri = 'test://test.json';
 
-		var schemaService = new SchemaService.JSONSchemaService(requestService);
-		var hoverProvider = new JSONHover(schemaService, [], Promise);
-		var id = "http://myschemastore/test1";
+		const schemaService = new SchemaService.JSONSchemaService(requestService);
+		const hoverProvider = new JSONHover(schemaService, [], Promise);
+		const id = "http://myschemastore/test1";
 		schemaService.registerExternalSchema(id, ["*.json"], schema);
 
-		var document = TextDocument.create(uri, 'json', 0, value);
-		var jsonDoc = Parser.parse(document);
+		const document = TextDocument.create(uri, 'json', 0, value);
+		const jsonDoc = Parser.parse(document);
 		return hoverProvider.doHover(document, position, jsonDoc);
 	}
 
@@ -32,8 +32,8 @@ suite('JSON Hover', () => {
 
 	test('Simple schema', async function () {
 
-		var content = '{"a": 42, "b": "hello", "c": false}';
-		var schema: JsonSchema.JSONSchema = {
+		const content = '{"a": 42, "b": "hello", "c": false}';
+		const schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			description: 'a very special object',
 			properties: {
@@ -67,8 +67,8 @@ suite('JSON Hover', () => {
 
 	test('Nested schema', async function () {
 
-		var content = '{"a": 42, "b": "hello"}';
-		var schema: JsonSchema.JSONSchema = {
+		const content = '{"a": 42, "b": "hello"}';
+		const schema: JsonSchema.JSONSchema = {
 			oneOf: [{
 				type: 'object',
 				description: 'a very special object',
@@ -99,7 +99,7 @@ suite('JSON Hover', () => {
 	});
 
 	test('Enum description', async function () {
-		var schema: JsonSchema.JSONSchema = {
+		const schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop1': {
@@ -140,7 +140,7 @@ suite('JSON Hover', () => {
 	});
 
 	test('Multiline descriptions', async function () {
-		var schema: JsonSchema.JSONSchema = {
+		const schema: JsonSchema.JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop1': {

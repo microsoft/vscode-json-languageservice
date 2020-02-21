@@ -11,7 +11,7 @@ import { SelectionRange } from 'vscode-languageserver-types';
 function assertRanges(content: string, expected: (number | string)[][]): void {
 	let message = `Test ${content}`;
 
-	let offset = content.indexOf('|');
+	const offset = content.indexOf('|');
 	content = content.substr(0, offset) + content.substr(offset + 1);
 
 	const ls = getLanguageService({});

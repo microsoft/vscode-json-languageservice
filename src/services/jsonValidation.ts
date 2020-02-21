@@ -38,34 +38,34 @@ export class JSONValidation {
 		if (!this.validationEnabled) {
 			return this.promise.resolve([]);
 		}
-		let diagnostics: Diagnostic[] = [];
-		let added: { [signature: string]: boolean } = {};
-		let addProblem = (problem: Diagnostic) => {
+		const diagnostics: Diagnostic[] = [];
+		const added: { [signature: string]: boolean } = {};
+		const addProblem = (problem: Diagnostic) => {
 			// remove duplicated messages
-			let signature = problem.range.start.line + ' ' + problem.range.start.character + ' ' + problem.message;
+			const signature = problem.range.start.line + ' ' + problem.range.start.character + ' ' + problem.message;
 			if (!added[signature]) {
 				added[signature] = true;
 				diagnostics.push(problem);
 			}
 		};
-		let getDiagnostics = (schema: ResolvedSchema | undefined) => {
+		const getDiagnostics = (schema: ResolvedSchema | undefined) => {
 			let trailingCommaSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.trailingCommas) : DiagnosticSeverity.Error;
 			let commentSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.comments) : this.commentSeverity;
 
 			if (schema) {
 				if (schema.errors.length && jsonDocument.root) {
-					let astRoot = jsonDocument.root;
-					let property = astRoot.type === 'object' ? astRoot.properties[0] : undefined;
+					const astRoot = jsonDocument.root;
+					const property = astRoot.type === 'object' ? astRoot.properties[0] : undefined;
 					if (property && property.keyNode.value === '$schema') {
-						let node = property.valueNode || property;
-						let range = Range.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
+						const node = property.valueNode || property;
+						const range = Range.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
 						addProblem(Diagnostic.create(range, schema.errors[0], DiagnosticSeverity.Warning, ErrorCode.SchemaResolveError));
 					} else {
-						let range = Range.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
+						const range = Range.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
 						addProblem(Diagnostic.create(range, schema.errors[0], DiagnosticSeverity.Warning, ErrorCode.SchemaResolveError));
 					}
 				} else {
-					let semanticErrors = jsonDocument.validate(textDocument, schema.schema);
+					const semanticErrors = jsonDocument.validate(textDocument, schema.schema);
 					if (semanticErrors) {
 						semanticErrors.forEach(addProblem);
 					}
@@ -91,7 +91,7 @@ export class JSONValidation {
 			}
 
 			if (typeof commentSeverity === 'number') {
-				let message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');
+				const message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');
 				jsonDocument.comments.forEach(c => {
 					addProblem(Diagnostic.create(c, message, commentSeverity, ErrorCode.CommentNotPermitted));
 				});

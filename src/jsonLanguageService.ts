@@ -51,15 +51,15 @@ export interface LanguageService {
 
 
 export function getLanguageService(params: LanguageServiceParams): LanguageService {
-	let promise = params.promiseConstructor || Promise;
+	const promise = params.promiseConstructor || Promise;
 
-	let jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext, promise);
+	const jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext, promise);
 	jsonSchemaService.setSchemaContributions(schemaContributions);
 
-	let jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise, params.clientCapabilities);
-	let jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
-	let jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
-	let jsonValidation = new JSONValidation(jsonSchemaService, promise);
+	const jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise, params.clientCapabilities);
+	const jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
+	const jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
+	const jsonValidation = new JSONValidation(jsonSchemaService, promise);
 
 	return {
 		configure: (settings: LanguageSettings) => {
@@ -88,11 +88,11 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		format: (d, r, o) => {
 			let range: JSONCRange | undefined = undefined;
 			if (r) {
-				let offset = d.offsetAt(r.start);
-				let length = d.offsetAt(r.end) - offset;
+				const offset = d.offsetAt(r.start);
+				const length = d.offsetAt(r.end) - offset;
 				range = { offset, length };
 			}
-			let options = { tabSize: o ? o.tabSize : 4, insertSpaces: o ? o.insertSpaces : true, eol: '\n' };
+			const options = { tabSize: o ? o.tabSize : 4, insertSpaces: o ? o.insertSpaces : true, eol: '\n' };
 			return formatJSON(d.getText(), range, options).map(e => {
 				return TextEdit.replace(Range.create(d.positionAt(e.offset), d.positionAt(e.offset + e.length)), e.content);
 			});
