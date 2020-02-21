@@ -30,7 +30,7 @@ export class JSONValidation {
 	public configure(raw: LanguageSettings) {
 		if (raw) {
 			this.validationEnabled = raw.validate;
-			this.commentSeverity = raw.allowComments ? void 0 : DiagnosticSeverity.Error;
+			this.commentSeverity = raw.allowComments ? undefined : DiagnosticSeverity.Error;
 		}
 	}
 
@@ -55,7 +55,7 @@ export class JSONValidation {
 			if (schema) {
 				if (schema.errors.length && jsonDocument.root) {
 					let astRoot = jsonDocument.root;
-					let property = astRoot.type === 'object' ? astRoot.properties[0] : null;
+					let property = astRoot.type === 'object' ? astRoot.properties[0] : undefined;
 					if (property && property.keyNode.value === '$schema') {
 						let node = property.valueNode || property;
 						let range = Range.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
@@ -72,11 +72,11 @@ export class JSONValidation {
 				}
 
 				if (schemaAllowsComments(schema.schema)) {
-					commentSeverity = void 0;
+					commentSeverity = undefined;
 				}
 
 				if (schemaAllowsTrailingCommas(schema.schema)) {
-					trailingCommaSeverity = void 0;
+					trailingCommaSeverity = undefined;
 				}
 			}
 
@@ -155,7 +155,7 @@ function toDiagnosticSeverity(severityLevel: SeverityLevel | undefined): Diagnos
 	switch (severityLevel) {
 		case 'error': return DiagnosticSeverity.Error;
 		case 'warning': return DiagnosticSeverity.Warning;
-		case 'ignore': return void 0;
+		case 'ignore': return undefined;
 	}
-	return void 0;
+	return undefined;
 }	

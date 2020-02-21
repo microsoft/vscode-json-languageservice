@@ -61,7 +61,7 @@ export function colorFromHex(text: string): Color | undefined {
 				alpha: (hexDigit(text.charCodeAt(7)) * 0x10 + hexDigit(text.charCodeAt(8))) / 255.0
 			};
 	}
-	return null;
+	return undefined;
 }
 
 export function colorFrom256RGB(red: number, green: number, blue: number, alpha: number = 1.0) {

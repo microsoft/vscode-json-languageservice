@@ -87,7 +87,7 @@ suite('JSON Document Symbols', () => {
 			for (let i = 0; i < expected.length; i++) {
 				assert.equal(actuals[i].name, expected[i].label, message);
 				assert.equal(actuals[i].kind, expected[i].kind, message);
-				assertDocumentSymbols(actuals[i].children, expected[i].children);
+				assertDocumentSymbols(actuals[i].children!, expected[i].children);
 			}
 		}
 		let actual = getHierarchicalOutline(value);
@@ -261,9 +261,9 @@ suite('JSON Document Symbols', () => {
 
 		const hierarchicalOutline = getHierarchicalOutline(content, context);
 		assert.equal(hierarchicalOutline.length, 10, 'hierarchical');
-		assert.equal(hierarchicalOutline[0].children.length, 10, 'hierarchical children of first');
-		assert.equal(hierarchicalOutline[1].children.length, 5, 'hierarchical children of second');
-		assert.equal(hierarchicalOutline[2].children.length, 0, 'hierarchical children of third');
+		assert.equal(hierarchicalOutline[0].children!.length, 10, 'hierarchical children of first');
+		assert.equal(hierarchicalOutline[1].children!.length, 5, 'hierarchical children of second');
+		assert.equal(hierarchicalOutline[2].children!.length, 0, 'hierarchical children of third');
 		assert.equal(exceededUris.length, 1);
 	});
 

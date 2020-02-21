@@ -141,7 +141,7 @@ suite('JSON Parser', () => {
 			assert.equal(node.type, 'object');
 			assert.deepEqual(getNodePath(node), []);
 
-			assert.strictEqual(jsonDoc.getNodeFromOffset(2), void 0);
+			assert.strictEqual(jsonDoc.getNodeFromOffset(2), undefined);
 		}
 		{
 			let { jsonDoc } = toDocument('[null]');
@@ -171,7 +171,7 @@ suite('JSON Parser', () => {
 
 			node = jsonDoc.getNodeFromOffset(10);
 
-			assert.equal(node, void 0);
+			assert.equal(node, undefined);
 
 			node = jsonDoc.getNodeFromOffset(5);
 

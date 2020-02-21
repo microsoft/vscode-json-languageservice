@@ -574,13 +574,13 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (isBoolean(exclusive) && exclusive) {
 				return limit;
 			}
-			return void 0;
+			return undefined;
 		}
 		function getLimit(limit: number | undefined, exclusive: boolean | number | undefined): number | undefined {
 			if (!isBoolean(exclusive) || !exclusive) {
 				return limit;
 			}
-			return void 0;
+			return undefined;
 		}
 		let exclusiveMinimum = getExclusiveLimit(schema.minimum, schema.exclusiveMinimum);
 		if (isNumber(exclusiveMinimum) && val <= exclusiveMinimum) {

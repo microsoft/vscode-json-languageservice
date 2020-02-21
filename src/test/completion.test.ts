@@ -39,13 +39,13 @@ let assertCompletion = function (completions: CompletionList, expected: ItemDesc
 		assert.equal(match.kind, expected.kind);
 	}
 	if (expected.resultText) {
-		assert.equal(applyEdits(document, [match.textEdit]), expected.resultText);
+		assert.equal(applyEdits(document, [match.textEdit!]), expected.resultText);
 	}
 };
 
 suite('JSON Completion', () => {
 
-	let testCompletionsFor = function (value: string, schema: JSONSchema, expected: { count?: number, items?: ItemDescription[] }, clientCapabilities = ClientCapabilities.LATEST): PromiseLike<void> {
+	let testCompletionsFor = function (value: string, schema: JSONSchema | null, expected: { count?: number, items?: ItemDescription[] }, clientCapabilities = ClientCapabilities.LATEST): PromiseLike<void> {
 		let offset = value.indexOf('|');
 		value = value.substr(0, offset) + value.substr(offset + 1);
 
@@ -65,11 +65,11 @@ suite('JSON Completion', () => {
 		let jsonDoc = ls.parseJSONDocument(document);
 		return ls.doComplete(document, position, jsonDoc).then(list => {
 			if (expected.count) {
-				assert.equal(list.items.length, expected.count, value + ' ' + list.items.map(i => i.label).join(', '));
+				assert.equal(list!.items.length, expected.count, value + ' ' + list!.items.map(i => i.label).join(', '));
 			}
 			if (expected.items) {
 				for (let item of expected.items) {
-					assertCompletion(list, item, document, offset);
+					assertCompletion(list!, item, document, offset);
 				}
 			}
 		});
@@ -1063,7 +1063,7 @@ suite('JSON Completion', () => {
 		// without markdown capability
 		await testCompletionsFor('{ "prop1": |', schema, {
 			items: [
-				{ label: '"e1"', documentation: void 0 },
+				{ label: '"e1"', documentation: undefined },
 			]
 		}, {});
 		await testCompletionsFor('{ "prop2": |', schema, {

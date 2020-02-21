@@ -23,10 +23,10 @@ export class JSONDocumentSymbols {
 
 		let root = doc.root;
 		if (!root) {
-			return null;
+			return [];
 		}
 
-		let limit = context.resultLimit;
+		let limit = context.resultLimit || Number.MAX_VALUE;
 
 		// special handling for key bindings
 		let resourceString = document.uri;
@@ -103,10 +103,10 @@ export class JSONDocumentSymbols {
 
 		let root = doc.root;
 		if (!root) {
-			return null;
+			return [];
 		}
 
-		let limit = context.resultLimit;
+		let limit = context.resultLimit || Number.MAX_VALUE;
 
 		// special handling for key bindings
 		let resourceString = document.uri;
@@ -225,7 +225,7 @@ export class JSONDocumentSymbols {
 			if (schema) {
 				let limit = context && typeof context.resultLimit === 'number' ? context.resultLimit : Number.MAX_VALUE;
 				let matchingSchemas = doc.getMatchingSchemas(schema.schema);
-				let visitedNode = {};
+				let visitedNode: { [nodeId: string]: boolean } = {};
 				for (let s of matchingSchemas) {
 					if (!s.inverted && s.schema && (s.schema.format === 'color' || s.schema.format === 'color-hex') && s.node && s.node.type === 'string') {
 						let nodeId = String(s.node.offset);
