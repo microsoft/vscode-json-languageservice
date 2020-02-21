@@ -699,8 +699,6 @@ export class JSONCompletion {
 		return stringifyObject(value, '', replacer) + separatorAfter;
 	}
 
-	private templateVarIdCounter = 0;
-
 	private getInsertTextForGuessedValue(value: any, separatorAfter: string): string {
 		switch (typeof value) {
 			case 'object':
