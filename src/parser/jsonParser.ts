@@ -184,7 +184,7 @@ class SchemaCollector implements ISchemaCollector {
 		this.schemas.push(schema);
 	}
 	merge(other: ISchemaCollector) {
-		this.schemas.push(...other.schemas);
+		Array.prototype.push.apply(this.schemas, other.schemas);
 	}
 	include(node: ASTNode) {
 		return (this.focusOffset === -1 || contains(node, this.focusOffset)) && (node !== this.exclude);
