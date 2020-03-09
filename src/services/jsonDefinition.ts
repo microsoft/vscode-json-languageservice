@@ -9,19 +9,19 @@ import { JSONDocument } from '../parser/jsonParser';
 
 export function findDefinition(document: TextDocument, position: Position, doc: JSONDocument): Thenable<DefinitionLink[]> {
 	const offset = document.offsetAt(position);
-	let node = doc.getNodeFromOffset(offset, true);
+	const node = doc.getNodeFromOffset(offset, true);
 	if (!node || !isRef(node)) {
 		return Promise.resolve([]);
 	}
 
-	let propertyNode: PropertyASTNode = node.parent as PropertyASTNode;
-	let valueNode = propertyNode.valueNode as ASTNode;
-	let path = valueNode.value as string;
-	let targetNode = findTargetNode(doc, path);
+	const propertyNode: PropertyASTNode = node.parent as PropertyASTNode;
+	const valueNode = propertyNode.valueNode as ASTNode;
+	const path = valueNode.value as string;
+	const targetNode = findTargetNode(doc, path);
 	if (!targetNode) {
 		return Promise.resolve([]);
 	}
-	let definition: DefinitionLink = {
+	const definition: DefinitionLink = {
 		targetUri: document.uri,
 		originSelectionRange: createRange(document, valueNode),
 		targetRange: createRange(document, targetNode),
@@ -44,7 +44,7 @@ function isRef(node: ASTNode): boolean {
 }
 
 function findTargetNode(doc: JSONDocument, path: string): ASTNode | null {
-	let tokens = parseJSONPointer(path);
+	const tokens = parseJSONPointer(path);
 	if (!tokens) {
 		return null;
 	}
@@ -61,7 +61,7 @@ function findNode(pointer: string[], node: ASTNode | null | undefined): ASTNode 
 
 	const token: string = pointer.shift() as string;
 	if (node && node.type === 'object') {
-		let propertyNode: PropertyASTNode | undefined = node.properties.find((propertyNode) => propertyNode.keyNode.value === token);
+		const propertyNode: PropertyASTNode | undefined = node.properties.find((propertyNode) => propertyNode.keyNode.value === token);
 		if (!propertyNode) {
 			return null;
 		}
@@ -69,7 +69,7 @@ function findNode(pointer: string[], node: ASTNode | null | undefined): ASTNode 
 	} else if (node && node.type === 'array') {
 		if (token.match(/^(0|[1-9][0-9]*)$/)) {
 			const index = Number.parseInt(token);
-			let arrayItem = node.items[index];
+			const arrayItem = node.items[index];
 			if (!arrayItem) {
 				return null;
 			}
