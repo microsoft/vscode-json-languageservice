@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
-import { DefinitionLink, Position, TextDocument, ASTNode, PropertyASTNode, Range } from '../jsonLanguageTypes';
+import { DefinitionLink, Position, TextDocument, ASTNode, PropertyASTNode, Range, Thenable } from '../jsonLanguageTypes';
 import { JSONDocument } from '../parser/jsonParser';
 
-export function findDefinition(document: TextDocument, position: Position, doc: JSONDocument): DefinitionLink[] {
+export function findDefinition(document: TextDocument, position: Position, doc: JSONDocument): Thenable<DefinitionLink[]> {
 	const offset = document.offsetAt(position);
 	let node = doc.getNodeFromOffset(offset, true);
 	if (!node || !isRef(node)) {
-		return [];
+		return Promise.resolve([]);
 	}
 
 	let propertyNode: PropertyASTNode = node.parent as PropertyASTNode;
@@ -19,7 +19,7 @@ export function findDefinition(document: TextDocument, position: Position, doc: 
 	let path = valueNode.value as string;
 	let targetNode = findTargetNode(doc, path);
 	if (!targetNode) {
-		return [];
+		return Promise.resolve([]);
 	}
 	let definition: DefinitionLink = {
 		targetUri: document.uri,
@@ -27,7 +27,7 @@ export function findDefinition(document: TextDocument, position: Position, doc: 
 		targetRange: createRange(document, targetNode),
 		targetSelectionRange: createRange(document, targetNode)
 	};
-	return [definition];
+	return Promise.resolve([definition]);
 }
 
 function createRange(document: TextDocument, node: ASTNode): Range {
