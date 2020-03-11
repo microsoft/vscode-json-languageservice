@@ -122,7 +122,7 @@ class SchemaHandle implements ISchemaHandle {
 	public dependencies: SchemaDependencies;
 
 	private resolvedSchema: Thenable<ResolvedSchema> | undefined;
-	private unresolvedSchema: Thenable<UnresolvedSchema> | undefined;
+	private unresolvedSchema: Thenable<UnresolvedSchema> | UnresolvedSchema | undefined;
 	private service: JSONSchemaService;
 
 	constructor(service: JSONSchemaService, url: string, unresolvedSchemaContent?: JSONSchema) {
@@ -130,7 +130,7 @@ class SchemaHandle implements ISchemaHandle {
 		this.url = url;
 		this.dependencies = {};
 		if (unresolvedSchemaContent) {
-			this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(unresolvedSchemaContent));
+			this.unresolvedSchema = new UnresolvedSchema(unresolvedSchemaContent);
 		}
 	}
 
@@ -138,7 +138,7 @@ class SchemaHandle implements ISchemaHandle {
 		if (!this.unresolvedSchema) {
 			this.unresolvedSchema = this.service.loadSchema(this.url);
 		}
-		return this.unresolvedSchema;
+		return this.service.promise.resolve(this.unresolvedSchema);
 	}
 
 	public getResolvedSchema(): Thenable<ResolvedSchema> {
@@ -152,8 +152,10 @@ class SchemaHandle implements ISchemaHandle {
 
 	public clearSchema() {
 		this.resolvedSchema = undefined;
-		this.unresolvedSchema = undefined;
 		this.dependencies = {};
+		if (!(this.unresolvedSchema instanceof UnresolvedSchema)) { // keep handles with schema as input
+			this.unresolvedSchema = undefined;
+		}
 	}
 }
 
@@ -468,20 +470,20 @@ export class JSONSchemaService implements IJSONSchemaService {
 					}
 				}
 			};
-			const collectMapEntries = (...maps: (JSONSchemaMap | undefined)[]) => {
+			const collectMapEntries = (...maps: (JSONSchemaMap | { [prop: string]: string[] } | undefined)[]) => {
 				for (const map of maps) {
 					if (typeof map === 'object') {
 						for (const k in map) {
 							const key = k as keyof JSONSchemaMap;
 							const entry = map[key];
-							if (typeof entry === 'object') {
+							if (typeof entry === 'object' && !Array.isArray(entry)) {
 								toWalk.push(entry);
 							}
 						}
 					}
 				}
 			};
-			const collectArrayEntries = (...arrays: (JSONSchemaRef[] | undefined)[]) => {
+			const collectArrayEntries = (...arrays: (JSONSchemaRef[] | JSONSchemaRef | undefined)[]) => {
 				for (const array of arrays) {
 					if (Array.isArray(array)) {
 						for (const entry of array) {
@@ -489,6 +491,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 								toWalk.push(entry);
 							}
 						}
+					} else {
+						collectEntries(array);
 					}
 				}
 			};
@@ -509,9 +513,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 					}
 				}
 
-				collectEntries(<JSONSchema>next.items, <JSONSchema>next.additionalProperties, next.not, next.contains, next.propertyNames, next.if, next.then, next.else);
-				collectMapEntries(next.definitions, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies);
-				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, <JSONSchema[]>next.items);
+				collectEntries(next.additionalProperties, next.additionalItems, next.not, next.contains, next.propertyNames, next.if, next.then, next.else);
+				collectMapEntries(next.definitions, next.properties, next.patternProperties, next.dependencies);
+				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, next.items);
 			};
 
 			while (toWalk.length) {
