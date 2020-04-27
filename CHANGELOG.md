@@ -1,3 +1,7 @@
+3.6.0 / 2020-04-27
+==================
+ * New API `findDefinition` to find a definition of a `$ref` link
+
 3.5.0 / 2020-02-20
 ==================
  * Support for exclusive file pattern starting with '!'. A file match consists of an array of patterns. A match succeeds when there is at least one pattern matching and last matching pattern does not start with '!'.
