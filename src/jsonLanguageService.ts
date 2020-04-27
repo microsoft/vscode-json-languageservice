@@ -23,8 +23,9 @@ import {
 	FoldingRange, JSONSchema, SelectionRange, FoldingRangesContext, DocumentSymbolsContext, ColorInformationContext as DocumentColorsContext,
 	TextDocument,
 	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions, DocumentSymbol
+	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink
 } from './jsonLanguageTypes';
+import { findDefinition } from './services/jsonDefinition';
 
 export type JSONDocument = {};
 export * from './jsonLanguageTypes';
@@ -47,6 +48,7 @@ export interface LanguageService {
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
 	getFoldingRanges(document: TextDocument, context?: FoldingRangesContext): FoldingRange[];
 	getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[];
+	findDefinition(document: TextDocument, position: Position, doc: JSONDocument): Thenable<DefinitionLink[]>;
 }
 
 
@@ -85,6 +87,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		doHover: jsonHover.doHover.bind(jsonHover),
 		getFoldingRanges,
 		getSelectionRanges,
+		findDefinition,
 		format: (d, r, o) => {
 			let range: JSONCRange | undefined = undefined;
 			if (r) {
