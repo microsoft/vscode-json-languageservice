@@ -17,6 +17,7 @@ interface ItemDescription {
 	kind?: CompletionItemKind;
 	resultText?: string;
 	notAvailable?: boolean;
+	sortText?: string;
 }
 
 const assertCompletion = function (completions: CompletionList, expected: ItemDescription, document: TextDocument, offset: number) {
@@ -29,17 +30,20 @@ const assertCompletion = function (completions: CompletionList, expected: ItemDe
 	}
 	assert.equal(matches.length, 1, expected.label + " should only existing once: Actual: " + completions.items.map(c => c.label).join(', '));
 	const match = matches[0];
-	if (expected.detail) {
+	if (expected.detail !== undefined) {
 		assert.equal(match.detail, expected.detail);
 	}
-	if (expected.documentation) {
+	if (expected.documentation !== undefined) {
 		assert.deepEqual(match.documentation, expected.documentation);
 	}
-	if (expected.kind) {
+	if (expected.kind !== undefined) {
 		assert.equal(match.kind, expected.kind);
 	}
-	if (expected.resultText) {
+	if (expected.resultText !== undefined) {
 		assert.equal(applyEdits(document, [match.textEdit!]), expected.resultText);
+	}
+	if (expected.sortText !== undefined) {
+		assert.equal(match.sortText, expected.sortText);
 	}
 };
 
@@ -1102,6 +1106,30 @@ suite('JSON Completion', () => {
 			items: [
 				{ label: 'prop2' },
 				{ label: 'prop3' }
+			]
+		});
+	});
+
+	test('suggestSortText', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop1': {
+					suggestSortText: 'a'
+				},
+				'prop2': {
+					suggestSortText: 'b'
+				},
+				'prop3': {
+					doNotSuggest: false
+				},
+			}
+		};
+
+		await testCompletionsFor('{ |', schema, {
+			items: [
+				{ label: 'prop2', sortText: 'b' },
+				{ label: 'prop3', sortText: undefined }
 			]
 		});
 	});

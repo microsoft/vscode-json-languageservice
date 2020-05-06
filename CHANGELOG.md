@@ -1,3 +1,7 @@
+3.7.0 / 2020-04-27
+==================
+ * New API `JSONSchema.suggestSortText` to set the sort order of completion proposals (VSCode specific JSON schema extension)
+
 3.6.0 / 2020-04-27
 ==================
  * New API `findDefinition` to find a definition of a `$ref` link
@@ -83,7 +87,7 @@
 
 2.0.5 / 2017-03-27
 ==================
-  * Add new API findColorSymbols that retunes all color values in a JSON document. To mark a value as a color, specify `"format": "color"` in the schema.
+  * Add new API findColorSymbols that returns all color values in a JSON document. To mark a value as a color, specify `"format": "color"` in the schema.
 
 2.0.4 / 2017-02-27
 ==================

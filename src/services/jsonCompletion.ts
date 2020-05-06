@@ -236,6 +236,9 @@ export class JSONCompletion {
 								filterText: this.getFilterTextForValue(key),
 								documentation: this.fromMarkup(propertySchema.markdownDescription) || propertySchema.description || '',
 							};
+							if (propertySchema.suggestSortText !== undefined) {
+								proposal.sortText = propertySchema.suggestSortText;
+							}
 							if (proposal.insertText && endsWith(proposal.insertText, `$1${separatorAfter}`)) {
 								proposal.command = {
 									title: 'Suggest',
