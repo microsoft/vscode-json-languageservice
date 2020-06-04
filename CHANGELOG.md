@@ -1,4 +1,4 @@
-3.7.0 / 2020-04-27
+3.7.0 / 2020-06-04
 ==================
  * New API `JSONSchema.suggestSortText` to set the sort order of completion proposals (VSCode specific JSON schema extension)
 
