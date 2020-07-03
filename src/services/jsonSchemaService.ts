@@ -5,10 +5,10 @@
 
 import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
-import { URI }  from 'vscode-uri';
+import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable } from '../jsonLanguageTypes';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument } from '../jsonLanguageTypes';
 
 
 import * as nls from 'vscode-nls';
@@ -274,7 +274,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		} catch (e) {
 			return id;
 		}
-		
+
 	}
 
 	public setSchemaContributions(schemaContributions: ISchemaContributions): void {
@@ -388,7 +388,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				if (Strings.endsWith(errorMessage, '.')) {
 					errorMessage = errorMessage.substr(0, errorMessage.length - 1);
 				}
-				return new UnresolvedSchema(<JSONSchema>{}, [localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': {1}.', toDisplayString(url), errorMessage) ]);
+				return new UnresolvedSchema(<JSONSchema>{}, [localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': {1}.', toDisplayString(url), errorMessage)]);
 			}
 		);
 	}
@@ -401,7 +401,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		if (schema.$schema) {
 			const id = this.normalizeId(schema.$schema);
 			if (id === 'http://json-schema.org/draft-03/schema') {
-				return this.promise.resolve(new ResolvedSchema({}, [ localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.") ]));
+				return this.promise.resolve(new ResolvedSchema({}, [localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.")]));
 			} else if (id === 'https://json-schema.org/draft/2019-09/schema') {
 				schemaToResolve.errors.push(localize('json.schema.draft201909.notsupported', "Draft 2019-09 schemas are not yet fully supported."));
 			}
@@ -577,6 +577,19 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return this.addSchemaHandle(combinedSchemaId, combinedSchema);
 		}
 	}
+
+	public getMatchingSchemas(document: TextDocument, jsonDocument: Parser.JSONDocument, schema?: JSONSchema): Thenable<MatchingSchema[]> {
+		if (schema) {
+			return this.promise.resolve(jsonDocument.getMatchingSchemas(schema).filter(s => !s.inverted));
+		}
+		return this.getSchemaForResource(document.uri, jsonDocument).then(schema => {
+			if (schema) {
+				return jsonDocument.getMatchingSchemas(schema.schema).filter(s => !s.inverted);
+			}
+			return [];
+		});
+	}
+
 }
 
 function toDisplayString(url: string) {

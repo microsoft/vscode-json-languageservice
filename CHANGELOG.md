@@ -1,3 +1,8 @@
+3.5.0 /
+=================
+ * new API `LanguageService.getMatchingSchemas`. Matches a document against its schema and list all AST nodes along with the matching sub schemas.
+
+
 3.4.4 / 2019-11-04
 ==================
  * Using `vscode-languageserver-textdocument` for TextDocument

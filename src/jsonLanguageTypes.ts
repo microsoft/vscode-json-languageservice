@@ -9,19 +9,19 @@ import {
 	Diagnostic, DiagnosticSeverity,
 	CompletionItem, CompletionItemKind, CompletionList, Position,
 	InsertTextFormat, MarkupContent,
-	SymbolInformation, SymbolKind, DocumentSymbol, Location,  Hover, MarkedString, FormattingOptions
+	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions
 } from 'vscode-languageserver-types';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 export {
-	TextDocument, 
+	TextDocument,
 	Range, TextEdit, JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
 	Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, SelectionRange,
 	Diagnostic, DiagnosticSeverity,
 	CompletionItem, CompletionItemKind, CompletionList, Position,
 	InsertTextFormat, MarkupContent, MarkupKind,
-	SymbolInformation, SymbolKind, DocumentSymbol, Location,  Hover, MarkedString, FormattingOptions
+	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions
 };
 
 /**
@@ -91,6 +91,11 @@ export interface BooleanASTNode extends BaseASTNode {
 export interface NullASTNode extends BaseASTNode {
 	readonly type: 'null';
 	readonly value: null;
+}
+
+export interface MatchingSchema {
+	node: ASTNode;
+	schema: JSONSchema;
 }
 
 export interface LanguageSettings {

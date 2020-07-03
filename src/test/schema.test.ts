@@ -11,7 +11,7 @@ import * as url from 'url';
 import * as path from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLanguageService } from '../jsonLanguageService';
-import { JSONSchema, SchemaRequestService } from '../jsonLanguageTypes';
+import { JSONSchema, SchemaRequestService, MatchingSchema } from '../jsonLanguageTypes';
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
 	let textDoc = TextDocument.create('foo://bar/file.json', 'json', 0, text);
@@ -884,6 +884,44 @@ suite('JSON Schema', () => {
 		validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
 		assert.deepEqual(validation.map(v => v.message), ['Incorrect type. Expected "boolean".']);
 		assert.deepEqual([], accesses); // b is not depended anymore
+	});
+
+	test('getMatchingSchemas', async function () {
+
+		const schema : JSONSchema = {
+			type: 'object',
+			$comment: 'schema',
+			properties: {
+				foo: {
+					type: 'object',
+					$comment: 'foo',
+					properties: {
+						bar: {
+							type: 'number',
+							$comment: 'bar',
+						}
+					}
+				}
+			}
+		};
+
+		const ls = getLanguageService({ workspaceContext });
+
+		const testDoc = toDocument(JSON.stringify({ foo: { bar: 1 } }));
+		const ms = await ls.getMatchingSchemas(testDoc.textDoc, testDoc.jsonDoc, schema);
+
+		function assertMatchingSchema(ms: MatchingSchema[], nodeOffset: number, comment: string) {
+			for (const m of ms) {
+				if (m.node.offset === nodeOffset) {
+					assert.equal(m.schema.$comment, comment);
+					return;
+				}
+			}
+			assert.fail("No node at offset " + nodeOffset);
+		}
+		assertMatchingSchema(ms, 0, 'schema');
+		assertMatchingSchema(ms, 7, 'foo');
+		assertMatchingSchema(ms, 14, 'bar');
 	});
 
 });
