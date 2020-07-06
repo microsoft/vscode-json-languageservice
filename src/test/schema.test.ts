@@ -990,7 +990,7 @@ suite('JSON Schema', () => {
 
 	test('getMatchingSchemas', async function () {
 
-		const schema : JSONSchema = {
+		const schema: JSONSchema = {
 			type: 'object',
 			$comment: 'schema',
 			properties: {

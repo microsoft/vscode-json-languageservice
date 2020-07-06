@@ -287,16 +287,6 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return hasChanges;
 	}
 
-	private normalizeId(id: string) {
-		// remove trailing '#', normalize drive capitalization
-		try {
-			return URI.parse(id).toString();
-		} catch (e) {
-			return id;
-		}
-
-	}
-
 	public setSchemaContributions(schemaContributions: ISchemaContributions): void {
 		if (schemaContributions.schemas) {
 			const schemas = schemaContributions.schemas;
