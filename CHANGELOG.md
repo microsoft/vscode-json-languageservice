@@ -1,6 +1,10 @@
+3.8.0 /
+=================
+ * new API `LanguageService.getMatchingSchemas`. Matches a document against its schema and list all AST nodes along with the matching sub schemas. 
+
 3.7.0 / 2020-06-04
 ==================
- * New API `JSONSchema.suggestSortText` to set the sort order of completion proposals (VSCode specific JSON schema extension)
+ * New API `JSONSchema.suggestSortText` to set the sort order of completion proposals (VS Code specific JSON schema extension)
 
 3.6.0 / 2020-04-27
 ==================
@@ -16,22 +20,22 @@
 
 3.4.0 / 2019-10-28
 ==================
-* Added `DocumentSymbolsContext` and `ColorInformationContext` with `resultLimit` and `onResultLimitExceeded`. `onResultLimitExceeded` is called when the result was cropped.
-* Added commit characters for completion proposals (if supported by ClientCapabilities)
-* Warn when using draft-03 or draft-08 schemas
+ * Added `DocumentSymbolsContext` and `ColorInformationContext` with `resultLimit` and `onResultLimitExceeded`. `onResultLimitExceeded` is called when the result was cropped.
+ * Added commit characters for completion proposals (if supported by ClientCapabilities)
+ * Warn when using draft-03 or draft-08 schemas
 
 3.3.4 / 2019-09-20
 ==================
-* Renamed `schema.allowsTrailingCommas` -> `schema.allowTrailingCommas`
+ * Renamed `schema.allowsTrailingCommas` -> `schema.allowTrailingCommas`
 
 3.3.3 / 2019-08-29
 ==================
-* Schemas can configure whether comments and/or trailing commas are permitted.
+ * Schemas can configure whether comments and/or trailing commas are permitted.
 
 3.3.0 / 2019-06-12
 ==================
-* New API `LanguageService.getSelectionRanges` to get semantic selection ranges.
-* Manage schema dependencies so that `resetSchema` also resets schemas that depend on the schema.
+ * New API `LanguageService.getSelectionRanges` to get semantic selection ranges.
+ * Manage schema dependencies so that `resetSchema` also resets schemas that depend on the schema.
 
 3.2.0 / 2018-09-27
 ==================

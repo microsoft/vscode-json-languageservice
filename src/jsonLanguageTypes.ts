@@ -2,13 +2,28 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
 import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions';
 import { JSONSchema } from './jsonSchema';
-import { MarkupKind } from 'vscode-languageserver-types';
+import {
+	Range, TextEdit, Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, MarkupKind, SelectionRange,
+	Diagnostic, DiagnosticSeverity,
+	CompletionItem, CompletionItemKind, CompletionList, Position,
+	InsertTextFormat, MarkupContent,
+	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions, DefinitionLink
+} from 'vscode-languageserver-types';
 
-export { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector, JSONSchema };
-export { TextDocument } from 'vscode-languageserver-textdocument';
-export * from 'vscode-languageserver-types';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+
+export {
+	TextDocument,
+	Range, TextEdit, JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
+	Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, SelectionRange,
+	Diagnostic, DiagnosticSeverity,
+	CompletionItem, CompletionItemKind, CompletionList, Position,
+	InsertTextFormat, MarkupContent, MarkupKind, DefinitionLink,
+	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions
+};
 
 /**
  * Error codes used by diagnostics
@@ -77,6 +92,11 @@ export interface BooleanASTNode extends BaseASTNode {
 export interface NullASTNode extends BaseASTNode {
 	readonly type: 'null';
 	readonly value: null;
+}
+
+export interface MatchingSchema {
+	node: ASTNode;
+	schema: JSONSchema;
 }
 
 export interface LanguageSettings {

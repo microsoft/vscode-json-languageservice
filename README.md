@@ -10,7 +10,7 @@ Why?
 ----
 The _vscode-json-languageservice_ contains the language smarts behind the JSON editing experience of Visual Studio Code
 and the Monaco editor.
- - *doValidation* analyses an input string and returns syntax and lint errros.
+ - *doValidation* analyses an input string and returns syntax and lint errors.
  - *doComplete* provides completion proposals for a given location. *doResolve* resolves a completion proposal
  - *doResolve* resolves a completion proposals.
  - *doHover* provides a hover text for a given location.
@@ -19,6 +19,7 @@ and the Monaco editor.
  - *format* formats the code at the given range.
  - *getFoldingRanges* gets folding ranges for the given document
  - *getSelectionRanges* gets selection ranges for a given location.
+ - *getMatchingSchemas* matches a document against its schema and returns all AST nodes along with the matching sub schemas
 
  - use *parseJSONDocument* create a JSON document from source code, or *newJSONDocument* to create the document from an AST.
 

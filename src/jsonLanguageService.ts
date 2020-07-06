@@ -23,12 +23,16 @@ import {
 	FoldingRange, JSONSchema, SelectionRange, FoldingRangesContext, DocumentSymbolsContext, ColorInformationContext as DocumentColorsContext,
 	TextDocument,
 	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink
+	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink, MatchingSchema
 } from './jsonLanguageTypes';
 import { findDefinition } from './services/jsonDefinition';
 
-export type JSONDocument = {};
+export type JSONDocument = {
+	root: ASTNode | undefined;
+	getNodeFromOffset(offset: number, includeRightBound?: boolean): ASTNode | undefined;
+};
 export * from './jsonLanguageTypes';
+export { IApplicableSchema } from './parser/jsonParser';
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;
@@ -36,6 +40,7 @@ export interface LanguageService {
 	parseJSONDocument(document: TextDocument): JSONDocument;
 	newJSONDocument(rootNode: ASTNode, syntaxDiagnostics?: Diagnostic[]): JSONDocument;
 	resetSchema(uri: string): boolean;
+	getMatchingSchemas(document: TextDocument, jsonDocument: JSONDocument, schema?: JSONSchema): Thenable<MatchingSchema[]>;
 	doResolve(item: CompletionItem): Thenable<CompletionItem>;
 	doComplete(document: TextDocument, position: Position, doc: JSONDocument): Thenable<CompletionList | null>;
 	findDocumentSymbols(document: TextDocument, doc: JSONDocument, context?: DocumentSymbolsContext): SymbolInformation[];
@@ -77,6 +82,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		doValidation: jsonValidation.doValidation.bind(jsonValidation),
 		parseJSONDocument: (document: TextDocument) => parseJSON(document, { collectComments: true }),
 		newJSONDocument: (root: ASTNode, diagnostics: Diagnostic[]) => newJSONDocument(root, diagnostics),
+		getMatchingSchemas: jsonSchemaService.getMatchingSchemas.bind(jsonSchemaService),
 		doResolve: jsonCompletion.doResolve.bind(jsonCompletion),
 		doComplete: jsonCompletion.doComplete.bind(jsonCompletion),
 		findDocumentSymbols: jsonDocumentSymbols.findDocumentSymbols.bind(jsonDocumentSymbols),

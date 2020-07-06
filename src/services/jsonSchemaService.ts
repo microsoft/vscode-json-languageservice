@@ -8,7 +8,7 @@ import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
 import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable } from '../jsonLanguageTypes';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument } from '../jsonLanguageTypes';
 
 import * as nls from 'vscode-nls';
 
@@ -580,6 +580,19 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return this.addSchemaHandle(combinedSchemaId, combinedSchema);
 		}
 	}
+
+	public getMatchingSchemas(document: TextDocument, jsonDocument: Parser.JSONDocument, schema?: JSONSchema): Thenable<MatchingSchema[]> {
+		if (schema) {
+			return this.promise.resolve(jsonDocument.getMatchingSchemas(schema).filter(s => !s.inverted));
+		}
+		return this.getSchemaForResource(document.uri, jsonDocument).then(schema => {
+			if (schema) {
+				return jsonDocument.getMatchingSchemas(schema.schema).filter(s => !s.inverted);
+			}
+			return [];
+		});
+	}
+
 }
 
 function normalizeId(id: string): string {
