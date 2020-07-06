@@ -9,10 +9,12 @@ import * as nls from 'vscode-nls';
 const localize = nls.loadMessageBundle();
 
 export const schemaContributions: ISchemaContributions = {
-	schemaAssociations: {
-
-	},
+	schemaAssociations: [],
 	schemas: {
+		// refer to the latest schema
+		'http://json-schema.org/schema#': {
+			$ref: 'http://json-schema.org/draft-07/schema#'
+		},
 		// bundle the schema-schema to include (localized) descriptions
 		'http://json-schema.org/draft-04/schema#': {
 			'title': localize('schema.json', 'Describes a JSON file using a schema. See json-schema.org for more info.'),
@@ -466,7 +468,7 @@ export const schemaContributions: ISchemaContributions = {
 		}
 	}
 };
-const descriptions = {
+const descriptions: { [prop: string]: string } = {
 	id: localize('schema.json.id', "A unique identifier for the schema."),
 	$schema: localize('schema.json.$schema', "The schema to verify this document against."),
 	title: localize('schema.json.title', "A descriptive title of the element."),
@@ -519,7 +521,7 @@ for (const schemaName in schemaContributions.schemas) {
 	const schema = schemaContributions.schemas[schemaName];
 	for (const property in schema.properties) {
 		let propertyObject = schema.properties[property];
-		if (propertyObject === true) {
+		if (typeof propertyObject === 'boolean') {
 			propertyObject = schema.properties[property] = {};
 		}
 		const description = descriptions[property];

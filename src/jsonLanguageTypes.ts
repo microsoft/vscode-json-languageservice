@@ -9,7 +9,7 @@ import {
 	Diagnostic, DiagnosticSeverity,
 	CompletionItem, CompletionItemKind, CompletionList, Position,
 	InsertTextFormat, MarkupContent,
-	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions
+	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions, DefinitionLink
 } from 'vscode-languageserver-types';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -20,7 +20,7 @@ export {
 	Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, SelectionRange,
 	Diagnostic, DiagnosticSeverity,
 	CompletionItem, CompletionItemKind, CompletionList, Position,
-	InsertTextFormat, MarkupContent, MarkupKind,
+	InsertTextFormat, MarkupContent, MarkupKind, DefinitionLink,
 	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions
 };
 
@@ -119,7 +119,7 @@ export type SeverityLevel = 'error' | 'warning' | 'ignore';
 
 export interface DocumentLanguageSettings {
 	/**
-	 * The severity of reported comments. If not set, 'LanguageSettings.allowComments' defines wheter comments are ignored or reported as errors.
+	 * The severity of reported comments. If not set, 'LanguageSettings.allowComments' defines whether comments are ignored or reported as errors.
 	 */
 	comments?: SeverityLevel;
 
@@ -135,7 +135,9 @@ export interface SchemaConfiguration {
 	 */
 	uri: string;
 	/**
-	 * A list of file names that are associated to the schema. The '*' wildcard can be used. For example '*.schema.json', 'package.json'
+	 * A list of file path patterns that are associated to the schema. The '*' wildcard can be used. Exclusion patterns starting with '!'. 
+	 * For example '*.schema.json', 'package.json', '!foo*.schema.json'. 
+	 * A match succeeds when there is at least one pattern matching and last matching pattern does not start with '!'.
 	 */
 	fileMatch?: string[];
 	/**

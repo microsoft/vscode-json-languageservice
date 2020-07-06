@@ -3,13 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import {stringifyObject} from '../utils/json';
+import { stringifyObject } from '../utils/json';
 import * as assert from 'assert';
 
 suite('JSON Stringify', () => {
 
-	test('Object', function() {
-		let obj = {
+	test('Object', function () {
+		const obj = {
 			key1: 'Hello',
 			key2: true,
 			key3: 1.3,
@@ -20,12 +20,12 @@ suite('JSON Stringify', () => {
 
 	});
 
-	test('Array', function() {
-		let arr = [
-			'Hello', {}, [ 1234 ], []
+	test('Array', function () {
+		const arr = [
+			'Hello', {}, [1234], []
 		];
 		assert.equal(stringifyObject(arr, '', JSON.stringify), JSON.stringify(arr, null, '\t'));
 
-	});  
+	});
 
 });

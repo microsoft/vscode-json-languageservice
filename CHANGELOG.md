@@ -1,7 +1,18 @@
-3.5.0 /
+3.8.0 /
 =================
  * new API `LanguageService.getMatchingSchemas`. Matches a document against its schema and list all AST nodes along with the matching sub schemas.
 
+3.7.0 / 2020-06-04
+==================
+ * New API `JSONSchema.suggestSortText` to set the sort order of completion proposals (VSCode specific JSON schema extension)
+
+3.6.0 / 2020-04-27
+==================
+ * New API `findDefinition` to find a definition of a `$ref` link
+
+3.5.0 / 2020-02-20
+==================
+ * Support for exclusive file pattern starting with '!'. A file match consists of an array of patterns. A match succeeds when there is at least one pattern matching and last matching pattern does not start with '!'.
 
 3.4.4 / 2019-11-04
 ==================
@@ -9,22 +20,22 @@
 
 3.4.0 / 2019-10-28
 ==================
-* Added `DocumentSymbolsContext` and `ColorInformationContext` with `resultLimit` and `onResultLimitExceeded`. `onResultLimitExceeded` is called when the result was cropped.
-* Added commit characters for completion proposals (if supported by ClientCapabilities)
-* Warn when using draft-03 or draft-08 schemas
+ * Added `DocumentSymbolsContext` and `ColorInformationContext` with `resultLimit` and `onResultLimitExceeded`. `onResultLimitExceeded` is called when the result was cropped.
+ * Added commit characters for completion proposals (if supported by ClientCapabilities)
+ * Warn when using draft-03 or draft-08 schemas
 
 3.3.4 / 2019-09-20
 ==================
-* Renamed `schema.allowsTrailingCommas` -> `schema.allowTrailingCommas`
+ * Renamed `schema.allowsTrailingCommas` -> `schema.allowTrailingCommas`
 
 3.3.3 / 2019-08-29
 ==================
-* Schemas can configure whether comments and/or trailing commas are permitted.
+ * Schemas can configure whether comments and/or trailing commas are permitted.
 
 3.3.0 / 2019-06-12
 ==================
-* New API `LanguageService.getSelectionRanges` to get semantic selection ranges.
-* Manage schema dependencies so that `resetSchema` also resets schemas that depend on the schema.
+ * New API `LanguageService.getSelectionRanges` to get semantic selection ranges.
+ * Manage schema dependencies so that `resetSchema` also resets schemas that depend on the schema.
 
 3.2.0 / 2018-09-27
 ==================
@@ -80,7 +91,7 @@
 
 2.0.5 / 2017-03-27
 ==================
-  * Add new API findColorSymbols that retunes all color values in a JSON document. To mark a value as a color, specify `"format": "color"` in the schema.
+  * Add new API findColorSymbols that returns all color values in a JSON document. To mark a value as a color, specify `"format": "color"` in the schema.
 
 2.0.4 / 2017-02-27
 ==================

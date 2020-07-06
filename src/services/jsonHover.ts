@@ -20,18 +20,18 @@ export class JSONHover {
 		this.promise = promiseConstructor || Promise;
 	}
 
-	public doHover(document: TextDocument, position: Position, doc: Parser.JSONDocument): Thenable<Hover> {
+	public doHover(document: TextDocument, position: Position, doc: Parser.JSONDocument): Thenable<Hover | null> {
 
-		let offset = document.offsetAt(position);
+		const offset = document.offsetAt(position);
 		let node = doc.getNodeFromOffset(offset);
 		if (!node || (node.type === 'object' || node.type === 'array') && offset > node.offset + 1 && offset < node.offset + node.length - 1) {
 			return this.promise.resolve(null);
 		}
-		let hoverRangeNode = node;
+		const hoverRangeNode = node;
 
 		// use the property description when hovering over an object key
 		if (node.type === 'string') {
-			let parent = node.parent;
+			const parent = node.parent;
 			if (parent && parent.type === 'property' && parent.keyNode === node) {
 				node = parent.valueNode;
 				if (!node) {
@@ -40,38 +40,38 @@ export class JSONHover {
 			}
 		}
 
-		let hoverRange = Range.create(document.positionAt(hoverRangeNode.offset), document.positionAt(hoverRangeNode.offset + hoverRangeNode.length));
+		const hoverRange = Range.create(document.positionAt(hoverRangeNode.offset), document.positionAt(hoverRangeNode.offset + hoverRangeNode.length));
 
 		var createHover = (contents: MarkedString[]) => {
-			let result: Hover = {
+			const result: Hover = {
 				contents: contents,
 				range: hoverRange
 			};
 			return result;
 		};
 
-		let location = Parser.getNodePath(node);
+		const location = Parser.getNodePath(node);
 		for (let i = this.contributions.length - 1; i >= 0; i--) {
-			let contribution = this.contributions[i];
-			let promise = contribution.getInfoContribution(document.uri, location);
+			const contribution = this.contributions[i];
+			const promise = contribution.getInfoContribution(document.uri, location);
 			if (promise) {
 				return promise.then(htmlContent => createHover(htmlContent));
 			}
 		}
 
 		return this.schemaService.getSchemaForResource(document.uri, doc).then((schema) => {
-			if (schema) {
-				let matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset);
+			if (schema && node) {
+				const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset);
 
-				let title: string = null;
-				let markdownDescription: string = null;
-				let markdownEnumValueDescription = null, enumValue = null;
+				let title: string | undefined = undefined;
+				let markdownDescription: string | undefined = undefined;
+				let markdownEnumValueDescription: string | undefined = undefined, enumValue: string | undefined = undefined;
 				matchingSchemas.every((s) => {
 					if (s.node === node && !s.inverted && s.schema) {
 						title = title || s.schema.title;
 						markdownDescription = markdownDescription || s.schema.markdownDescription || toMarkdown(s.schema.description);
 						if (s.schema.enum) {
-							let idx = s.schema.enum.indexOf(Parser.getNodeValue(node));
+							const idx = s.schema.enum.indexOf(Parser.getNodeValue(node));
 							if (s.schema.markdownEnumDescriptions) {
 								markdownEnumValueDescription = s.schema.markdownEnumDescriptions[idx];
 							} else if (s.schema.enumDescriptions) {
@@ -101,7 +101,7 @@ export class JSONHover {
 					if (result.length > 0) {
 						result += "\n\n";
 					}
-					result += `\`${toMarkdownCodeBlock(enumValue)}\`: ${markdownEnumValueDescription}`;
+					result += `\`${toMarkdownCodeBlock(enumValue!)}\`: ${markdownEnumValueDescription}`;
 				}
 				return createHover([result]);
 			}
@@ -109,13 +109,14 @@ export class JSONHover {
 		});
 	}
 }
-
-function toMarkdown(plain: string) {
+function toMarkdown(plain: string): string;
+function toMarkdown(plain: string | undefined): string | undefined;
+function toMarkdown(plain: string | undefined): string | undefined {
 	if (plain) {
-		let res = plain.replace(/([^\n\r])(\r?\n)([^\n\r])/gm, '$1\n\n$3'); // single new lines to \n\n (Markdown paragraph)
+		const res = plain.replace(/([^\n\r])(\r?\n)([^\n\r])/gm, '$1\n\n$3'); // single new lines to \n\n (Markdown paragraph)
 		return res.replace(/[\\`*_{}[\]()#+\-.!]/g, "\\$&"); // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
 	}
-	return void 0;
+	return undefined;
 }
 
 function toMarkdownCodeBlock(content: string) {

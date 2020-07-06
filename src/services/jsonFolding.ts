@@ -7,11 +7,11 @@ import { createScanner, SyntaxKind, ScanError } from 'jsonc-parser';
 import { TextDocument, FoldingRangeKind, FoldingRange, FoldingRangesContext, Position } from '../jsonLanguageTypes';
 
 export function getFoldingRanges(document: TextDocument, context?: FoldingRangesContext): FoldingRange[] {
-	let ranges: FoldingRange[] = [];
-	let nestingLevels: number[] = [];
-	let stack: FoldingRange[] = [];
+	const ranges: FoldingRange[] = [];
+	const nestingLevels: number[] = [];
+	const stack: FoldingRange[] = [];
 	let prevStart = -1;
-	let scanner = createScanner(document.getText(), false);
+	const scanner = createScanner(document.getText(), false);
 	let token = scanner.scan();
 
 	function addRange(range: FoldingRange) {
@@ -23,17 +23,17 @@ export function getFoldingRanges(document: TextDocument, context?: FoldingRanges
 		switch (token) {
 			case SyntaxKind.OpenBraceToken:
 			case SyntaxKind.OpenBracketToken: {
-				let startLine = document.positionAt(scanner.getTokenOffset()).line;
-				let range = { startLine, endLine: startLine, kind: token === SyntaxKind.OpenBraceToken ? 'object' : 'array' };
+				const startLine = document.positionAt(scanner.getTokenOffset()).line;
+				const range = { startLine, endLine: startLine, kind: token === SyntaxKind.OpenBraceToken ? 'object' : 'array' };
 				stack.push(range);
 				break;
 			}
 			case SyntaxKind.CloseBraceToken:
 			case SyntaxKind.CloseBracketToken: {
-				let kind = token === SyntaxKind.CloseBraceToken ? 'object' : 'array';
+				const kind = token === SyntaxKind.CloseBraceToken ? 'object' : 'array';
 				if (stack.length > 0 && stack[stack.length - 1].kind === kind) {
-					let range = stack.pop();
-					let line = document.positionAt(scanner.getTokenOffset()).line;
+					const range = stack.pop();
+					const line = document.positionAt(scanner.getTokenOffset()).line;
 					if (range && line > range.startLine + 1 && prevStart !== range.startLine) {
 						range.endLine = line - 1;
 						addRange(range);
@@ -44,8 +44,8 @@ export function getFoldingRanges(document: TextDocument, context?: FoldingRanges
 			}
 
 			case SyntaxKind.BlockCommentTrivia: {
-				let startLine = document.positionAt(scanner.getTokenOffset()).line;
-				let endLine = document.positionAt(scanner.getTokenOffset() + scanner.getTokenLength()).line;
+				const startLine = document.positionAt(scanner.getTokenOffset()).line;
+				const endLine = document.positionAt(scanner.getTokenOffset() + scanner.getTokenLength()).line;
 				if (scanner.getTokenError() === ScanError.UnexpectedEndOfComment && startLine + 1 < document.lineCount) {
 					scanner.setPosition(document.offsetAt(Position.create(startLine + 1, 0)));
 				} else {
@@ -58,12 +58,12 @@ export function getFoldingRanges(document: TextDocument, context?: FoldingRanges
 			}
 
 			case SyntaxKind.LineCommentTrivia: {
-				let text = document.getText().substr(scanner.getTokenOffset(), scanner.getTokenLength());
-				let m = text.match(/^\/\/\s*#(region\b)|(endregion\b)/);
+				const text = document.getText().substr(scanner.getTokenOffset(), scanner.getTokenLength());
+				const m = text.match(/^\/\/\s*#(region\b)|(endregion\b)/);
 				if (m) {
-					let line = document.positionAt(scanner.getTokenOffset()).line;
+					const line = document.positionAt(scanner.getTokenOffset()).line;
 					if (m[1]) { // start pattern match
-						let range = { startLine: line, endLine: line, kind: FoldingRangeKind.Region };
+						const range = { startLine: line, endLine: line, kind: FoldingRangeKind.Region };
 						stack.push(range);
 					} else {
 						let i = stack.length - 1;
@@ -71,7 +71,7 @@ export function getFoldingRanges(document: TextDocument, context?: FoldingRanges
 							i--;
 						}
 						if (i >= 0) {
-							let range = stack[i];
+							const range = stack[i];
 							stack.length = i;
 							if (line > range.startLine && prevStart !== range.startLine) {
 								range.endLine = line;
@@ -87,15 +87,15 @@ export function getFoldingRanges(document: TextDocument, context?: FoldingRanges
 		}
 		token = scanner.scan();
 	}
-	let rangeLimit = context && context.rangeLimit;
+	const rangeLimit = context && context.rangeLimit;
 	if (typeof rangeLimit !== 'number' || ranges.length <= rangeLimit) {
 		return ranges;
 	}
 	if (context && context.onRangeLimitExceeded) {
 		context.onRangeLimitExceeded(document.uri);
 	}
-	
-	let counts: number[] = [];
+
+	const counts: number[] = [];
 	for (let level of nestingLevels) {
 		if (level < 30) {
 			counts[level] = (counts[level] || 0) + 1;
@@ -104,7 +104,7 @@ export function getFoldingRanges(document: TextDocument, context?: FoldingRanges
 	let entries = 0;
 	let maxLevel = 0;
 	for (let i = 0; i < counts.length; i++) {
-		let n = counts[i];
+		const n = counts[i];
 		if (n) {
 			if (n + entries > rangeLimit) {
 				maxLevel = i;
@@ -113,9 +113,9 @@ export function getFoldingRanges(document: TextDocument, context?: FoldingRanges
 			entries += n;
 		}
 	}
-	let result = [];
+	const result = [];
 	for (let i = 0; i < ranges.length; i++) {
-		let level = nestingLevels[i];
+		const level = nestingLevels[i];
 		if (typeof level === 'number') {
 			if (level < maxLevel || (level === maxLevel && entries++ < rangeLimit)) {
 				result.push(ranges[i]);

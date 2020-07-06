@@ -5,13 +5,13 @@
 
 import 'mocha';
 import * as assert from 'assert';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLanguageService } from '../jsonLanguageService';
+import { getLanguageService, TextDocument } from '../jsonLanguageService';
+import { SelectionRange } from 'vscode-languageserver-types';
 
 function assertRanges(content: string, expected: (number | string)[][]): void {
 	let message = `Test ${content}`;
 
-	let offset = content.indexOf('|');
+	const offset = content.indexOf('|');
 	content = content.substr(0, offset) + content.substr(offset + 1);
 
 	const ls = getLanguageService({});
@@ -21,7 +21,7 @@ function assertRanges(content: string, expected: (number | string)[][]): void {
 
 	const actualRanges = ls.getSelectionRanges(document, [document.positionAt(offset)], jsonDoc);
 	const offsetPairs: [number, string][] = [];
-	let curr = actualRanges[0];
+	let curr: SelectionRange | undefined = actualRanges[0];
 	while (curr) {
 		offsetPairs.push([document.offsetAt(curr.range.start), document.getText(curr.range)]);
 		curr = curr.parent;

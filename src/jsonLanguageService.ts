@@ -14,7 +14,7 @@ import { JSONSchemaService } from './services/jsonSchemaService';
 import { getFoldingRanges } from './services/jsonFolding';
 import { getSelectionRanges } from './services/jsonSelectionRanges';
 
-import { format as formatJSON } from 'jsonc-parser';
+import { format as formatJSON, Range as JSONCRange } from 'jsonc-parser';
 import {
 	Thenable,
 	ASTNode,
@@ -23,11 +23,12 @@ import {
 	FoldingRange, JSONSchema, SelectionRange, FoldingRangesContext, DocumentSymbolsContext, ColorInformationContext as DocumentColorsContext,
 	TextDocument,
 	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions, DocumentSymbol, MatchingSchema
+	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink, MatchingSchema
 } from './jsonLanguageTypes';
+import { findDefinition } from './services/jsonDefinition';
 
 export type JSONDocument = {
-	root: ASTNode;
+	root: ASTNode | undefined;
 	getNodeFromOffset(offset: number, includeRightBound?: boolean): ASTNode | undefined;
 };
 export * from './jsonLanguageTypes';
@@ -52,19 +53,20 @@ export interface LanguageService {
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
 	getFoldingRanges(document: TextDocument, context?: FoldingRangesContext): FoldingRange[];
 	getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[];
+	findDefinition(document: TextDocument, position: Position, doc: JSONDocument): Thenable<DefinitionLink[]>;
 }
 
 
 export function getLanguageService(params: LanguageServiceParams): LanguageService {
-	let promise = params.promiseConstructor || Promise;
+	const promise = params.promiseConstructor || Promise;
 
-	let jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext, promise);
+	const jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext, promise);
 	jsonSchemaService.setSchemaContributions(schemaContributions);
 
-	let jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise, params.clientCapabilities);
-	let jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
-	let jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
-	let jsonValidation = new JSONValidation(jsonSchemaService, promise);
+	const jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise, params.clientCapabilities);
+	const jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
+	const jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
+	const jsonValidation = new JSONValidation(jsonSchemaService, promise);
 
 	return {
 		configure: (settings: LanguageSettings) => {
@@ -91,14 +93,15 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		doHover: jsonHover.doHover.bind(jsonHover),
 		getFoldingRanges,
 		getSelectionRanges,
+		findDefinition,
 		format: (d, r, o) => {
-			let range = void 0;
+			let range: JSONCRange | undefined = undefined;
 			if (r) {
-				let offset = d.offsetAt(r.start);
-				let length = d.offsetAt(r.end) - offset;
+				const offset = d.offsetAt(r.start);
+				const length = d.offsetAt(r.end) - offset;
 				range = { offset, length };
 			}
-			let options = { tabSize: o ? o.tabSize : 4, insertSpaces: o ? o.insertSpaces : true, eol: '\n' };
+			const options = { tabSize: o ? o.tabSize : 4, insertSpaces: o ? o.insertSpaces : true, eol: '\n' };
 			return formatJSON(d.getText(), range, options).map(e => {
 				return TextEdit.replace(Range.create(d.positionAt(e.offset), d.positionAt(e.offset + e.length)), e.content);
 			});

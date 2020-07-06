@@ -3,8 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLanguageService, ClientCapabilities, Range } from '../jsonLanguageService';
+import { getLanguageService, ClientCapabilities, Range, TextDocument } from '../jsonLanguageService';
 import * as assert from 'assert';
 
 const applyEdits = TextDocument.applyEdits;
@@ -14,23 +13,23 @@ suite('JSON Formatter', () => {
 	const ls = getLanguageService({ clientCapabilities: ClientCapabilities.LATEST });
 
 	function format(unformatted: string, expected: string, insertSpaces = true) {
-		let range: Range = null;
-		let uri = 'test://test.json';
+		let range: Range | undefined = undefined;
+		const uri = 'test://test.json';
 
-		let rangeStart = unformatted.indexOf('|');
-		let rangeEnd = unformatted.lastIndexOf('|');
+		const rangeStart = unformatted.indexOf('|');
+		const rangeEnd = unformatted.lastIndexOf('|');
 		if (rangeStart !== -1 && rangeEnd !== -1) {
 			// remove '|'
 			unformatted = unformatted.substring(0, rangeStart) + unformatted.substring(rangeStart + 1, rangeEnd) + unformatted.substring(rangeEnd + 1);
 			var unformattedDoc = TextDocument.create(uri, 'json', 0, unformatted);
-			let startPos = unformattedDoc.positionAt(rangeStart);
-			let endPos = unformattedDoc.positionAt(rangeEnd);
+			const startPos = unformattedDoc.positionAt(rangeStart);
+			const endPos = unformattedDoc.positionAt(rangeEnd);
 			range = Range.create(startPos, endPos);
 		}
 
 		var document = TextDocument.create(uri, 'json', 0, unformatted);
-		let edits = ls.format(document, range, { tabSize: 2, insertSpaces: insertSpaces });
-		let formatted = applyEdits(document, edits);
+		const edits = ls.format(document, range!, { tabSize: 2, insertSpaces: insertSpaces });
+		const formatted = applyEdits(document, edits);
 		assert.equal(formatted, expected);
 	}
 

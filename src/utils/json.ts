@@ -3,9 +3,9 @@
 *  Licensed under the MIT License. See License.txt in the project root for license information.
 *--------------------------------------------------------------------------------------------*/
 
-export function stringifyObject(obj: any, indent: string, stringifyLiteral: (val: any) => string) : string {
+export function stringifyObject(obj: any, indent: string, stringifyLiteral: (val: any) => string): string {
 	if (obj !== null && typeof obj === 'object') {
-		let newIndent = indent + '\t';
+		const newIndent = indent + '\t';
 		if (Array.isArray(obj)) {
 			if (obj.length === 0) {
 				return '[]';
@@ -21,14 +21,14 @@ export function stringifyObject(obj: any, indent: string, stringifyLiteral: (val
 			result += indent + ']';
 			return result;
 		} else {
-			let keys = Object.keys(obj);
+			const keys = Object.keys(obj);
 			if (keys.length === 0) {
 				return '{}';
 			}
 			let result = '{\n';
 			for (let i = 0; i < keys.length; i++) {
-				let key = keys[i];
-				
+				const key = keys[i];
+
 				result += newIndent + JSON.stringify(key) + ': ' + stringifyObject(obj[key], newIndent, stringifyLiteral);
 				if (i < keys.length - 1) {
 					result += ',';

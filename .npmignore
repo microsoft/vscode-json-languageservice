@@ -8,5 +8,5 @@ src/
 test/
 .gitignore
 .travis.yml
-tslint.json
+.eslintrc.json
 gulpfile.js

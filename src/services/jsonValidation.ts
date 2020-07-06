@@ -6,7 +6,7 @@
 import { JSONSchemaService, ResolvedSchema, UnresolvedSchema } from './jsonSchemaService';
 import { JSONDocument } from '../parser/jsonParser';
 
-import { TextDocument, ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range  } from '../jsonLanguageTypes';
+import { TextDocument, ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range } from '../jsonLanguageTypes';
 import * as nls from 'vscode-nls';
 import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
 import { isDefined, isBoolean } from '../utils/objects';
@@ -18,7 +18,7 @@ export class JSONValidation {
 	private jsonSchemaService: JSONSchemaService;
 	private promise: PromiseConstructor;
 
-	private validationEnabled: boolean;
+	private validationEnabled: boolean | undefined;
 	private commentSeverity: DiagnosticSeverity | undefined;
 
 	public constructor(jsonSchemaService: JSONSchemaService, promiseConstructor: PromiseConstructor) {
@@ -30,7 +30,7 @@ export class JSONValidation {
 	public configure(raw: LanguageSettings) {
 		if (raw) {
 			this.validationEnabled = raw.validate;
-			this.commentSeverity = raw.allowComments ? void 0 : DiagnosticSeverity.Error;
+			this.commentSeverity = raw.allowComments ? undefined : DiagnosticSeverity.Error;
 		}
 	}
 
@@ -38,45 +38,45 @@ export class JSONValidation {
 		if (!this.validationEnabled) {
 			return this.promise.resolve([]);
 		}
-		let diagnostics: Diagnostic[] = [];
-		let added: { [signature: string]: boolean } = {};
-		let addProblem = (problem: Diagnostic) => {
+		const diagnostics: Diagnostic[] = [];
+		const added: { [signature: string]: boolean } = {};
+		const addProblem = (problem: Diagnostic) => {
 			// remove duplicated messages
-			let signature = problem.range.start.line + ' ' + problem.range.start.character + ' ' + problem.message;
+			const signature = problem.range.start.line + ' ' + problem.range.start.character + ' ' + problem.message;
 			if (!added[signature]) {
 				added[signature] = true;
 				diagnostics.push(problem);
 			}
 		};
-		let getDiagnostics = (schema: ResolvedSchema) => {
+		const getDiagnostics = (schema: ResolvedSchema | undefined) => {
 			let trailingCommaSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.trailingCommas) : DiagnosticSeverity.Error;
 			let commentSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.comments) : this.commentSeverity;
 
 			if (schema) {
 				if (schema.errors.length && jsonDocument.root) {
-					let astRoot = jsonDocument.root;
-					let property = astRoot.type === 'object' ? astRoot.properties[0] : null;
+					const astRoot = jsonDocument.root;
+					const property = astRoot.type === 'object' ? astRoot.properties[0] : undefined;
 					if (property && property.keyNode.value === '$schema') {
-						let node = property.valueNode || property;
-						let range = Range.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
+						const node = property.valueNode || property;
+						const range = Range.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
 						addProblem(Diagnostic.create(range, schema.errors[0], DiagnosticSeverity.Warning, ErrorCode.SchemaResolveError));
 					} else {
-						let range = Range.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
+						const range = Range.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
 						addProblem(Diagnostic.create(range, schema.errors[0], DiagnosticSeverity.Warning, ErrorCode.SchemaResolveError));
 					}
 				} else {
-					let semanticErrors = jsonDocument.validate(textDocument, schema.schema);
+					const semanticErrors = jsonDocument.validate(textDocument, schema.schema);
 					if (semanticErrors) {
 						semanticErrors.forEach(addProblem);
 					}
 				}
 
 				if (schemaAllowsComments(schema.schema)) {
-					commentSeverity = void 0;
+					commentSeverity = undefined;
 				}
 
 				if (schemaAllowsTrailingCommas(schema.schema)) {
-					trailingCommaSeverity = void 0;
+					trailingCommaSeverity = undefined;
 				}
 			}
 
@@ -91,7 +91,7 @@ export class JSONValidation {
 			}
 
 			if (typeof commentSeverity === 'number') {
-				let message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');
+				const message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');
 				jsonDocument.comments.forEach(c => {
 					addProblem(Diagnostic.create(c, message, commentSeverity, ErrorCode.CommentNotPermitted));
 				});
@@ -113,7 +113,7 @@ export class JSONValidation {
 
 let idCounter = 0;
 
-function schemaAllowsComments(schemaRef: JSONSchemaRef) : boolean | undefined {
+function schemaAllowsComments(schemaRef: JSONSchemaRef): boolean | undefined {
 	if (schemaRef && typeof schemaRef === 'object') {
 		if (isBoolean(schemaRef.allowComments)) {
 			return schemaRef.allowComments;
@@ -130,13 +130,14 @@ function schemaAllowsComments(schemaRef: JSONSchemaRef) : boolean | undefined {
 	return undefined;
 }
 
-function schemaAllowsTrailingCommas(schemaRef: JSONSchemaRef) : boolean | undefined {
+function schemaAllowsTrailingCommas(schemaRef: JSONSchemaRef): boolean | undefined {
 	if (schemaRef && typeof schemaRef === 'object') {
 		if (isBoolean(schemaRef.allowTrailingCommas)) {
 			return schemaRef.allowTrailingCommas;
 		}
-		if (isBoolean(schemaRef['allowsTrailingCommas'])) { // deprecated
-			return schemaRef['allowsTrailingCommas'];
+		const deprSchemaRef = schemaRef as any;
+		if (isBoolean(deprSchemaRef['allowsTrailingCommas'])) { // deprecated
+			return deprSchemaRef['allowsTrailingCommas'];
 		}
 		if (schemaRef.allOf) {
 			for (const schema of schemaRef.allOf) {
@@ -150,11 +151,11 @@ function schemaAllowsTrailingCommas(schemaRef: JSONSchemaRef) : boolean | undefi
 	return undefined;
 }
 
-function toDiagnosticSeverity(severityLevel: SeverityLevel): DiagnosticSeverity | undefined {
+function toDiagnosticSeverity(severityLevel: SeverityLevel | undefined): DiagnosticSeverity | undefined {
 	switch (severityLevel) {
 		case 'error': return DiagnosticSeverity.Error;
 		case 'warning': return DiagnosticSeverity.Warning;
-		case 'ignore': return void 0;
+		case 'ignore': return undefined;
 	}
-	return void 0;
+	return undefined;
 }	

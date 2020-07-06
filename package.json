@@ -1,6 +1,6 @@
 {
   "name": "vscode-json-languageservice",
-  "version": "3.4.9",
+  "version": "3.7.0",
   "description": "Language service for JSON",
   "main": "./lib/umd/jsonLanguageService.js",
   "typings": "./lib/umd/jsonLanguageService",
@@ -15,19 +15,22 @@
     "url": "https://github.com/Microsoft/vscode-json-languageservice"
   },
   "devDependencies": {
-    "@types/mocha": "^5.2.7",
+    "@types/mocha": "^7.0.2",
     "@types/node": "^10.12.21",
-    "mocha": "^6.2.2",
-    "rimraf": "^3.0.0",
-    "tslint": "^5.20.0",
-    "typescript": "^3.6.4"
+    "@typescript-eslint/eslint-plugin": "^3.1.0",
+    "@typescript-eslint/parser": "^3.1.0",
+    "eslint": "^7.1.0",
+    "mocha": "^7.2.0",
+    "nyc": "^15.0.1",
+    "rimraf": "^3.0.2",
+    "typescript": "^3.8.3"
   },
   "dependencies": {
-    "jsonc-parser": "^2.2.0",
-    "vscode-languageserver-textdocument": "^1.0.0-next.4",
-    "vscode-languageserver-types": "^3.15.0-next.6",
-    "vscode-nls": "^4.1.1",
-    "vscode-uri": "^2.1.0"
+    "jsonc-parser": "^2.2.1",
+    "vscode-languageserver-textdocument": "^1.0.1",
+    "vscode-languageserver-types": "^3.15.1",
+    "vscode-nls": "^4.1.2",
+    "vscode-uri": "^2.1.2"
   },
   "scripts": {
     "prepublishOnly": "npm run clean && npm run compile-esm && npm run test && npm run remove-sourcemap-refs",
@@ -37,8 +40,11 @@
     "clean": "rimraf lib",
     "remove-sourcemap-refs": "node ./build/remove-sourcemap-refs.js",
     "watch": "tsc -w -p ./src",
-    "test": "npm run compile && mocha && npm run lint",
-    "lint": "tslint src/**/*.ts",
+    "pretest": "npm run compile",
+    "test": "mocha",
+    "posttest": "npm run lint",
+    "coverage": "nyc -r lcov npm run test",
+    "lint": "eslint src/**/*.ts",
     "install-types-next": "npm install vscode-languageserver-types@next -f -S && npm install vscode-languageserver-textdocument@next -f -S",
     "preversion": "npm test",
     "postversion": "git push && git push --tags"

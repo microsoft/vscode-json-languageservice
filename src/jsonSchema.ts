@@ -63,6 +63,7 @@ export interface JSONSchema {
 	markdownEnumDescriptions?: string[]; // VSCode extension
 	markdownDescription?: string; // VSCode extension
 	doNotSuggest?: boolean; // VSCode extension
+	suggestSortText?: string;  // VSCode extension
 	allowComments?: boolean; // VSCode extension
 	allowTrailingCommas?: boolean; // VSCode extension
 }

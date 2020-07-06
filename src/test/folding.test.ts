@@ -5,8 +5,7 @@
 
 import 'mocha';
 import * as assert from 'assert';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getFoldingRanges } from '../services/jsonFolding';
+import { TextDocument, getLanguageService } from '../jsonLanguageService';
 
 interface ExpectedIndentRange {
 	startLine: number;
@@ -16,7 +15,7 @@ interface ExpectedIndentRange {
 
 function assertRanges(lines: string[], expected: ExpectedIndentRange[], nRanges?: number): void {
 	let document = TextDocument.create('test://foo/bar.json', 'json', 1, lines.join('\n'));
-	let actual = getFoldingRanges(document, { rangeLimit: nRanges });
+	let actual = getLanguageService({}).getFoldingRanges(document, { rangeLimit: nRanges });
 
 	let actualRanges = [];
 	for (let i = 0; i < actual.length; i++) {
@@ -128,7 +127,7 @@ suite('JSON Folding', () => {
 			/*19*/' ]',
 			/*20*/']',
 		];
-		assertRanges(input, [r(0, 19, 'array'), r(1, 18, 'array'), r(2, 3, 'array'), r(5, 11, 'array'), r(6, 7, 'array'), r(9, 10, 'array'), r(13, 14, 'array'), r(16, 17, 'array')], void 0);
+		assertRanges(input, [r(0, 19, 'array'), r(1, 18, 'array'), r(2, 3, 'array'), r(5, 11, 'array'), r(6, 7, 'array'), r(9, 10, 'array'), r(13, 14, 'array'), r(16, 17, 'array')], undefined);
 		assertRanges(input, [r(0, 19, 'array'), r(1, 18, 'array'), r(2, 3, 'array'), r(5, 11, 'array'), r(6, 7, 'array'), r(9, 10, 'array'), r(13, 14, 'array'), r(16, 17, 'array')], 8);
 		assertRanges(input, [r(0, 19, 'array'), r(1, 18, 'array'), r(2, 3, 'array'), r(5, 11, 'array'), r(6, 7, 'array'), r(13, 14, 'array'), r(16, 17, 'array')], 7);
 		assertRanges(input, [r(0, 19, 'array'), r(1, 18, 'array'), r(2, 3, 'array'), r(5, 11, 'array'), r(13, 14, 'array'), r(16, 17, 'array')], 6);

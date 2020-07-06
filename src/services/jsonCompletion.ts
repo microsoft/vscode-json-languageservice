@@ -38,8 +38,9 @@ export class JSONCompletion {
 
 	public doResolve(item: CompletionItem): Thenable<CompletionItem> {
 		for (let i = this.contributions.length - 1; i >= 0; i--) {
-			if (this.contributions[i].resolveCompletion) {
-				let resolver = this.contributions[i].resolveCompletion(item);
+			const resolveCompletion = this.contributions[i].resolveCompletion;
+			if (resolveCompletion) {
+				const resolver = resolveCompletion(item);
 				if (resolver) {
 					return resolver;
 				}
@@ -50,14 +51,14 @@ export class JSONCompletion {
 
 	public doComplete(document: TextDocument, position: Position, doc: Parser.JSONDocument): Thenable<CompletionList> {
 
-		let result: CompletionList = {
+		const result: CompletionList = {
 			items: [],
 			isIncomplete: false
 		};
 
 		const text = document.getText();
 
-		let offset = document.offsetAt(position);
+		const offset = document.offsetAt(position);
 		let node = doc.getNodeFromOffset(offset, true);
 		if (this.isInComment(document, node ? node.offset : 0, offset)) {
 			return Promise.resolve(result);
@@ -70,8 +71,8 @@ export class JSONCompletion {
 			}
 		}
 
-		let currentWord = this.getCurrentWord(document, offset);
-		let overwriteRange = null;
+		const currentWord = this.getCurrentWord(document, offset);
+		let overwriteRange: Range;
 
 		if (node && (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')) {
 			overwriteRange = Range.create(document.positionAt(node.offset), document.positionAt(node.offset + node.length));
@@ -85,19 +86,27 @@ export class JSONCompletion {
 
 		const supportsCommitCharacters = false; //this.doesSupportsCommitCharacters(); disabled for now, waiting for new API: https://github.com/microsoft/vscode/issues/42544
 
-		let proposed: { [key: string]: CompletionItem } = {};
-		let collector: CompletionsCollector = {
+		const proposed: { [key: string]: CompletionItem } = {};
+		const collector: CompletionsCollector = {
 			add: (suggestion: CompletionItem) => {
-				let existing = proposed[suggestion.label];
+				let label = suggestion.label;
+				const existing = proposed[label];
 				if (!existing) {
-					proposed[suggestion.label] = suggestion;
-					if (overwriteRange) {
+					label = label.replace(/[\n]/g, '↵');
+					if (label.length > 60) {
+						const shortendedLabel = label.substr(0, 57).trim() + '...';
+						if (!proposed[shortendedLabel]) {
+							label = shortendedLabel;
+						}
+					}
+					if (overwriteRange && suggestion.insertText !== undefined) {
 						suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
 					}
 					if (supportsCommitCharacters) {
 						suggestion.commitCharacters = suggestion.kind === CompletionItemKind.Property ? propertyCommitCharacters : valueCommitCharacters;
 					}
-
+					suggestion.label = label;
+					proposed[label] = suggestion;
 					result.items.push(suggestion);
 				} else if (!existing.documentation) {
 					existing.documentation = suggestion.documentation;
@@ -118,16 +127,16 @@ export class JSONCompletion {
 		};
 
 		return this.schemaService.getSchemaForResource(document.uri, doc).then((schema) => {
-			let collectionPromises: Thenable<any>[] = [];
+			const collectionPromises: Thenable<any>[] = [];
 
 			let addValue = true;
 			let currentKey = '';
 
-			let currentProperty: PropertyASTNode = null;
+			let currentProperty: PropertyASTNode | undefined = undefined;
 			if (node) {
 
 				if (node.type === 'string') {
-					let parent = node.parent;
+					const parent = node.parent;
 					if (parent && parent.type === 'property' && parent.keyNode === node) {
 						addValue = !parent.valueNode;
 						currentProperty = parent;
@@ -146,7 +155,7 @@ export class JSONCompletion {
 					return result;
 				}
 				// don't suggest properties that are already present
-				let properties = node.properties;
+				const properties = node.properties;
 				properties.forEach(p => {
 					if (!currentProperty || currentProperty !== p) {
 						proposed[p.keyNode.value] = CompletionItem.create('__');
@@ -165,9 +174,9 @@ export class JSONCompletion {
 					this.getSchemaLessPropertyCompletions(doc, node, currentKey, collector);
 				}
 
-				let location = Parser.getNodePath(node);
+				const location = Parser.getNodePath(node);
 				this.contributions.forEach((contribution) => {
-					let collectPromise = contribution.collectPropertyCompletions(document.uri, location, currentWord, addValue, separatorAfter === '', collector);
+					const collectPromise = contribution.collectPropertyCompletions(document.uri, location, currentWord, addValue, separatorAfter === '', collector);
 					if (collectPromise) {
 						collectionPromises.push(collectPromise);
 					}
@@ -176,7 +185,7 @@ export class JSONCompletion {
 					collector.add({
 						kind: CompletionItemKind.Property,
 						label: this.getLabelForValue(currentWord),
-						insertText: this.getInsertTextForProperty(currentWord, null, false, separatorAfter),
+						insertText: this.getInsertTextForProperty(currentWord, undefined, false, separatorAfter),
 						insertTextFormat: InsertTextFormat.Snippet, documentation: '',
 					});
 					collector.setAsIncomplete();
@@ -184,7 +193,7 @@ export class JSONCompletion {
 			}
 
 			// proposals for values
-			let types: { [type: string]: boolean } = {};
+			const types: { [type: string]: boolean } = {};
 			if (schema) {
 				// value proposals with schema
 				this.getValueCompletions(schema, doc, node, offset, document, collector, types);
@@ -202,7 +211,7 @@ export class JSONCompletion {
 					if (node && (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')) {
 						offsetForSeparator = node.offset + node.length;
 					}
-					let separatorAfter = this.evaluateSeparatorAfter(document, offsetForSeparator);
+					const separatorAfter = this.evaluateSeparatorAfter(document, offsetForSeparator);
 					this.addFillerValueCompletions(types, separatorAfter, collector);
 				}
 				return result;
@@ -211,23 +220,26 @@ export class JSONCompletion {
 	}
 
 	private getPropertyCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: ASTNode, addValue: boolean, separatorAfter: string, collector: CompletionsCollector): void {
-		let matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset);
+		const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset);
 		matchingSchemas.forEach((s) => {
 			if (s.node === node && !s.inverted) {
-				let schemaProperties = s.schema.properties;
+				const schemaProperties = s.schema.properties;
 				if (schemaProperties) {
 					Object.keys(schemaProperties).forEach((key: string) => {
-						let propertySchema = schemaProperties[key];
+						const propertySchema = schemaProperties[key];
 						if (typeof propertySchema === 'object' && !propertySchema.deprecationMessage && !propertySchema.doNotSuggest) {
-							let proposal: CompletionItem = {
+							const proposal: CompletionItem = {
 								kind: CompletionItemKind.Property,
-								label: this.sanitizeLabel(key),
+								label: key,
 								insertText: this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter),
 								insertTextFormat: InsertTextFormat.Snippet,
 								filterText: this.getFilterTextForValue(key),
 								documentation: this.fromMarkup(propertySchema.markdownDescription) || propertySchema.description || '',
 							};
-							if (endsWith(proposal.insertText, `$1${separatorAfter}`)) {
+							if (propertySchema.suggestSortText !== undefined) {
+								proposal.sortText = propertySchema.suggestSortText;
+							}
+							if (proposal.insertText && endsWith(proposal.insertText, `$1${separatorAfter}`)) {
 								proposal.command = {
 									title: 'Suggest',
 									command: 'editor.action.triggerSuggest'
@@ -242,12 +254,12 @@ export class JSONCompletion {
 	}
 
 	private getSchemaLessPropertyCompletions(doc: Parser.JSONDocument, node: ASTNode, currentKey: string, collector: CompletionsCollector): void {
-		let collectCompletionsForSimilarObject = (obj: ObjectASTNode) => {
+		const collectCompletionsForSimilarObject = (obj: ObjectASTNode) => {
 			obj.properties.forEach((p) => {
-				let key = p.keyNode.value;
+				const key = p.keyNode.value;
 				collector.add({
 					kind: CompletionItemKind.Property,
-					label: this.sanitizeLabel(key),
+					label: key,
 					insertText: this.getInsertTextForValue(key, ''),
 					insertTextFormat: InsertTextFormat.Snippet,
 					filterText: this.getFilterTextForValue(key),
@@ -258,7 +270,7 @@ export class JSONCompletion {
 		if (node.parent) {
 			if (node.parent.type === 'property') {
 				// if the object is a property value, check the tree for other objects that hang under a property of the same name
-				let parentKey = node.parent.keyNode.value;
+				const parentKey = node.parent.keyNode.value;
 				doc.visit(n => {
 					if (n.type === 'property' && n !== node.parent && n.keyNode.value === parentKey && n.valueNode && n.valueNode.type === 'object') {
 						collectCompletionsForSimilarObject(n.valueNode);
@@ -277,14 +289,14 @@ export class JSONCompletion {
 			collector.add({
 				kind: CompletionItemKind.Property,
 				label: '$schema',
-				insertText: this.getInsertTextForProperty('$schema', null, true, ''),
+				insertText: this.getInsertTextForProperty('$schema', undefined, true, ''),
 				insertTextFormat: InsertTextFormat.Snippet, documentation: '',
 				filterText: this.getFilterTextForValue("$schema")
 			});
 		}
 	}
 
-	private getSchemaLessValueCompletions(doc: Parser.JSONDocument, node: ASTNode, offset: number, document: TextDocument, collector: CompletionsCollector): void {
+	private getSchemaLessValueCompletions(doc: Parser.JSONDocument, node: ASTNode | undefined, offset: number, document: TextDocument, collector: CompletionsCollector): void {
 		let offsetForSeparator = offset;
 		if (node && (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')) {
 			offsetForSeparator = node.offset + node.length;
@@ -308,9 +320,9 @@ export class JSONCompletion {
 			});
 			return;
 		}
-		let separatorAfter = this.evaluateSeparatorAfter(document, offsetForSeparator);
-		let collectSuggestionsForValues = (value: ASTNode) => {
-			if (!Parser.contains(value.parent, offset, true)) {
+		const separatorAfter = this.evaluateSeparatorAfter(document, offsetForSeparator);
+		const collectSuggestionsForValues = (value: ASTNode) => {
+			if (value.parent && !Parser.contains(value.parent, offset, true)) {
 				collector.add({
 					kind: this.getSuggestionKind(value.type),
 					label: this.getLabelTextForMatchingNode(value, document),
@@ -324,14 +336,14 @@ export class JSONCompletion {
 		};
 
 		if (node.type === 'property') {
-			if (offset > node.colonOffset) {
+			if (offset > (node.colonOffset || 0)) {
 
-				let valueNode = node.valueNode;
+				const valueNode = node.valueNode;
 				if (valueNode && (offset > (valueNode.offset + valueNode.length) || valueNode.type === 'object' || valueNode.type === 'array')) {
 					return;
 				}
 				// suggest values at the same key
-				let parentKey = node.keyNode.value;
+				const parentKey = node.keyNode.value;
 				doc.visit(n => {
 					if (n.type === 'property' && n.keyNode.value === parentKey && n.valueNode) {
 						collectSuggestionsForValues(n.valueNode);
@@ -347,7 +359,7 @@ export class JSONCompletion {
 			if (node.parent && node.parent.type === 'property') {
 
 				// suggest items of an array at the same key
-				let parentKey = node.parent.keyNode.value;
+				const parentKey = node.parent.keyNode.value;
 				doc.visit((n) => {
 					if (n.type === 'property' && n.keyNode.value === parentKey && n.valueNode && n.valueNode.type === 'array') {
 						n.valueNode.items.forEach(collectSuggestionsForValues);
@@ -362,10 +374,10 @@ export class JSONCompletion {
 	}
 
 
-	private getValueCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: ASTNode, offset: number, document: TextDocument, collector: CompletionsCollector, types: { [type: string]: boolean }): void {
+	private getValueCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: ASTNode | undefined, offset: number, document: TextDocument, collector: CompletionsCollector, types: { [type: string]: boolean }): void {
 		let offsetForSeparator = offset;
-		let parentKey: string = null;
-		let valueNode: ASTNode = null;
+		let parentKey: string | undefined = undefined;
+		let valueNode: ASTNode | undefined = undefined;
 
 		if (node && (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')) {
 			offsetForSeparator = node.offset + node.length;
@@ -378,8 +390,8 @@ export class JSONCompletion {
 			return;
 		}
 
-		if ((node.type === 'property') && offset > node.colonOffset) {
-			let valueNode = node.valueNode;
+		if ((node.type === 'property') && offset > (node.colonOffset || 0)) {
+			const valueNode = node.valueNode;
 			if (valueNode && offset > (valueNode.offset + valueNode.length)) {
 				return; // we are past the value node
 			}
@@ -387,15 +399,15 @@ export class JSONCompletion {
 			node = node.parent;
 		}
 
-		if (node && (parentKey !== null || node.type === 'array')) {
-			let separatorAfter = this.evaluateSeparatorAfter(document, offsetForSeparator);
+		if (node && (parentKey !== undefined || node.type === 'array')) {
+			const separatorAfter = this.evaluateSeparatorAfter(document, offsetForSeparator);
 
-			let matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset, valueNode);
-			matchingSchemas.forEach(s => {
+			const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset, valueNode);
+			for (const s of matchingSchemas) {
 				if (s.node === node && !s.inverted && s.schema) {
 					if (node.type === 'array' && s.schema.items) {
 						if (Array.isArray(s.schema.items)) {
-							let index = this.findItemAtOffset(node, document, offset);
+							const index = this.findItemAtOffset(node, document, offset);
 							if (index < s.schema.items.length) {
 								this.addSchemaValueCompletions(s.schema.items[index], separatorAfter, collector, types);
 							}
@@ -403,14 +415,14 @@ export class JSONCompletion {
 							this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types);
 						}
 					}
-					if (s.schema.properties) {
-						let propertySchema = s.schema.properties[parentKey];
+					if (s.schema.properties && parentKey !== undefined) {
+						const propertySchema = s.schema.properties[parentKey];
 						if (propertySchema) {
 							this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);
 						}
 					}
 				}
-			});
+			}
 			if (parentKey === '$schema' && !node.parent) {
 				this.addDollarSchemaCompletions(separatorAfter, collector);
 			}
@@ -425,10 +437,10 @@ export class JSONCompletion {
 
 	}
 
-	private getContributedValueCompletions(doc: Parser.JSONDocument, node: ASTNode, offset: number, document: TextDocument, collector: CompletionsCollector, collectionPromises: Thenable<any>[]) {
+	private getContributedValueCompletions(doc: Parser.JSONDocument, node: ASTNode | undefined, offset: number, document: TextDocument, collector: CompletionsCollector, collectionPromises: Thenable<any>[]) {
 		if (!node) {
 			this.contributions.forEach((contribution) => {
-				let collectPromise = contribution.collectDefaultCompletions(document.uri, collector);
+				const collectPromise = contribution.collectDefaultCompletions(document.uri, collector);
 				if (collectPromise) {
 					collectionPromises.push(collectPromise);
 				}
@@ -437,14 +449,14 @@ export class JSONCompletion {
 			if (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null') {
 				node = node.parent;
 			}
-			if ((node.type === 'property') && offset > node.colonOffset) {
-				let parentKey = node.keyNode.value;
+			if (node && (node.type === 'property') && offset > (node.colonOffset || 0)) {
+				const parentKey = node.keyNode.value;
 
-				let valueNode = node.valueNode;
-				if (!valueNode || offset <= (valueNode.offset + valueNode.length)) {
-					let location = Parser.getNodePath(node.parent);
+				const valueNode = node.valueNode;
+				if ((!valueNode || offset <= (valueNode.offset + valueNode.length)) && node.parent) {
+					const location = Parser.getNodePath(node.parent);
 					this.contributions.forEach((contribution) => {
-						let collectPromise = contribution.collectValueCompletions(document.uri, location, parentKey, collector);
+						const collectPromise = contribution.collectValueCompletions(document.uri, location, parentKey, collector);
 						if (collectPromise) {
 							collectionPromises.push(collectPromise);
 						}
@@ -531,8 +543,10 @@ export class JSONCompletion {
 						type = 'array';
 					}
 					insertText = prefix + indent + s.bodyText.split('\n').join('\n' + indent) + suffix + separatorAfter;
-					label = label || this.sanitizeLabel(insertText),
+					label = label || insertText,
 						filterText = insertText.replace(/[\n]/g, '');   // remove new lines
+				} else {
+					return;
 				}
 				collector.add({
 					kind: this.getSuggestionKind(type),
@@ -545,7 +559,7 @@ export class JSONCompletion {
 				hasProposals = true;
 			});
 		}
-		if (!hasProposals && typeof schema.items === 'object' && !Array.isArray(schema.items)) {
+		if (!hasProposals && typeof schema.items === 'object' && !Array.isArray(schema.items) && arrayDepth < 5 /* beware of recursion */) {
 			this.addDefaultValueCompletions(schema.items, separatorAfter, collector, arrayDepth + 1);
 		}
 	}
@@ -564,8 +578,8 @@ export class JSONCompletion {
 
 		if (Array.isArray(schema.enum)) {
 			for (let i = 0, length = schema.enum.length; i < length; i++) {
-				let enm = schema.enum[i];
-				let documentation: string | MarkupContent = this.fromMarkup(schema.markdownDescription) || schema.description;
+				const enm = schema.enum[i];
+				let documentation: string | MarkupContent | undefined = this.fromMarkup(schema.markdownDescription) || schema.description;
 				if (schema.markdownEnumDescriptions && i < schema.markdownEnumDescriptions.length && this.doesSupportMarkdown()) {
 					documentation = this.fromMarkup(schema.markdownEnumDescriptions[i]);
 				} else if (schema.enumDescriptions && i < schema.enumDescriptions.length) {
@@ -586,10 +600,10 @@ export class JSONCompletion {
 		if (Array.isArray(schema.enum) || isDefined(schema.const)) {
 			return;
 		}
-		let type = schema.type;
+		const type = schema.type;
 		if (Array.isArray(type)) {
 			type.forEach(t => types[t] = true);
-		} else {
+		} else if (type) {
 			types[type] = true;
 		}
 	}
@@ -638,7 +652,7 @@ export class JSONCompletion {
 	}
 
 	private addDollarSchemaCompletions(separatorAfter: string, collector: CompletionsCollector): void {
-		let schemaIds = this.schemaService.getRegisteredSchemaIds(schema => schema === 'http' || schema === 'https');
+		const schemaIds = this.schemaService.getRegisteredSchemaIds(schema => schema === 'http' || schema === 'https');
 		schemaIds.forEach(schemaId => collector.add({
 			kind: CompletionItemKind.Module,
 			label: this.getLabelForValue(schemaId),
@@ -648,30 +662,21 @@ export class JSONCompletion {
 		}));
 	}
 
-	private sanitizeLabel(label: string): string {
-		label = label.replace(/[\n]/g, '↵');
-		if (label.length > 57) {
-			label = label.substr(0, 57).trim() + '...';
-		}
-		return label;
-	}
-
 	private getLabelForValue(value: any): string {
-		return this.sanitizeLabel(JSON.stringify(value));
-	}
-
-	private getFilterTextForValue(value): string {
 		return JSON.stringify(value);
 	}
 
-	private getFilterTextForSnippetValue(value): string {
+	private getFilterTextForValue(value: any): string {
+		return JSON.stringify(value);
+	}
+
+	private getFilterTextForSnippetValue(value: any): string {
 		return JSON.stringify(value).replace(/\$\{\d+:([^}]+)\}|\$\d+/g, '$1');
 	}
 
 	private getLabelForSnippetValue(value: any): string {
-		let label = JSON.stringify(value);
-		label = label.replace(/\$\{\d+:([^}]+)\}|\$\d+/g, '$1');
-		return this.sanitizeLabel(label);
+		const label = JSON.stringify(value);
+		return label.replace(/\$\{\d+:([^}]+)\}|\$\d+/g, '$1');
 	}
 
 	private getInsertTextForPlainText(text: string): string {
@@ -689,7 +694,7 @@ export class JSONCompletion {
 	}
 
 	private getInsertTextForSnippetValue(value: any, separatorAfter: string): string {
-		let replacer = (value) => {
+		const replacer = (value: any) => {
 			if (typeof value === 'string') {
 				if (value[0] === '^') {
 					return value.substr(1);
@@ -699,8 +704,6 @@ export class JSONCompletion {
 		};
 		return stringifyObject(value, '', replacer) + separatorAfter;
 	}
-
-	private templateVarIdCounter = 0;
 
 	private getInsertTextForGuessedValue(value: any, separatorAfter: string): string {
 		switch (typeof value) {
@@ -723,8 +726,8 @@ export class JSONCompletion {
 
 	private getSuggestionKind(type: any): CompletionItemKind {
 		if (Array.isArray(type)) {
-			let array = <any[]>type;
-			type = array.length > 0 ? array[0] : null;
+			const array = <any[]>type;
+			type = array.length > 0 ? array[0] : undefined;
 		}
 		if (!type) {
 			return CompletionItemKind.Value;
@@ -744,7 +747,7 @@ export class JSONCompletion {
 			case 'object':
 				return '{}';
 			default:
-				let content = document.getText().substr(node.offset, node.length);
+				const content = document.getText().substr(node.offset, node.length);
 				return content;
 		}
 	}
@@ -756,25 +759,25 @@ export class JSONCompletion {
 			case 'object':
 				return this.getInsertTextForValue({}, separatorAfter);
 			default:
-				let content = document.getText().substr(node.offset, node.length) + separatorAfter;
+				const content = document.getText().substr(node.offset, node.length) + separatorAfter;
 				return this.getInsertTextForPlainText(content);
 		}
 	}
 
-	private getInsertTextForProperty(key: string, propertySchema: JSONSchema, addValue: boolean, separatorAfter: string): string {
+	private getInsertTextForProperty(key: string, propertySchema: JSONSchema | undefined, addValue: boolean, separatorAfter: string): string {
 
-		let propertyText = this.getInsertTextForValue(key, '');
+		const propertyText = this.getInsertTextForValue(key, '');
 		if (!addValue) {
 			return propertyText;
 		}
-		let resultText = propertyText + ': ';
+		const resultText = propertyText + ': ';
 
 		let value;
 		let nValueProposals = 0;
 		if (propertySchema) {
 			if (Array.isArray(propertySchema.defaultSnippets)) {
 				if (propertySchema.defaultSnippets.length === 1) {
-					let body = propertySchema.defaultSnippets[0].body;
+					const body = propertySchema.defaultSnippets[0].body;
 					if (isDefined(body)) {
 						value = this.getInsertTextForSnippetValue(body, '');
 					}
@@ -849,9 +852,9 @@ export class JSONCompletion {
 	}
 
 	private evaluateSeparatorAfter(document: TextDocument, offset: number) {
-		let scanner = Json.createScanner(document.getText(), true);
+		const scanner = Json.createScanner(document.getText(), true);
 		scanner.setPosition(offset);
-		let token = scanner.scan();
+		const token = scanner.scan();
 		switch (token) {
 			case Json.SyntaxKind.CommaToken:
 			case Json.SyntaxKind.CloseBraceToken:
@@ -864,13 +867,13 @@ export class JSONCompletion {
 	}
 
 	private findItemAtOffset(node: ArrayASTNode, document: TextDocument, offset: number) {
-		let scanner = Json.createScanner(document.getText(), true);
-		let children = node.items;
+		const scanner = Json.createScanner(document.getText(), true);
+		const children = node.items;
 		for (let i = children.length - 1; i >= 0; i--) {
-			let child = children[i];
+			const child = children[i];
 			if (offset > child.offset + child.length) {
 				scanner.setPosition(child.offset + child.length);
-				let token = scanner.scan();
+				const token = scanner.scan();
 				if (token === Json.SyntaxKind.CommaToken && offset >= scanner.getTokenOffset() + scanner.getTokenLength()) {
 					return i + 1;
 				}
@@ -883,7 +886,7 @@ export class JSONCompletion {
 	}
 
 	private isInComment(document: TextDocument, start: number, offset: number) {
-		let scanner = Json.createScanner(document.getText(), false);
+		const scanner = Json.createScanner(document.getText(), false);
 		scanner.setPosition(start);
 		let token = scanner.scan();
 		while (token !== Json.SyntaxKind.EOF && (scanner.getTokenOffset() + scanner.getTokenLength() < offset)) {
