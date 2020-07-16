@@ -415,9 +415,27 @@ export class JSONCompletion {
 							this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types);
 						}
 					}
-					if (s.schema.properties && parentKey !== undefined) {
-						const propertySchema = s.schema.properties[parentKey];
-						if (propertySchema) {
+					if (parentKey !== undefined) {
+						let propertyMatched = false;
+						if (s.schema.properties) {
+							const propertySchema = s.schema.properties[parentKey];
+							if (propertySchema) {
+								propertyMatched = true;
+								this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);
+							}
+						}
+						if (s.schema.patternProperties && !propertyMatched) {
+							for (const pattern of Object.keys(s.schema.patternProperties)) {
+								const regex = new RegExp(pattern);
+								if (regex.test(parentKey)) {
+								propertyMatched = true;
+									const propertySchema = s.schema.patternProperties[pattern];
+									this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);
+								}
+							}
+						}
+						if (s.schema.additionalProperties && !propertyMatched) {
+							const propertySchema = s.schema.additionalProperties;
 							this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);
 						}
 					}
