@@ -1,4 +1,4 @@
-3.8.0 /
+3.8.0 / 2020-08-02
 =================
  * new API `LanguageService.getMatchingSchemas`. Matches a document against its schema and list all AST nodes along with the matching sub schemas. 
 
