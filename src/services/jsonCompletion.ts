@@ -249,6 +249,43 @@ export class JSONCompletion {
 						}
 					});
 				}
+				const schemaPropertyNames = s.schema.propertyNames;
+				if (typeof schemaPropertyNames === 'object' && !schemaPropertyNames.deprecationMessage && !schemaPropertyNames.doNotSuggest) {
+					const propertyNameCompletionItem = (name: string, enumDescription: string | MarkupContent | undefined = undefined) => {
+						const proposal: CompletionItem = {
+							kind: CompletionItemKind.Property,
+							label: name,
+							insertText: this.getInsertTextForProperty(name, undefined, addValue, separatorAfter),
+							insertTextFormat: InsertTextFormat.Snippet,
+							filterText: this.getFilterTextForValue(name),
+							documentation: enumDescription || this.fromMarkup(schemaPropertyNames.markdownDescription) || schemaPropertyNames.description || '',
+						};
+						if (schemaPropertyNames.suggestSortText !== undefined) {
+							proposal.sortText = schemaPropertyNames.suggestSortText;
+						}
+						if (proposal.insertText && endsWith(proposal.insertText, `$1${separatorAfter}`)) {
+							proposal.command = {
+								title: 'Suggest',
+								command: 'editor.action.triggerSuggest'
+							};
+						}
+						collector.add(proposal);
+					};
+					if (schemaPropertyNames.enum) {
+						for (let i = 0; i < schemaPropertyNames.enum.length; i++) {
+							let enumDescription = undefined;
+							if (schemaPropertyNames.markdownEnumDescriptions && i < schemaPropertyNames.markdownEnumDescriptions.length) {
+								enumDescription = this.fromMarkup(schemaPropertyNames.markdownEnumDescriptions[i]);
+							} else if (schemaPropertyNames.enumDescriptions && i < schemaPropertyNames.enumDescriptions.length) {
+								enumDescription = schemaPropertyNames.enumDescriptions[i];
+							}
+							propertyNameCompletionItem(schemaPropertyNames.enum[i], enumDescription);
+						}
+					}
+					if (schemaPropertyNames.const) {
+						propertyNameCompletionItem(schemaPropertyNames.const);
+					}
+				}
 			}
 		});
 	}

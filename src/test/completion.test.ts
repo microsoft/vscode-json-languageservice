@@ -248,6 +248,98 @@ suite('JSON Completion', () => {
 
 	});
 
+	test('Complete propertyNames', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				enum: {
+					type: 'object',
+					propertyNames: {
+						enum: ['a', 'bc'],
+						description: 'Enum'
+					},
+				},
+				const: {
+					type: 'object',
+					propertyNames: {
+						const: 'a',
+						description: 'Const'
+					},
+				},
+				descriptions: {
+					type: 'object',
+					propertyNames: {
+						enum: ['a', 'b', 'c'],
+						markdownEnumDescriptions: ['*A*'],
+						enumDescriptions: ['A', 'B'],
+						markdownDescription: '*Markdown*',
+						description: 'Nope'
+					},
+				},
+				doNotSuggest: {
+					type: 'object',
+					propertyNames: {
+						enum: ['a'],
+						doNotSuggest: true
+					}
+				},
+				suggestSortText: {
+					type: 'object',
+					propertyNames: {
+						const: 'a',
+						suggestSortText: 'sort'
+					}
+				},
+				deprecation: {
+					type: 'object',
+					oneOf: [
+						{ propertyNames: { const: 'a', deprecationMessage: 'Deprecated' } },
+						{ propertyNames: { const: 'b' } }
+					]
+				}
+			}
+		};
+		await testCompletionsFor('{"enum":{|}}', schema, {
+			count: 2,
+			items: [
+				{ label: 'a', documentation: 'Enum', resultText: '{"enum":{"a": $1}}' },
+				{ label: 'bc', documentation: 'Enum', resultText: '{"enum":{"bc": $1}}' },
+			]
+		});
+		await testCompletionsFor('{"const":{"|', schema, {
+			count: 1,
+			items: [
+				{ label: 'a', documentation: 'Const', resultText: '{"const":{"a": $1' },
+			]
+		});
+		await testCompletionsFor('{"descriptions":{|}}', schema, {
+			count: 3,
+			items: [
+				{ label: 'a', documentation: { kind: 'markdown', value: '*A*' }, resultText: '{"descriptions":{"a": $1}}' },
+				{ label: 'b', documentation: 'B', resultText: '{"descriptions":{"b": $1}}' },
+				{ label: 'c', documentation: { kind: 'markdown', value: '*Markdown*' }, resultText: '{"descriptions":{"c": $1}}' },
+			]
+		});
+		await testCompletionsFor('{"doNotSuggest":{|}}', schema, {
+			items: [
+				{ label: 'a', notAvailable: true },
+			]
+		});
+		await testCompletionsFor('{"suggestSortText":{|}}', schema, {
+			count: 1,
+			items: [
+				{ label: 'a', sortText: "sort" },
+			]
+		});
+		await testCompletionsFor('{"deprecation":{|}}', schema, {
+			count: 1,
+			items: [
+				{ label: 'a', notAvailable:true },
+				{ label: 'b', documentation: '' },
+			]
+		});
+	});
+
 	test('Complete value with schema', async function () {
 
 		const schema: JSONSchema = {
