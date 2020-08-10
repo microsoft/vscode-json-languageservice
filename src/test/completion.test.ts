@@ -1043,6 +1043,40 @@ suite('JSON Completion', () => {
 		});
 	});
 
+	test('Default snippets for complex properties', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				property_test: {
+					type: 'object',
+					defaultSnippets: [ { label: 'property snippet', bodyText: '{}' } ]
+				}
+			},
+			patternProperties: {
+				pattern: {
+					type: 'object',
+					defaultSnippets: [ { label: 'pattern snippet', bodyText: '{}' } ]
+				}
+			},
+			additionalProperties: {
+				type: 'object',
+				defaultSnippets: [ { label: 'additional snippet', bodyText: '{}' } ]
+			}
+		};
+
+		await testCompletionsFor('{"property_test":|', schema, {
+			items: [{ label: 'property snippet'}]
+		});
+
+		await testCompletionsFor('{"pattern_test":|', schema, {
+			items: [{ label: 'pattern snippet'}]
+		});
+
+		await testCompletionsFor('{"additional_test":|', schema, {
+			items: [{ label: 'additional snippet'}]
+		});
+	});
+
 	test('Deprecation message', async function () {
 		const schema: JSONSchema = {
 			type: 'object',
