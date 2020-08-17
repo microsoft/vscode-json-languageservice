@@ -32,7 +32,6 @@ export type JSONDocument = {
 	getNodeFromOffset(offset: number, includeRightBound?: boolean): ASTNode | undefined;
 };
 export * from './jsonLanguageTypes';
-export { IApplicableSchema } from './parser/jsonParser';
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;
