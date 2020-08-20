@@ -558,8 +558,31 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 	function _validateNumberNode(node: NumberASTNode, schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
 		const val = node.value;
 
+		function normalizeFloats(float: number): { value: number, multiplier: number } | null {
+			const parts = /^(-?\d+)(?:\.(\d+))?(?:e([-+]\d+))?$/.exec(float.toString());
+			return parts && {
+				value: Number(parts[1] + (parts[2] || '')),
+				multiplier: (parts[2]?.length || 0) - (parseInt(parts[3]) || 0)
+			};
+		};
 		if (isNumber(schema.multipleOf)) {
-			if (val % schema.multipleOf !== 0) {
+			let remainder: number = -1;
+			if (Number.isInteger(schema.multipleOf)) {
+				remainder = val % schema.multipleOf;
+			} else {
+				let normMultipleOf = normalizeFloats(schema.multipleOf);
+				let normValue = normalizeFloats(val);
+				if (normMultipleOf && normValue) {
+					const multiplier = 10 ** Math.abs(normValue.multiplier - normMultipleOf.multiplier);
+					if (normValue.multiplier < normMultipleOf.multiplier) {
+						normValue.value *= multiplier;
+					} else {
+						normMultipleOf.value *= multiplier;
+					}
+					remainder = normValue.value % normMultipleOf.value;
+				}
+			}
+			if (remainder !== 0) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
 					severity: DiagnosticSeverity.Warning,
