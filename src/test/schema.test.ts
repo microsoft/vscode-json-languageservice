@@ -993,6 +993,12 @@ suite('JSON Schema', () => {
 		const schema: JSONSchema = {
 			type: 'object',
 			$comment: 'schema',
+			definitions: {
+				baz: {
+					type: 'boolean',
+					$comment: 'baz',
+				}
+			},
 			properties: {
 				foo: {
 					type: 'object',
@@ -1001,6 +1007,9 @@ suite('JSON Schema', () => {
 						bar: {
 							type: 'number',
 							$comment: 'bar',
+						},
+						baz: {
+							$ref: "#/definitions/baz"
 						}
 					}
 				}
@@ -1009,7 +1018,7 @@ suite('JSON Schema', () => {
 
 		const ls = getLanguageService({ workspaceContext });
 
-		const testDoc = toDocument(JSON.stringify({ foo: { bar: 1 } }));
+		const testDoc = toDocument(JSON.stringify({ foo: { bar: 1, baz: true } }));
 		const ms = await ls.getMatchingSchemas(testDoc.textDoc, testDoc.jsonDoc, schema);
 
 		function assertMatchingSchema(ms: MatchingSchema[], nodeOffset: number, comment: string) {
@@ -1024,6 +1033,7 @@ suite('JSON Schema', () => {
 		assertMatchingSchema(ms, 0, 'schema');
 		assertMatchingSchema(ms, 7, 'foo');
 		assertMatchingSchema(ms, 14, 'bar');
+		assertMatchingSchema(ms, 22, 'baz');
 	});
 
 });
