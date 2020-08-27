@@ -399,7 +399,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			if (id === 'http://json-schema.org/draft-03/schema') {
 				return this.promise.resolve(new ResolvedSchema({}, [localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.")]));
 			} else if (id === 'https://json-schema.org/draft/2019-09/schema') {
-				schemaToResolve.errors.push(localize('json.schema.draft201909.notsupported', "Draft 2019-09 schemas are not yet fully supported."));
+				resolveErrors.push(localize('json.schema.draft201909.notsupported', "Draft 2019-09 schemas are not yet fully supported."));
 			}
 		}
 
