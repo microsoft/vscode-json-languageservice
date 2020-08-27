@@ -1026,4 +1026,29 @@ suite('JSON Schema', () => {
 		assertMatchingSchema(ms, 14, 'bar');
 	});
 
+	test('getMatchingSchemasReportsError', async function () {
+		const errorSchemaRequestService = (uri: string) => Promise.reject(new Error('could not find file'));
+		const ls = getLanguageService({ workspaceContext, schemaRequestService: errorSchemaRequestService });
+
+		ls.configure({
+			schemas: [
+				{
+					uri: "file:///notfound.schema.json",
+					fileMatch: ["**/file.json"]
+				}
+			]
+		});
+		const testDoc = toDocument(JSON.stringify({ foo: { bar: 1 } }));
+
+		let wasRejected = false;
+		try {
+			await ls.getMatchingSchemas(testDoc.textDoc, testDoc.jsonDoc);
+		} catch (e) {
+			wasRejected = true;
+		}
+
+		if (!wasRejected) {
+			assert.fail('getMatchingSchema was not rejected despite errors while loading schema');
+		}
+	});
 });

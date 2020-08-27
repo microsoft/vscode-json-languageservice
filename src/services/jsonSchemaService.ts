@@ -585,14 +585,18 @@ export class JSONSchemaService implements IJSONSchemaService {
 		if (schema) {
 			return this.promise.resolve(jsonDocument.getMatchingSchemas(schema).filter(s => !s.inverted));
 		}
-		return this.getSchemaForResource(document.uri, jsonDocument).then(schema => {
-			if (schema) {
-				return jsonDocument.getMatchingSchemas(schema.schema).filter(s => !s.inverted);
-			}
-			return [];
+		return new this.promise((resolve, reject) => {
+			this.getSchemaForResource(document.uri, jsonDocument).then(schema => {
+				if (schema && schema.errors.length === 0) {
+					return resolve(jsonDocument.getMatchingSchemas(schema.schema).filter(s => !s.inverted));
+				} else if (schema && schema.errors.length > 0) {
+					return reject(new Error('Errors while loading json schema: ' + schema.errors.join()));
+				}
+
+				return resolve([]);
+			});
 		});
 	}
-
 }
 
 function normalizeId(id: string): string {
