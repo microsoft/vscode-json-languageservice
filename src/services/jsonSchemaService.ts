@@ -583,7 +583,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	public getMatchingSchemas(document: TextDocument, jsonDocument: Parser.JSONDocument, schema?: JSONSchema): Thenable<MatchingSchema[]> {
 		if (schema) {
-			return this.promise.resolve(jsonDocument.getMatchingSchemas(schema).filter(s => !s.inverted));
+			const id = schema.id || ('schemaservice://untitled/matchingSchemas/' + idCounter++);
+			return this.resolveSchemaContent(new UnresolvedSchema(schema), id, {}).then(resolvedSchema => {
+				return jsonDocument.getMatchingSchemas(resolvedSchema.schema).filter(s => !s.inverted);
+			});
 		}
 		return this.getSchemaForResource(document.uri, jsonDocument).then(schema => {
 			if (schema) {
@@ -594,6 +597,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 	}
 
 }
+
+let idCounter = 0;
 
 function normalizeId(id: string): string {
 	// remove trailing '#', normalize drive capitalization
