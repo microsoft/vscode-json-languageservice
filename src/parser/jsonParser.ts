@@ -379,7 +379,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!schema.type.some(matchesType)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity),
 					message: schema.errorMessage || localize('typeArrayMismatchWarning', 'Incorrect type. Expected one of {0}.', (<string[]>schema.type).join(', '))
 				});
 			}
@@ -388,7 +388,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!matchesType(schema.type)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity),
 					message: schema.errorMessage || localize('typeMismatchWarning', 'Incorrect type. Expected "{0}".', schema.type)
 				});
 			}
@@ -406,7 +406,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!subValidationResult.hasProblems()) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity || notSchema.severity),
 					message: localize('notSchemaWarning', "Matches a schema that is not allowed.")
 				});
 			}
@@ -454,7 +454,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (matches.length > 1 && maxOneMatch) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: 1 },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity),
 					message: localize('oneOfWarning', "Matches multiple schemas when only one must validate.")
 				});
 			}
@@ -521,7 +521,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!enumValueMatch) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity),
 					code: ErrorCode.EnumValueMismatch,
 					message: schema.errorMessage || localize('enumWarning', 'Value is not accepted. Valid values: {0}.', schema.enum.map(v => JSON.stringify(v)).join(', '))
 				});
@@ -533,7 +533,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!equals(val, schema.const)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity),
 					code: ErrorCode.EnumValueMismatch,
 					message: schema.errorMessage || localize('constWarning', 'Value must be {0}.', JSON.stringify(schema.const))
 				});
@@ -547,7 +547,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (schema.deprecationMessage && node.parent) {
 			validationResult.problems.push({
 				location: { offset: node.parent.offset, length: node.parent.length },
-				severity: DiagnosticSeverity.Warning,
+				severity: _toDiagnosticSeverity(schema.severity),
 				message: schema.deprecationMessage
 			});
 		}
@@ -585,7 +585,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (remainder !== 0) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity),
 					message: localize('multipleOfWarning', 'Value is not divisible by {0}.', schema.multipleOf)
 				});
 			}
@@ -609,7 +609,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (isNumber(exclusiveMinimum) && val <= exclusiveMinimum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: DiagnosticSeverity.Warning,
+				severity: _toDiagnosticSeverity(schema.severity),
 				message: localize('exclusiveMinimumWarning', 'Value is below the exclusive minimum of {0}.', exclusiveMinimum)
 			});
 		}
@@ -617,7 +617,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (isNumber(exclusiveMaximum) && val >= exclusiveMaximum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: DiagnosticSeverity.Warning,
+				severity: _toDiagnosticSeverity(schema.severity),
 				message: localize('exclusiveMaximumWarning', 'Value is above the exclusive maximum of {0}.', exclusiveMaximum)
 			});
 		}
@@ -625,7 +625,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (isNumber(minimum) && val < minimum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: DiagnosticSeverity.Warning,
+				severity: _toDiagnosticSeverity(schema.severity),
 				message: localize('minimumWarning', 'Value is below the minimum of {0}.', minimum)
 			});
 		}
@@ -633,7 +633,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (isNumber(maximum) && val > maximum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: DiagnosticSeverity.Warning,
+				severity: _toDiagnosticSeverity(schema.severity),
 				message: localize('maximumWarning', 'Value is above the maximum of {0}.', maximum)
 			});
 		}
@@ -643,7 +643,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (isNumber(schema.minLength) && node.value.length < schema.minLength) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: DiagnosticSeverity.Warning,
+				severity: _toDiagnosticSeverity(schema.severity),
 				message: localize('minLengthWarning', 'String is shorter than the minimum length of {0}.', schema.minLength)
 			});
 		}
@@ -651,7 +651,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (isNumber(schema.maxLength) && node.value.length > schema.maxLength) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: DiagnosticSeverity.Warning,
+				severity: _toDiagnosticSeverity(schema.severity),
 				message: localize('maxLengthWarning', 'String is longer than the maximum length of {0}.', schema.maxLength)
 			});
 		}
@@ -661,7 +661,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!regex.test(node.value)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity),
 					message: schema.patternErrorMessage || schema.errorMessage || localize('patternWarning', 'String does not match the pattern of "{0}".', schema.pattern)
 				});
 			}
@@ -685,7 +685,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 					if (errorMessage) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
-							severity: DiagnosticSeverity.Warning,
+							severity: _toDiagnosticSeverity(schema.severity),
 							message: schema.patternErrorMessage || schema.errorMessage || localize('uriFormatWarning', 'String is not a URI: {0}', errorMessage)
 						});
 					}
@@ -700,7 +700,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 					if (!node.value || !format.pattern.exec(node.value)) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
-							severity: DiagnosticSeverity.Warning,
+							severity: _toDiagnosticSeverity(schema.severity),
 							message: schema.patternErrorMessage || schema.errorMessage || format.errorMessage
 						});
 					}
@@ -734,7 +734,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				} else if (schema.additionalItems === false) {
 					validationResult.problems.push({
 						location: { offset: node.offset, length: node.length },
-						severity: DiagnosticSeverity.Warning,
+						severity: _toDiagnosticSeverity(schema.severity),
 						message: localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer.', subSchemas.length)
 					});
 				}
@@ -761,7 +761,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!doesContain) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity),
 					message: schema.errorMessage || localize('requiredItemMissingWarning', 'Array does not contain required item.')
 				});
 			}
@@ -770,7 +770,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (isNumber(schema.minItems) && node.items.length < schema.minItems) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: DiagnosticSeverity.Warning,
+				severity: _toDiagnosticSeverity(schema.severity),
 				message: localize('minItemsWarning', 'Array has too few items. Expected {0} or more.', schema.minItems)
 			});
 		}
@@ -778,7 +778,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (isNumber(schema.maxItems) && node.items.length > schema.maxItems) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				severity: DiagnosticSeverity.Warning,
+				severity: _toDiagnosticSeverity(schema.severity),
 				message: localize('maxItemsWarning', 'Array has too many items. Expected {0} or fewer.', schema.maxItems)
 			});
 		}
@@ -791,7 +791,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (duplicates) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity),
 					message: localize('uniqueItemsWarning', 'Array has duplicate items.')
 				});
 			}
@@ -815,7 +815,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 					const location = keyNode ? { offset: keyNode.offset, length: keyNode.length } : { offset: node.offset, length: 1 };
 					validationResult.problems.push({
 						location: location,
-						severity: DiagnosticSeverity.Warning,
+						severity: _toDiagnosticSeverity(schema.severity),
 						message: localize('MissingRequiredPropWarning', 'Missing property "{0}".', propertyName)
 					});
 				}
@@ -841,7 +841,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 							const propertyNode = <PropertyASTNode>child.parent;
 							validationResult.problems.push({
 								location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-								severity: DiagnosticSeverity.Warning,
+								severity: _toDiagnosticSeverity(schema.severity),
 								message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
 							});
 						} else {
@@ -872,7 +872,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 									const propertyNode = <PropertyASTNode>child.parent;
 									validationResult.problems.push({
 										location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-										severity: DiagnosticSeverity.Warning,
+										severity: _toDiagnosticSeverity(schema.severity),
 										message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
 									});
 								} else {
@@ -908,7 +908,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 						validationResult.problems.push({
 							location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-							severity: DiagnosticSeverity.Warning,
+							severity: _toDiagnosticSeverity(schema.severity),
 							message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
 						});
 					}
@@ -920,7 +920,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (node.properties.length > schema.maxProperties) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity),
 					message: localize('MaxPropWarning', 'Object has more properties than limit of {0}.', schema.maxProperties)
 				});
 			}
@@ -930,7 +930,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (node.properties.length < schema.minProperties) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					severity: DiagnosticSeverity.Warning,
+					severity: _toDiagnosticSeverity(schema.severity),
 					message: localize('MinPropWarning', 'Object has fewer properties than the required number of {0}', schema.minProperties)
 				});
 			}
@@ -946,7 +946,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 							if (!seenKeys[requiredProp]) {
 								validationResult.problems.push({
 									location: { offset: node.offset, length: node.length },
-									severity: DiagnosticSeverity.Warning,
+									severity: _toDiagnosticSeverity(schema.severity),
 									message: localize('RequiredDependentPropWarning', 'Object is missing property {0} required by property {1}.', requiredProp, key)
 								});
 							} else {
@@ -976,6 +976,15 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		}
 	}
 
+	function _toDiagnosticSeverity(level: string | undefined): DiagnosticSeverity {
+	    switch (level) {
+			case 'error': return DiagnosticSeverity.Error;
+			case 'warning': return DiagnosticSeverity.Warning;
+			case 'information': return DiagnosticSeverity.Information;
+			case 'hint': return DiagnosticSeverity.Hint;
+			default: return DiagnosticSeverity.Warning;
+	  	}
+	}
 }
 
 
