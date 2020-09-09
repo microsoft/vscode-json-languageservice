@@ -128,6 +128,11 @@ export interface DocumentLanguageSettings {
 	 * The severity of reported trailing commas. If not set, trailing commas will be reported as errors.
 	 */
 	trailingCommas?: SeverityLevel;
+
+	/**
+	 * The severity of schema validation. If se to 'ignore', schema validation will be skipped. 
+	 */
+	schemaValidation?: SeverityLevel;
 }
 
 export interface SchemaConfiguration {

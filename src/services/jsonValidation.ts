@@ -51,6 +51,7 @@ export class JSONValidation {
 		const getDiagnostics = (schema: ResolvedSchema | undefined) => {
 			let trailingCommaSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.trailingCommas) : DiagnosticSeverity.Error;
 			let commentSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.comments) : this.commentSeverity;
+			let schemaSeverity = documentSettings ? documentSettings.schemaValidation === 'ignore' ? documentSettings.schemaValidation : toDiagnosticSeverity(documentSettings.schemaValidation) : undefined;
 
 			if (schema) {
 				if (schema.errors.length && jsonDocument.root) {
@@ -65,9 +66,16 @@ export class JSONValidation {
 						addProblem(Diagnostic.create(range, schema.errors[0], DiagnosticSeverity.Warning, ErrorCode.SchemaResolveError));
 					}
 				} else {
-					const semanticErrors = jsonDocument.validate(textDocument, schema.schema);
-					if (semanticErrors) {
-						semanticErrors.forEach(addProblem);
+					if (typeof schemaSeverity !== 'string') {
+					    const semanticErrors = jsonDocument.validate(textDocument, schema.schema);
+					    if (semanticErrors) {
+							semanticErrors.forEach((problem: Diagnostic) => {
+								if (typeof schemaSeverity === 'number') {
+									problem.severity = schemaSeverity;
+								}
+								addProblem(problem);
+							});
+					    }
 					}
 				}
 
