@@ -7,6 +7,7 @@ import * as assert from 'assert';
 import { getNodePath, getNodeValue, JSONDocument } from '../parser/jsonParser';
 import * as JsonSchema from '../jsonSchema';
 import { TextDocument, Range, ErrorCode, ASTNode, ObjectASTNode, getLanguageService } from '../jsonLanguageService';
+import { DiagnosticSeverity } from '../jsonLanguageTypes';
 
 suite('JSON Parser', () => {
 
@@ -1959,6 +1960,69 @@ suite('JSON Parser', () => {
 		res = await ls.doValidation(textDoc, jsonDoc, { trailingCommas: 'ignore' }, schema);
 		assert.strictEqual(res.length, 1);
 		assert.strictEqual(res[0].message, 'Missing property "foo".');
+	});
+
+	test('schema with severity', async function () {
+		const schema: JsonSchema.JSONSchema = {
+			type: 'object',
+			properties: {
+				'name': {
+					type: 'string',
+					minLength: 4,
+				},
+				'age': {
+					type: 'number',
+					minimum: 1,
+				},
+				'address': {
+					type: 'string',
+					minLength: 5,
+				},
+				'email': {
+					type: 'string',
+					format: 'email'
+				}
+			},
+			required: [ 'name', 'age', 'address', 'email' ]
+		};
+
+		const ls = getLanguageService({});
+		{
+			const { textDoc, jsonDoc } = toDocument('{}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+
+			const semanticErrors = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'error' }, schema);
+			assert.strictEqual(semanticErrors!.length, 4);
+			assert.strictEqual(semanticErrors![0].severity, DiagnosticSeverity.Error);
+			assert.strictEqual(semanticErrors![1].severity, DiagnosticSeverity.Error);
+			assert.strictEqual(semanticErrors![2].severity, DiagnosticSeverity.Error);
+			assert.strictEqual(semanticErrors![3].severity, DiagnosticSeverity.Error);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"name": "", "age": -1, "address": "SA42", "email": "wrong_mail"}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+
+			const semanticErrors = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(semanticErrors!.length, 4);
+			assert.strictEqual(semanticErrors![0].severity, DiagnosticSeverity.Warning);
+			assert.strictEqual(semanticErrors![1].severity, DiagnosticSeverity.Warning);
+			assert.strictEqual(semanticErrors![2].severity, DiagnosticSeverity.Warning);
+			assert.strictEqual(semanticErrors![3].severity, DiagnosticSeverity.Warning);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"name": "", "age": -1, "address": "SA42", "email": "wrong_mail"}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+
+			const semanticErrors = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'ignore' }, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"name": "Alice", "age": 23, "address": "Solarstreet 42", "email": "alice@foo.com"}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+
+			const semanticErrors = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
 	});
 
 });
