@@ -130,7 +130,8 @@ export interface DocumentLanguageSettings {
 	trailingCommas?: SeverityLevel;
 
 	/**
-	 * The severity of schema validation. If se to 'ignore', schema validation will be skipped. 
+	 * The severity of schema validation. If set to 'ignore', schema validation will be skipped. If this property is not set, the default severity level will be used.
+     * The default severity level for schema validation is 'warning'. 
 	 */
 	schemaValidation?: SeverityLevel;
 }
