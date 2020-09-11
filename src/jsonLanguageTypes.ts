@@ -134,6 +134,11 @@ export interface DocumentLanguageSettings {
      * The default severity level for schema validation is 'warning'. 
 	 */
 	schemaValidation?: SeverityLevel;
+
+	/**
+	 * The severity of schema resolving. If not set, schema resolving errors will be reported as 'warning'.
+	 */
+	schemaRequest?: SeverityLevel;
 }
 
 export interface SchemaConfiguration {

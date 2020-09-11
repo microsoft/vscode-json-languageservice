@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as url from 'url';
 import * as path from 'path';
 import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema } from '../jsonLanguageService';
+import { DiagnosticSeverity } from '../jsonLanguageTypes';
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
 	const textDoc = TextDocument.create('foo://bar/file.json', 'json', 0, text);
@@ -1034,6 +1035,32 @@ suite('JSON Schema', () => {
 		assertMatchingSchema(ms, 7, 'foo');
 		assertMatchingSchema(ms, 14, 'bar');
 		assertMatchingSchema(ms, 22, 'baz');
+	});
+
+	test('schema resolving severity', async function() {
+		const schema: JSONSchema = {
+			$schema: 'http://json-schema.org/draft-03/schema',
+			type: 'string'
+		};
+
+	  	const ls = getLanguageService({});
+
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify('SimpleJsonString'));
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+
+			const resolveError = await ls.doValidation(textDoc, jsonDoc, { schemaRequest: 'error' }, schema);
+			assert.strictEqual(resolveError!.length, 1);
+			assert.strictEqual(resolveError![0].severity, DiagnosticSeverity.Error);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify('SimpleJsonString'));
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+
+			const resolveError = await ls.doValidation(textDoc, jsonDoc, { }, schema);
+			assert.strictEqual(resolveError!.length, 1);
+			assert.strictEqual(resolveError![0].severity, DiagnosticSeverity.Warning);
+		}
 	});
 
 });
