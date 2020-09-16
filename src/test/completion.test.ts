@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 
-import { getLanguageService, JSONSchema, TextDocument, ClientCapabilities, CompletionList, CompletionItemKind, Position, MarkupContent } from '../jsonLanguageService';
+import { getLanguageService, JSONSchema, TextDocument, ClientCapabilities, CompletionList, CompletionItemKind, Position, MarkupContent, TextEdit } from '../jsonLanguageService';
 import { repeat } from '../utils/strings';
 
 const applyEdits = TextDocument.applyEdits;
@@ -39,8 +39,9 @@ const assertCompletion = function (completions: CompletionList, expected: ItemDe
 	if (expected.kind !== undefined) {
 		assert.equal(match.kind, expected.kind);
 	}
-	if (expected.resultText !== undefined) {
-		assert.equal(applyEdits(document, [match.textEdit!]), expected.resultText);
+	if (expected.resultText !== undefined && match.textEdit !== undefined) {
+		const edit = TextEdit.is(match.textEdit) ? match.textEdit : TextEdit.replace(match.textEdit.replace, match.textEdit.newText);
+		assert.equal(applyEdits(document, [edit]), expected.resultText);
 	}
 	if (expected.sortText !== undefined) {
 		assert.equal(match.sortText, expected.sortText);

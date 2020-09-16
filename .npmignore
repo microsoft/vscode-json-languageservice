@@ -10,3 +10,4 @@ test/
 .travis.yml
 .eslintrc.json
 gulpfile.js
+.mocharc.json
