@@ -31,6 +31,7 @@ export {
 export enum ErrorCode {
 	Undefined = 0,
 	EnumValueMismatch = 1,
+	Deprecated = 2,
 	UnexpectedEndOfComment = 0x101,
 	UnexpectedEndOfString = 0x102,
 	UnexpectedEndOfNumber = 0x103,
@@ -130,13 +131,12 @@ export interface DocumentLanguageSettings {
 	trailingCommas?: SeverityLevel;
 
 	/**
-	 * The severity of schema validation. If set to 'ignore', schema validation will be skipped. If this property is not set, the default severity level will be used.
-     * The default severity level for schema validation is 'warning'. 
+	 * The severity of problems from schema validation. If set to 'ignore', schema validation will be skipped. If not set, 'warning' is used. 
 	 */
 	schemaValidation?: SeverityLevel;
 
 	/**
-	 * The severity of schema resolving. If not set, schema resolving errors will be reported as 'warning'.
+	 * The severity of problems that occurred when resolving and loading schemas. If set to 'ignore', schema resolving problems are not reported. If not set, 'warning' is used. 
 	 */
 	schemaRequest?: SeverityLevel;
 }

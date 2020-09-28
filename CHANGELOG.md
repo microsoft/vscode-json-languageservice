@@ -1,3 +1,8 @@
+3.9.0 / 2020-09-28
+DocumentLanguageSettings
+ * new API `DocumentLanguageSettings.schemaValidation`. The severity of problems from schema validation. If set to 'ignore', schema validation will be skipped. If not set, 'warning' is used.
+ * new API `DocumentLanguageSettings.schemaRequest`. The severity of problems from schema resolving and loading. If set to 'ignore', schema resolving problems are not reported. If not set, 'warning' is used. 
+
 3.8.0 / 2020-08-02
 =================
  * new API `LanguageService.getMatchingSchemas`. Matches a document against its schema and list all AST nodes along with the matching sub schemas. 

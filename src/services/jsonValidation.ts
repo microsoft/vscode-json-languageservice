@@ -51,32 +51,25 @@ export class JSONValidation {
 		const getDiagnostics = (schema: ResolvedSchema | undefined) => {
 			let trailingCommaSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.trailingCommas) : DiagnosticSeverity.Error;
 			let commentSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.comments) : this.commentSeverity;
-			let schemaSeverity = documentSettings ? documentSettings.schemaValidation === 'ignore' ? documentSettings.schemaValidation : toDiagnosticSeverity(documentSettings.schemaValidation) : undefined;
-			let resolveSeverity = documentSettings ? documentSettings.schemaRequest ? toDiagnosticSeverity(documentSettings.schemaRequest) : DiagnosticSeverity.Warning : DiagnosticSeverity.Warning;
+			let schemaValidation = documentSettings?.schemaValidation ? toDiagnosticSeverity(documentSettings.schemaValidation) : DiagnosticSeverity.Warning;
+			let schemaRequest = documentSettings?.schemaRequest ? toDiagnosticSeverity(documentSettings.schemaRequest) : DiagnosticSeverity.Warning;
 
 			if (schema) {
-				if (schema.errors.length && jsonDocument.root) {
+				if (schema.errors.length && jsonDocument.root && schemaRequest) {
 					const astRoot = jsonDocument.root;
 					const property = astRoot.type === 'object' ? astRoot.properties[0] : undefined;
 					if (property && property.keyNode.value === '$schema') {
 						const node = property.valueNode || property;
 						const range = Range.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
-						addProblem(Diagnostic.create(range, schema.errors[0], resolveSeverity, ErrorCode.SchemaResolveError));
+						addProblem(Diagnostic.create(range, schema.errors[0], schemaRequest, ErrorCode.SchemaResolveError));
 					} else {
 						const range = Range.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
-						addProblem(Diagnostic.create(range, schema.errors[0], resolveSeverity, ErrorCode.SchemaResolveError));
+						addProblem(Diagnostic.create(range, schema.errors[0], schemaRequest, ErrorCode.SchemaResolveError));
 					}
-				} else {
-					if (typeof schemaSeverity !== 'string') {
-					    const semanticErrors = jsonDocument.validate(textDocument, schema.schema);
-					    if (semanticErrors) {
-							semanticErrors.forEach((problem: Diagnostic) => {
-								if (typeof schemaSeverity === 'number') {
-									problem.severity = schemaSeverity;
-								}
-								addProblem(problem);
-							});
-					    }
+				} else if (schemaValidation) {
+					const semanticErrors = jsonDocument.validate(textDocument, schema.schema, schemaValidation);
+					if (semanticErrors) {
+						semanticErrors.forEach(addProblem);
 					}
 				}
 

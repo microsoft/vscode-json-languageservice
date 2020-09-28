@@ -1037,13 +1037,13 @@ suite('JSON Schema', () => {
 		assertMatchingSchema(ms, 22, 'baz');
 	});
 
-	test('schema resolving severity', async function() {
+	test('schema resolving severity', async function () {
 		const schema: JSONSchema = {
 			$schema: 'http://json-schema.org/draft-03/schema',
 			type: 'string'
 		};
 
-	  	const ls = getLanguageService({});
+		const ls = getLanguageService({});
 
 		{
 			const { textDoc, jsonDoc } = toDocument(JSON.stringify('SimpleJsonString'));
@@ -1057,10 +1057,79 @@ suite('JSON Schema', () => {
 			const { textDoc, jsonDoc } = toDocument(JSON.stringify('SimpleJsonString'));
 			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 
-			const resolveError = await ls.doValidation(textDoc, jsonDoc, { }, schema);
+			const resolveError = await ls.doValidation(textDoc, jsonDoc, {}, schema);
 			assert.strictEqual(resolveError!.length, 1);
 			assert.strictEqual(resolveError![0].severity, DiagnosticSeverity.Warning);
 		}
 	});
+
+	test('schema with severity', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'name': {
+					type: 'string',
+					minLength: 4,
+				},
+				'age': {
+					type: 'number',
+					minimum: 1,
+				},
+				'address': {
+					type: 'string',
+					minLength: 5,
+				},
+				'email': {
+					type: 'string',
+					format: 'email'
+				},
+				'depr': {
+					type: 'string',
+					deprecationMessage: 'old stuff'
+				}
+			},
+			required: ['name', 'age', 'address', 'email']
+		};
+
+		const ls = getLanguageService({});
+		{
+			const { textDoc, jsonDoc } = toDocument('{ "depr": "" }');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+
+			const semanticErrors = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'error' }, schema);
+			assert.strictEqual(semanticErrors!.length, 5);
+			assert.strictEqual(semanticErrors![0].severity, DiagnosticSeverity.Error);
+			assert.strictEqual(semanticErrors![1].severity, DiagnosticSeverity.Error);
+			assert.strictEqual(semanticErrors![2].severity, DiagnosticSeverity.Error);
+			assert.strictEqual(semanticErrors![3].severity, DiagnosticSeverity.Error);
+			assert.strictEqual(semanticErrors![4].severity, DiagnosticSeverity.Warning);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"name": "", "age": -1, "address": "SA42", "email": "wrong_mail"}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+
+			const semanticErrors = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(semanticErrors!.length, 4);
+			assert.strictEqual(semanticErrors![0].severity, DiagnosticSeverity.Warning);
+			assert.strictEqual(semanticErrors![1].severity, DiagnosticSeverity.Warning);
+			assert.strictEqual(semanticErrors![2].severity, DiagnosticSeverity.Warning);
+			assert.strictEqual(semanticErrors![3].severity, DiagnosticSeverity.Warning);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"name": "", "age": -1, "address": "SA42", "email": "wrong_mail"}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+
+			const semanticErrors = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'ignore' }, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"name": "Alice", "age": 23, "address": "Solarstreet 42", "email": "alice@foo.com"}');
+			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+
+			const semanticErrors = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+	});
+
 
 });
