@@ -128,6 +128,17 @@ export interface DocumentLanguageSettings {
 	 * The severity of reported trailing commas. If not set, trailing commas will be reported as errors.
 	 */
 	trailingCommas?: SeverityLevel;
+
+	/**
+	 * The severity of schema validation. If set to 'ignore', schema validation will be skipped. If this property is not set, the default severity level will be used.
+     * The default severity level for schema validation is 'warning'. 
+	 */
+	schemaValidation?: SeverityLevel;
+
+	/**
+	 * The severity of schema resolving. If not set, schema resolving errors will be reported as 'warning'.
+	 */
+	schemaRequest?: SeverityLevel;
 }
 
 export interface SchemaConfiguration {
