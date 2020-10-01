@@ -6,7 +6,7 @@
 import * as Parser from '../parser/jsonParser';
 import * as SchemaService from './jsonSchemaService';
 import { JSONWorkerContribution } from '../jsonContributions';
-import { TextDocument, PromiseConstructor, Thenable, Position, Range, Hover, MarkedString } from '../jsonLanguageTypes';
+import { TextDocument, PromiseConstructor, Thenable, Position, Range, Hover, MarkupContent, MarkupKind } from '../jsonLanguageTypes';
 
 export class JSONHover {
 
@@ -42,9 +42,9 @@ export class JSONHover {
 
 		const hoverRange = Range.create(document.positionAt(hoverRangeNode.offset), document.positionAt(hoverRangeNode.offset + hoverRangeNode.length));
 
-		var createHover = (contents: MarkedString[]) => {
+		var createHover = (contents: Hover["contents"]) => {
 			const result: Hover = {
-				contents: contents,
+				contents,
 				range: hoverRange
 			};
 			return result;
@@ -54,30 +54,38 @@ export class JSONHover {
 		for (let i = this.contributions.length - 1; i >= 0; i--) {
 			const contribution = this.contributions[i];
 			const promise = contribution.getInfoContribution(document.uri, location);
-			if (promise) {
-				return promise.then(htmlContent => createHover(htmlContent));
-			}
+			return promise?.then(htmlContent => createHover(htmlContent));
 		}
 
 		return this.schemaService.getSchemaForResource(document.uri, doc).then((schema) => {
 			if (schema && node) {
 				const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset);
 
+				let markdownFormat: boolean = false;
 				let title: string | undefined = undefined;
-				let markdownDescription: string | undefined = undefined;
-				let markdownEnumValueDescription: string | undefined = undefined, enumValue: string | undefined = undefined;
+				let description: string | undefined = undefined;
+				let enumValueDescription: string | undefined = undefined, enumValue: string | undefined = undefined;
 				matchingSchemas.every((s) => {
 					if (s.node === node && !s.inverted && s.schema) {
 						title = title || s.schema.title;
-						markdownDescription = markdownDescription || s.schema.markdownDescription || toMarkdown(s.schema.description);
+						if (!description) {
+							if (s.schema.markdownDescription) {
+								markdownFormat = true;
+								description = s.schema.markdownDescription;
+							} else {
+								description = s.schema.description;
+							}
+						}
 						if (s.schema.enum) {
 							const idx = s.schema.enum.indexOf(Parser.getNodeValue(node));
 							if (s.schema.markdownEnumDescriptions) {
-								markdownEnumValueDescription = s.schema.markdownEnumDescriptions[idx];
+								enumValueDescription = s.schema.markdownEnumDescriptions[idx];
 							} else if (s.schema.enumDescriptions) {
-								markdownEnumValueDescription = toMarkdown(s.schema.enumDescriptions[idx]);
+								enumValueDescription = s.schema.enumDescriptions[idx];
 							}
-							if (markdownEnumValueDescription) {
+							if (enumValueDescription) {
+								// enums values are always wrapped as code blocks, so they'll always be presented as markdown
+								markdownFormat = true;
 								enumValue = s.schema.enum[idx];
 								if (typeof enumValue !== 'string') {
 									enumValue = JSON.stringify(enumValue);
@@ -87,23 +95,26 @@ export class JSONHover {
 					}
 					return true;
 				});
-				let result = '';
+				const result: MarkupContent = {
+					kind: markdownFormat ? MarkupKind.Markdown : MarkupKind.PlainText,
+					value: '',
+				};
 				if (title) {
-					result = toMarkdown(title);
+					result.value += markdownFormat ? toMarkdown(title) : title;
 				}
-				if (markdownDescription) {
-					if (result.length > 0) {
-						result += "\n\n";
+				if (description) {
+					if (result.value.length > 0) {
+						result.value += "\n\n";
 					}
-					result += markdownDescription;
+					result.value += description;
 				}
-				if (markdownEnumValueDescription) {
-					if (result.length > 0) {
-						result += "\n\n";
+				if (enumValueDescription) {
+					if (result.value.length > 0) {
+						result.value += "\n\n";
 					}
-					result += `\`${toMarkdownCodeBlock(enumValue!)}\`: ${markdownEnumValueDescription}`;
+					result.value += `\`${toMarkdownCodeBlock(enumValue!)}\`: ${enumValueDescription}`;
 				}
-				return createHover([result]);
+				return createHover(result);
 			}
 			return null;
 		});
@@ -121,7 +132,7 @@ function toMarkdown(plain: string | undefined): string | undefined {
 
 function toMarkdownCodeBlock(content: string) {
 	// see https://daringfireball.net/projects/markdown/syntax#precode
-	if (content.indexOf('`') !== -1) {
+	if (content.includes('`')) {
 		return '`` ' + content + ' ``';
 	}
 	return content;
