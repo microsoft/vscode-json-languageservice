@@ -58,16 +58,16 @@ suite('JSON Hover', () => {
 			}
 		};
 		await testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('a very special object') });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('a very special object') });
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('A') });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('A') });
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 32 }).then((result) => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('C') });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('C') });
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 7 }).then((result) => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('A') });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('A') });
 		});
 	});
 
@@ -94,13 +94,13 @@ suite('JSON Hover', () => {
 			}]
 		};
 		await testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('a very special object') });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('a very special object') });
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('A') });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('A') });
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 10 }).then((result) => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('B\n\nIt\'s B') });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.PlainText, value: MarkedString.fromPlainText('B\n\nIt\'s B') });
 		});
 	});
 
@@ -129,19 +129,19 @@ suite('JSON Hover', () => {
 		};
 
 		await testComputeInfo('{ "prop1": "e1', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.Markdown, value: 'prop1\n\n`e1`: E1' });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.Markdown, value: 'prop1\n\n`e1`: E1' });
 		});
 		await testComputeInfo('{ "prop2": null', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.Markdown, value: 'prop2\n\n`null`: null' });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.Markdown, value: 'prop2\n\n`null`: null' });
 		});
 		await testComputeInfo('{ "prop2": 1', schema, { line: 0, character: 11 }).then(result => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.Markdown, value: 'prop2\n\n`1`: one' });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.Markdown, value: 'prop2\n\n`1`: one' });
 		});
 		await testComputeInfo('{ "prop2": false', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.Markdown, value: 'prop2\n\n`false`: wrong' });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.Markdown, value: 'prop2\n\n`false`: wrong' });
 		});
 		await testComputeInfo('{ "prop3": null', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.Markdown, value: 'title\n\n*prop3*\n\n`null`: Set to `null`' });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.Markdown, value: 'title\n\n*prop3*\n\n`null`: Set to `null`' });
 		});
 	});
 
@@ -159,10 +159,10 @@ suite('JSON Hover', () => {
 		};
 
 		await testComputeInfo('{ "prop1": "e1', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.PlainText, value: 'line1\nline2\n\nline3\n\n\nline4\n' });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.PlainText, value: 'line1\nline2\n\nline3\n\n\nline4\n' });
 		});
 		await testComputeInfo('{ "prop2": "e1', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.PlainText, value: 'line1\r\nline2\r\n\r\nline3' });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.PlainText, value: 'line1\r\nline2\r\n\r\nline3' });
 		});
 	});
 
@@ -181,10 +181,10 @@ suite('JSON Hover', () => {
 		};
 
 		await testComputeInfo('{ "prop1": "e1', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.Markdown, value: 'line1\nline2\n\n`line3`\n\n\nline4\n' });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.Markdown, value: 'line1\nline2\n\n`line3`\n\n\nline4\n' });
 		});
 		await testComputeInfo('{ "prop2": "e1', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.Markdown, value: 'Title with \\*markdown\\* characters\n\nline1\r\n*line2*\r\n\r\n`line3`' });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.Markdown, value: 'Title with \\*markdown\\* characters\n\nline1\r\n*line2*\r\n\r\n`line3`' });
 		});
 	});
 
@@ -212,7 +212,7 @@ suite('JSON Hover', () => {
 			}
 		};
 		await testComputeInfo(content, schema, { line: 0, character: 7 }, [contribution]).then((result) => {
-			assert.deepEqual(result.contents, { kind: MarkupKind.PlainText, value: 'Custom contribution info' });
+			assert.deepStrictEqual(result.contents, { kind: MarkupKind.PlainText, value: 'Custom contribution info' });
 		});
 	});
 });
