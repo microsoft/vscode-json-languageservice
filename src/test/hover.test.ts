@@ -10,15 +10,20 @@ import * as JsonSchema from '../jsonSchema';
 import { JSONHover } from '../services/jsonHover';
 
 import { Hover, Position, MarkedString, TextDocument } from '../jsonLanguageService';
-import { MarkupKind } from "../jsonLanguageTypes";
+import { JSONWorkerContribution, MarkupKind } from "../jsonLanguageTypes";
 
 suite('JSON Hover', () => {
 
-	function testComputeInfo(value: string, schema: JsonSchema.JSONSchema, position: Position): PromiseLike<Hover> {
+	function testComputeInfo(
+		value: string,
+		schema: JsonSchema.JSONSchema,
+		position: Position,
+		contributions: JSONWorkerContribution[] = [],
+	): PromiseLike<Hover> {
 		const uri = 'test://test.json';
 
 		const schemaService = new SchemaService.JSONSchemaService(requestService);
-		const hoverProvider = new JSONHover(schemaService, [], Promise);
+		const hoverProvider = new JSONHover(schemaService, contributions, Promise);
 		const id = "http://myschemastore/test1";
 		schemaService.registerExternalSchema(id, ["*.json"], schema);
 
@@ -180,6 +185,34 @@ suite('JSON Hover', () => {
 		});
 		await testComputeInfo('{ "prop2": "e1', schema, { line: 0, character: 12 }).then(result => {
 			assert.deepEqual(result.contents, { kind: MarkupKind.Markdown, value: 'Title with \\*markdown\\* characters\n\nline1\r\n*line2*\r\n\r\n`line3`' });
+		});
+	});
+
+	test("Hover contributions", async () => {
+		const content = '{"a": 42, "b": "hello", "c": false}';
+		const schema: JsonSchema.JSONSchema = {};
+		const contribution: JSONWorkerContribution = {
+			async getInfoContribution(uri, location) {
+				return {
+					kind: MarkupKind.PlainText,
+					value: "Custom contribution info"
+				};
+			},
+			async collectPropertyCompletions(uri, location, currentWord, addValue, isLast, result) {
+				assert.fail();
+			},
+			async collectValueCompletions(uri, location, propertyKey, result) {
+				assert.fail();
+			},
+			async collectDefaultCompletions(uri, result) {
+				assert.fail();
+			},
+			async resolveCompletion(item) {
+				assert.fail();
+			}
+		};
+		await testComputeInfo(content, schema, { line: 0, character: 7 }, [contribution]).then((result) => {
+			assert.deepEqual(result.contents, { kind: MarkupKind.PlainText, value: 'Custom contribution info' });
 		});
 	});
 });
