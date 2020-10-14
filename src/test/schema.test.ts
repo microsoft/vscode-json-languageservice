@@ -12,8 +12,9 @@ import * as path from 'path';
 import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema } from '../jsonLanguageService';
 import { DiagnosticSeverity } from '../jsonLanguageTypes';
 
-function toDocument(text: string, config?: Parser.JSONDocumentConfig): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
-	const textDoc = TextDocument.create('foo://bar/file.json', 'json', 0, text);
+function toDocument(text: string, config?: Parser.JSONDocumentConfig, uri = 'foo://bar/file.json'): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
+	
+	const textDoc = TextDocument.create(uri, 'json', 0, text);
 	const jsonDoc = Parser.parse(textDoc, config);
 	return { textDoc, jsonDoc };
 }
@@ -584,6 +585,27 @@ suite('JSON Schema', () => {
 		}
 		for (const negative of negatives) {
 			assert.ok(!await service.getSchemaForResource(negative), negative);
+		}
+	});
+
+	test('Schema matching', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [ { uri: 'http://myschemastore/myschemabar', fileMatch: ['*.foo.json'], schema: { type: 'object', required: ['foo'] }}]});
+
+		const positives = ['file://folder/a.foo.json', 'file://folder/a.foo.json?f=true', 'file://folder/a.foo.json#f=true'];
+		const negatives = ['file://folder/a.bar.json', 'file://folder/foo?a.foo.json', 'file://folder/foo#a.foo.json'];
+
+		for (const positive of positives) {
+			const doc = toDocument("{}", undefined, positive);
+			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
+			assert.ok(ms.length > 0, positive);
+		}
+
+		for (const negative of negatives) {
+			const doc = toDocument("{}", undefined, negative);
+			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
+			assert.ok(ms.length === 0, negative);
 		}
 	});
 

@@ -554,8 +554,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const seen: { [schemaId: string]: boolean } = Object.create(null);
 		const schemas: string[] = [];
+		const normalizedResource = normalizeResourceForMatching(resource);
 		for (const entry of this.filePatternAssociations) {
-			if (entry.matchesPattern(resource)) {
+			if (entry.matchesPattern(normalizedResource)) {
 				for (const schemaId of entry.getURIs()) {
 					if (!seen[schemaId]) {
 						schemas.push(schemaId);
@@ -608,6 +609,15 @@ function normalizeId(id: string): string {
 		return id;
 	}
 
+}
+
+function normalizeResourceForMatching(resource: string): string {
+	// remove querues and fragments, normalize drive capitalization
+	try {
+		return URI.parse(resource).with({ fragment: null, query: null }).toString();
+	} catch (e) {
+		return resource;
+	}
 }
 
 function toDisplayString(url: string) {
