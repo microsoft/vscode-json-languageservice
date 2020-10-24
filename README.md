@@ -13,7 +13,7 @@ The _vscode-json-languageservice_ contains the language smarts behind the JSON e
 and the Monaco editor.
 
 - _doValidation_ analyses an input string and returns syntax and lint errors.
-- _doComplete_ provides completion proposals for a given location. _doResolve_ resolves a completion proposal
+- _doComplete_ provides completion proposals for a given location.
 - _doResolve_ resolves a completion proposals.
 - _doHover_ provides a hover text for a given location.
 - _findDocumentSymbols_ provides all symbols in the given document
