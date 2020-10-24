@@ -17,13 +17,14 @@ and the Monaco editor.
 - _doResolve_ resolves a completion proposals.
 - _doHover_ provides a hover text for a given location.
 - _findDocumentSymbols_ provides all symbols in the given document.
-- _findDocumentColors_ provides all color symbols in the given document, _getColorPresentations_ returns available color formats for a color symbol.
+- _findDocumentColors_ provides all color symbols in the given document.
+- _getColorPresentations_ returns available color formats for a color symbol.
 - _format_ formats the code at the given range.
 - _getFoldingRanges_ gets folding ranges for the given document.
 - _getSelectionRanges_ gets selection ranges for a given location.
 - _getMatchingSchemas_ matches a document against its schema and returns all AST nodes along with the matching sub schemas.
-
-- use _parseJSONDocument_ create a JSON document from source code, or _newJSONDocument_ to create the document from an AST.
+- _parseJSONDocument_ creates a JSON document from source code.
+- _newJSONDocument_ creates a JSON document from an AST.
 
 For the complete API see [jsonLanguageService.ts](./src/jsonLanguageService.ts) and [jsonLanguageTypes.ts](./src/jsonLanguageTypes.ts)
 
