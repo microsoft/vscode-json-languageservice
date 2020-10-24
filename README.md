@@ -34,17 +34,20 @@ For the complete API see [jsonLanguageService.ts](./src/jsonLanguageService.ts) 
 
 ## Development
 
-- clone this repo, run yarn
-- `yarn test` to compile and run tests
+    git clone https://github.com/microsoft/vscode-json-languageservice
+    cd vscode-json-languageservice
+    yarn
 
-How can I run and debug the service?
+Use `yarn test` to compile and run tests
+
+### How can I run and debug the service?
 
 - open the folder in VSCode.
 - set breakpoints, e.g. in `jsonCompletion.ts`
 - run the Unit tests from the run viewlet and wait until a breakpoint is hit:
   ![image](https://user-images.githubusercontent.com/6461412/94239202-bdad4e80-ff11-11ea-99c3-cb9dbeb1c0b2.png)
 
-How can I run and debug the service inside an instance of VSCode?
+### How can I run and debug the service inside an instance of VSCode?
 
 - run VSCode out of sources setup as described here: https://github.com/Microsoft/vscode/wiki/How-to-Contribute
 - use `yarn link vscode-json-languageservice` in `vscode/extensions/json-language-features/server` to run VSCode with the latest changes from `vscode-json-languageservice`
