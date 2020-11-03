@@ -3,44 +3,31 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
-import { DefinitionLink, Position, TextDocument, ASTNode, PropertyASTNode, Range, Thenable } from '../jsonLanguageTypes';
+import { DocumentLink } from 'vscode-languageserver-types';
+import { TextDocument, ASTNode, PropertyASTNode, Range, Thenable } from '../jsonLanguageTypes';
 import { JSONDocument } from '../parser/jsonParser';
 
-export function findDefinition(document: TextDocument, position: Position, doc: JSONDocument): Thenable<DefinitionLink[]> {
-	const offset = document.offsetAt(position);
-	const node = doc.getNodeFromOffset(offset, true);
-	if (!node || !isRef(node)) {
-		return Promise.resolve([]);
-	}
-
-	const propertyNode: PropertyASTNode = node.parent as PropertyASTNode;
-	const valueNode = propertyNode.valueNode as ASTNode;
-	const path = valueNode.value as string;
-	const targetNode = findTargetNode(doc, path);
-	if (!targetNode) {
-		return Promise.resolve([]);
-	}
-	const definition: DefinitionLink = {
-		targetUri: document.uri,
-		originSelectionRange: createRange(document, valueNode),
-		targetRange: createRange(document, targetNode),
-		targetSelectionRange: createRange(document, targetNode)
-	};
-	return Promise.resolve([definition]);
+export function findLinks(document: TextDocument, doc: JSONDocument): Thenable<DocumentLink[]> {
+	const links: DocumentLink[] = [];
+	doc.visit(node => {
+		if (node.type === "property" && node.keyNode.value === "$ref" && node.valueNode?.type === 'string') {
+			const path = node.valueNode.value;
+			const targetNode = findTargetNode(doc, path);
+			if (targetNode) {
+				const targetPos = document.positionAt(targetNode.offset);
+				links.push({
+					target: `${document.uri}#${targetPos.line + 1},${targetPos.character + 1}`,
+					range: createRange(document, node.valueNode)
+				});
+			}
+		}
+		return true;
+	});
+	return Promise.resolve(links);
 }
 
 function createRange(document: TextDocument, node: ASTNode): Range {
-	return Range.create(document.positionAt(node.offset), document.positionAt(node.offset + node.length));
-}
-
-function isRef(node: ASTNode): boolean {
-	return node.type === 'string' &&
-		node.parent &&
-		node.parent.type === 'property' &&
-		node.parent.valueNode === node &&
-		node.parent.keyNode.value === "$ref" ||
-		false;
+	return Range.create(document.positionAt(node.offset + 1), document.positionAt(node.offset + node.length - 1));
 }
 
 function findTargetNode(doc: JSONDocument, path: string): ASTNode | null {

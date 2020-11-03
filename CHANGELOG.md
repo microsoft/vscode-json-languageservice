@@ -1,3 +1,7 @@
+3.10.0 / 2020-11-03
+=================
+ * new API `findLinks` return links for local `$ref` links. Replaces `findDefinition` which no longer returns results ( kept for API compatibility)
+
 3.9.0 / 2020-09-28
 =================
  * new API `DocumentLanguageSettings.schemaValidation`. The severity of problems from schema validation. If set to 'ignore', schema validation will be skipped. If not set, 'warning' is used.
