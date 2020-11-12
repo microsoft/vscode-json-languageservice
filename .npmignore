@@ -2,6 +2,7 @@
 .github/
 build/
 lib/**/test/
+lib/**/example/
 lib/**/*.js.map
 lib/*/*/*.d.ts
 src/

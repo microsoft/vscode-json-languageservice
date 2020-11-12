@@ -9,7 +9,7 @@ import { JSONDocument } from '../parser/jsonParser';
 import { TextDocument, ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range } from '../jsonLanguageTypes';
 import * as nls from 'vscode-nls';
 import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
-import { isDefined, isBoolean } from '../utils/objects';
+import { isBoolean } from '../utils/objects';
 
 const localize = nls.loadMessageBundle();
 
@@ -29,7 +29,7 @@ export class JSONValidation {
 
 	public configure(raw: LanguageSettings) {
 		if (raw) {
-			this.validationEnabled = raw.validate;
+			this.validationEnabled = raw.validate !== false;
 			this.commentSeverity = raw.allowComments ? undefined : DiagnosticSeverity.Error;
 		}
 	}

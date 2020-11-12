@@ -163,8 +163,8 @@ export interface WorkspaceContextService {
 	resolveRelativePath(relativePath: string, resource: string): string;
 }
 /**
- * The schema request service is used to fetch schemas. The result should the schema file comment, or,
- * in case of an error, a displayable error string
+ * The schema request service is used to fetch schemas. If successful, returns a resolved promise with the content of the schema. 
+ * In case of an error, returns a rejected promise with a displayable error string.
  */
 export interface SchemaRequestService {
 	(uri: string): Thenable<string>;
