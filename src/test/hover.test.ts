@@ -4,26 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as Parser from '../parser/jsonParser';
-import * as SchemaService from '../services/jsonSchemaService';
-import * as JsonSchema from '../jsonSchema';
-import { JSONHover } from '../services/jsonHover';
 
-import { Hover, Position, MarkedString, TextDocument } from '../jsonLanguageService';
+import { Hover, Position, MarkedString, TextDocument, getLanguageService, JSONSchema, JSONWorkerContribution, LanguageServiceParams } from '../jsonLanguageService';
 
 suite('JSON Hover', () => {
 
-	function testComputeInfo(value: string, schema: JsonSchema.JSONSchema, position: Position): PromiseLike<Hover> {
+	function testComputeInfo(value: string, schema: JSONSchema, position: Position, serviceParams?: LanguageServiceParams): PromiseLike<Hover> {
 		const uri = 'test://test.json';
+		const schemaUri = "http://myschemastore/test1";
 
-		const schemaService = new SchemaService.JSONSchemaService(requestService);
-		const hoverProvider = new JSONHover(schemaService, [], Promise);
-		const id = "http://myschemastore/test1";
-		schemaService.registerExternalSchema(id, ["*.json"], schema);
+		if (!serviceParams) {
+			serviceParams = { schemaRequestService: requestService };
+		}
+		const service = getLanguageService(serviceParams);
+		service.configure({ schemas: [{ fileMatch: ["*.json"], uri: schemaUri, schema }] });
+
 
 		const document = TextDocument.create(uri, 'json', 0, value);
-		const jsonDoc = Parser.parse(document);
-		return hoverProvider.doHover(document, position, jsonDoc);
+		const jsonDoc = service.parseJSONDocument(document);
+		return service.doHover(document, position, jsonDoc);
 	}
 
 	let requestService = function (uri: string): Promise<string> {
@@ -33,7 +32,7 @@ suite('JSON Hover', () => {
 	test('Simple schema', async function () {
 
 		const content = '{"a": 42, "b": "hello", "c": false}';
-		const schema: JsonSchema.JSONSchema = {
+		const schema: JSONSchema = {
 			type: 'object',
 			description: 'a very special object',
 			properties: {
@@ -68,7 +67,7 @@ suite('JSON Hover', () => {
 	test('Nested schema', async function () {
 
 		const content = '{"a": 42, "b": "hello"}';
-		const schema: JsonSchema.JSONSchema = {
+		const schema: JSONSchema = {
 			oneOf: [{
 				type: 'object',
 				description: 'a very special object',
@@ -99,7 +98,7 @@ suite('JSON Hover', () => {
 	});
 
 	test('Enum description', async function () {
-		const schema: JsonSchema.JSONSchema = {
+		const schema: JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop1': {
@@ -140,7 +139,7 @@ suite('JSON Hover', () => {
 	});
 
 	test('Multiline descriptions', async function () {
-		const schema: JsonSchema.JSONSchema = {
+		const schema: JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop1': {
@@ -158,5 +157,31 @@ suite('JSON Hover', () => {
 		await testComputeInfo('{ "prop2": "e1', schema, { line: 0, character: 12 }).then(result => {
 			assert.deepEqual(result.contents, ['line1\n\nline2\r\n\r\nline3']);
 		});
+	});
+
+	test('Contribution descriptions', async function () {
+		const serviceParams: LanguageServiceParams = {
+			contributions: [{
+				async getInfoContribution(uri, location) {
+					return [`${uri}: ${location.join('/')}`];
+				},
+				collectDefaultCompletions(uri, results) {
+					return Promise.resolve();
+				},
+				collectPropertyCompletions(uri, location, currentWord, addValue, isLast, results) {
+					return Promise.resolve();
+				},
+				collectValueCompletions(uri, location, propertyKey, results) {
+					return Promise.resolve();
+				}
+			}]
+		};
+
+		let result = await testComputeInfo('{ "prop1": [ 1, false ] }', {}, { line: 0, character: 3 }, serviceParams);
+		assert.deepEqual(result.contents, ['test://test.json: prop1']);
+
+		result = await testComputeInfo('{ "prop1": [ 1, false ] }', {}, { line: 0, character: 13 }, serviceParams);
+		assert.deepEqual(result.contents, ['test://test.json: prop1/0']);
+
 	});
 });
