@@ -78,6 +78,7 @@ suite('JSON Document Symbols', () => {
 	interface ExpectedDocumentSymbol {
 		label: string;
 		kind: SymbolKind;
+		detail: string | undefined;
 		children: ExpectedDocumentSymbol[];
 	}
 
@@ -87,6 +88,7 @@ suite('JSON Document Symbols', () => {
 			for (let i = 0; i < expected.length; i++) {
 				assert.equal(actuals[i].name, expected[i].label, message);
 				assert.equal(actuals[i].kind, expected[i].kind, message);
+				assert.equal(actuals[i].detail, expected[i].detail, message);
 				assertDocumentSymbols(actuals[i].children!, expected[i].children);
 			}
 		}
@@ -166,8 +168,8 @@ suite('JSON Document Symbols', () => {
 		assertOutline(content, expected);
 
 		const expected2: ExpectedDocumentSymbol[] = [
-			{ label: '""', kind: SymbolKind.Number, children: [] },
-			{ label: '" "', kind: SymbolKind.Number, children: [] }
+			{ label: '""', kind: SymbolKind.Number, detail: '1', children: [] },
+			{ label: '" "', kind: SymbolKind.Number, detail: '2', children: [] }
 		];
 
 		assertHierarchicalOutline(content, expected2);
@@ -183,7 +185,7 @@ suite('JSON Document Symbols', () => {
 		assertOutline(content, expected);
 
 		const expected2: ExpectedDocumentSymbol[] = [
-			{ label: '1↵2', kind: SymbolKind.Number, children: [] }
+			{ label: '1↵2', kind: SymbolKind.Number, detail: '1', children: [] }
 		];
 
 		assertHierarchicalOutline(content, expected2);
@@ -193,8 +195,8 @@ suite('JSON Document Symbols', () => {
 		const content = '{ "key1": { "key2": true }, "key3" : { "k1":  { } }';
 
 		const expected: ExpectedDocumentSymbol[] = [
-			{ label: 'key1', kind: SymbolKind.Module, children: [{ label: 'key2', kind: SymbolKind.Boolean, children: [] }] },
-			{ label: 'key3', kind: SymbolKind.Module, children: [{ label: 'k1', kind: SymbolKind.Module, children: [] }] }
+			{ label: 'key1', kind: SymbolKind.Module, detail: undefined, children: [{ label: 'key2', kind: SymbolKind.Boolean, detail: 'true', children: [] }] },
+			{ label: 'key3', kind: SymbolKind.Module, detail: undefined, children: [{ label: 'k1', kind: SymbolKind.Module, detail: '{}', children: [] }] }
 		];
 
 		assertHierarchicalOutline(content, expected);
@@ -205,9 +207,9 @@ suite('JSON Document Symbols', () => {
 
 		const expected: ExpectedDocumentSymbol[] = [
 			{
-				label: 'key1', kind: SymbolKind.Array, children: [
-					{ label: '0', kind: SymbolKind.Module, children: [{ label: 'key2', kind: SymbolKind.Boolean, children: [] }] },
-					{ label: '1', kind: SymbolKind.Module, children: [{ label: 'k1', kind: SymbolKind.Array, children: [] }] }]
+				label: 'key1', kind: SymbolKind.Array, detail: undefined, children: [
+					{ label: '0', kind: SymbolKind.Module, detail: undefined, children: [{ label: 'key2', kind: SymbolKind.Boolean, detail: 'true', children: [] }] },
+					{ label: '1', kind: SymbolKind.Module, detail: undefined, children: [{ label: 'k1', kind: SymbolKind.Array, detail: '[]', children: [] }] }]
 			}
 		];
 
