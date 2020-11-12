@@ -32,6 +32,10 @@ For the complete API see [jsonLanguageService.ts](./src/jsonLanguageService.ts) 
 
     npm install --save vscode-json-languageservice
 
+## Sample usage
+
+See [sample.ts](./src/example/sample.ts) for an example on how to use the json-languageservice.
+
 ## Development
 
     git clone https://github.com/microsoft/vscode-json-languageservice
@@ -39,6 +43,7 @@ For the complete API see [jsonLanguageService.ts](./src/jsonLanguageService.ts) 
     yarn
 
 Use `yarn test` to compile and run tests
+
 
 ### How can I run and debug the service?
 
