@@ -34,7 +34,9 @@ For the complete API see [jsonLanguageService.ts](./src/jsonLanguageService.ts) 
 
 ## Sample usage
 
-See [sample.ts](./src/example/sample.ts) for an example on how to use the json-languageservice.
+See [sample.ts](./src/example/sample.ts) for an example on how to use the JSON language service.
+
+To run the sample use `yarn sample`
 
 ## Development
 
