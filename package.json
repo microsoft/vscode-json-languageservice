@@ -17,16 +17,15 @@
   "devDependencies": {
     "@types/mocha": "^8.0.3",
     "@types/node": "^10.12.21",
-    "@typescript-eslint/eslint-plugin": "^4.1.1",
-    "@typescript-eslint/parser": "^4.1.1",
-    "eslint": "^7.9.0",
-    "mocha": "^8.1.3",
-    "nyc": "^15.1.0",
+    "@typescript-eslint/eslint-plugin": "^4.7.0",
+    "@typescript-eslint/parser": "^4.7.0",
+    "eslint": "^7.13.0",
+    "mocha": "^8.2.1",
     "rimraf": "^3.0.2",
-    "typescript": "^4.0.2"
+    "typescript": "^4.0.5"
   },
   "dependencies": {
-    "jsonc-parser": "^2.3.1",
+    "jsonc-parser": "^3.0.0",
     "vscode-languageserver-textdocument": "^1.0.1",
     "vscode-languageserver-types": "3.16.0-next.2",
     "vscode-nls": "^5.0.0",
@@ -43,7 +42,7 @@
     "pretest": "npm run compile",
     "test": "mocha",
     "posttest": "npm run lint",
-    "coverage": "nyc -r lcov npm run test",
+    "coverage": "npx nyc -r lcov npm run test",
     "lint": "eslint src/**/*.ts",
     "install-types-next": "npm install vscode-languageserver-types@next -f -S && npm install vscode-languageserver-textdocument@next -f -S",
     "preversion": "npm test",
