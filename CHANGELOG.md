@@ -1,5 +1,9 @@
+3.11.0 / 
+================
+ * new API `FormattingOptions.insertFinalNewline`
+
 3.10.0 / 2020-11-03
-=================
+================
  * new API `findLinks` return links for local `$ref` links. Replaces `findDefinition` which no longer returns results ( kept for API compatibility)
 
 3.9.0 / 2020-09-28

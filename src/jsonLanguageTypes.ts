@@ -10,7 +10,7 @@ import {
 	Diagnostic, DiagnosticSeverity,
 	CompletionItem, CompletionItemKind, CompletionList, Position,
 	InsertTextFormat, MarkupContent,
-	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions, DefinitionLink
+	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions as LSPFormattingOptions, DefinitionLink
 } from 'vscode-languageserver-types';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -22,7 +22,7 @@ export {
 	Diagnostic, DiagnosticSeverity,
 	CompletionItem, CompletionItemKind, CompletionList, Position,
 	InsertTextFormat, MarkupContent, MarkupKind, DefinitionLink,
-	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions
+	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString
 };
 
 /**
@@ -324,4 +324,8 @@ export interface ColorInformationContext {
 	 * Called when the result was cropped.
 	 */
 	onResultLimitExceeded?: (uri: string) => void;
+}
+
+export interface FormattingOptions extends LSPFormattingOptions {
+	insertFinalNewline?: boolean;
 }
