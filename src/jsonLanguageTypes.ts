@@ -177,7 +177,7 @@ export interface PromiseConstructor {
 	 * a resolve callback used resolve the promise with a value or the result of another promise,
 	 * and a reject callback used to reject the promise with a provided reason or error.
 	 */
-	new <T>(executor: (resolve: (value?: T | Thenable<T>) => void, reject: (reason?: any) => void) => void): Thenable<T>;
+	new <T>(executor: (resolve: (value?: T | Thenable<T | undefined>) => void, reject: (reason?: any) => void) => void): Thenable<T | undefined>;
 
 	/**
 	 * Creates a Promise that is resolved with an array of results when all of the provided Promises
