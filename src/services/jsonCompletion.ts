@@ -108,8 +108,13 @@ export class JSONCompletion {
 					suggestion.label = label;
 					proposed[label] = suggestion;
 					result.items.push(suggestion);
-				} else if (!existing.documentation) {
-					existing.documentation = suggestion.documentation;
+				} else {
+					if (!existing.documentation) {
+						existing.documentation = suggestion.documentation;
+					}
+					if (!existing.detail) {
+						existing.detail = suggestion.detail;
+					}
 				}
 			},
 			setAsIncomplete: () => {
@@ -465,7 +470,7 @@ export class JSONCompletion {
 							for (const pattern of Object.keys(s.schema.patternProperties)) {
 								const regex = new RegExp(pattern);
 								if (regex.test(parentKey)) {
-								propertyMatched = true;
+									propertyMatched = true;
 									const propertySchema = s.schema.patternProperties[pattern];
 									this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);
 								}

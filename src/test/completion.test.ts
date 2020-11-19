@@ -335,7 +335,7 @@ suite('JSON Completion', () => {
 		await testCompletionsFor('{"deprecation":{|}}', schema, {
 			count: 1,
 			items: [
-				{ label: 'a', notAvailable:true },
+				{ label: 'a', notAvailable: true },
 				{ label: 'b', documentation: '' },
 			]
 		});
@@ -880,7 +880,7 @@ suite('JSON Completion', () => {
 	});
 
 	test('Enum and defaults', async function () {
-		const schema: JSONSchema = {
+		let schema: JSONSchema = {
 			type: 'object',
 			properties: {
 				prop: {
@@ -898,6 +898,25 @@ suite('JSON Completion', () => {
 				{ label: '""', resultText: '{ "prop": "" }' }
 			],
 			count: 3
+		});
+
+		schema = {
+			type: 'object',
+			properties: {
+				prop: {
+					type: ['string'],
+					enum: ['green', 'red'],
+					default: 'red'
+				}
+			}
+		};
+
+		await testCompletionsFor('{ "prop": | }', schema, {
+			items: [
+				{ label: '"green"', resultText: '{ "prop": "green" }', detail: undefined },
+				{ label: '"red"', resultText: '{ "prop": "red" }', detail: 'Default value' },
+			],
+			count: 2
 		});
 
 	});
@@ -1050,31 +1069,31 @@ suite('JSON Completion', () => {
 			properties: {
 				property_test: {
 					type: 'object',
-					defaultSnippets: [ { label: 'property snippet', bodyText: '{}' } ]
+					defaultSnippets: [{ label: 'property snippet', bodyText: '{}' }]
 				}
 			},
 			patternProperties: {
 				pattern: {
 					type: 'object',
-					defaultSnippets: [ { label: 'pattern snippet', bodyText: '{}' } ]
+					defaultSnippets: [{ label: 'pattern snippet', bodyText: '{}' }]
 				}
 			},
 			additionalProperties: {
 				type: 'object',
-				defaultSnippets: [ { label: 'additional snippet', bodyText: '{}' } ]
+				defaultSnippets: [{ label: 'additional snippet', bodyText: '{}' }]
 			}
 		};
 
 		await testCompletionsFor('{"property_test":|', schema, {
-			items: [{ label: 'property snippet'}]
+			items: [{ label: 'property snippet' }]
 		});
 
 		await testCompletionsFor('{"pattern_test":|', schema, {
-			items: [{ label: 'pattern snippet'}]
+			items: [{ label: 'pattern snippet' }]
 		});
 
 		await testCompletionsFor('{"additional_test":|', schema, {
-			items: [{ label: 'additional snippet'}]
+			items: [{ label: 'additional snippet' }]
 		});
 	});
 
