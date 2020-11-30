@@ -1,4 +1,4 @@
-3.11.0 / 
+3.11.0 / 2020-11-30
 ================
  * new API `FormattingOptions.insertFinalNewline`
 
