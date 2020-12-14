@@ -9,6 +9,28 @@ import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
 import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument } from '../jsonLanguageTypes';
+// import { IMinimatch, Minimatch } from 'minimatch';
+
+import {Tester as AnymatchTester, Matcher as AnymatchMatcher} from 'vscode-anymatch';
+type AnymatchPattern = Exclude<AnymatchMatcher, Array<any>>;
+
+/**
+ *  none of the following import statements work, even though they
+ *  follow the type defs found in vscode-anymatch/index.d.ts 
+ */
+// import anymatch from 'vscode-anymatch';
+// import * as anymatch from 'vscode-anymatch';
+// import {default as anymatch} from 'vscode-anymatch;
+/**
+ *  and the following alone causes TypeScript to complain that
+ *  anymatch is not callable, for a lack of a call signature
+*/
+// import anymatch = require('vscode-anymatch');
+/**
+ *  so this is a temporary fix, barring a fixed type def in anymatch
+ */
+type AnymatchCurrier = {(matchers: AnymatchMatcher): AnymatchTester};
+const anymatch: AnymatchCurrier = require('vscode-anymatch');
 
 import * as nls from 'vscode-nls';
 
@@ -69,41 +91,44 @@ export interface ISchemaHandle {
 	getResolvedSchema(): Thenable<ResolvedSchema>;
 }
 
-
+const BANG = '!';
+const PATH_SEP = '/';
+type AnymatchTesterWrapper = {tester: AnymatchTester, include: boolean};
 class FilePatternAssociation {
 
 	private readonly uris: string[];
-	private readonly patternRegExps: RegExp[];
-	private readonly isInclude: boolean[];
+	private readonly anymatchTesters: AnymatchTesterWrapper[];
 
 	constructor(pattern: string[], uris: string[]) {
-		this.patternRegExps = [];
-		this.isInclude = [];
+		this.anymatchTesters = [];
 		try {
-			for (let p of pattern) {
-				const include = p[0] !== '!';
+			for (let patternString of pattern) {
+				const include = pattern[0] !== BANG;
 				if (!include) {
-					p = p.substring(1);
+					patternString = patternString.substring(1);
 				}
-				this.patternRegExps.push(new RegExp(Strings.convertSimple2RegExpPattern(p) + '$'));
-				this.isInclude.push(include);
-			}
+				if (patternString.length > 0) {
+					if (patternString[0] === PATH_SEP) {
+						patternString = patternString.substring(1);
+					}
+					this.anymatchTesters.push({
+						tester: anymatch(`**/${patternString}`),
+						include: include,
+					});
+				}
+			};
 			this.uris = uris;
 		} catch (e) {
-			// invalid pattern
-			this.patternRegExps.length = 0;
-			this.isInclude.length = 0;
+			this.anymatchTesters.length = 0;
 			this.uris = [];
 		}
-
 	}
 
 	public matchesPattern(fileName: string): boolean {
 		let match = false;
-		for (let i = 0; i < this.patternRegExps.length; i++) {
-			const regExp = this.patternRegExps[i];
-			if (regExp.test(fileName)) {
-				match = this.isInclude[i];
+		for (const {tester, include} of this.anymatchTesters) {
+			if (tester(fileName)) {
+				match = include;
 			}
 		}
 		return match;
