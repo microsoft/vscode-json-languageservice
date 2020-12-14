@@ -1,3 +1,8 @@
+4.0.0 / 2020-12-14
+================
+ * Update to `vscode-languageserver-types@3.16`
+ * Removed deprecated `findColorSymbols`
+
 3.11.0 / 2020-11-30
 ================
  * new API `FormattingOptions.insertFinalNewline`
