@@ -9,26 +9,9 @@ import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
 import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument } from '../jsonLanguageTypes';
-// import { IMinimatch, Minimatch } from 'minimatch';
 
 import {Tester as AnymatchTester, Matcher as AnymatchMatcher} from 'vscode-anymatch';
 type AnymatchPattern = Exclude<AnymatchMatcher, Array<any>>;
-
-/**
- *  none of the following import statements work, even though they
- *  follow the type defs found in vscode-anymatch/index.d.ts 
- */
-// import anymatch from 'vscode-anymatch';
-// import * as anymatch from 'vscode-anymatch';
-// import {default as anymatch} from 'vscode-anymatch;
-/**
- *  and the following alone causes TypeScript to complain that
- *  anymatch is not callable, for a lack of a call signature
-*/
-// import anymatch = require('vscode-anymatch');
-/**
- *  so this is a temporary fix, barring a fixed type def in anymatch
- */
 type AnymatchCurrier = {(matchers: AnymatchMatcher): AnymatchTester};
 const anymatch: AnymatchCurrier = require('vscode-anymatch');
 
