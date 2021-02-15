@@ -232,7 +232,7 @@ export class JSONCompletion {
 				if (schemaProperties) {
 					Object.keys(schemaProperties).forEach((key: string) => {
 						const propertySchema = schemaProperties[key];
-						if (typeof propertySchema === 'object' && !propertySchema.deprecationMessage && !propertySchema.doNotSuggest) {
+						if (typeof propertySchema === 'object' && !propertySchema.deprecationMessage && !propertySchema.deprecated && !propertySchema.doNotSuggest) {
 							const proposal: CompletionItem = {
 								kind: CompletionItemKind.Property,
 								label: key,
@@ -255,7 +255,7 @@ export class JSONCompletion {
 					});
 				}
 				const schemaPropertyNames = s.schema.propertyNames;
-				if (typeof schemaPropertyNames === 'object' && !schemaPropertyNames.deprecationMessage && !schemaPropertyNames.doNotSuggest) {
+				if (typeof schemaPropertyNames === 'object' && !schemaPropertyNames.deprecationMessage && !schemaPropertyNames.deprecated && !schemaPropertyNames.doNotSuggest) {
 					const propertyNameCompletionItem = (name: string, enumDescription: string | MarkupContent | undefined = undefined) => {
 						const proposal: CompletionItem = {
 							kind: CompletionItemKind.Property,

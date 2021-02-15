@@ -9,7 +9,7 @@ import * as Parser from '../parser/jsonParser';
 import * as fs from 'fs';
 import * as url from 'url';
 import * as path from 'path';
-import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema } from '../jsonLanguageService';
+import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema, DiagnosticTag } from '../jsonLanguageService';
 import { DiagnosticSeverity } from '../jsonLanguageTypes';
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig, uri = 'foo://bar/file.json'): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
@@ -1108,6 +1108,10 @@ suite('JSON Schema', () => {
 				'depr': {
 					type: 'string',
 					deprecationMessage: 'old stuff'
+				},
+				'depr2': {
+					type: 'string',
+					deprecated: true
 				}
 			},
 			required: ['name', 'age', 'address', 'email']
@@ -1115,16 +1119,19 @@ suite('JSON Schema', () => {
 
 		const ls = getLanguageService({});
 		{
-			const { textDoc, jsonDoc } = toDocument('{ "depr": "" }');
+			const { textDoc, jsonDoc } = toDocument('{ "depr": "", "depr2": "" }');
 			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 
 			const semanticErrors = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'error' }, schema);
-			assert.strictEqual(semanticErrors!.length, 5);
+			assert.strictEqual(semanticErrors!.length, 6);
 			assert.strictEqual(semanticErrors![0].severity, DiagnosticSeverity.Error);
 			assert.strictEqual(semanticErrors![1].severity, DiagnosticSeverity.Error);
 			assert.strictEqual(semanticErrors![2].severity, DiagnosticSeverity.Error);
 			assert.strictEqual(semanticErrors![3].severity, DiagnosticSeverity.Error);
-			assert.strictEqual(semanticErrors![4].severity, DiagnosticSeverity.Warning);
+			assert.strictEqual(semanticErrors![4].severity, DiagnosticSeverity.Hint);
+			assert.strictEqual(semanticErrors![4].tags?.includes(DiagnosticTag.Deprecated), true);
+			assert.strictEqual(semanticErrors![5].severity, DiagnosticSeverity.Hint);
+			assert.strictEqual(semanticErrors![5].tags?.includes(DiagnosticTag.Deprecated), true);
 		}
 		{
 			const { textDoc, jsonDoc } = toDocument('{"name": "", "age": -1, "address": "SA42", "email": "wrong_mail"}');

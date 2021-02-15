@@ -7,10 +7,10 @@ import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from 
 import { JSONSchema } from './jsonSchema';
 import {
 	Range, TextEdit, Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, MarkupKind, SelectionRange,
-	Diagnostic, DiagnosticSeverity,
+	Diagnostic, DiagnosticSeverity,	DiagnosticTag,
 	CompletionItem, CompletionItemKind, CompletionList, Position,
 	InsertTextFormat, MarkupContent,
-	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions as LSPFormattingOptions, DefinitionLink
+	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions as LSPFormattingOptions, DefinitionLink,
 } from 'vscode-languageserver-types';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -19,10 +19,10 @@ export {
 	TextDocument,
 	Range, TextEdit, JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
 	Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, SelectionRange,
-	Diagnostic, DiagnosticSeverity,
+	Diagnostic, DiagnosticSeverity, DiagnosticTag,
 	CompletionItem, CompletionItemKind, CompletionList, Position,
 	InsertTextFormat, MarkupContent, MarkupKind, DefinitionLink,
-	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString
+	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString,
 };
 
 /**

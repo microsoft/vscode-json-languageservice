@@ -6,7 +6,7 @@
 import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import { isNumber, equals, isBoolean, isString, isDefined } from '../utils/objects';
-import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range } from '../jsonLanguageTypes';
+import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range, DiagnosticTag } from '../jsonLanguageTypes';
 
 import * as nls from 'vscode-nls';
 
@@ -30,6 +30,7 @@ export interface IProblem {
 	severity?: DiagnosticSeverity;
 	code?: ErrorCode;
 	message: string;
+	tags?: DiagnosticTag[]
 }
 
 export abstract class ASTNodeImpl {
@@ -328,7 +329,10 @@ export class JSONDocument {
 			validate(this.root, schema, validationResult, NoOpSchemaCollector.instance);
 			return validationResult.problems.map(p => {
 				const range = Range.create(textDocument.positionAt(p.location.offset), textDocument.positionAt(p.location.offset + p.location.length));
-				return Diagnostic.create(range, p.message, p.severity ?? severity, p.code);
+				const diagnostic = Diagnostic.create(range, p.message, p.severity ?? severity, p.code);
+				diagnostic.tags = p.tags;
+
+				return diagnostic;
 			});
 		}
 		return undefined;
@@ -538,12 +542,13 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			validationResult.enumValues = [schema.const];
 		}
 
-		if (schema.deprecationMessage && node.parent) {
+		if ((schema.deprecationMessage || schema.deprecated) && node.parent) {
 			validationResult.problems.push({
 				location: { offset: node.parent.offset, length: node.parent.length },
-				severity: DiagnosticSeverity.Warning,
-				message: schema.deprecationMessage,
-				code: ErrorCode.Deprecated
+				severity: DiagnosticSeverity.Hint,
+				message: schema.deprecationMessage || localize('deprecationMessage', 'This property is deprecated'),
+				code: ErrorCode.Deprecated,
+				tags: [DiagnosticTag.Deprecated]
 			});
 		}
 	}

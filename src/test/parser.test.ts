@@ -1721,7 +1721,7 @@ suite('JSON Parser', () => {
 		}
 	});
 
-	test('deprecated', function () {
+	test('deprecated message', function () {
 
 		const { textDoc, jsonDoc } = toDocument('{"prop": 42}');
 
@@ -1730,6 +1730,25 @@ suite('JSON Parser', () => {
 			properties: {
 				'prop': {
 					deprecationMessage: "Prop is deprecated"
+				}
+			}
+		};
+
+		const semanticErrors = jsonDoc.validate(textDoc, schema);
+
+		assert.strictEqual(semanticErrors!.length, 1);
+	});
+
+	
+	test('deprecated', function () {
+
+		const { textDoc, jsonDoc } = toDocument('{"prop": 42}');
+
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop': {
+					deprecated: true
 				}
 			}
 		};
