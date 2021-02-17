@@ -1123,11 +1123,15 @@ suite('JSON Schema', () => {
 			assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 
 			const semanticErrors = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'error' }, schema);
-			assert.strictEqual(semanticErrors!.length, 6);
+			assert.strictEqual(semanticErrors!.length, 8);
 			assert.strictEqual(semanticErrors![0].severity, DiagnosticSeverity.Error);
 			assert.strictEqual(semanticErrors![1].severity, DiagnosticSeverity.Error);
 			assert.strictEqual(semanticErrors![2].severity, DiagnosticSeverity.Error);
 			assert.strictEqual(semanticErrors![3].severity, DiagnosticSeverity.Error);
+			assert.strictEqual(semanticErrors![4].severity, DiagnosticSeverity.Hint);
+			assert.strictEqual(semanticErrors![4].tags?.includes(DiagnosticTag.Deprecated), true);
+			assert.strictEqual(semanticErrors![5].severity, DiagnosticSeverity.Hint);
+			assert.strictEqual(semanticErrors![5].tags?.includes(DiagnosticTag.Deprecated), true);
 			assert.strictEqual(semanticErrors![4].severity, DiagnosticSeverity.Hint);
 			assert.strictEqual(semanticErrors![4].tags?.includes(DiagnosticTag.Deprecated), true);
 			assert.strictEqual(semanticErrors![5].severity, DiagnosticSeverity.Hint);

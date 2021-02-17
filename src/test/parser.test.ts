@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import { getNodePath, getNodeValue, JSONDocument } from '../parser/jsonParser';
-import { TextDocument, Range, ErrorCode, ASTNode, ObjectASTNode, getLanguageService, JSONSchema} from '../jsonLanguageService';
+import { TextDocument, Range, ErrorCode, ASTNode, ObjectASTNode, getLanguageService, JSONSchema, DiagnosticSeverity} from '../jsonLanguageService';
 
 suite('JSON Parser', () => {
 
@@ -1736,7 +1736,7 @@ suite('JSON Parser', () => {
 
 		const semanticErrors = jsonDoc.validate(textDoc, schema);
 
-		assert.strictEqual(semanticErrors!.length, 1);
+		assert.strictEqual(semanticErrors!.length, 2);
 	});
 
 	
@@ -1755,7 +1755,122 @@ suite('JSON Parser', () => {
 
 		const semanticErrors = jsonDoc.validate(textDoc, schema);
 
-		assert.strictEqual(semanticErrors!.length, 1);
+		assert.strictEqual(semanticErrors!.length, 2);
+	});
+
+		
+	test('deprecated does not fail schema validation', function () {
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop": 42}');
+
+			const schema: JSONSchema = {
+				type: 'object',
+				properties: {
+					'prop': {
+						not: {
+							type: "number",
+							deprecated: true
+						}
+					}
+				}
+			};
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+
+			assert.strictEqual(semanticErrors!.length, 1);
+			assert.strictEqual(semanticErrors![0].severity, DiagnosticSeverity.Warning);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop": "string"}');
+
+			const schema: JSONSchema = {
+				oneOf: [
+					{
+						type: "string",
+						deprecated: true
+					},
+					{
+						type: "string"
+					}
+				]
+			};
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+
+			assert.strictEqual(semanticErrors!.length, 1);
+			assert.strictEqual(semanticErrors![0].severity, DiagnosticSeverity.Warning);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[1]');
+
+			const schema: JSONSchema = {
+				type: "array",
+				contains: {
+					type: "number",
+					deprecated: true
+				}
+			};
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+	});
+
+	test('deprecated does work on nested properties', function () {
+
+		const { textDoc, jsonDoc } = toDocument('{"prop": {"propDeprecated": "replaceMe"}}');
+
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop': {
+					type: "object",
+					properties: {
+						propDeprecated: {
+							deprecated: true
+						}
+					}
+				}
+			}
+		};
+
+		const semanticErrors = jsonDoc.validate(textDoc, schema);
+
+		assert.strictEqual(semanticErrors!.length, 2);
+	});
+
+	test('deprecated does work on value only', function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop': {
+					anyOf: [
+						{
+							type: "string"
+						},
+						{
+							type: "number",
+							deprecated: true
+						}
+					]
+				}
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop": -42}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop": "not deprecated"}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
 	});
 
 	test('Strings with spaces', function () {
