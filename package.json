@@ -15,6 +15,7 @@
     "url": "https://github.com/Microsoft/vscode-json-languageservice"
   },
   "devDependencies": {
+    "@types/minimatch": "^3.0.3",
     "@types/mocha": "^8.0.4",
     "@types/node": "^10.12.21",
     "@typescript-eslint/eslint-plugin": "^4.8.2",
@@ -26,7 +27,7 @@
   },
   "dependencies": {
     "jsonc-parser": "^3.0.0",
-    "vscode-anymatch": "^3.0.3",
+    "minimatch": "^3.0.4",
     "vscode-languageserver-textdocument": "^1.0.1",
     "vscode-languageserver-types": "3.16.0-next.2",
     "vscode-nls": "^5.0.0",

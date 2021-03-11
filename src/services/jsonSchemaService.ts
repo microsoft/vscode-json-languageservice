@@ -10,10 +10,7 @@ import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
 import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument } from '../jsonLanguageTypes';
 
-import {Tester as AnymatchTester, Matcher as AnymatchMatcher} from 'vscode-anymatch';
-type AnymatchPattern = Exclude<AnymatchMatcher, Array<any>>;
-type AnymatchCurrier = {(matchers: AnymatchMatcher): AnymatchTester};
-const anymatch: AnymatchCurrier = require('vscode-anymatch');
+import {Minimatch, IMinimatch} from 'minimatch';
 
 import * as nls from 'vscode-nls';
 
@@ -76,17 +73,22 @@ export interface ISchemaHandle {
 
 const BANG = '!';
 const PATH_SEP = '/';
-type AnymatchTesterWrapper = {tester: AnymatchTester, include: boolean};
+
+interface IMinimatchWrapper {
+	minimatch: IMinimatch;
+	include: boolean;
+}
+
 class FilePatternAssociation {
 
 	private readonly uris: string[];
-	private readonly anymatchTesters: AnymatchTesterWrapper[];
+	private readonly minimatchWrappers: IMinimatchWrapper[];
 
 	constructor(pattern: string[], uris: string[]) {
-		this.anymatchTesters = [];
+		this.minimatchWrappers = [];
 		try {
 			for (let patternString of pattern) {
-				const include = pattern[0] !== BANG;
+				const include = patternString[0] !== BANG;
 				if (!include) {
 					patternString = patternString.substring(1);
 				}
@@ -94,23 +96,23 @@ class FilePatternAssociation {
 					if (patternString[0] === PATH_SEP) {
 						patternString = patternString.substring(1);
 					}
-					this.anymatchTesters.push({
-						tester: anymatch(`**/${patternString}`),
+					this.minimatchWrappers.push({
+						minimatch: new Minimatch(`**/${patternString}`),
 						include: include,
 					});
 				}
 			};
 			this.uris = uris;
 		} catch (e) {
-			this.anymatchTesters.length = 0;
+			this.minimatchWrappers.length = 0;
 			this.uris = [];
 		}
 	}
 
 	public matchesPattern(fileName: string): boolean {
 		let match = false;
-		for (const {tester, include} of this.anymatchTesters) {
-			if (tester(fileName)) {
+		for (const {minimatch, include} of this.minimatchWrappers) {
+			if (minimatch.match(fileName)) {
 				match = include;
 			}
 		}
@@ -621,7 +623,7 @@ function normalizeId(id: string): string {
 }
 
 function normalizeResourceForMatching(resource: string): string {
-	// remove querues and fragments, normalize drive capitalization
+	// remove queries and fragments, normalize drive capitalization
 	try {
 		return URI.parse(resource).with({ fragment: null, query: null }).toString();
 	} catch (e) {
