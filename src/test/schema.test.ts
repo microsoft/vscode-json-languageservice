@@ -10,10 +10,10 @@ import * as fs from 'fs';
 import * as url from 'url';
 import * as path from 'path';
 import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema } from '../jsonLanguageService';
-import { DiagnosticSeverity, MarkedString } from '../jsonLanguageTypes';
+import { DiagnosticSeverity } from '../jsonLanguageTypes';
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig, uri = 'foo://bar/file.json'): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
-
+	
 	const textDoc = TextDocument.create(uri, 'json', 0, text);
 	const jsonDoc = Parser.parse(textDoc, config);
 	return { textDoc, jsonDoc };
@@ -633,7 +633,7 @@ suite('JSON Schema', () => {
 	test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes filename only', async function () {
 
 		const ls = getLanguageService({ workspaceContext });
-		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['*.foo.json'], schema: { type: 'object', required: ['foo'] } }] });
+		ls.configure({ schemas: [ { uri: 'http://myschemastore/myschemabar', fileMatch: ['*.foo.json'], schema: { type: 'object', required: ['foo'] }}]});
 
 		const positives = ['file://folder/a.foo.json', 'file://folder/a.foo.json?f=true', 'file://folder/a.foo.json#f=true'];
 		const negatives = ['file://folder/a.bar.json', 'file://folder/foo?a.foo.json', 'file://folder/foo#a.foo.json'];
@@ -833,155 +833,29 @@ suite('JSON Schema', () => {
 
 	});
 
-	test('$ref in $ref, avoid clearing too early', async function () {
-		const aSchemaUri = 'internal://schema/a.json';
-		const aSchema = {
-			description: "feedback component",
-			oneOf: [
-				{
-					type: "object",
-					properties: {
-						kind: { const: "other" }
-					}
-				},
-				{
-					type: "object",
-					properties: {
-						feedback: {
-							type: "object",
-							properties: {
-								modalProps: {
-									type: "object",
-									properties: {
-										content: {
-											description: "This is a nested component schema",
-											$ref: "#/definitions/B",
-										},
-										compareToThis: {
-											description: "This is also a nested component schema",
-											$ref: "internal://schema/b.json",
-										},
-										C: {
-											$ref: "#/definitions/C"
-										}
-									}
-								},
-							}
-						},
-						then: {
-							$ref: "#/definitions/itself"
-						}
-					},
-				}
-			],
+	test('$refs with encoded characters', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		const id0 = "foo://bar/bar0";
+		const schema: JSONSchema = {
 			definitions: {
-				'itself': {
-					$ref: "#"
-				},
-				B: {
-					$ref: "internal://schema/b.json",
-				},
-				C: {
-					description: "C"
-				}
-			}
-		};
-
-		const bSchemaUri = 'internal://schema/b.json';
-		const bSchema = {
-			type: "object",
-			properties: {
-				props: {
-					description: "A",
-					$ref: "internal://schema/a.json"
+				'Foo<number>': {
+					type: 'object',
 				}
 			},
-			additionalProperties: false,
+			"type": "object",
+			"properties": {
+				"p1": { "enum": ["v1", "v2"] },
+				"p2": { "$ref": "#/definitions/Foo%3Cnumber%3E" }
+			}
 		};
 
-		const aUri = 'foo://server/a.data.json';
-		const a = `{
-			"props": {
-				"kind": "feedback",
-				"feedback": {
-					"modalProps": {
-						"content": {
-							"props"/*1*/: {
-							}
-						},
-						"compareToThis": {
-							"props"/*2*/: {
-								"kind": "feedback",
-								"feedback": {
-									"modalProps": {
-										"content": " 1"
-									}
-								}
-							}
-						},
-						C: "1"
-					}
-				},
-				then: {
-					kind: "other"
-				}
-			}
-		}`;
-
-		const textDocument = TextDocument.create(aUri, 'json', 1, a);
-
-		const jsonLanguageService = getLanguageService({
-			schemaRequestService: (uri) => {
-				if (uri === aSchemaUri) {
-					return Promise.resolve(JSON.stringify(aSchema));
-				}
-				if (uri === bSchemaUri) {
-					return Promise.resolve(JSON.stringify(bSchema));
-				}
-				return Promise.reject(`Unknown schema ${uri}`);
-			}
+		const fsm0 = service.registerExternalSchema(id0, ['*.json'], schema);
+		return fsm0.getResolvedSchema().then((fs0) => {
+			assert.deepEqual(fs0.errors, []);
+			assert.equal((<JSONSchema>fs0?.schema.properties?.p2).type, 'object');
 		});
 
-		const jsonDocument = jsonLanguageService.parseJSONDocument(textDocument);
-		jsonLanguageService.configure({ allowComments: true, schemas: [{ fileMatch: ["*"], uri: bSchemaUri }] });
-
-
-		let offset1 = textDocument.getText().indexOf('/*1*/') - 1;
-		let pos1 = textDocument.positionAt(offset1);
-
-		let hover = await jsonLanguageService.doHover(textDocument, pos1, jsonDocument);
-		assert.deepEqual(hover?.contents, [MarkedString.fromPlainText('A')]);
-
-		offset1 = textDocument.getText().indexOf('/*2*/') - 1;
-		pos1 = textDocument.positionAt(offset1);
-
-		hover = await jsonLanguageService.doHover(textDocument, pos1, jsonDocument);
-		assert.deepEqual(hover?.contents, [MarkedString.fromPlainText('A')]);
-	}),
-
-		test('$refs with encoded characters', async function () {
-			const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
-			const id0 = "foo://bar/bar0";
-			const schema: JSONSchema = {
-				definitions: {
-					'Foo<number>': {
-						type: 'object',
-					}
-				},
-				"type": "object",
-				"properties": {
-					"p1": { "enum": ["v1", "v2"] },
-					"p2": { "$ref": "#/definitions/Foo%3Cnumber%3E" }
-				}
-			};
-
-			const fsm0 = service.registerExternalSchema(id0, ['*.json'], schema);
-			return fsm0.getResolvedSchema().then((fs0) => {
-				assert.deepEqual(fs0.errors, []);
-				assert.equal((<JSONSchema>fs0?.schema.properties?.p2).type, 'object');
-			});
-
-		});
+	});
 
 
 	test('Validate Azure Resource Definition', async function () {
