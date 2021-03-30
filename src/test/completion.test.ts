@@ -1076,6 +1076,10 @@ suite('JSON Completion', () => {
 				pattern: {
 					type: 'object',
 					defaultSnippets: [{ label: 'pattern snippet', bodyText: '{}' }]
+				},
+				"(?i)caseinsensitive": {
+					type: 'object',
+					defaultSnippets: [{ label: 'case insensitive snippet', bodyText: '{}' }]
 				}
 			},
 			additionalProperties: {
@@ -1090,6 +1094,10 @@ suite('JSON Completion', () => {
 
 		await testCompletionsFor('{"pattern_test":|', schema, {
 			items: [{ label: 'pattern snippet' }]
+		});
+
+		await testCompletionsFor('{"CaseInsensitive_test":|', schema, {
+			items: [{ label: 'case insensitive snippet' }]
 		});
 
 		await testCompletionsFor('{"additional_test":|', schema, {

@@ -551,6 +551,30 @@ suite('JSON Parser', () => {
 
 		assert.strictEqual(semanticErrors!.length, 1);
 
+		semanticErrors = jsonDoc.validate(textDoc, {
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'string',
+					pattern: '(?i)^TEST$'
+				}
+			}
+		});
+
+		assert.strictEqual(semanticErrors!.length, 0);
+
+		semanticErrors = jsonDoc.validate(textDoc, {
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'string',
+					pattern: '(?i)^Fail$'
+				}
+			}
+		});
+
+		assert.strictEqual(semanticErrors!.length, 1);
+
 		const schemaWithURI = {
 			type: 'object',
 			properties: {
@@ -1220,6 +1244,17 @@ suite('JSON Parser', () => {
 			const { textDoc, jsonDoc } = toDocument('{"invalid": 42 }');
 			const semanticErrors = jsonDoc.validate(textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			id: 'test://schemas/main',
+			patternProperties: {
+				'(?i)^foo$': true
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"Foo": 42 }');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
 		}
 	});
 
