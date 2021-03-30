@@ -9,7 +9,7 @@ import * as SchemaService from './jsonSchemaService';
 import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import { JSONWorkerContribution, CompletionsCollector } from '../jsonContributions';
 import { stringifyObject } from '../utils/json';
-import { endsWith } from '../utils/strings';
+import { endsWith, extendedRegExp } from '../utils/strings';
 import { isDefined } from '../utils/objects';
 import {
 	PromiseConstructor, Thenable,
@@ -468,7 +468,7 @@ export class JSONCompletion {
 						}
 						if (s.schema.patternProperties && !propertyMatched) {
 							for (const pattern of Object.keys(s.schema.patternProperties)) {
-								const regex = new RegExp(pattern);
+								const regex = extendedRegExp(pattern);
 								if (regex.test(parentKey)) {
 									propertyMatched = true;
 									const propertySchema = s.schema.patternProperties[pattern];

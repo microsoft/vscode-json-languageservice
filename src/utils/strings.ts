@@ -46,3 +46,11 @@ export function repeat(value: string, count: number) {
 	}
 	return s;
 }
+
+export function extendedRegExp(pattern: string): RegExp {
+	if (startsWith(pattern, '(?i)')) {
+		return new RegExp(pattern.substring(4), 'i');
+	} else {
+		return new RegExp(pattern);
+	}
+}

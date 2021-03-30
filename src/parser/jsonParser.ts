@@ -6,6 +6,7 @@
 import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import { isNumber, equals, isBoolean, isString, isDefined } from '../utils/objects';
+import { extendedRegExp } from '../utils/strings';
 import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range } from '../jsonLanguageTypes';
 
 import * as nls from 'vscode-nls';
@@ -645,7 +646,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		}
 
 		if (isString(schema.pattern)) {
-			const regex = new RegExp(schema.pattern);
+			const regex = extendedRegExp(schema.pattern);
 			if (!regex.test(node.value)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
@@ -838,7 +839,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 		if (schema.patternProperties) {
 			for (const propertyPattern of Object.keys(schema.patternProperties)) {
-				const regex = new RegExp(propertyPattern);
+				const regex = extendedRegExp(propertyPattern);
 				for (const propertyName of unprocessedProperties.slice(0)) {
 					if (regex.test(propertyName)) {
 						propertyProcessed(propertyName);
