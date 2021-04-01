@@ -205,7 +205,7 @@ export class ResolvedSchema {
 			return this.getSectionRecursive(path, schema.properties[next]);
 		} else if (schema.patternProperties) {
 			for (const pattern of Object.keys(schema.patternProperties)) {
-				const regex = new RegExp(pattern);
+				const regex = Strings.extendedRegExp(pattern);
 				if (regex.test(next)) {
 					return this.getSectionRecursive(path, schema.patternProperties[pattern]);
 				}
