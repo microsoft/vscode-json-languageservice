@@ -195,7 +195,7 @@ export class ResolvedSchema {
 			return this.getSectionRecursive(path, schema.properties[next]);
 		} else if (schema.patternProperties) {
 			for (const pattern of Object.keys(schema.patternProperties)) {
-				const regex = new RegExp(pattern);
+				const regex = Strings.extendedRegExp(pattern);
 				if (regex.test(next)) {
 					return this.getSectionRecursive(path, schema.patternProperties[pattern]);
 				}
@@ -414,6 +414,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				path = path.substr(1);
 			}
 			path.split('/').some((part) => {
+				part = part.replace(/~1/g, '/').replace(/~0/g, '~');
 				current = current[part];
 				return !current;
 			});
