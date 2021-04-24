@@ -10,6 +10,8 @@ import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
 import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument } from '../jsonLanguageTypes';
 
+import {Minimatch, IMinimatch} from 'minimatch';
+
 import * as nls from 'vscode-nls';
 
 const localize = nls.loadMessageBundle();
@@ -69,41 +71,49 @@ export interface ISchemaHandle {
 	getResolvedSchema(): Thenable<ResolvedSchema>;
 }
 
+const BANG = '!';
+const PATH_SEP = '/';
+
+interface IMinimatchWrapper {
+	minimatch: IMinimatch;
+	include: boolean;
+}
 
 class FilePatternAssociation {
 
 	private readonly uris: string[];
-	private readonly patternRegExps: RegExp[];
-	private readonly isInclude: boolean[];
+	private readonly minimatchWrappers: IMinimatchWrapper[];
 
 	constructor(pattern: string[], uris: string[]) {
-		this.patternRegExps = [];
-		this.isInclude = [];
+		this.minimatchWrappers = [];
 		try {
-			for (let p of pattern) {
-				const include = p[0] !== '!';
+			for (let patternString of pattern) {
+				const include = patternString[0] !== BANG;
 				if (!include) {
-					p = p.substring(1);
+					patternString = patternString.substring(1);
 				}
-				this.patternRegExps.push(new RegExp(Strings.convertSimple2RegExpPattern(p) + '$'));
-				this.isInclude.push(include);
-			}
+				if (patternString.length > 0) {
+					if (patternString[0] === PATH_SEP) {
+						patternString = patternString.substring(1);
+					}
+					this.minimatchWrappers.push({
+						minimatch: new Minimatch(`**/${patternString}`),
+						include: include,
+					});
+				}
+			};
 			this.uris = uris;
 		} catch (e) {
-			// invalid pattern
-			this.patternRegExps.length = 0;
-			this.isInclude.length = 0;
+			this.minimatchWrappers.length = 0;
 			this.uris = [];
 		}
-
 	}
 
 	public matchesPattern(fileName: string): boolean {
 		let match = false;
-		for (let i = 0; i < this.patternRegExps.length; i++) {
-			const regExp = this.patternRegExps[i];
-			if (regExp.test(fileName)) {
-				match = this.isInclude[i];
+		for (const {minimatch, include} of this.minimatchWrappers) {
+			if (minimatch.match(fileName)) {
+				match = include;
 			}
 		}
 		return match;
@@ -613,7 +623,7 @@ function normalizeId(id: string): string {
 }
 
 function normalizeResourceForMatching(resource: string): string {
-	// remove querues and fragments, normalize drive capitalization
+	// remove queries and fragments, normalize drive capitalization
 	try {
 		return URI.parse(resource).with({ fragment: null, query: null }).toString();
 	} catch (e) {
