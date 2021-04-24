@@ -1,3 +1,7 @@
+4.1.0 / 2021-04-24
+================
+ * `SchemaConfiguration.fileMatch` now supports glob patterns (e.g. /foo/**/bar.json')
+
 4.0.0 / 2020-12-14
 ================
  * Update to `vscode-languageserver-types@3.16`

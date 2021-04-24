@@ -14,6 +14,7 @@ import {
 } from 'vscode-languageserver-types';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { BADRESP } from 'dns';
 
 export {
 	TextDocument,
@@ -147,9 +148,10 @@ export interface SchemaConfiguration {
 	 */
 	uri: string;
 	/**
-	 * A list of file path patterns that are associated to the schema. The '*' wildcard can be used. Exclusion patterns starting with '!'. 
-	 * For example '*.schema.json', 'package.json', '!foo*.schema.json'. 
-	 * A match succeeds when there is at least one pattern matching and last matching pattern does not start with '!'.
+	 * A list of file path glob patterns that are associated to the schema. The '*' and '**' wildcards can be used.
+	 * Exclusion patterns starting with '!'. 
+	 * For example: '*.schema.json', 'package.json', '!foo*.schema.json', 'foo/**\/BADRESP.json'. 
+	 * A match succeeds when there is at least one pattern matching and last matching patter`n does not start with '!'.
 	 */
 	fileMatch?: string[];
 	/**
