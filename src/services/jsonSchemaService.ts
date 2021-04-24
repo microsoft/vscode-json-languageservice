@@ -424,6 +424,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				path = path.substr(1);
 			}
 			path.split('/').some((part) => {
+				part = part.replace(/~1/g, '/').replace(/~0/g, '~');
 				current = current[part];
 				return !current;
 			});

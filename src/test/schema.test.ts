@@ -229,6 +229,50 @@ suite('JSON Schema', () => {
 
 	});
 
+	test('Resolving escaped $refs', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/schema1.json',
+					type: 'object',
+					properties: {
+						p1: {
+							'$ref': 'schema2.json#/definitions/hello~0foo~1bar'
+						},
+						p2: {
+							'$ref': './schema2.json#/definitions/hello~0foo~1bar'
+						},
+						p3: {
+							'$ref': '/main/schema2.json#/definitions/hello~0foo~1bar'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"hello~foo/bar": {
+							"type": "string",
+						}
+					}
+				}
+			}
+		});
+
+		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
+			assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
+				type: 'string'
+			});
+			assert.deepStrictEqual(fs?.schema.properties?.['p2'], {
+				type: 'string'
+			});
+			assert.deepStrictEqual(fs?.schema.properties?.['p3'], {
+				type: 'string'
+			});
+		});
+
+	});
+
 	test('FileSchema', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 
