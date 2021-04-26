@@ -446,7 +446,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		};
 
 		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
-			if (contextService && !/^\w+:\/\/.*/.test(uri)) {
+			if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/\/.*/.test(uri)) {
 				uri = contextService.resolveRelativePath(uri, parentSchemaURL);
 			}
 			uri = normalizeId(uri);
