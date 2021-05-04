@@ -637,8 +637,45 @@ suite('JSON Schema', () => {
 		const ls = getLanguageService({ workspaceContext });
 		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['part.json'], schema: { type: 'object', required: ['foo'] } }] });
 
-		const positives = ['file://folder/part.json', 'file://folder/part.json?f=true', 'file://folder/part.json#f=true'];
-		const negatives = ['file://folder/rampart.json', 'file://folder/part.json/no.part.json', 'file://folder/foo?part.json', 'file://folder/foo#part.json'];
+		const positives = ['file:///folder/part.json', 'file:///folder/part.json?f=true', 'file:///folder/part.json#f=true'];
+		const negatives = ['file:///folder/rampart.json', 'file:///folder/part.json/no.part.json', 'file:///folder/foo?part.json', 'file:///folder/foo#part.json'];
+
+		for (const positive of positives) {
+			const doc = toDocument("{}", undefined, positive);
+			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
+			assert.ok(ms.length > 0, positive);
+		}
+
+		for (const negative of negatives) {
+			const doc = toDocument("{}", undefined, negative);
+			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
+			assert.ok(ms.length === 0, negative);
+		}
+	});
+
+	test('Schema matching, match files starting with dots', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['/User/settings.json'], schema: { type: 'object', required: ['foo'] } }] });
+
+		const positives = ['vscode-userdata:/home/martin/.config/Code%20-%20Insiders/User/settings.json' ];
+
+		for (const positive of positives) {
+			const doc = toDocument("{}", undefined, positive);
+			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
+			assert.ok(ms.length > 0, positive);
+		}
+	});
+
+	
+
+	test('Schema matching, where fileMatch is a literal pattern, and denotes a path with a leading slash', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['/folder/part.json'], schema: { type: 'object', required: ['foo'] } }] });
+
+		const positives = ['file:///folder/part.json', 'file:///folder/part.json?f=true', 'file:///folder/part.json#f=true'];
+		const negatives = ['file:///folder/rampart.json', 'file:///folder/part.json/no.part.json', 'file:///folder/foo?part.json', 'file:///folder/foo#part.json'];
 
 		for (const positive of positives) {
 			const doc = toDocument("{}", undefined, positive);
@@ -658,8 +695,8 @@ suite('JSON Schema', () => {
 		const ls = getLanguageService({ workspaceContext });
 		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['take/part.json'], schema: { type: 'object', required: ['foo'] } }] });
 
-		const positives = ['file://folder/take/part.json', 'file://folder/take/part.json?f=true', 'file://folder/take/part.json#f=true'];
-		const negatives = ['file://folder/part.json', 'file://folder/.take/part.json', 'file://folder/take.part.json', 'file://folder/take/part.json/no.part.json', 'file://folder/take?part.json', 'file://folder/foo?take/part.json', 'file://folder/take#part.json', 'file://folder/foo#take/part.json', 'file://folder/take/no/part.json'];
+		const positives = ['file:///folder/take/part.json', 'file:///folder/take/part.json?f=true', 'file:///folder/take/part.json#f=true'];
+		const negatives = ['file:///folder/part.json', 'file:///folder/.take/part.json', 'file:///folder/take.part.json', 'file:///folder/take/part.json/no.part.json', 'file:///folder/take?part.json', 'file:///folder/foo?take/part.json', 'file:///folder/take#part.json', 'file:///folder/foo#take/part.json', 'file:///folder/take/no/part.json'];
 
 		for (const positive of positives) {
 			const doc = toDocument("{}", undefined, positive);
@@ -679,8 +716,8 @@ suite('JSON Schema', () => {
 		const ls = getLanguageService({ workspaceContext });
 		ls.configure({ schemas: [ { uri: 'http://myschemastore/myschemabar', fileMatch: ['*.foo.json'], schema: { type: 'object', required: ['foo'] }}]});
 
-		const positives = ['file://folder/a.foo.json', 'file://folder/a.foo.json?f=true', 'file://folder/a.foo.json#f=true'];
-		const negatives = ['file://folder/a.bar.json', 'file://folder/foo?a.foo.json', 'file://folder/foo#a.foo.json'];
+		const positives = ['file:///folder/a.foo.json', 'file:///folder/a.foo.json?f=true', 'file:///folder/a.foo.json#f=true'];
+		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo?a.foo.json', 'file:///folder/foo#a.foo.json'];
 
 		for (const positive of positives) {
 			const doc = toDocument("{}", undefined, positive);
@@ -700,8 +737,8 @@ suite('JSON Schema', () => {
 		const ls = getLanguageService({ workspaceContext });
 		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo/*/bar.json'], schema: { type: 'object', required: ['foo'] } }] });
 
-		const positives = ['file://folder/foo/bat/bar.json', 'file://folder/foo/bat/bar.json?f=true', 'file://folder/foo/bat/bar.json#f=true'];
-		const negatives = ['file://folder/a.bar.json', 'file://folder/foo/bar.json', 'file://folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file://folder/foo/bar.json?f=true', 'file://folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file://folder/foo/bar.json#f=true', 'file://folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file://folder/foo/bar.json/bat/bar.json', 'file://folder/foo.bar.json', 'file://folder/foo.bat/bar.json', 'file://folder/foo/bar.json/bat.json', 'file://folder/.foo/bar.json', 'file://folder/.foo/bat/bar.json', 'file://folder/.foo/bat/man/bar.json', 'file://folder/foo?foo/bar.json', 'file://folder/foo?foo/bat/bar.json', 'file://folder/foo?foo/bat/man/bar.json', 'file://folder/foo#foo/bar.json', 'file://folder/foo#foo/bat/bar.json', 'file://folder/foo#foo/bat/man/bar.json'];
+		const positives = ['file:///folder/foo/bat/bar.json', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/bat/bar.json#f=true'];
+		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
 
 		for (const positive of positives) {
 			const doc = toDocument("{}", undefined, positive);
@@ -721,8 +758,8 @@ suite('JSON Schema', () => {
 		const ls = getLanguageService({ workspaceContext });
 		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo/**/bar.json'], schema: { type: 'object', required: ['foo'] } }] });
 
-		const positives = ['file://folder/foo/bar.json', 'file://folder/foo/bat/bar.json', 'file://folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file://folder/foo/bar.json?f=true', 'file://folder/foo/bat/bar.json?f=true', 'file://folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file://folder/foo/bar.json#f=true', 'file://folder/foo/bat/bar.json#f=true', 'file://folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file://folder/foo/bar.json/bat/bar.json'];
-		const negatives = ['file://folder/a.bar.json', 'file://folder/foo.bar.json', 'file://folder/foo.bat/bar.json', 'file://folder/foo/bar.json/bat.json', 'file://folder/.foo/bar.json', 'file://folder/.foo/bat/bar.json', 'file://folder/.foo/bat/man/bar.json', 'file://folder/foo?foo/bar.json', 'file://folder/foo?foo/bat/bar.json', 'file://folder/foo?foo/bat/man/bar.json', 'file://folder/foo#foo/bar.json', 'file://folder/foo#foo/bat/bar.json', 'file://folder/foo#foo/bat/man/bar.json'];
+		const positives = ['file:///folder/foo/bar.json', 'file:///folder/foo/bat/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/bat/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json'];
+		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
 
 		for (const positive of positives) {
 			const doc = toDocument("{}", undefined, positive);

@@ -10,7 +10,7 @@ import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
 import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument } from '../jsonLanguageTypes';
 
-import {Minimatch, IMinimatch} from 'minimatch';
+import { Minimatch, IMinimatch } from 'minimatch';
 
 import * as nls from 'vscode-nls';
 
@@ -97,7 +97,7 @@ class FilePatternAssociation {
 						patternString = patternString.substring(1);
 					}
 					this.minimatchWrappers.push({
-						minimatch: new Minimatch(`**/${patternString}`),
+						minimatch: new Minimatch(`**/${patternString}`, { dot: true }),
 						include: include,
 					});
 				}
@@ -111,7 +111,7 @@ class FilePatternAssociation {
 
 	public matchesPattern(fileName: string): boolean {
 		let match = false;
-		for (const {minimatch, include} of this.minimatchWrappers) {
+		for (const { minimatch, include } of this.minimatchWrappers) {
 			if (minimatch.match(fileName)) {
 				match = include;
 			}
