@@ -49,8 +49,8 @@ export class JSONValidation {
 			}
 		};
 		const getDiagnostics = (schema: ResolvedSchema | undefined) => {
-			let trailingCommaSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.trailingCommas) : DiagnosticSeverity.Error;
-			let commentSeverity = documentSettings ? toDiagnosticSeverity(documentSettings.comments) : this.commentSeverity;
+			let trailingCommaSeverity = documentSettings?.trailingCommas ? toDiagnosticSeverity(documentSettings.trailingCommas) : DiagnosticSeverity.Error;
+			let commentSeverity = documentSettings?.comments ? toDiagnosticSeverity(documentSettings.comments) : this.commentSeverity;
 			let schemaValidation = documentSettings?.schemaValidation ? toDiagnosticSeverity(documentSettings.schemaValidation) : DiagnosticSeverity.Warning;
 			let schemaRequest = documentSettings?.schemaRequest ? toDiagnosticSeverity(documentSettings.schemaRequest) : DiagnosticSeverity.Warning;
 
@@ -160,4 +160,4 @@ function toDiagnosticSeverity(severityLevel: SeverityLevel | undefined): Diagnos
 		case 'ignore': return undefined;
 	}
 	return undefined;
-}	
+}

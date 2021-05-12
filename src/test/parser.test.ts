@@ -5,7 +5,8 @@
 
 import * as assert from 'assert';
 import { getNodePath, getNodeValue, JSONDocument } from '../parser/jsonParser';
-import { TextDocument, Range, ErrorCode, ASTNode, ObjectASTNode, getLanguageService, JSONSchema} from '../jsonLanguageService';
+import { TextDocument, Range, ErrorCode, ASTNode, ObjectASTNode, getLanguageService, JSONSchema } from '../jsonLanguageService';
+import { DiagnosticSeverity } from 'vscode-languageserver-types';
 
 suite('JSON Parser', () => {
 
@@ -1974,17 +1975,24 @@ suite('JSON Parser', () => {
 		assert.strictEqual(semanticErrors![0].message, 'Value is not accepted. Valid values: "a", "b", "c", "d".');
 	});
 
-	test('validate API', async function () {
+	test('validate DocumentLanguageSettings: trailingCommas', async function () {
 		const { textDoc, jsonDoc } = toDocument('{ "pages": [  "pages/index", "pages/log", ] }');
 
 		const ls = getLanguageService({});
 		let res = await ls.doValidation(textDoc, jsonDoc);
 		assert.strictEqual(res.length, 1);
 		assert.strictEqual(res[0].message, 'Trailing comma');
+		assert.strictEqual(res[0].severity, DiagnosticSeverity.Error);
 
-		res = await ls.doValidation(textDoc, jsonDoc, { trailingCommas: 'error' });
+		res = await ls.doValidation(textDoc, jsonDoc, {});
 		assert.strictEqual(res.length, 1);
 		assert.strictEqual(res[0].message, 'Trailing comma');
+		assert.strictEqual(res[0].severity, DiagnosticSeverity.Error);
+
+		res = await ls.doValidation(textDoc, jsonDoc, { trailingCommas: 'warning' });
+		assert.strictEqual(res.length, 1);
+		assert.strictEqual(res[0].message, 'Trailing comma');
+		assert.strictEqual(res[0].severity, DiagnosticSeverity.Warning);
 
 		res = await ls.doValidation(textDoc, jsonDoc, { trailingCommas: 'ignore' });
 		assert.strictEqual(res.length, 0);
@@ -1993,6 +2001,31 @@ suite('JSON Parser', () => {
 		res = await ls.doValidation(textDoc, jsonDoc, { trailingCommas: 'ignore' }, schema);
 		assert.strictEqual(res.length, 1);
 		assert.strictEqual(res[0].message, 'Missing property "foo".');
+	});
+
+	test('validate DocumentLanguageSettings: comments', async function () {
+		const { textDoc, jsonDoc } = toDocument('{ "count": 1 /* change */ }');
+
+		const ls = getLanguageService({});
+		ls.configure({ allowComments: false });
+		let res = await ls.doValidation(textDoc, jsonDoc);
+		assert.strictEqual(res.length, 1);
+		assert.strictEqual(res[0].message, 'Comments are not permitted in JSON.');
+		assert.strictEqual(res[0].severity, DiagnosticSeverity.Error);
+
+		res = await ls.doValidation(textDoc, jsonDoc, {});
+		assert.strictEqual(res.length, 1);
+		assert.strictEqual(res[0].message, 'Comments are not permitted in JSON.');
+		assert.strictEqual(res[0].severity, DiagnosticSeverity.Error);
+
+		res = await ls.doValidation(textDoc, jsonDoc, { comments: 'ignore'});
+		assert.strictEqual(res.length, 0);
+
+		res = await ls.doValidation(textDoc, jsonDoc, { comments: 'warning'});
+		assert.strictEqual(res.length, 1);
+		assert.strictEqual(res[0].message, 'Comments are not permitted in JSON.');
+		assert.strictEqual(res[0].severity, DiagnosticSeverity.Warning);
+
 	});
 
 
