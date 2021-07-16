@@ -1,3 +1,8 @@
+
+4.1.6 / 2021-07-16
+================
+ * Replace minimatch with glob-to-regexp
+ 
 4.1.0 / 2021-04-24
 ================
  * `SchemaConfiguration.fileMatch` now supports glob patterns (e.g. /foo/**/bar.json')
