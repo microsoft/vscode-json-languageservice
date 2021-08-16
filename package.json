@@ -1,6 +1,6 @@
 {
   "name": "vscode-json-languageservice",
-  "version": "4.1.6",
+  "version": "4.1.7",
   "description": "Language service for JSON",
   "main": "./lib/umd/jsonLanguageService.js",
   "typings": "./lib/umd/jsonLanguageService",
