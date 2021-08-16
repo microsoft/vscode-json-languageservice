@@ -6,24 +6,35 @@
 import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions';
 import { JSONSchema } from './jsonSchema';
 import {
-	Range, TextEdit, Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, MarkupKind, SelectionRange,
+	Range, Position, DocumentUri, MarkupContent, MarkupKind,
+	Color, ColorInformation, ColorPresentation,
+	FoldingRange, FoldingRangeKind, SelectionRange,
 	Diagnostic, DiagnosticSeverity,
-	CompletionItem, CompletionItemKind, CompletionList, Position,
-	InsertTextFormat, MarkupContent,
-	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions as LSPFormattingOptions, DefinitionLink
+	CompletionItem, CompletionItemKind, CompletionList, CompletionItemTag,
+	InsertTextFormat,
+	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions as LSPFormattingOptions, DefinitionLink,
+	CodeActionContext, Command, CodeAction,
+	DocumentHighlight, DocumentLink, WorkspaceEdit,
+	TextEdit, CodeActionKind, 
+	TextDocumentEdit, VersionedTextDocumentIdentifier, DocumentHighlightKind
 } from 'vscode-languageserver-types';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { BADRESP } from 'dns';
 
 export {
 	TextDocument,
-	Range, TextEdit, JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
-	Color, ColorInformation, ColorPresentation, FoldingRange, FoldingRangeKind, SelectionRange,
+	Range, Position, DocumentUri, MarkupContent, MarkupKind,
+	JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
+	Color, ColorInformation, ColorPresentation,
+	FoldingRange, FoldingRangeKind, SelectionRange,
 	Diagnostic, DiagnosticSeverity,
-	CompletionItem, CompletionItemKind, CompletionList, Position,
-	InsertTextFormat, MarkupContent, MarkupKind, DefinitionLink,
-	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString
+	CompletionItem, CompletionItemKind, CompletionList, CompletionItemTag,
+	InsertTextFormat, DefinitionLink,
+	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString,
+	CodeActionContext, Command, CodeAction,
+	DocumentHighlight, DocumentLink, WorkspaceEdit,
+	TextEdit, CodeActionKind, 
+	TextDocumentEdit, VersionedTextDocumentIdentifier, DocumentHighlightKind
 };
 
 /**
