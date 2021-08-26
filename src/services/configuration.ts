@@ -17,7 +17,6 @@ export const schemaContributions: ISchemaContributions = {
 		},
 		// bundle the schema-schema to include (localized) descriptions
 		'http://json-schema.org/draft-04/schema#': {
-			'title': localize('schema.json', 'Describes a JSON file using a schema. See json-schema.org for more info.'),
 			'$schema': 'http://json-schema.org/draft-04/schema#',
 			'definitions': {
 				'schemaArray': {
@@ -301,7 +300,6 @@ export const schemaContributions: ISchemaContributions = {
 			'default': {}
 		},
 		'http://json-schema.org/draft-07/schema#': {
-			'title': localize('schema.json', 'Describes a JSON file using a schema. See json-schema.org for more info.'),
 			'definitions': {
 				'schemaArray': {
 					'type': 'array',
