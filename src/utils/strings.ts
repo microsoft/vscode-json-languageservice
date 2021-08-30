@@ -2,7 +2,6 @@
 *  Copyright (c) Microsoft Corporation. All rights reserved.
 *  Licensed under the MIT License. See License.txt in the project root for license information.
 *--------------------------------------------------------------------------------------------*/
-import * as unicode_support from './unicode_support';
 export function startsWith(haystack: string, needle: string): boolean {
 	if (haystack.length < needle.length) {
 		return false;
@@ -48,9 +47,9 @@ export function repeat(value: string, count: number) {
 }
 
 export function extendedRegExp(pattern: string): RegExp {
-	if (startsWith(pattern, '(?i)')) {
-		return new RegExp(pattern.substring(4), 'i');
-	} else {
-		return unicode_support.unicode_simplifier(pattern);
-	}
+	if (startsWith(pattern, '(?i)')) { 
+		return new RegExp(pattern.substring(4), 'iu'); 
+	} else { 
+		return new RegExp(pattern, 'u'); 
+	} 
 }
