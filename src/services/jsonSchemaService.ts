@@ -273,6 +273,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 	}
 
 	public onResourceChange(uri: string): boolean {
+		// always clear this local cache when a resource changes
+		this.cachedSchemaForResource = undefined;
+
 		let hasChanges = false;
 		uri = normalizeId(uri);
 

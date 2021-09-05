@@ -13,7 +13,7 @@ import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, Mat
 import { DiagnosticSeverity } from '../jsonLanguageTypes';
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig, uri = 'foo://bar/file.json'): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
-	
+
 	const textDoc = TextDocument.create(uri, 'json', 0, text);
 	const jsonDoc = Parser.parse(textDoc, config);
 	return { textDoc, jsonDoc };
@@ -667,7 +667,7 @@ suite('JSON Schema', () => {
 		}
 	});
 
-	
+
 
 	test('Schema matching, where fileMatch is a literal pattern, and denotes a path with a leading slash', async function () {
 
@@ -1076,7 +1076,7 @@ suite('JSON Schema', () => {
 
 	});
 
-	test('clearSchema', async function () {
+	test('resetSchema', async function () {
 		const mainSchemaURI = "http://foo/main.schema.json";
 		const aSchemaURI1 = "http://foo/a.schema.json";
 		const bSchemaURI1 = "http://foo/b.schema.json";
@@ -1174,6 +1174,58 @@ suite('JSON Schema', () => {
 		validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
 		assert.deepEqual(validation.map(v => v.message), ['Incorrect type. Expected "boolean".']);
 		assert.deepEqual([], accesses); // b is not depended anymore
+	});
+
+	test('resetSchema clears current document schema cache when not using $schema property', async function () {
+		const schemaUri = "http://foo/main.schema.json";
+
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaUri]: {
+				type: 'object',
+				properties: {
+					bar: {
+						type: 'string'
+					}
+				}
+			}
+		};
+
+		const accesses: string[] = [];
+		const schemaRequestService = newMockRequestService(schemas, accesses);
+		const testDoc = toDocument(JSON.stringify({ bar: 1 }));
+
+		const ls = getLanguageService({ workspaceContext, schemaRequestService });
+
+		// configure the language service to use the schema for the test document
+		ls.configure({
+			schemas: [{
+				uri: schemaUri,
+				fileMatch: [testDoc.textDoc.uri.toString()],
+			}]
+		});
+
+		// check using the existing schema
+		let validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
+		assert.deepStrictEqual(validation.map(v => v.message), ['Incorrect type. Expected "string".']);
+		assert.deepStrictEqual([schemaUri], accesses);
+
+		accesses.length = 0;
+
+		// change a schema property and reset the schema
+		schemas[schemaUri] = {
+			type: 'object',
+			properties: {
+				a: {
+					type: 'number'
+				}
+			}
+		};
+		ls.resetSchema(schemaUri);
+
+		// now ensure validation occurs with the new schema
+		validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
+		assert.deepStrictEqual(validation.map(v => v.message), []);
+		assert.deepStrictEqual([schemaUri], accesses);
 	});
 
 	test('getMatchingSchemas', async function () {
