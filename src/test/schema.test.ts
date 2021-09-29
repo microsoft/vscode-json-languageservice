@@ -273,6 +273,151 @@ suite('JSON Schema', () => {
 
 	});
 
+  test('Resolving $refs to local $ids', async function () {
+    const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+    
+    service.setSchemaContributions({
+      schemas: {
+        "https://myschemastore/main/schema1.json": {
+          id: 'https://myschemastore/main/schema1.json',
+          definitions:{
+            hello: {
+              id: '#hello',
+              type: 'string',
+              const: 'hello'
+            },
+            world: {
+              $id: '#world',
+              type: 'string',
+              const: 'world'
+            }
+          },
+          type: 'object',
+          properties: {
+            p1: {
+              $ref: '#hello'
+            },
+            p2: {
+              $ref: '#world'
+            }
+          }
+        }
+      }
+    });
+
+    return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
+			assert.deepEqual(fs?.schema.properties?.p1, {
+        id: '#hello',
+				type: 'string',
+				const: 'hello'
+			});
+			assert.deepEqual(fs?.schema.properties?.p2, {
+        $id: '#world',
+				type: 'string',
+				const: 'world'
+			});
+		});
+
+  });
+
+  test('Resolving $refs to external $ids', async function () {
+    const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/schema1.json',
+					type: 'object',
+					properties: {
+						p1: {
+							'$ref': 'schema2.json#hello'
+						},
+						p2: {
+							'$ref': './schema2.json#/definitions/hello'
+						},
+						p3: {
+							'$ref': '/main/schema2.json#/definitions/hello'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"hello": {
+              $id: "#hello",
+							"type": "string",
+							"enum": ["object"],
+						}
+					}
+				}
+			}
+		});
+
+    return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
+			assert.deepEqual(fs?.schema.properties?.['p1'], {
+        $id: "#hello",
+				type: 'string',
+				enum: ["object"]
+			});
+			assert.deepEqual(fs?.schema.properties?.['p2'], {
+        $id: "#hello",
+				type: 'string',
+				enum: ["object"]
+			});
+			assert.deepEqual(fs?.schema.properties?.['p3'], {
+        $id: "#hello",
+				type: 'string',
+				enum: ["object"]
+			});
+		});
+
+
+  });
+
+  test('Resolving $refs to external $ids with same as local', async function () {
+    const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/schema1.json',
+          definitions: {
+						"hello": {
+              $id: "#hello",
+							"type": "string",
+							"const": "wrong",
+						}
+					},
+					type: 'object',
+					properties: {
+						p1: {
+							'$ref': 'schema2.json#hello'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"hello": {
+              $id: "#hello",
+							"type": "string",
+							"const": "correct"
+						}
+					}
+				}
+			}
+		});
+
+    return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
+			assert.deepEqual(fs?.schema.properties?.['p1'], {
+        $id: "#hello",
+				type: 'string',
+				const: 'correct'
+			});
+		});
+
+
+  });
+
+
 	test('FileSchema', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 
