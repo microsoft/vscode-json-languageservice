@@ -307,12 +307,10 @@ suite('JSON Schema', () => {
 
 		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
 			assert.deepEqual(fs?.schema.properties?.p1, {
-				id: '#hello',
 				type: 'string',
 				const: 'hello'
 			});
 			assert.deepEqual(fs?.schema.properties?.p2, {
-				$id: '#world',
 				type: 'string',
 				const: 'world'
 			});
@@ -354,17 +352,14 @@ suite('JSON Schema', () => {
 
 		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
 			assert.deepEqual(fs?.schema.properties?.['p1'], {
-				$id: "#hello",
 				type: 'string',
 				enum: ["object"]
 			});
 			assert.deepEqual(fs?.schema.properties?.['p2'], {
-				$id: "#hello",
 				type: 'string',
 				enum: ["object"]
 			});
 			assert.deepEqual(fs?.schema.properties?.['p3'], {
-				$id: "#hello",
 				type: 'string',
 				enum: ["object"]
 			});
@@ -377,8 +372,8 @@ suite('JSON Schema', () => {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({
 			schemas: {
-				"https://myschemastore/main/e1.json": {
-					id: 'https://myschemastore/e1.json',
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/schema1.json',
 					definitions: {
 						"hello": {
 							$id: "#hello",
@@ -389,12 +384,12 @@ suite('JSON Schema', () => {
 					type: 'object',
 					properties: {
 						p1: {
-							'$ref': 'e2.json#hello'
+							'$ref': 'schema2.json#hello'
 						}
 					}
 				},
-				"https://myschemastore/main/e2.json": {
-					id: 'https://myschemastore/main/e2.json',
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
 					definitions: {
 						"hello": {
 							$id: "#hello",
@@ -406,9 +401,8 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/e1.json').then(fs => {
+		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
 			assert.deepEqual(fs?.schema.properties?.['p1'], {
-				$id: "#hello",
 				type: 'string',
 				const: 'correct'
 			});
@@ -454,15 +448,64 @@ suite('JSON Schema', () => {
 
 		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
 			assert.deepEqual(fs?.schema.properties?.['p1'], {
-				id: "#hello",
 				type: 'string',
 				const: 'hello'
 			});
 
 			assert.deepEqual(fs?.schema.properties?.['p2'], {
-				"$id": "#world",
 				"type": "string",
 				"const": "world"
+			});
+		});
+	});
+
+	test('Recursive $refs to $ids', async function() {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					"type": "object",
+					"definitions": {
+						"foo": {
+							"id": "#foo",
+							"type": "object",
+							"properties": {
+								"bar": {
+									"type": "string",
+									"const": "hello"
+								},
+								"foo": {
+									"$ref": "#foo"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"properties": {
+						"foo": {
+							"$ref": "#foo"
+						}
+					},
+					"additionalProperties": false
+				}
+			}
+		});
+
+		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
+			assert.deepEqual(fs?.schema.properties?.['foo'], {
+				"type": "object",
+				"properties": {
+					"bar": {
+						"type": "string",
+						"const": "hello"
+					},
+					"foo": {
+						"additionalProperties": false,
+						properties: fs?.schema.definitions?.['foo'].properties,
+						type:"object"
+					}
+				},
+				"additionalProperties": false
 			});
 		});
 	});
