@@ -339,7 +339,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		this.cachedSchemaForResource = undefined;
 
 		if (filePatterns) {
-			this.addFilePatternAssociation(filePatterns, [uri]);
+			this.addFilePatternAssociation(filePatterns, [id]);
 		}
 		return unresolvedSchemaContent ? this.addSchemaHandle(id, unresolvedSchemaContent) : this.getOrAddSchemaHandle(id);
 	}

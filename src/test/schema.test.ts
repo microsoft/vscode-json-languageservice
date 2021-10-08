@@ -383,6 +383,33 @@ suite('JSON Schema', () => {
 		});
 	});
 
+	test('Preloaded Schema, string as URI', async function () {
+		// for https://github.com/microsoft/monaco-editor/issues/2683
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		const id = 'a5f8f39b-c7ee-48f8-babe-b7146ed3c055';
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				child: {
+					type: 'object',
+					properties: {
+						'grandchild': {
+							type: 'number',
+							description: 'Meaning of Life'
+						}
+					}
+				}
+			}
+		};
+
+		service.registerExternalSchema(id, ['*.json'], schema);
+
+		return service.getSchemaForResource('test.json').then((schema) => {
+			const section = schema?.getSection(['child', 'grandchild']);
+			assert.equal(section?.description, 'Meaning of Life');
+		});
+	});
+
 	test('Multiple matches', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		const id1 = 'https://myschemastore/test1';
