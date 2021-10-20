@@ -49,8 +49,8 @@ export function repeat(value: string, count: number) {
 
 export function extendedRegExp(pattern: string): RegExp {
 	if (startsWith(pattern, '(?i)')) {
-		return new RegExp(pattern.substring(4), 'i');
+		return new RegExp(pattern.substring(4), 'iu');
 	} else {
-		return new RegExp(pattern);
+		return new RegExp(pattern, 'u');
 	}
 }
