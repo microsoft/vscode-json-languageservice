@@ -14,9 +14,6 @@
   "bugs": {
     "url": "https://github.com/Microsoft/vscode-json-languageservice"
   },
-  "engines": {
-    "npm": ">=7.0.0"
-  },
   "devDependencies": {
     "@types/mocha": "^9.0.0",
     "@types/node": "^10.12.21",
