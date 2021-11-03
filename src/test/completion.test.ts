@@ -698,7 +698,78 @@ suite('JSON Completion', () => {
 				{ label: 'b2', documentation: 'B2' }
 			]
 		});
-	});
+    });
+
+    test("Complete with nested oneOf definitions", async function () {
+
+        const schema: JSONSchema = {
+            "$schema": "http://json-schema.org/draft-04/schema",
+            "type": "object",
+            "properties": {
+				"root": {
+				    "oneOf": [
+				        {
+				            "type": "object",
+				            "properties": {
+								"path1": {
+								    "type": "string"
+								}
+				            }
+				        },
+				        {
+				            "$ref": "#/definitions/common"
+				        }
+				    ]
+				}
+            },
+            "definitions": {
+				"common": {
+				    "oneOf": [
+				        {
+				            "type": "object",
+				            "properties": {
+								"path2a": {
+								    "type": "string"
+								},
+								"path2b": {
+								    "type": "string"
+								}
+				            }
+				        },
+				        {
+				            "type": "object",
+				            "properties": {
+								"path3a": {
+								    "type": "string"
+								},
+								"path3b": {
+								    "type": "string"
+								}
+				            }
+				        }
+				    ]
+				}
+            }
+        };
+
+        await testCompletionsFor('{ "root": { | } }', schema, {
+			count: 5,
+			items: [
+				{ label: 'path1' },
+				{ label: 'path2a' },
+				{ label: 'path2b' },
+				{ label: 'path3a' },
+				{ label: 'path3b' },
+			]
+        });
+
+        await testCompletionsFor('{ "root": { "path2a": "hello", | } }', schema, {
+			count: 1,
+			items: [
+				{ label: 'path2b' },
+			]
+		});
+    })
 
 	test('Complete with oneOf and enums', async function () {
 
