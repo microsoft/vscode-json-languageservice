@@ -601,6 +601,18 @@ suite('JSON Parser', () => {
 
 		assert.strictEqual(semanticErrors!.length, 0);
 
+		semanticErrors = jsonDoc.validate(textDoc, {
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'string',
+					pattern: '(^\\d+(\\-\\d+)?$)|(.+)',
+				}
+			}
+		});
+
+		assert.strictEqual(semanticErrors!.length, 0);
+
 
 		const schemaWithURI = {
 			type: 'object',

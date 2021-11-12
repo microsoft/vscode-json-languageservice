@@ -47,10 +47,21 @@ export function repeat(value: string, count: number) {
 	return s;
 }
 
-export function extendedRegExp(pattern: string): RegExp {
+export function extendedRegExp(pattern: string): RegExp | undefined {
+	let flags = '';
 	if (startsWith(pattern, '(?i)')) {
-		return new RegExp(pattern.substring(4), 'iu');
-	} else {
-		return new RegExp(pattern, 'u');
+		pattern = pattern.substring(4);
+		flags = 'i';
+	}
+	try {
+		return new RegExp(pattern, flags + 'u');
+	} catch (e) {
+		// could be an exception due to the 'u ' flag
+		try {
+			return new RegExp(pattern, flags);
+		} catch (e) {
+			// invalid pattern
+			return undefined;
+		}
 	}
 }
