@@ -412,6 +412,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 				return this.promise.resolve(new ResolvedSchema({}, [localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.")]));
 			} else if (id === 'https://json-schema.org/draft/2019-09/schema') {
 				resolveErrors.push(localize('json.schema.draft201909.notsupported', "Draft 2019-09 schemas are not yet fully supported."));
+			} else if (id === 'https://json-schema.org/draft/2020-12/schema') {
+				resolveErrors.push(localize('json.schema.draft202012.notsupported', "Draft 2020-12 schemas are not yet fully supported."));
 			}
 		}
 
