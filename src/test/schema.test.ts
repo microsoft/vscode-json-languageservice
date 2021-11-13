@@ -138,7 +138,7 @@ suite('JSON Schema', () => {
 		service.setSchemaContributions({
 			schemas: {
 				"https://myschemastore/main/schema1.json": {
-					id: 'https://myschemastore/schema1.json',
+					id: 'https://myschemastore/main/schema1.json',
 					type: 'object',
 					properties: {
 						p1: {
