@@ -186,7 +186,7 @@ suite('JSON Schema', () => {
 		service.setSchemaContributions({
 			schemas: {
 				"https://myschemastore/main/schema1.json": {
-					id: 'https://myschemastore/schema1.json',
+					id: 'https://myschemastore/main/schema1.json',
 					type: 'object',
 					properties: {
 						p1: {
@@ -234,7 +234,7 @@ suite('JSON Schema', () => {
 		service.setSchemaContributions({
 			schemas: {
 				"https://myschemastore/main/schema1.json": {
-					id: 'https://myschemastore/schema1.json',
+					id: 'https://myschemastore/main/schema1.json',
 					type: 'object',
 					properties: {
 						p1: {
@@ -323,7 +323,7 @@ suite('JSON Schema', () => {
 		service.setSchemaContributions({
 			schemas: {
 				"https://myschemastore/main/schema1.json": {
-					id: 'https://myschemastore/schema1.json',
+					id: 'https://myschemastore/main/schema1.json',
 					type: 'object',
 					properties: {
 						p1: {
@@ -373,7 +373,7 @@ suite('JSON Schema', () => {
 		service.setSchemaContributions({
 			schemas: {
 				"https://myschemastore/main/schema1.json": {
-					id: 'https://myschemastore/schema1.json',
+					id: 'https://myschemastore/main/schema1.json',
 					definitions: {
 						"hello": {
 							$id: "#hello",
@@ -409,6 +409,96 @@ suite('JSON Schema', () => {
 		});
 
 
+	});
+
+
+	test('Resolving external $ref two levels', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/main/schema1.json',
+					definitions: {
+						"world": {
+							$id: '#world',
+							type: 'string',
+							const: 'world'
+						}
+					},
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: 'schema2.json#blue'
+						}
+					}
+				},
+				"https://myschemastore/main/schema3.json": {
+					id: 'https://myschemastore/main/schema3.json',
+					definitions: {
+						"world": {
+							$id: '#world',
+							type: 'string',
+							const: 'world'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"blue": {
+							$id: '#blue',
+							$ref: 'schema3.json#world'
+						}
+					}
+				}
+			}
+		});
+
+		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p1, {
+			type: 'string',
+			const: 'world'
+		});
+	});
+
+
+	test('Resolving external $ref recursive', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/main/schema1.json',
+					definitions: {
+						"world": {
+							$id: '#world',
+							type: 'string',
+							const: 'world'
+						}
+					},
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: 'schema2.json#blue'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"blue": {
+							$id: '#blue',
+							$ref: 'schema1.json#world'
+						}
+					}
+				}
+			}
+		});
+
+		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p1, {
+			type: 'string',
+			const: 'world'
+		});
 	});
 
 	test('Resolving $refs 5', async function() {
@@ -597,6 +687,33 @@ suite('JSON Schema', () => {
 	test('Preloaded Schema', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		const id = 'https://myschemastore/test1';
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				child: {
+					type: 'object',
+					properties: {
+						'grandchild': {
+							type: 'number',
+							description: 'Meaning of Life'
+						}
+					}
+				}
+			}
+		};
+
+		service.registerExternalSchema(id, ['*.json'], schema);
+
+		return service.getSchemaForResource('test.json').then((schema) => {
+			const section = schema?.getSection(['child', 'grandchild']);
+			assert.equal(section?.description, 'Meaning of Life');
+		});
+	});
+
+	test('Preloaded Schema, string as URI', async function () {
+		// for https://github.com/microsoft/monaco-editor/issues/2683
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		const id = 'a5f8f39b-c7ee-48f8-babe-b7146ed3c055';
 		const schema: JSONSchema = {
 			type: 'object',
 			properties: {
