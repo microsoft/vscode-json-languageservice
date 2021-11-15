@@ -621,8 +621,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 					continue;
 				}
 				seen.push(next);
-				handleRef(next);
 				handleId(next);
+				handleRef(next);
 			}
 			return this.promise.all(openPromises);
 		};
