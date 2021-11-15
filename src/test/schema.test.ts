@@ -86,13 +86,13 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['child'], {
-				id: 'https://myschemastore/child',
-				type: 'bool',
-				description: 'Test description'
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main');
+		assert.deepEqual(fs?.schema.properties?.['child'], {
+			id: 'https://myschemastore/child',
+			type: 'bool',
+			description: 'Test description'
 		});
+
 
 	});
 
@@ -123,13 +123,13 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('http://json.schemastore.org/swagger-2.0').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['responseValue'], {
-				type: 'object',
-				required: ["$ref"],
-				properties: { $ref: { type: 'string' } }
-			});
+		const fs = await service.getResolvedSchema('http://json.schemastore.org/swagger-2.0');
+		assert.deepEqual(fs?.schema.properties?.['responseValue'], {
+			type: 'object',
+			required: ["$ref"],
+			properties: { $ref: { type: 'string' } }
 		});
+
 
 	});
 
@@ -164,20 +164,20 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['p1'], {
-				type: 'string',
-				enum: ["object"]
-			});
-			assert.deepEqual(fs?.schema.properties?.['p2'], {
-				type: 'string',
-				enum: ["object"]
-			});
-			assert.deepEqual(fs?.schema.properties?.['p3'], {
-				type: 'string',
-				enum: ["object"]
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepEqual(fs?.schema.properties?.['p1'], {
+			type: 'string',
+			enum: ["object"]
 		});
+		assert.deepEqual(fs?.schema.properties?.['p2'], {
+			type: 'string',
+			enum: ["object"]
+		});
+		assert.deepEqual(fs?.schema.properties?.['p3'], {
+			type: 'string',
+			enum: ["object"]
+		});
+
 
 	});
 
@@ -212,19 +212,18 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['p1'], {
-				type: 'string',
-				enum: ["object"]
-			});
-			assert.deepEqual(fs?.schema.properties?.['p2'], {
-				type: 'string',
-				enum: ["object"]
-			});
-			assert.deepEqual(fs?.schema.properties?.['p3'], {
-				type: 'string',
-				enum: ["object"]
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepEqual(fs?.schema.properties?.['p1'], {
+			type: 'string',
+			enum: ["object"]
+		});
+		assert.deepEqual(fs?.schema.properties?.['p2'], {
+			type: 'string',
+			enum: ["object"]
+		});
+		assert.deepEqual(fs?.schema.properties?.['p3'], {
+			type: 'string',
+			enum: ["object"]
 		});
 
 	});
@@ -259,17 +258,17 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
-			assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
-				type: 'string'
-			});
-			assert.deepStrictEqual(fs?.schema.properties?.['p2'], {
-				type: 'string'
-			});
-			assert.deepStrictEqual(fs?.schema.properties?.['p3'], {
-				type: 'string'
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
+			type: 'string'
 		});
+		assert.deepStrictEqual(fs?.schema.properties?.['p2'], {
+			type: 'string'
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.['p3'], {
+			type: 'string'
+		});
+
 
 	});
 
@@ -296,10 +295,9 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('test://schemas/main').then(fs => {
-			const section = fs?.getSection(['child', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getResolvedSchema('test://schemas/main');
+		const section = fs?.getSection(['child', 'grandchild']);
+		assert.equal(section?.description, 'Meaning of Life');
 	});
 
 	test('Array FileSchema', async function () {
@@ -328,10 +326,9 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('test://schemas/main').then(fs => {
-			const section = fs?.getSection(['child', '0', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getResolvedSchema('test://schemas/main');
+		const section = fs?.getSection(['child', '0', 'grandchild']);
+		assert.equal(section?.description, 'Meaning of Life');
 	});
 
 	test('Missing subschema', async function () {
@@ -351,10 +348,9 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('test://schemas/main').then(fs => {
-			const section = fs?.getSection(['child', 'grandchild']);
-			assert.strictEqual(section, undefined);
-		});
+		const fs = await service.getResolvedSchema('test://schemas/main');
+		const section = fs?.getSection(['child', 'grandchild']);
+		assert.strictEqual(section, undefined);
 	});
 
 	test('Preloaded Schema', async function () {
@@ -377,10 +373,9 @@ suite('JSON Schema', () => {
 
 		service.registerExternalSchema(id, ['*.json'], schema);
 
-		return service.getSchemaForResource('test.json').then((schema) => {
-			const section = schema?.getSection(['child', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getSchemaForResource('test.json');
+		const section = fs?.getSection(['child', 'grandchild']);
+		assert.equal(section?.description, 'Meaning of Life');
 	});
 
 	test('Preloaded Schema, string as URI', async function () {
@@ -404,10 +399,9 @@ suite('JSON Schema', () => {
 
 		service.registerExternalSchema(id, ['*.json'], schema);
 
-		return service.getSchemaForResource('test.json').then((schema) => {
-			const section = schema?.getSection(['child', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getSchemaForResource('test.json');
+		const section = fs?.getSection(['child', 'grandchild']);
+		assert.equal(section?.description, 'Meaning of Life');
 	});
 
 	test('Multiple matches', async function () {
@@ -435,11 +429,11 @@ suite('JSON Schema', () => {
 		service.registerExternalSchema(id1, ['*.json'], schema1);
 		service.registerExternalSchema(id2, ['test.json'], schema2);
 
-		return service.getSchemaForResource('test.json').then(schema => {
-			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ foo: true, bar: true }));
-			const problems = jsonDoc.validate(textDoc, schema?.schema);
-			assert.equal(problems?.length, 2);
-		});
+		const fs = await service.getSchemaForResource('test.json');
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ foo: true, bar: true }));
+		const problems = jsonDoc.validate(textDoc, fs?.schema);
+		assert.equal(problems?.length, 2);
+
 	});
 
 	test('External Schema', async function () {
@@ -462,10 +456,9 @@ suite('JSON Schema', () => {
 
 		service.registerExternalSchema(id, ['*.json'], schema);
 
-		return service.getSchemaForResource('test.json').then(schema => {
-			const section = schema?.getSection(['child', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getSchemaForResource('test.json');
+		const section = fs?.getSection(['child', 'grandchild']);
+		assert.equal(section?.description, 'Meaning of Life');
 	});
 
 
@@ -499,10 +492,9 @@ suite('JSON Schema', () => {
 
 		service.registerExternalSchema(id, ['*.json'], schema);
 
-		return service.getSchemaForResource('test.json').then(fs => {
-			const section = fs?.getSection(['child', '0', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getSchemaForResource('test.json');
+		const section = fs?.getSection(['child', '0', 'grandchild']);
+		assert.equal(section?.description, 'Meaning of Life');
 	});
 
 	test('Resolving in-line $refs automatically for external schemas', async function () {
@@ -533,10 +525,9 @@ suite('JSON Schema', () => {
 		};
 
 		const fsm = service.registerExternalSchema(id, ['*.json'], schema);
-		return fsm.getResolvedSchema().then((fs) => {
-			const section = fs.getSection(['child', '0', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await fsm.getResolvedSchema();
+		const section = fs.getSection(['child', '0', 'grandchild']);
+		assert.equal(section?.description, 'Meaning of Life');
 	});
 
 
@@ -564,19 +555,16 @@ suite('JSON Schema', () => {
 
 		service.registerExternalSchema(id1, ['test.json', 'bar.json'], schema1);
 
-		return service.getSchemaForResource('test.json').then(schema => {
-			const section = schema?.getSection(['child']);
-			assert.equal(section?.type, 'number');
+		const fs = await service.getSchemaForResource('test.json');
+		assert.equal(fs?.getSection(['child'])?.type, 'number');
 
-			service.clearExternalSchemas();
+		service.clearExternalSchemas();
 
-			service.registerExternalSchema(id2, ['*.json'], schema2);
+		service.registerExternalSchema(id2, ['*.json'], schema2);
 
-			return service.getSchemaForResource('test.json').then(schema => {
-				const section = schema?.getSection(['child']);
-				assert.equal(section?.type, 'string');
-			});
-		});
+		const fs2 = await service.getSchemaForResource('test.json');
+		assert.equal(fs2?.getSection(['child'])?.type, 'string');
+
 	});
 
 	test('Schema contributions', async function () {
@@ -614,22 +602,22 @@ suite('JSON Schema', () => {
 
 		service.registerExternalSchema(id2, undefined, schema2);
 
-		return service.getSchemaForResource('main.bar').then(resolvedSchema => {
-			assert.deepEqual(resolvedSchema?.errors, []);
-			assert.equal(2, resolvedSchema?.schema.allOf?.length);
+		let resolvedSchema = await service.getSchemaForResource('main.bar');
+		assert.deepEqual(resolvedSchema?.errors, []);
+		assert.equal(2, resolvedSchema?.schema.allOf?.length);
 
-			service.clearExternalSchemas();
-			return service.getSchemaForResource('main.bar').then(resolvedSchema => {
-				assert.equal(resolvedSchema?.errors.length, 1);
-				assert.equal(resolvedSchema?.errors[0], "Problems loading reference 'http://myschemastore/myschemafoo': Unable to load schema from 'http://myschemastore/myschemafoo': Resource not found.");
+		service.clearExternalSchemas();
 
-				service.clearExternalSchemas();
-				service.registerExternalSchema(id2, undefined, schema2);
-				return service.getSchemaForResource('main.bar').then(resolvedSchema => {
-					assert.equal(resolvedSchema?.errors.length, 0);
-				});
-			});
-		});
+		resolvedSchema = await service.getSchemaForResource('main.bar');
+		assert.equal(resolvedSchema?.errors.length, 1);
+		assert.equal(resolvedSchema?.errors[0], "Problems loading reference 'http://myschemastore/myschemafoo': Unable to load schema from 'http://myschemastore/myschemafoo': Resource not found.");
+
+		service.clearExternalSchemas();
+		service.registerExternalSchema(id2, undefined, schema2);
+
+		resolvedSchema = await service.getSchemaForResource('main.bar');
+		assert.equal(resolvedSchema?.errors.length, 0);
+
 	});
 
 	test('Exclusive file patterns', async function () {
@@ -685,7 +673,7 @@ suite('JSON Schema', () => {
 		const ls = getLanguageService({ workspaceContext });
 		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['/User/settings.json'], schema: { type: 'object', required: ['foo'] } }] });
 
-		const positives = ['vscode-userdata:/home/martin/.config/Code%20-%20Insiders/User/settings.json' ];
+		const positives = ['vscode-userdata:/home/martin/.config/Code%20-%20Insiders/User/settings.json'];
 
 		for (const positive of positives) {
 			const doc = toDocument("{}", undefined, positive);
@@ -741,7 +729,7 @@ suite('JSON Schema', () => {
 	test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes filename only', async function () {
 
 		const ls = getLanguageService({ workspaceContext });
-		ls.configure({ schemas: [ { uri: 'http://myschemastore/myschemabar', fileMatch: ['*.foo.json'], schema: { type: 'object', required: ['foo'] }}]});
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['*.foo.json'], schema: { type: 'object', required: ['foo'] } }] });
 
 		const positives = ['file:///folder/a.foo.json', 'file:///folder/a.foo.json?f=true', 'file:///folder/a.foo.json#f=true'];
 		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo?a.foo.json', 'file:///folder/foo#a.foo.json'];
@@ -829,15 +817,14 @@ suite('JSON Schema', () => {
 
 		const { textDoc, jsonDoc } = toDocument(JSON.stringify(input));
 
-		return service.getSchemaForResource('file://doc/mydoc.json', jsonDoc).then(resolveSchema => {
-			assert.deepEqual(resolveSchema?.errors, []);
+		const resolveSchema = await service.getSchemaForResource('file://doc/mydoc.json', jsonDoc);
+		assert.deepEqual(resolveSchema?.errors, []);
 
-			const content = JSON.stringify(resolveSchema?.schema);
-			assert.equal(content.indexOf('$ref'), -1); // no more $refs
+		const content = JSON.stringify(resolveSchema?.schema);
+		assert.equal(content.indexOf('$ref'), -1); // no more $refs
 
-			const problems = jsonDoc.validate(textDoc, resolveSchema?.schema);
-			assert.deepEqual(problems, []);
-		});
+		const problems = jsonDoc.validate(textDoc, resolveSchema?.schema);
+		assert.deepEqual(problems, []);
 
 	});
 
@@ -859,15 +846,14 @@ suite('JSON Schema', () => {
 
 		const { textDoc, jsonDoc } = toDocument(JSON.stringify(input));
 
-		return service.getSchemaForResource('file://doc/mydoc.json', jsonDoc).then(resolveSchema => {
-			assert.deepEqual(resolveSchema?.errors, []);
+		const resolveSchema = await service.getSchemaForResource('file://doc/mydoc.json', jsonDoc);
+		assert.deepEqual(resolveSchema?.errors, []);
 
-			const content = JSON.stringify(resolveSchema?.schema);
-			assert.equal(content.indexOf('$ref'), -1); // no more $refs
+		const content = JSON.stringify(resolveSchema?.schema);
+		assert.equal(content.indexOf('$ref'), -1); // no more $refs
 
-			const problems = jsonDoc.validate(textDoc, resolveSchema?.schema);
-			assert.equal(problems?.length, 1);
-		});
+		const problems = jsonDoc.validate(textDoc, resolveSchema?.schema);
+		assert.equal(problems?.length, 1);
 
 	});
 
@@ -892,11 +878,9 @@ suite('JSON Schema', () => {
 		};
 
 		const fsm0 = service.registerExternalSchema(id0, ['*.json'], schema0);
-		const fsm1 = service.registerExternalSchema(id1, [], schema1);
-		return fsm0.getResolvedSchema().then((fs0) => {
-			assert.equal((<JSONSchema>fs0?.schema.allOf?.[0]).type, 'object');
-		});
-
+		service.registerExternalSchema(id1, [], schema1);
+		const fs0 = await fsm0.getResolvedSchema();
+		assert.equal((<JSONSchema>fs0?.schema.allOf?.[0]).type, 'object');
 	});
 
 	test('$refs in $ref - circular', async function () {
@@ -930,13 +914,53 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['responseValue'], {
-				type: 'object'
-			});
-			assert.deepEqual(fs?.schema.properties?.['hops'], {
-				type: 'object'
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main');
+		assert.deepEqual(fs?.schema.properties?.['responseValue'], {
+			type: 'object'
+		});
+		assert.deepEqual(fs?.schema.properties?.['hops'], {
+			type: 'object'
+		});
+
+	});
+
+	test('$refs in $ref - circular 2', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main": {
+					type: 'object',
+					properties: {
+						responseValue: {
+							"$ref": "#/definitions/shellConfiguration"
+						},
+						hops: {
+							"$ref": "#/definitions/hop1"
+						}
+					},
+					definitions: {
+						shellConfiguration: {
+							$ref: '#definitions/shellConfiguration',
+							type: 'object'
+						},
+						hop1: {
+							$ref: '#definitions/hop2',
+						},
+						hop2: {
+							$ref: '#definitions/hop1',
+							type: 'object'
+						}
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://myschemastore/main');
+		assert.deepEqual(fs?.schema.properties?.['responseValue'], {
+			type: 'object'
+		});
+		assert.deepEqual(fs?.schema.properties?.['hops'], {
+			type: 'object'
 		});
 
 	});
@@ -958,10 +982,9 @@ suite('JSON Schema', () => {
 		};
 
 		const fsm0 = service.registerExternalSchema(id0, ['*.json'], schema);
-		return fsm0.getResolvedSchema().then((fs0) => {
-			assert.deepEqual(fs0.errors, []);
-			assert.equal((<JSONSchema>fs0?.schema.properties?.p2).type, 'object');
-		});
+		const fs0 = await fsm0.getResolvedSchema();
+		assert.deepEqual(fs0.errors, []);
+		assert.equal((<JSONSchema>fs0?.schema.properties?.p2).type, 'object');
 
 	});
 
@@ -1023,18 +1046,15 @@ suite('JSON Schema', () => {
 
 		const { textDoc, jsonDoc } = toDocument(JSON.stringify(input));
 
-		return service.getSchemaForResource('file://doc/mydoc.json', jsonDoc).then(resolvedSchema => {
-			assert.deepEqual(resolvedSchema?.errors, []);
+		const resolvedSchema = await service.getSchemaForResource('file://doc/mydoc.json', jsonDoc);
+		assert.deepEqual(resolvedSchema?.errors, []);
 
-			const problems = jsonDoc.validate(textDoc, resolvedSchema?.schema);
+		const problems = jsonDoc.validate(textDoc, resolvedSchema?.schema);
 
-			assert.equal(problems?.length, 1);
-			assert.equal(problems?.[0].message, 'Missing property "computerName".');
-		});
+		assert.equal(problems?.length, 1);
+		assert.equal(problems?.[0].message, 'Missing property "computerName".');
 
 	});
-
-
 
 	test('Complex enums', function () {
 
