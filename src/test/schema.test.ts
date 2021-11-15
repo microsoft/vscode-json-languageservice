@@ -738,68 +738,68 @@ suite('JSON Schema', () => {
 		}
 	});
 
-	// test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes filename only', async function () {
+	test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes filename only', async function () {
 
-	// 	const ls = getLanguageService({ workspaceContext });
-	// 	ls.configure({ schemas: [ { uri: 'http://myschemastore/myschemabar', fileMatch: ['*.foo.json'], schema: { type: 'object', required: ['foo'] }}]});
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [ { uri: 'http://myschemastore/myschemabar', fileMatch: ['*.foo.json'], schema: { type: 'object', required: ['foo'] }}]});
 
-	// 	const positives = ['file:///folder/a.foo.json', 'file:///folder/a.foo.json?f=true', 'file:///folder/a.foo.json#f=true'];
-	// 	const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo?a.foo.json', 'file:///folder/foo#a.foo.json'];
+		const positives = ['file:///folder/a.foo.json', 'file:///folder/a.foo.json?f=true', 'file:///folder/a.foo.json#f=true'];
+		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo?a.foo.json', 'file:///folder/foo#a.foo.json'];
 
-	// 	for (const positive of positives) {
-	// 		const doc = toDocument("{}", undefined, positive);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length > 0, positive);
-	// 	}
+		for (const positive of positives) {
+			const doc = toDocument("{}", undefined, positive);
+			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
+			assert.ok(ms.length > 0, positive);
+		}
 
-	// 	for (const negative of negatives) {
-	// 		const doc = toDocument("{}", undefined, negative);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length === 0, negative);
-	// 	}
-	// });
+		for (const negative of negatives) {
+			const doc = toDocument("{}", undefined, negative);
+			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
+			assert.ok(ms.length === 0, negative);
+		}
+	});
 
-	// test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes a path', async function () {
+	test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes a path', async function () {
 
-	// 	const ls = getLanguageService({ workspaceContext });
-	// 	ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo/*/bar.json'], schema: { type: 'object', required: ['foo'] } }] });
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo/*/bar.json'], schema: { type: 'object', required: ['foo'] } }] });
 
-	// 	const positives = ['file:///folder/foo/bat/bar.json', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/bat/bar.json#f=true'];
-	// 	const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
+		const positives = ['file:///folder/foo/bat/bar.json', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/bat/bar.json#f=true'];
+		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
 
-	// 	for (const positive of positives) {
-	// 		const doc = toDocument("{}", undefined, positive);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length > 0, positive);
-	// 	}
+		for (const positive of positives) {
+			const doc = toDocument("{}", undefined, positive);
+			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
+			assert.ok(ms.length > 0, positive);
+		}
 
-	// 	for (const negative of negatives) {
-	// 		const doc = toDocument("{}", undefined, negative);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length === 0, negative);
-	// 	}
-	// });
+		for (const negative of negatives) {
+			const doc = toDocument("{}", undefined, negative);
+			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
+			assert.ok(ms.length === 0, negative);
+		}
+	});
 
-	// test('Schema matching, where fileMatch is a wildcard pattern, contains double-star, and denotes a path', async function () {
+	test('Schema matching, where fileMatch is a wildcard pattern, contains double-star, and denotes a path', async function () {
 
-	// 	const ls = getLanguageService({ workspaceContext });
-	// 	ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo/**/bar.json'], schema: { type: 'object', required: ['foo'] } }] });
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo/**/bar.json'], schema: { type: 'object', required: ['foo'] } }] });
 
-	// 	const positives = ['file:///folder/foo/bar.json', 'file:///folder/foo/bat/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/bat/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json'];
-	// 	const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
+		const positives = ['file:///folder/foo/bar.json', 'file:///folder/foo/bat/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/bat/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json'];
+		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
 
-	// 	for (const positive of positives) {
-	// 		const doc = toDocument("{}", undefined, positive);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length > 0, positive);
-	// 	}
+		for (const positive of positives) {
+			const doc = toDocument("{}", undefined, positive);
+			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
+			assert.ok(ms.length > 0, positive);
+		}
 
-	// 	for (const negative of negatives) {
-	// 		const doc = toDocument("{}", undefined, negative);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length === 0, negative);
-	// 	}
-	// });
+		for (const negative of negatives) {
+			const doc = toDocument("{}", undefined, negative);
+			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
+			assert.ok(ms.length === 0, negative);
+		}
+	});
 
 
 	test('Resolving circular $refs', async function () {
