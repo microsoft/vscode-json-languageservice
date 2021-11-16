@@ -899,14 +899,14 @@ suite('JSON Schema', () => {
 					},
 					definitions: {
 						shellConfiguration: {
-							$ref: '#definitions/shellConfiguration',
+							$ref: '#/definitions/shellConfiguration',
 							type: 'object'
 						},
 						hop1: {
-							$ref: '#definitions/hop2',
+							$ref: '#/definitions/hop2',
 						},
 						hop2: {
-							$ref: '#definitions/hop1',
+							$ref: '#/definitions/hop1',
 							type: 'object'
 						}
 					}
@@ -940,14 +940,14 @@ suite('JSON Schema', () => {
 					},
 					definitions: {
 						shellConfiguration: {
-							$ref: '#definitions/shellConfiguration',
+							$ref: '#/definitions/shellConfiguration',
 							type: 'object'
 						},
 						hop1: {
-							$ref: '#definitions/hop2',
+							$ref: '#/definitions/hop2',
 						},
 						hop2: {
-							$ref: '#definitions/hop1',
+							$ref: '#/definitions/hop1',
 							type: 'object'
 						}
 					}
@@ -972,19 +972,11 @@ suite('JSON Schema', () => {
 			schemas: {
 				"https://myschemastore/main1": {
 					type: 'object',
-					properties: {
-						responseValue: {
-							"$ref": "#/definitions/shellConfiguration"
-						},
-						hops: {
-							"$ref": "#/definitions/hop1"
-						}
-					},
 					definitions: {
 						blue: {
 							properties: {
 								red: {
-									$ref: '#definitions/blue'
+									$ref: '#/definitions/blue'
 								}
 							}
 						}
@@ -994,10 +986,10 @@ suite('JSON Schema', () => {
 					type: 'object',
 					definitions: {
 						green: {
-							$ref: 'main1#definitions/blue'
+							$ref: 'main1#/definitions/blue'
 						},
 						white: {
-							$ref: 'main1#definitions/blue'
+							$ref: 'main1#/definitions/blue'
 						}
 					}
 				}
@@ -1013,6 +1005,7 @@ suite('JSON Schema', () => {
 			}
 		});
 	});
+
 
 	test('$refs with encoded characters', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
