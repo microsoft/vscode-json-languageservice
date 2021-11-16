@@ -519,7 +519,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 
 			const toWalk: JSONSchema[] = [node];
-			const seen: JSONSchema[] = [];
+			const seen = new Set<JSONSchema>();
 
 			const openPromises: Thenable<any>[] = [];
 
@@ -555,7 +555,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 			};
 			const handleRef = (next: JSONSchema) => {
-				const seenRefs = [];
+				const seenRefs = new Set<string>();
 				while (next.$ref) {
 					const ref = next.$ref;
 					const segments = ref.split('#', 2);
@@ -566,7 +566,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 						return;
 					} else {
 						// This is a reference inside the current schema
-						if (seenRefs.indexOf(ref) === -1) {
+						if (!seenRefs.has(ref)) {
 							if (isSubSchemaRef(segments[1])) { // A $ref to a sub-schema with an $id (i.e #hello)
 								// Get the full URI for the current schema to avoid matching schema1#hello and schema2#hello to the same
 								// reference by accident
@@ -575,7 +575,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 							} else { // A $ref to a JSON Pointer (i.e #/definitions/foo)
 								mergeByJsonPointer(next, parentSchema, parentSchemaURL, segments[1]); // can set next.$ref again, use seenRefs to avoid circle
 							}
-							seenRefs.push(ref);
+							seenRefs.add(ref);
 						}
 					}
 				}
@@ -617,10 +617,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 			while (toWalk.length) {
 				const next = toWalk.pop()!;
-				if (seen.indexOf(next) >= 0) {
+				if (seen.has(next)) {
 					continue;
 				}
-				seen.push(next);
+				seen.add(next);
 				handleId(next);
 				handleRef(next);
 			}
