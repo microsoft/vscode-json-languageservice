@@ -470,7 +470,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 
 			const toWalk: JSONSchema[] = [node];
-			const seen: JSONSchema[] = [];
+			const seen = new Set<JSONSchema>();
 
 			const openPromises: Thenable<any>[] = [];
 
@@ -506,7 +506,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 			};
 			const handleRef = (next: JSONSchema) => {
-				const seenRefs = [];
+				const seenRefs = new Set<string>();
 				while (next.$ref) {
 					const ref = next.$ref;
 					const segments = ref.split('#', 2);
@@ -515,9 +515,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL, parentSchemaDependencies));
 						return;
 					} else {
-						if (seenRefs.indexOf(ref) === -1) {
+						if (!seenRefs.has(ref)) {
 							merge(next, parentSchema, parentSchemaURL, segments[1]); // can set next.$ref again, use seenRefs to avoid circle
-							seenRefs.push(ref);
+							seenRefs.add(ref);
 						}
 					}
 				}
@@ -529,10 +529,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 			while (toWalk.length) {
 				const next = toWalk.pop()!;
-				if (seen.indexOf(next) >= 0) {
+				if (seen.has(next)) {
 					continue;
 				}
-				seen.push(next);
+				seen.add(next);
 				handleRef(next);
 			}
 			return this.promise.all(openPromises);
