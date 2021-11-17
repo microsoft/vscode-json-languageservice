@@ -1,4 +1,9 @@
 
+
+4.2.0 / 
+================
+ * new API `LanguageService.getLanguageStatus`
+
 4.1.6 / 2021-07-16
 ================
  * Replace minimatch with glob-to-regexp

@@ -11,7 +11,7 @@ import * as Parser from '../parser/jsonParser';
 import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument } from '../jsonLanguageTypes';
 
 import * as nls from 'vscode-nls';
-import { createRegex} from '../utils/glob';
+import { createRegex } from '../utils/glob';
 
 const localize = nls.loadMessageBundle();
 
@@ -159,7 +159,7 @@ class SchemaHandle implements ISchemaHandle {
 		return this.resolvedSchema;
 	}
 
-	public clearSchema() : boolean {
+	public clearSchema(): boolean {
 		const hasChanges = !!this.unresolvedSchema;
 		this.resolvedSchema = undefined;
 		this.unresolvedSchema = undefined;
@@ -545,31 +545,18 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		return resolveRefs(schema, schema, schemaURL, dependencies).then(_ => new ResolvedSchema(schema, resolveErrors));
 	}
-
-	public getSchemaForResource(resource: string, document?: Parser.JSONDocument): Thenable<ResolvedSchema | undefined> {
-
-		// first use $schema if present
-		if (document && document.root && document.root.type === 'object') {
-			const schemaProperties = document.root.properties.filter(p => (p.keyNode.value === '$schema') && p.valueNode && p.valueNode.type === 'string');
-			if (schemaProperties.length > 0) {
-				const valueNode = schemaProperties[0].valueNode;
-				if (valueNode && valueNode.type === 'string') {
-					let schemeId = <string>Parser.getNodeValue(valueNode);
-					if (schemeId && Strings.startsWith(schemeId, '.') && this.contextService) {
-						schemeId = this.contextService.resolveRelativePath(schemeId, resource);
-					}
-					if (schemeId) {
-						const id = normalizeId(schemeId);
-						return this.getOrAddSchemaHandle(id).getResolvedSchema();
-					}
+	private getSchemaProperty(document: Parser.JSONDocument): string | undefined {
+		if (document.root?.type === 'object') {
+			for (const p of document.root.properties) {
+				if (p.keyNode.value === '$schema' && p.valueNode?.type === 'string') {
+					return p.valueNode.value;
 				}
 			}
 		}
+		return undefined;
+	}
 
-		if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
-			return this.cachedSchemaForResource.resolvedSchema;
-		}
-
+	private getAssociatedSchemas(resource: string): string[] {
 		const seen: { [schemaId: string]: boolean } = Object.create(null);
 		const schemas: string[] = [];
 		const normalizedResource = normalizeResourceForMatching(resource);
@@ -583,6 +570,33 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 			}
 		}
+		return schemas;
+	}
+
+	public getSchemaURIsForResource(resource: string, document?: Parser.JSONDocument): string[] {
+		let schemeId = document && this.getSchemaProperty(document);
+		if (schemeId) {
+			return [schemeId];
+		}
+		return this.getAssociatedSchemas(resource);
+	}
+
+	public getSchemaForResource(resource: string, document?: Parser.JSONDocument): Thenable<ResolvedSchema | undefined> {
+		if (document) {
+			// first use $schema if present
+			let schemeId = this.getSchemaProperty(document);
+			if (schemeId && Strings.startsWith(schemeId, '.') && this.contextService) {
+				schemeId = this.contextService.resolveRelativePath(schemeId, resource);
+			}
+			if (schemeId) {
+				const id = normalizeId(schemeId);
+				return this.getOrAddSchemaHandle(id).getResolvedSchema();
+			}
+		}
+		if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
+			return this.cachedSchemaForResource.resolvedSchema;
+		}
+		const schemas = this.getAssociatedSchemas(resource);
 		const resolvedSchema = schemas.length > 0 ? this.createCombinedSchema(resource, schemas).getResolvedSchema() : this.promise.resolve(undefined);
 		this.cachedSchemaForResource = { resource, resolvedSchema };
 		return resolvedSchema;

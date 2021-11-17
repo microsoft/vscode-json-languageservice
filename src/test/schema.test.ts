@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as url from 'url';
 import * as path from 'path';
 import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema } from '../jsonLanguageService';
-import { DiagnosticSeverity } from '../jsonLanguageTypes';
+import { DiagnosticSeverity, SchemaConfiguration } from '../jsonLanguageTypes';
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig, uri = 'foo://bar/file.json'): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
 
@@ -1459,5 +1459,47 @@ suite('JSON Schema', () => {
 		}
 	});
 
+	test('getLanguageStatus', async function () {
+		const schemas: SchemaConfiguration[] = [{
+			uri: 'https://myschemastore/schema1.json',
+			fileMatch: ['**/*.json'],
+			schema: {
+				type: 'object',
+			}
+		},
+		{
+			uri: 'https://myschemastore/schema2.json',
+			fileMatch: ['**/bar.json'],
+			schema: {
+				type: 'object',
+			}
+		},
+		{
+			uri: 'https://myschemastore/schema3.json',
+			schema: {
+				type: 'object',
+			}
+		}
+		];
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas });
+
+		{
+			const { textDoc, jsonDoc } = toDocument('{ }', undefined, 'foo://bar/folder/foo.json');
+			const info = ls.getLanguageStatus(textDoc, jsonDoc);
+			assert.deepStrictEqual(info.schemas, ['https://myschemastore/schema1.json']);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{ }', undefined, 'foo://bar/folder/bar.json');
+			const info = ls.getLanguageStatus(textDoc, jsonDoc);
+			assert.deepStrictEqual(info.schemas, ['https://myschemastore/schema1.json', 'https://myschemastore/schema2.json']);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{ $schema: "https://myschemastore/schema3.json" }', undefined, 'foo://bar/folder/bar.json');
+			const info = ls.getLanguageStatus(textDoc, jsonDoc);
+			assert.deepStrictEqual(info.schemas, ['https://myschemastore/schema3.json']);
+		}
+
+	});
 
 });
