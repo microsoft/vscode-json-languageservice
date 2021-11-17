@@ -469,7 +469,7 @@ export class JSONCompletion {
 						if (s.schema.patternProperties && !propertyMatched) {
 							for (const pattern of Object.keys(s.schema.patternProperties)) {
 								const regex = extendedRegExp(pattern);
-								if (regex.test(parentKey)) {
+								if (regex?.test(parentKey)) {
 									propertyMatched = true;
 									const propertySchema = s.schema.patternProperties[pattern];
 									this.addSchemaValueCompletions(propertySchema, separatorAfter, collector, types);

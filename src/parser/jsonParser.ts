@@ -647,7 +647,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 		if (isString(schema.pattern)) {
 			const regex = extendedRegExp(schema.pattern);
-			if (!regex.test(node.value)) {
+			if (!(regex?.test(node.value))) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
 					message: schema.patternErrorMessage || schema.errorMessage || localize('patternWarning', 'String does not match the pattern of "{0}".', schema.pattern)
@@ -841,7 +841,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			for (const propertyPattern of Object.keys(schema.patternProperties)) {
 				const regex = extendedRegExp(propertyPattern);
 				for (const propertyName of unprocessedProperties.slice(0)) {
-					if (regex.test(propertyName)) {
+					if (regex?.test(propertyName)) {
 						propertyProcessed(propertyName);
 						const child = seenKeys[propertyName];
 						if (child) {

@@ -576,6 +576,44 @@ suite('JSON Parser', () => {
 
 		assert.strictEqual(semanticErrors!.length, 1);
 
+		// Patterns may include Unicode character classes.
+		semanticErrors = jsonDoc.validate(textDoc, {
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'string',
+					pattern: '^[\\p{Letter}]+$',
+				}
+			}
+		});
+
+		assert.strictEqual(semanticErrors!.length, 0);
+
+		semanticErrors = jsonDoc.validate(textDoc, {
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'string',
+					pattern: '(?i)^[\\p{Letter}]+$',
+				}
+			}
+		});
+
+		assert.strictEqual(semanticErrors!.length, 0);
+
+		semanticErrors = jsonDoc.validate(textDoc, {
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'string',
+					pattern: '(^\\d+(\\-\\d+)?$)|(.+)',
+				}
+			}
+		});
+
+		assert.strictEqual(semanticErrors!.length, 0);
+
+
 		const schemaWithURI = {
 			type: 'object',
 			properties: {
@@ -1256,6 +1294,31 @@ suite('JSON Parser', () => {
 			const { textDoc, jsonDoc } = toDocument('{"Foo": 42 }');
 			const semanticErrors = jsonDoc.validate(textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// PatternProperties may include Unicode character classes.
+		schema = {
+			id: 'test://schemas/main',
+			patternProperties: {
+				'^letter\\p{Letter}$': true,
+				'(?i)^number\\p{Number}$': true,
+			},
+			additionalProperties: false,
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"letterZ": [], "NumBer2": [], "number3": []}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"other": []}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"letter9": [], "NumberZ": []}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 2);
 		}
 	});
 
@@ -2018,10 +2081,10 @@ suite('JSON Parser', () => {
 		assert.strictEqual(res[0].message, 'Comments are not permitted in JSON.');
 		assert.strictEqual(res[0].severity, DiagnosticSeverity.Error);
 
-		res = await ls.doValidation(textDoc, jsonDoc, { comments: 'ignore'});
+		res = await ls.doValidation(textDoc, jsonDoc, { comments: 'ignore' });
 		assert.strictEqual(res.length, 0);
 
-		res = await ls.doValidation(textDoc, jsonDoc, { comments: 'warning'});
+		res = await ls.doValidation(textDoc, jsonDoc, { comments: 'warning' });
 		assert.strictEqual(res.length, 1);
 		assert.strictEqual(res[0].message, 'Comments are not permitted in JSON.');
 		assert.strictEqual(res[0].severity, DiagnosticSeverity.Warning);

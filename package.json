@@ -1,6 +1,6 @@
 {
   "name": "vscode-json-languageservice",
-  "version": "4.1.8",
+  "version": "4.1.10",
   "description": "Language service for JSON",
   "main": "./lib/umd/jsonLanguageService.js",
   "typings": "./lib/umd/jsonLanguageService",
@@ -13,9 +13,6 @@
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/Microsoft/vscode-json-languageservice"
-  },
-  "engines": {
-    "npm": ">=7.0.0"
   },
   "devDependencies": {
     "@types/mocha": "^9.0.0",
