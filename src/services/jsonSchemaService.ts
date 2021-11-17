@@ -57,7 +57,7 @@ export interface ISchemaHandle {
 	/**
 	 * The schema id
 	 */
-	url: string;
+	uri: string;
 
 	/**
 	 * The schema from the file, with potential $ref references
@@ -123,21 +123,21 @@ class FilePatternAssociation {
 	}
 }
 
-type SchemaDependencies = { [uri: string]: true };
+type SchemaDependencies = Set<string>;
 
 class SchemaHandle implements ISchemaHandle {
 
-	public url: string;
-	public dependencies: SchemaDependencies;
+	public readonly uri: string;
+	public readonly dependencies: SchemaDependencies;
 
 	private resolvedSchema: Thenable<ResolvedSchema> | undefined;
 	private unresolvedSchema: Thenable<UnresolvedSchema> | undefined;
-	private service: JSONSchemaService;
+	private readonly service: JSONSchemaService;
 
-	constructor(service: JSONSchemaService, url: string, unresolvedSchemaContent?: JSONSchema) {
+	constructor(service: JSONSchemaService, uri: string, unresolvedSchemaContent?: JSONSchema) {
 		this.service = service;
-		this.url = url;
-		this.dependencies = {};
+		this.uri = uri;
+		this.dependencies = new Set();
 		if (unresolvedSchemaContent) {
 			this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(unresolvedSchemaContent));
 		}
@@ -145,7 +145,7 @@ class SchemaHandle implements ISchemaHandle {
 
 	public getUnresolvedSchema(): Thenable<UnresolvedSchema> {
 		if (!this.unresolvedSchema) {
-			this.unresolvedSchema = this.service.loadSchema(this.url);
+			this.unresolvedSchema = this.service.loadSchema(this.uri);
 		}
 		return this.unresolvedSchema;
 	}
@@ -153,16 +153,18 @@ class SchemaHandle implements ISchemaHandle {
 	public getResolvedSchema(): Thenable<ResolvedSchema> {
 		if (!this.resolvedSchema) {
 			this.resolvedSchema = this.getUnresolvedSchema().then(unresolved => {
-				return this.service.resolveSchemaContent(unresolved, this.url, this.dependencies);
+				return this.service.resolveSchemaContent(unresolved, this.uri, this.dependencies);
 			});
 		}
 		return this.resolvedSchema;
 	}
 
-	public clearSchema() {
+	public clearSchema() : boolean {
+		const hasChanges = !!this.unresolvedSchema;
 		this.resolvedSchema = undefined;
 		this.unresolvedSchema = undefined;
-		this.dependencies = {};
+		this.dependencies.clear();
+		return hasChanges;
 	}
 }
 
@@ -286,13 +288,14 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const curr = toWalk.pop()!;
 			for (let i = 0; i < all.length; i++) {
 				const handle = all[i];
-				if (handle && (handle.url === curr || handle.dependencies[curr])) {
-					if (handle.url !== curr) {
-						toWalk.push(handle.url);
+				if (handle && (handle.uri === curr || handle.dependencies.has(curr))) {
+					if (handle.uri !== curr) {
+						toWalk.push(handle.uri);
 					}
-					handle.clearSchema();
+					if (handle.clearSchema()) {
+						hasChanges = true;
+					}
 					all[i] = undefined;
-					hasChanges = true;
 				}
 			}
 		}
@@ -456,7 +459,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			uri = normalizeId(uri);
 			const referencedHandle = this.getOrAddSchemaHandle(uri);
 			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
-				parentSchemaDependencies[uri] = true;
+				parentSchemaDependencies.add(uri);
 				if (unresolvedSchema.errors.length) {
 					const loc = refSegment ? uri + '#' + refSegment : uri;
 					resolveErrors.push(localize('json.schema.problemloadingref', 'Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0]));
@@ -600,7 +603,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 	public getMatchingSchemas(document: TextDocument, jsonDocument: Parser.JSONDocument, schema?: JSONSchema): Thenable<MatchingSchema[]> {
 		if (schema) {
 			const id = schema.id || ('schemaservice://untitled/matchingSchemas/' + idCounter++);
-			return this.resolveSchemaContent(new UnresolvedSchema(schema), id, {}).then(resolvedSchema => {
+			return this.resolveSchemaContent(new UnresolvedSchema(schema), id, new Set()).then(resolvedSchema => {
 				return jsonDocument.getMatchingSchemas(resolvedSchema.schema).filter(s => !s.inverted);
 			});
 		}

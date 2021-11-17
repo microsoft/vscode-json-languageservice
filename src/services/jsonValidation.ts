@@ -103,7 +103,7 @@ export class JSONValidation {
 
 		if (schema) {
 			const id = schema.id || ('schemaservice://untitled/' + idCounter++);
-			return this.jsonSchemaService.resolveSchemaContent(new UnresolvedSchema(schema), id, {}).then(resolvedSchema => {
+			return this.jsonSchemaService.resolveSchemaContent(new UnresolvedSchema(schema), id, new Set()).then(resolvedSchema => {
 				return getDiagnostics(resolvedSchema);
 			});
 		}
