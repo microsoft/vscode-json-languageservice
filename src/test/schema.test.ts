@@ -1499,6 +1499,16 @@ suite('JSON Schema', () => {
 			const info = ls.getLanguageStatus(textDoc, jsonDoc);
 			assert.deepStrictEqual(info.schemas, ['https://myschemastore/schema3.json']);
 		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{ $schema: "schema3.json" }', undefined, 'foo://bar/folder/bar.json');
+			const info = ls.getLanguageStatus(textDoc, jsonDoc);
+			assert.deepStrictEqual(info.schemas, ['foo://bar/folder/schema3.json']);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{ $schema: "./schema3.json" }', undefined, 'foo://bar/folder/bar.json');
+			const info = ls.getLanguageStatus(textDoc, jsonDoc);
+			assert.deepStrictEqual(info.schemas, ['foo://bar/folder/schema3.json']);
+		}
 
 	});
 

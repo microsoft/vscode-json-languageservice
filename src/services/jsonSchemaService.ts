@@ -545,11 +545,15 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		return resolveRefs(schema, schema, schemaURL, dependencies).then(_ => new ResolvedSchema(schema, resolveErrors));
 	}
-	private getSchemaProperty(document: Parser.JSONDocument): string | undefined {
+	private getSchemaFromProperty(resource: string, document: Parser.JSONDocument): string | undefined {
 		if (document.root?.type === 'object') {
 			for (const p of document.root.properties) {
 				if (p.keyNode.value === '$schema' && p.valueNode?.type === 'string') {
-					return p.valueNode.value;
+					let schemaId = p.valueNode.value;
+					if (this.contextService && !/^\w[\w\d+.-]*:/.test(schemaId)) { // has scheme
+						schemaId = this.contextService.resolveRelativePath(schemaId, resource);
+					}
+					return schemaId;
 				}
 			}
 		}
@@ -574,7 +578,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 	}
 
 	public getSchemaURIsForResource(resource: string, document?: Parser.JSONDocument): string[] {
-		let schemeId = document && this.getSchemaProperty(document);
+		let schemeId = document && this.getSchemaFromProperty(resource, document);
 		if (schemeId) {
 			return [schemeId];
 		}
@@ -584,10 +588,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 	public getSchemaForResource(resource: string, document?: Parser.JSONDocument): Thenable<ResolvedSchema | undefined> {
 		if (document) {
 			// first use $schema if present
-			let schemeId = this.getSchemaProperty(document);
-			if (schemeId && Strings.startsWith(schemeId, '.') && this.contextService) {
-				schemeId = this.contextService.resolveRelativePath(schemeId, resource);
-			}
+			let schemeId = this.getSchemaFromProperty(resource, document);
 			if (schemeId) {
 				const id = normalizeId(schemeId);
 				return this.getOrAddSchemaHandle(id).getResolvedSchema();
