@@ -656,6 +656,57 @@ suite('JSON Parser', () => {
 		semanticErrors = validate('{"one":"//foo/bar"}', schemaWithURIReference);
 		assert.strictEqual(semanticErrors!.length, 0, 'uri-reference');
 
+		const schemaWithHostname = {
+			type: 'object',
+			properties: {
+				"hostname": {
+					type: 'string',
+					format: 'hostname'
+				}
+			}
+		};
+
+		semanticErrors = validate('{"hostname":"code.visualstudio.com"}', schemaWithHostname);
+		assert.strictEqual(semanticErrors!.length, 0, "hostname");
+
+		semanticErrors = validate('{"hostname":"foo/bar"}', schemaWithHostname);
+		assert.strictEqual(semanticErrors!.length, 1, "hostname");
+		assert.strictEqual(semanticErrors![0].message, 'String is not a hostname.');
+
+		const schemaWithIPv4 = {
+			type: 'object',
+			properties: {
+				"hostaddr4": {
+					type: 'string',
+					format: 'ipv4'
+				}
+			}
+		};
+
+		semanticErrors = validate('{"hostaddr4":"127.0.0.1"}', schemaWithIPv4);
+		assert.strictEqual(semanticErrors!.length, 0, "hostaddr4");
+
+		semanticErrors = validate('{"hostaddr4":"1916:0:0:0:0:F00:1:81AE"}', schemaWithIPv4);
+		assert.strictEqual(semanticErrors!.length, 1, "hostaddr4");
+		assert.strictEqual(semanticErrors![0].message, 'String is not an IPv4 address.');
+
+		const schemaWithIPv6 = {
+			type: 'object',
+			properties: {
+				"hostaddr6": {
+					type: 'string',
+					format: 'ipv6'
+				}
+			}
+		};
+
+		semanticErrors = validate('{"hostaddr6":"1916:0:0:0:0:F00:1:81AE"}', schemaWithIPv6);
+		assert.strictEqual(semanticErrors!.length, 0, "hostaddr6");
+
+		semanticErrors = validate('{"hostaddr6":"127.0.0.1"}', schemaWithIPv6);
+		assert.strictEqual(semanticErrors!.length, 1, "hostaddr6");
+		assert.strictEqual(semanticErrors![0].message, 'String is not an IPv6 address.');
+
 		const schemaWithEMail = {
 			type: 'object',
 			properties: {
