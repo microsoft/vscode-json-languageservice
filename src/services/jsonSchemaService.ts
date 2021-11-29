@@ -57,7 +57,7 @@ export interface ISchemaHandle {
 	/**
 	 * The schema id
 	 */
-	url: string;
+	uri: string;
 
 	/**
 	 * The schema from the file, with potential $ref references
@@ -127,7 +127,7 @@ type SchemaDependencies = Set<string>;
 
 class SchemaHandle implements ISchemaHandle {
 
-	public readonly url: string;
+	public readonly uri: string;
 	public readonly dependencies: SchemaDependencies;
 	public readonly anchors: Map<string, JSONSchema>;
 
@@ -135,9 +135,9 @@ class SchemaHandle implements ISchemaHandle {
 	private unresolvedSchema: Thenable<UnresolvedSchema> | undefined;
 	private readonly service: JSONSchemaService;
 
-	constructor(service: JSONSchemaService, url: string, unresolvedSchemaContent?: JSONSchema) {
+	constructor(service: JSONSchemaService, uri: string, unresolvedSchemaContent?: JSONSchema) {
 		this.service = service;
-		this.url = url;
+		this.uri = uri;
 		this.dependencies = new Set();
 		this.anchors = new Map();
 		if (unresolvedSchemaContent) {
@@ -147,7 +147,7 @@ class SchemaHandle implements ISchemaHandle {
 
 	public getUnresolvedSchema(): Thenable<UnresolvedSchema> {
 		if (!this.unresolvedSchema) {
-			this.unresolvedSchema = this.service.loadSchema(this.url);
+			this.unresolvedSchema = this.service.loadSchema(this.uri);
 		}
 		return this.unresolvedSchema;
 	}
@@ -289,9 +289,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const curr = toWalk.pop()!;
 			for (let i = 0; i < all.length; i++) {
 				const handle = all[i];
-				if (handle && (handle.url === curr || handle.dependencies.has(curr))) {
-					if (handle.url !== curr) {
-						toWalk.push(handle.url);
+				if (handle && (handle.uri === curr || handle.dependencies.has(curr))) {
+					if (handle.uri !== curr) {
+						toWalk.push(handle.uri);
 					}
 					handle.clearSchema();
 					all[i] = undefined;
@@ -471,7 +471,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const tryMergeSubSchema = (target: JSONSchema, id: string, handle: SchemaHandle): boolean => {
 			// Get the full URI for the current schema to avoid matching schema1#hello and schema2#hello to the same
 			// reference by accident
-			const fullId = reconstructRefURI(handle.url, id);
+			const fullId = reconstructRefURI(handle.uri, id);
 			const resolved = handle.anchors.get(fullId);
 			if (resolved) {
 				merge(target, resolved);
@@ -491,7 +491,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle): Thenable<any> => {
 			if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/\/.*/.test(uri)) {
-				uri = contextService.resolveRelativePath(uri, parentHandle.url);
+				uri = contextService.resolveRelativePath(uri, parentHandle.uri);
 			}
 			uri = normalizeId(uri);
 			const referencedHandle = this.getOrAddSchemaHandle(uri);
@@ -578,7 +578,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 							if (id !== undefined && isSubSchemaRef(id)) { // A $ref to a sub-schema with an $id (i.e #hello)
 								tryMergeSubSchema(next, id, handle);
 							} else { // A $ref to a JSON Pointer (i.e #/definitions/foo)
-								mergeByJsonPointer(next, parentSchema, parentHandle.url, id); // can set next.$ref again, use seenRefs to avoid circle
+								mergeByJsonPointer(next, parentSchema, parentHandle.uri, id); // can set next.$ref again, use seenRefs to avoid circle
 							}
 							seenRefs.add(ref);
 						}
@@ -597,7 +597,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 					delete next.$id;
 					delete next.id;
 					// Use a blank separator, as the $id already has the '#'
-					const fullId = reconstructRefURI(parentHandle.url, id, '');
+					const fullId = reconstructRefURI(parentHandle.uri, id, '');
 
 					const resolved = parentHandle.anchors.get(fullId);
 					if (!resolved) {
