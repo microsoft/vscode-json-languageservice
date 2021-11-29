@@ -129,7 +129,7 @@ class SchemaHandle implements ISchemaHandle {
 
 	public readonly uri: string;
 	public readonly dependencies: SchemaDependencies;
-
+	public readonly anchors: Map<string, JSONSchema>;
 	private resolvedSchema: Thenable<ResolvedSchema> | undefined;
 	private unresolvedSchema: Thenable<UnresolvedSchema> | undefined;
 	private readonly service: JSONSchemaService;
@@ -138,6 +138,7 @@ class SchemaHandle implements ISchemaHandle {
 		this.service = service;
 		this.uri = uri;
 		this.dependencies = new Set();
+		this.anchors = new Map();
 		if (unresolvedSchemaContent) {
 			this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(unresolvedSchemaContent));
 		}
@@ -153,7 +154,7 @@ class SchemaHandle implements ISchemaHandle {
 	public getResolvedSchema(): Thenable<ResolvedSchema> {
 		if (!this.resolvedSchema) {
 			this.resolvedSchema = this.getUnresolvedSchema().then(unresolved => {
-				return this.service.resolveSchemaContent(unresolved, this.uri, this.dependencies);
+				return this.service.resolveSchemaContent(unresolved, this);
 			});
 		}
 		return this.resolvedSchema;
@@ -164,6 +165,7 @@ class SchemaHandle implements ISchemaHandle {
 		this.resolvedSchema = undefined;
 		this.unresolvedSchema = undefined;
 		this.dependencies.clear();
+		this.anchors.clear();
 		return hasChanges;
 	}
 }
@@ -404,7 +406,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		);
 	}
 
-	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, schemaURL: string, dependencies: SchemaDependencies): Thenable<ResolvedSchema> {
+	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, handle: SchemaHandle): Thenable<ResolvedSchema> {
 
 		const resolveErrors: string[] = schemaToResolve.errors.slice(0);
 		const schema = schemaToResolve.schema;
@@ -438,38 +440,91 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return current;
 		};
 
-		const merge = (target: JSONSchema, sourceRoot: JSONSchema, sourceURI: string, refSegment: string | undefined): void => {
+		const merge = (target: JSONSchema, section: any): void => {
+			for (const key in section) {
+				if (section.hasOwnProperty(key) && !target.hasOwnProperty(key)) {
+					(<any>target)[key] = section[key];
+				}
+			}
+		};
+
+		const mergeByJsonPointer = (target: JSONSchema, sourceRoot: JSONSchema, sourceURI: string, refSegment: string | undefined): void => {
 			const path = refSegment ? decodeURIComponent(refSegment) : undefined;
 			const section = findSection(sourceRoot, path);
 			if (section) {
-				for (const key in section) {
-					if (section.hasOwnProperty(key) && !target.hasOwnProperty(key)) {
-						(<any>target)[key] = section[key];
-					}
-				}
+				merge(target, section);
 			} else {
 				resolveErrors.push(localize('json.schema.invalidref', '$ref \'{0}\' in \'{1}\' can not be resolved.', path, sourceURI));
 			}
 		};
 
-		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
+		const isSubSchemaRef = (refSegment?: string): boolean => {
+			// Check if the first character is not '/' to determine whether it's a sub schema reference or a JSON Pointer
+			return !!refSegment && refSegment.charAt(0) !== '/';
+		};
+
+		const reconstructRefURI = (uri: string, fragment?: string, separator: string = '#'): string => {
+			return normalizeId(`${uri}${separator}${fragment}`);
+		};
+
+		// To find which $refs point to which $ids we keep two maps:
+		// pendingSubSchemas '$id' we expect to encounter (if they exist)
+		// handle.anchors for the ones we have encountered
+		const pendingSubSchemas: Map<string, JSONSchema[]> = new Map();
+
+		const tryMergeSubSchema = (target: JSONSchema, id: string, handle: SchemaHandle): boolean => {
+			// Get the full URI for the current schema to avoid matching schema1#hello and schema2#hello to the same
+			// reference by accident
+			const fullId = reconstructRefURI(handle.uri, id);
+			const resolved = handle.anchors.get(fullId);
+			if (resolved) {
+				merge(target, resolved);
+				return true; // return success
+			}
+
+			// This subschema has not been resolved yet
+			// Remember the target to merge later once resolved
+			let pending = pendingSubSchemas.get(fullId);
+			if (!pending) {
+				pending = [];
+				pendingSubSchemas.set(fullId, pending);
+			}
+			pending.push(target);
+			return false; // return failure - merge didn't occur
+		};
+
+		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle): Thenable<any> => {
 			if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/\/.*/.test(uri)) {
-				uri = contextService.resolveRelativePath(uri, parentSchemaURL);
+				uri = contextService.resolveRelativePath(uri, parentHandle.uri);
 			}
 			uri = normalizeId(uri);
 			const referencedHandle = this.getOrAddSchemaHandle(uri);
 			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
-				parentSchemaDependencies.add(uri);
+				parentHandle.dependencies.add(uri);
 				if (unresolvedSchema.errors.length) {
 					const loc = refSegment ? uri + '#' + refSegment : uri;
 					resolveErrors.push(localize('json.schema.problemloadingref', 'Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0]));
 				}
-				merge(node, unresolvedSchema.schema, uri, refSegment);
-				return resolveRefs(node, unresolvedSchema.schema, uri, referencedHandle.dependencies);
+
+				// A placeholder promise that might execute later a ref resolution for the newly resolved schema
+				let externalLinkPromise: Thenable<any> = Promise.resolve(true);
+				if (refSegment === undefined || !isSubSchemaRef(refSegment)) {
+					// This is not a sub schema, merge the regular way
+					mergeByJsonPointer(node, unresolvedSchema.schema, uri, refSegment);
+				} else {
+					// This is a reference to a subschema
+					if (!tryMergeSubSchema(node, refSegment, referencedHandle)) {
+						// We weren't able to merge currently so we'll try to resolve this schema first to obtain subschemas
+						// that could be missed
+						// to improve: it would be enough to find the nodes, no need to resolve the full schema
+						externalLinkPromise = resolveRefs(unresolvedSchema.schema, unresolvedSchema.schema, referencedHandle);
+					}
+				}
+				return externalLinkPromise.then(() => resolveRefs(node, unresolvedSchema.schema, referencedHandle));
 			});
 		};
 
-		const resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
+		const resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentHandle: SchemaHandle): Thenable<any> => {
 			if (!node || typeof node !== 'object') {
 				return Promise.resolve(null);
 			}
@@ -517,11 +572,18 @@ export class JSONSchemaService implements IJSONSchemaService {
 					const segments = ref.split('#', 2);
 					delete next.$ref;
 					if (segments[0].length > 0) {
-						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL, parentSchemaDependencies));
+						// This is a reference to an external schema
+						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentHandle));
 						return;
 					} else {
+						// This is a reference inside the current schema
 						if (!seenRefs.has(ref)) {
-							merge(next, parentSchema, parentSchemaURL, segments[1]); // can set next.$ref again, use seenRefs to avoid circle
+							const id = segments[1];
+							if (id !== undefined && isSubSchemaRef(id)) { // A $ref to a sub-schema with an $id (i.e #hello)
+								tryMergeSubSchema(next, id, handle);
+							} else { // A $ref to a JSON Pointer (i.e #/definitions/foo)
+								mergeByJsonPointer(next, parentSchema, parentHandle.uri, id); // can set next.$ref again, use seenRefs to avoid circle
+							}
 							seenRefs.add(ref);
 						}
 					}
@@ -532,18 +594,54 @@ export class JSONSchemaService implements IJSONSchemaService {
 				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, <JSONSchema[]>next.items);
 			};
 
+			const handleId = (next: JSONSchema) => {
+				// TODO figure out should loops be preventse
+				const id = next.$id || next.id;
+				if (typeof id === 'string' && id.charAt(0) === '#') {
+					delete next.$id;
+					delete next.id;
+					// Use a blank separator, as the $id already has the '#'
+					const fullId = reconstructRefURI(parentHandle.uri, id, '');
+
+					const resolved = parentHandle.anchors.get(fullId);
+					if (!resolved) {
+						// it's resolved now
+						parentHandle.anchors.set(fullId, next);
+					} else if (resolved !== next) {
+						// Duplicate may occur in recursive $refs, but as long as they are the same object
+						// it's ok, otherwise report and error
+						resolveErrors.push(localize('json.schema.duplicateid', 'Duplicate id declaration: \'{0}\'', id));
+					}
+
+					// Resolve all pending requests and cleanup the queue list
+					const pending = pendingSubSchemas.get(fullId);
+					if (pending) {
+						for (const target of pending) {
+							merge(target, next);
+						}
+						pendingSubSchemas.delete(fullId);
+					}
+				}
+			};
+
 			while (toWalk.length) {
 				const next = toWalk.pop()!;
 				if (seen.has(next)) {
 					continue;
 				}
 				seen.add(next);
+				handleId(next);
 				handleRef(next);
 			}
 			return this.promise.all(openPromises);
 		};
 
-		return resolveRefs(schema, schema, schemaURL, dependencies).then(_ => new ResolvedSchema(schema, resolveErrors));
+		return resolveRefs(schema, schema, handle).then(_ => {
+			for (const unresolvedSubschemaId in pendingSubSchemas) {
+				resolveErrors.push(localize('json.schema.idnotfound', 'Subschema with id \'{0}\' was not found', unresolvedSubschemaId));
+			}
+			return new ResolvedSchema(schema, resolveErrors);
+		});
 	}
 	private getSchemaFromProperty(resource: string, document: Parser.JSONDocument): string | undefined {
 		if (document.root?.type === 'object') {
@@ -618,7 +716,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 	public getMatchingSchemas(document: TextDocument, jsonDocument: Parser.JSONDocument, schema?: JSONSchema): Thenable<MatchingSchema[]> {
 		if (schema) {
 			const id = schema.id || ('schemaservice://untitled/matchingSchemas/' + idCounter++);
-			return this.resolveSchemaContent(new UnresolvedSchema(schema), id, new Set()).then(resolvedSchema => {
+			const handle = this.addSchemaHandle(id, schema);
+			return handle.getResolvedSchema().then(resolvedSchema => {
 				return jsonDocument.getMatchingSchemas(resolvedSchema.schema).filter(s => !s.inverted);
 			});
 		}
