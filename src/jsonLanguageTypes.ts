@@ -15,7 +15,7 @@ import {
 	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString, FormattingOptions as LSPFormattingOptions, DefinitionLink,
 	CodeActionContext, Command, CodeAction,
 	DocumentHighlight, DocumentLink, WorkspaceEdit,
-	TextEdit, CodeActionKind, 
+	TextEdit, CodeActionKind,
 	TextDocumentEdit, VersionedTextDocumentIdentifier, DocumentHighlightKind
 } from 'vscode-languageserver-types';
 
@@ -33,7 +33,7 @@ export {
 	SymbolInformation, SymbolKind, DocumentSymbol, Location, Hover, MarkedString,
 	CodeActionContext, Command, CodeAction,
 	DocumentHighlight, DocumentLink, WorkspaceEdit,
-	TextEdit, CodeActionKind, 
+	TextEdit, CodeActionKind,
 	TextDocumentEdit, VersionedTextDocumentIdentifier, DocumentHighlightKind
 };
 
@@ -112,6 +112,10 @@ export interface MatchingSchema {
 	schema: JSONSchema;
 }
 
+export interface JSONLanguageStatus {
+	schemas: string[];
+}
+
 export interface LanguageSettings {
 	/**
 	 * If set, the validator will return syntax and semantic errors.
@@ -158,12 +162,12 @@ export interface SchemaConfiguration {
 	 * The URI of the schema, which is also the identifier of the schema.
 	 */
 	uri: string;
-    /**
-     * A list of glob patterns that describe for which file URIs the JSON schema will be used.
-     * '*' and '**' wildcards are supported. Exclusion patterns start with '!'.
-     * For example '*.schema.json', 'package.json', '!foo*.schema.json', 'foo/**\/BADRESP.json'.
-     * A match succeeds when there is at least one pattern matching and last matching pattern does not start with '!'.
-     */
+	/**
+	 * A list of glob patterns that describe for which file URIs the JSON schema will be used.
+	 * '*' and '**' wildcards are supported. Exclusion patterns start with '!'.
+	 * For example '*.schema.json', 'package.json', '!foo*.schema.json', 'foo/**\/BADRESP.json'.
+	 * A match succeeds when there is at least one pattern matching and last matching pattern does not start with '!'.
+	 */
 	fileMatch?: string[];
 	/**
 	 * The schema for the given URI.

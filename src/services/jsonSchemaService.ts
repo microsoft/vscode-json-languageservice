@@ -130,7 +130,6 @@ class SchemaHandle implements ISchemaHandle {
 	public readonly uri: string;
 	public readonly dependencies: SchemaDependencies;
 	public readonly anchors: Map<string, JSONSchema>;
-
 	private resolvedSchema: Thenable<ResolvedSchema> | undefined;
 	private unresolvedSchema: Thenable<UnresolvedSchema> | undefined;
 	private readonly service: JSONSchemaService;
@@ -161,11 +160,13 @@ class SchemaHandle implements ISchemaHandle {
 		return this.resolvedSchema;
 	}
 
-	public clearSchema() {
+	public clearSchema(): boolean {
+		const hasChanges = !!this.unresolvedSchema;
 		this.resolvedSchema = undefined;
 		this.unresolvedSchema = undefined;
 		this.dependencies.clear();
 		this.anchors.clear();
+		return hasChanges;
 	}
 }
 
@@ -293,9 +294,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 					if (handle.uri !== curr) {
 						toWalk.push(handle.uri);
 					}
-					handle.clearSchema();
+					if (handle.clearSchema()) {
+						hasChanges = true;
+					}
 					all[i] = undefined;
-					hasChanges = true;
 				}
 			}
 		}
@@ -415,6 +417,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 				return this.promise.resolve(new ResolvedSchema({}, [localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.")]));
 			} else if (id === 'https://json-schema.org/draft/2019-09/schema') {
 				resolveErrors.push(localize('json.schema.draft201909.notsupported', "Draft 2019-09 schemas are not yet fully supported."));
+			} else if (id === 'https://json-schema.org/draft/2020-12/schema') {
+				resolveErrors.push(localize('json.schema.draft202012.notsupported', "Draft 2020-12 schemas are not yet fully supported."));
 			}
 		}
 
@@ -639,31 +643,22 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return new ResolvedSchema(schema, resolveErrors);
 		});
 	}
-
-	public getSchemaForResource(resource: string, document?: Parser.JSONDocument): Thenable<ResolvedSchema | undefined> {
-
-		// first use $schema if present
-		if (document && document.root && document.root.type === 'object') {
-			const schemaProperties = document.root.properties.filter(p => (p.keyNode.value === '$schema') && p.valueNode && p.valueNode.type === 'string');
-			if (schemaProperties.length > 0) {
-				const valueNode = schemaProperties[0].valueNode;
-				if (valueNode && valueNode.type === 'string') {
-					let schemeId = <string>Parser.getNodeValue(valueNode);
-					if (schemeId && Strings.startsWith(schemeId, '.') && this.contextService) {
-						schemeId = this.contextService.resolveRelativePath(schemeId, resource);
+	private getSchemaFromProperty(resource: string, document: Parser.JSONDocument): string | undefined {
+		if (document.root?.type === 'object') {
+			for (const p of document.root.properties) {
+				if (p.keyNode.value === '$schema' && p.valueNode?.type === 'string') {
+					let schemaId = p.valueNode.value;
+					if (this.contextService && !/^\w[\w\d+.-]*:/.test(schemaId)) { // has scheme
+						schemaId = this.contextService.resolveRelativePath(schemaId, resource);
 					}
-					if (schemeId) {
-						const id = normalizeId(schemeId);
-						return this.getOrAddSchemaHandle(id).getResolvedSchema();
-					}
+					return schemaId;
 				}
 			}
 		}
+		return undefined;
+	}
 
-		if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
-			return this.cachedSchemaForResource.resolvedSchema;
-		}
-
+	private getAssociatedSchemas(resource: string): string[] {
 		const seen: { [schemaId: string]: boolean } = Object.create(null);
 		const schemas: string[] = [];
 		const normalizedResource = normalizeResourceForMatching(resource);
@@ -677,6 +672,30 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 			}
 		}
+		return schemas;
+	}
+
+	public getSchemaURIsForResource(resource: string, document?: Parser.JSONDocument): string[] {
+		let schemeId = document && this.getSchemaFromProperty(resource, document);
+		if (schemeId) {
+			return [schemeId];
+		}
+		return this.getAssociatedSchemas(resource);
+	}
+
+	public getSchemaForResource(resource: string, document?: Parser.JSONDocument): Thenable<ResolvedSchema | undefined> {
+		if (document) {
+			// first use $schema if present
+			let schemeId = this.getSchemaFromProperty(resource, document);
+			if (schemeId) {
+				const id = normalizeId(schemeId);
+				return this.getOrAddSchemaHandle(id).getResolvedSchema();
+			}
+		}
+		if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
+			return this.cachedSchemaForResource.resolvedSchema;
+		}
+		const schemas = this.getAssociatedSchemas(resource);
 		const resolvedSchema = schemas.length > 0 ? this.createCombinedSchema(resource, schemas).getResolvedSchema() : this.promise.resolve(undefined);
 		this.cachedSchemaForResource = { resource, resolvedSchema };
 		return resolvedSchema;

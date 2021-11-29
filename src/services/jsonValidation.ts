@@ -6,7 +6,7 @@
 import { JSONSchemaService, ResolvedSchema, UnresolvedSchema } from './jsonSchemaService';
 import { JSONDocument } from '../parser/jsonParser';
 
-import { TextDocument, ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range } from '../jsonLanguageTypes';
+import { TextDocument, ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range, JSONLanguageStatus } from '../jsonLanguageTypes';
 import * as nls from 'vscode-nls';
 import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
 import { isBoolean } from '../utils/objects';
@@ -111,6 +111,10 @@ export class JSONValidation {
 		return this.jsonSchemaService.getSchemaForResource(textDocument.uri, jsonDocument).then(schema => {
 			return getDiagnostics(schema);
 		});
+	}
+
+	public getLanguageStatus(textDocument: TextDocument, jsonDocument: JSONDocument): JSONLanguageStatus {
+		return { schemas: this.jsonSchemaService.getSchemaURIsForResource(textDocument.uri, jsonDocument) };
 	}
 }
 
