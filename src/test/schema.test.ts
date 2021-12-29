@@ -268,18 +268,16 @@ suite('JSON Schema', () => {
 		assert.deepStrictEqual(fs?.schema.properties?.['p3'], {
 			type: 'string'
 		});
-
-
 	});
 
 	test('Resolving $refs to local $ids', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
-		
+
 		service.setSchemaContributions({
 			schemas: {
 				"https://myschemastore/main/schema1.json": {
 					id: 'https://myschemastore/main/schema1.json',
-					definitions:{
+					definitions: {
 						hello: {
 							id: '#hello',
 							type: 'string',
@@ -304,17 +302,15 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.p1, {
-				type: 'string',
-				const: 'hello'
-			});
-			assert.deepEqual(fs?.schema.properties?.p2, {
-				type: 'string',
-				const: 'world'
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.p1, {
+			type: 'string',
+			const: 'hello'
 		});
-
+		assert.deepStrictEqual(fs?.schema.properties?.p2, {
+			type: 'string',
+			const: 'world'
+		});
 	});
 
 	test('Resolving $refs to external $ids', async function () {
@@ -349,22 +345,19 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['p1'], {
-				type: 'string',
-				enum: ["object"]
-			});
-			assert.deepEqual(fs?.schema.properties?.['p2'], {
-				type: 'string',
-				enum: ["object"]
-			});
-			assert.deepEqual(fs?.schema.properties?.['p3'], {
-				type: 'string',
-				enum: ["object"]
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
+			type: 'string',
+			enum: ["object"]
 		});
-
-
+		assert.deepStrictEqual(fs?.schema.properties?.['p2'], {
+			type: 'string',
+			enum: ["object"]
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.['p3'], {
+			type: 'string',
+			enum: ["object"]
+		});
 	});
 
 	test('Resolving $refs to external $ids with same as local', async function () {
@@ -400,14 +393,11 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['p1'], {
-				type: 'string',
-				const: 'correct'
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
+			type: 'string',
+			const: 'correct'
 		});
-
-
 	});
 
 
@@ -545,10 +535,10 @@ suite('JSON Schema', () => {
 	});
 
 
-	test('Resolving $refs 5', async function() {
+	test('Resolving $refs 5', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({
-			schemas:{
+			schemas: {
 				"https://myschemastore/main/schema1.json": {
 					"type": "object",
 					"properties": {
@@ -580,20 +570,19 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['p1'], {
-				type: 'string',
-				const: 'hello'
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
+			type: 'string',
+			const: 'hello'
+		});
 
-			assert.deepEqual(fs?.schema.properties?.['p2'], {
-				"type": "string",
-				"const": "world"
-			});
+		assert.deepStrictEqual(fs?.schema.properties?.['p2'], {
+			"type": "string",
+			"const": "world"
 		});
 	});
 
-	test('Recursive $refs to $ids', async function() {
+	test('Recursive $refs to $ids', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({
 			schemas: {
@@ -625,22 +614,21 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['foo'], {
-				"type": "object",
-				"properties": {
-					"bar": {
-						"type": "string",
-						"const": "hello"
-					},
-					"foo": {
-						"additionalProperties": false,
-						properties: fs?.schema.definitions?.['foo'].properties,
-						type:"object"
-					}
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['foo'], {
+			"type": "object",
+			"properties": {
+				"bar": {
+					"type": "string",
+					"const": "hello"
 				},
-				"additionalProperties": false
-			});
+				"foo": {
+					"additionalProperties": false,
+					properties: fs?.schema.definitions?.['foo'].properties,
+					type: "object"
+				}
+			},
+			"additionalProperties": false
 		});
 	});
 
