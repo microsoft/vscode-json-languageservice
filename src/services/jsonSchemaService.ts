@@ -580,7 +580,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 						if (!seenRefs.has(ref)) {
 							const id = segments[1];
 							if (id !== undefined && isSubSchemaRef(id)) { // A $ref to a sub-schema with an $id (i.e #hello)
-								tryMergeSubSchema(next, id, handle);
+								tryMergeSubSchema(next, id, parentHandle);
 							} else { // A $ref to a JSON Pointer (i.e #/definitions/foo)
 								mergeByJsonPointer(next, parentSchema, parentHandle.uri, id); // can set next.$ref again, use seenRefs to avoid circle
 							}

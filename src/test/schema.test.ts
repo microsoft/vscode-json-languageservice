@@ -450,6 +450,43 @@ suite('JSON Schema', () => {
 		});
 	});
 
+	test('Resolving external $ref to ref', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/main/schema1.json',
+					type: 'object',
+					properties: {
+						p1: {
+							'$ref': 'https://myschemastore/main/schema2.json#red'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"_red": {
+							$id: '#red',
+							$ref: '#yellow'
+						},
+						"_yellow": {
+							$id: '#yellow',
+							type: 'number',
+							const: 5
+						}
+					}
+				}
+			}
+		});
+
+		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p1, {
+			type: 'number',
+			const: 5
+		});
+	});
+
 	test('Resolving external $ref recursive', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({
