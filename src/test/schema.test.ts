@@ -88,7 +88,6 @@ suite('JSON Schema', () => {
 
 		const fs = await service.getResolvedSchema('https://myschemastore/main');
 		assert.deepStrictEqual(fs?.schema.properties?.['child'], {
-			id: 'https://myschemastore/child',
 			type: 'bool',
 			description: 'Test description'
 		});
@@ -407,13 +406,6 @@ suite('JSON Schema', () => {
 			schemas: {
 				"https://myschemastore/main/schema1.json": {
 					id: 'https://myschemastore/main/schema1.json',
-					definitions: {
-						"world": {
-							$id: '#world',
-							type: 'string',
-							const: 'world'
-						}
-					},
 					type: 'object',
 					properties: {
 						p1: {
@@ -434,9 +426,10 @@ suite('JSON Schema', () => {
 				"https://myschemastore/main/schema2.json": {
 					id: 'https://myschemastore/main/schema2.json',
 					definitions: {
-						"blue": {
+						"_blue": {
 							$id: '#blue',
-							$ref: 'schema3.json#world'
+							$ref: 'schema3.json#world',
+							description: '_blue',
 						}
 					}
 				}
@@ -446,7 +439,51 @@ suite('JSON Schema', () => {
 		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
 		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p1, {
 			type: 'string',
-			const: 'world'
+			const: 'world',
+			description: '_blue'
+		});
+	});
+
+	test('Resolving external $ref referenced multiple times', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/main/schema1.json',
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: 'schema2.json#blue'
+						},
+						p2: {
+							'$ref': 'https://myschemastore/main/schema2.json#blue'
+						},
+						p3: {
+							'$ref': 'https://myschemastore/main/schema2.json#/definitions/_blue'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"_blue": {
+							$id: '#blue',
+							const: 'blue'
+						}
+					}
+				}
+			}
+		});
+
+		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p1, {
+			const: 'blue'
+		});
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p2, {
+			const: 'blue'
+		});
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p3, {
+			const: 'blue'
 		});
 	});
 
