@@ -455,7 +455,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const mergeRef = (target: JSONSchema, sourceRoot: JSONSchema, sourceHandle: SchemaHandle, refSegment: string | undefined): void => {
 			let section;
-			if (refSegment === undefined) {
+			if (refSegment === undefined || refSegment.length === 0) {
 				section = sourceRoot;
 			} else if (refSegment.charAt(0) === '/') {
 				// A $ref to a JSON Pointer (i.e #/definitions/foo)
