@@ -683,7 +683,7 @@ let idCounter = 0;
 function normalizeId(id: string): string {
 	// remove trailing '#', normalize drive capitalization
 	try {
-		return URI.parse(id).toString();
+		return URI.parse(id).toString(true);
 	} catch (e) {
 		return id;
 	}
@@ -693,7 +693,7 @@ function normalizeId(id: string): string {
 function normalizeResourceForMatching(resource: string): string {
 	// remove queries and fragments, normalize drive capitalization
 	try {
-		return URI.parse(resource).with({ fragment: null, query: null }).toString();
+		return URI.parse(resource).with({ fragment: null, query: null }).toString(true);
 	} catch (e) {
 		return resource;
 	}
