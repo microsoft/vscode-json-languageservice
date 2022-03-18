@@ -17,10 +17,10 @@
   "devDependencies": {
     "@types/mocha": "^9.1.0",
     "@types/node": "^10.12.21",
-    "@typescript-eslint/eslint-plugin": "^5.10.1",
-    "@typescript-eslint/parser": "^5.10.1",
-    "eslint": "^8.7.0",
-    "mocha": "^9.2.0",
+    "@typescript-eslint/eslint-plugin": "^5.15.0",
+    "@typescript-eslint/parser": "^5.15.0",
+    "eslint": "^8.11.0",
+    "mocha": "^9.2.2",
     "rimraf": "^3.0.2",
     "typescript": "^4.5.5"
   },
