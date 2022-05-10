@@ -1429,6 +1429,207 @@ suite('JSON Parser', () => {
 		}
 	});
 
+	test('unevaluatedProperties', function () {
+
+		let schema: JSONSchema = {
+			properties: {
+				prop1: {
+					type: 'number'
+				}
+			},
+			unevaluatedProperties: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 42}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 42, "prop2": true}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			properties: {
+				prop1: {
+					type: 'number'
+				}
+			},
+			unevaluatedProperties: {
+				type: 'number'
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": true, "prop2": true}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 2);
+		}
+		schema = {
+			allOf: [
+				{
+					properties: {
+						prop1: {
+							type: 'number'
+						}
+					},
+				},
+				{
+					properties: {
+						prop2: {
+							type: 'number'
+						}
+					},
+				},
+			],
+			unevaluatedProperties: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 23, "prop2": 42}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop3": true}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			anyOf: [
+				{
+					properties: {
+						prop1: {
+							type: 'number'
+						}
+					},
+					patternProperties: {
+						['^x']: {
+							type: 'boolean'
+						}
+					}
+				},
+				{
+					properties: {
+						prop2: {
+							type: 'number'
+						}
+					},
+				},
+			],
+			unevaluatedProperties: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 12, "prop2": 23, "x": true, "y": 23}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			oneOf: [
+				{
+					properties: {
+						prop1: {
+							type: 'number'
+						}
+					},
+					additionalProperties: {
+						type: 'boolean'
+					}
+				},
+				{
+					properties: {
+						prop2: {
+							type: 'number'
+						}
+					},
+					required: ['prop2']
+				},
+			],
+			unevaluatedProperties: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 12, "prop3": true }');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		schema = {
+			"title": "Vehicle",
+			"type": "object",
+			"oneOf": [
+				{
+					"title": "Car",
+					"required": ["wheels", "headlights"],
+					"properties": {
+						"wheels": {},
+						"headlights": {}
+					}
+				},
+				{
+					"title": "Boat",
+					"required": ["pontoons"],
+					"properties": {
+						"pontoons": {}
+					}
+				},
+				{
+					"title": "Plane",
+					"required": ["wings"],
+					"properties": {
+						"wings": {}
+					}
+				}
+			],
+			"unevaluatedProperties": false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"pontoons": 1}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"pontoons": 1, "wheels" 2}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			if: {
+				properties: {
+					prop1: {
+						type: 'number'
+					}
+				},
+			},
+			then: {
+				required: ['prop2'],
+				properties: {
+					prop2: {
+						type: 'boolean'
+					}
+				},
+			},
+			else: {
+				required: ['prop3'],
+				properties: {
+					prop3: {
+						type: 'boolean'
+					}
+				},
+			},
+			unevaluatedProperties: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 12, "prop2": true }');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+	});
+
 	test('enum', function () {
 		let schema: JSONSchema = {
 			properties: {

@@ -53,6 +53,9 @@ export interface JSONSchema {
 	then?: JSONSchemaRef;
 	else?: JSONSchemaRef;
 
+	// schema 2019-09
+	unevaluatedProperties?: boolean | JSONSchemaRef;
+
 	// VSCode extensions
 
 	defaultSnippets?: { label?: string; description?: string; markdownDescription?: string; body?: any; bodyText?: string; }[]; // VSCode extension: body: a object that will be converted to a JSON string. bodyText: text with \t and \n
