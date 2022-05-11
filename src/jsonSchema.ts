@@ -52,6 +52,16 @@ export interface JSONSchema {
 	if?: JSONSchemaRef;
 	then?: JSONSchemaRef;
 	else?: JSONSchemaRef;
+	readOnly?: boolean;
+	writeOnly?: boolean;
+	contentEncoding?: string;
+	contentMediaType?: string;
+
+	// schema 2019-09
+	$anchor?: string; /* not yet supported */
+	$defs?: { [name: string]: JSONSchema }; /* not yet supported */
+	$recursiveAnchor?: string; /* not yet supported */
+	$recursiveRef?: string; /* not yet supported */
 
 	// VSCode extensions
 
