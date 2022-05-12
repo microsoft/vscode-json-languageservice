@@ -714,58 +714,91 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 	}
 	function _validateArrayNode(node: ArrayASTNode): void {
-		if (Array.isArray(schema.items)) {
-			const subSchemas = schema.items;
-			for (let index = 0; index < subSchemas.length; index++) {
-				const subSchemaRef = subSchemas[index];
+		const prefixItemsSchemas = Array.isArray(schema.items) ? schema.items : schema.prefixItems;
+		const additionalItemSchema = schema.items && !Array.isArray(schema.items) ? schema.items : schema.additionalItems;
+		if (prefixItemsSchemas !== undefined) {
+			const max = Math.min(prefixItemsSchemas.length, node.items.length);
+			for (let index = 0; index < max; index++) {
+				const subSchemaRef = prefixItemsSchemas[index];
 				const subSchema = asSchema(subSchemaRef);
 				const itemValidationResult = new ValidationResult();
 				const item = node.items[index];
 				if (item) {
 					validate(item, subSchema, itemValidationResult, matchingSchemas);
 					validationResult.mergePropertyMatch(itemValidationResult);
-				} else if (node.items.length >= subSchemas.length) {
-					validationResult.propertiesValueMatches++;
 				}
+				validationResult.processedProperties.add(String(index));
 			}
-			if (node.items.length > subSchemas.length) {
-				if (typeof schema.additionalItems === 'object') {
-					for (let i = subSchemas.length; i < node.items.length; i++) {
-						const itemValidationResult = new ValidationResult();
-						validate(node.items[i], <any>schema.additionalItems, itemValidationResult, matchingSchemas);
-						validationResult.mergePropertyMatch(itemValidationResult);
+			if (node.items.length > prefixItemsSchemas.length) {
+				if (additionalItemSchema !== undefined) {
+					if (typeof additionalItemSchema === 'object') {
+						for (let i = prefixItemsSchemas.length; i < node.items.length; i++) {
+							const itemValidationResult = new ValidationResult();
+							validate(node.items[i], <any>schema.additionalItems, itemValidationResult, matchingSchemas);
+							validationResult.mergePropertyMatch(itemValidationResult);
+						}
+					} else if (additionalItemSchema === false) {
+						validationResult.problems.push({
+							location: { offset: node.offset, length: node.length },
+							message: localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer.', subSchemas.length)
+						});
 					}
-				} else if (schema.additionalItems === false) {
-					validationResult.problems.push({
-						location: { offset: node.offset, length: node.length },
-						message: localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer.', subSchemas.length)
-					});
+					for (let i = prefixItemsSchemas.length; i < node.items.length; i++) {
+						validationResult.processedProperties.add(String(i));
+						validationResult.propertiesValueMatches++;
+					}
 				}
 			}
-		} else {
-			const itemSchema = asSchema(schema.items);
+		} else if (additionalItemSchema) {
+			const itemSchema = asSchema(additionalItemSchema);
 			if (itemSchema) {
-				for (const item of node.items) {
+				for (let index = 0; index < node.items.length; index++) {
+					const item = node.items[index];
 					const itemValidationResult = new ValidationResult();
 					validate(item, itemSchema, itemValidationResult, matchingSchemas);
 					validationResult.mergePropertyMatch(itemValidationResult);
+					validationResult.processedProperties.add(String(index));
 				}
 			}
 		}
 
 		const containsSchema = asSchema(schema.contains);
 		if (containsSchema) {
-			const doesContain = node.items.some(item => {
+			let doesContain = false;
+			for (let index = 0; index < node.items.length; index++) {
+				const item = node.items[index];
 				const itemValidationResult = new ValidationResult();
 				validate(item, containsSchema, itemValidationResult, NoOpSchemaCollector.instance);
-				return !itemValidationResult.hasProblems();
-			});
-
+				if (!itemValidationResult.hasProblems()) {
+					doesContain = true;
+					validationResult.processedProperties.add(String(index));
+				}
+			}
 			if (!doesContain) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
 					message: schema.errorMessage || localize('requiredItemMissingWarning', 'Array does not contain required item.')
 				});
+			}
+		}
+
+		const unevaluatedItems = schema.unevaluatedItems;
+		if (unevaluatedItems !== undefined) {
+			for (let i = 0; i < node.items.length; i++) {
+				if (!validationResult.processedProperties.has(String(i))) {
+					if (unevaluatedItems === false) {
+						validationResult.problems.push({
+							location: { offset: node.offset, length: node.length },
+							message: localize('unevaluatedItemsWarning', 'Item does not match any validation rule from the array.')
+						});
+					} else {
+						const itemValidationResult = new ValidationResult();
+						validate(node.items[i], <any>schema.additionalItems, itemValidationResult, matchingSchemas);
+						validationResult.mergePropertyMatch(itemValidationResult);
+					}
+				}
+				validationResult.processedProperties.add(String(i));
+				validationResult.propertiesValueMatches++;
 			}
 		}
 

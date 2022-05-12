@@ -1916,6 +1916,87 @@ suite('JSON Parser', () => {
 		}
 	});
 
+	test.only('unevaluatedItems', function () {
+		let schema: JSONSchema = {
+			type: 'array',
+			items: [
+				{
+					type: 'integer'
+				},
+				{
+					type: 'boolean'
+				}
+			],
+			unevaluatedItems: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true, "string", 42]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 2);
+		}
+		schema = {
+			anyOf: [
+				{
+					type: 'array',
+					items: [
+						{
+							type: 'integer'
+						},
+						{
+							type: 'integer'
+						}
+					],
+				},
+				{
+					type: 'array',
+					items: [
+						{
+							type: 'integer'
+						},
+						{
+							type: 'boolean'
+						},
+						{
+							type: 'boolean'
+						}
+					],
+				},
+			],
+			unevaluatedItems: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, 1]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true, true]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true, true, true, "Hello"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 2);
+		}
+		schema = {
+			"type": "array",
+			"prefixItems": [{ "type": "string" }, { "type": "string" }],
+			"contains": { "type": "string", "minLength": 3 },
+			"unevaluatedItems": false
+		  };
+	});
+
 	test('multipleOf', function () {
 		const schema: JSONSchema = {
 			type: 'array',

@@ -55,6 +55,10 @@ export interface JSONSchema {
 
 	// schema 2019-09
 	unevaluatedProperties?: boolean | JSONSchemaRef;
+	unevaluatedItems?: boolean | JSONSchemaRef;
+
+	// schema 2020-12
+	prefixItems?: JSONSchemaRef[];
 
 	// VSCode extensions
 
