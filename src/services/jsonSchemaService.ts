@@ -12,6 +12,7 @@ import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Then
 
 import * as nls from 'vscode-nls';
 import { createRegex } from '../utils/glob';
+import { isObject } from '../utils/objects';
 
 const localize = nls.loadMessageBundle();
 
@@ -545,18 +546,18 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const collectEntries = (...entries: (JSONSchemaRef | undefined)[]) => {
 			for (const entry of entries) {
-				if (typeof entry === 'object') {
+				if (isObject(entry)) {
 					toWalk.push(entry);
 				}
 			}
 		};
 		const collectMapEntries = (...maps: (JSONSchemaMap | undefined)[]) => {
 			for (const map of maps) {
-				if (typeof map === 'object') {
+				if (isObject(map)) {
 					for (const k in map) {
 						const key = k as keyof JSONSchemaMap;
 						const entry = map[key];
-						if (typeof entry === 'object') {
+						if (isObject(entry)) {
 							toWalk.push(entry);
 						}
 					}
@@ -567,7 +568,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			for (const array of arrays) {
 				if (Array.isArray(array)) {
 					for (const entry of array) {
-						if (typeof entry === 'object') {
+						if (isObject(entry)) {
 							toWalk.push(entry);
 						}
 					}
@@ -577,11 +578,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const collectEntryOrArrayEntries = (items: (JSONSchemaRef[] | JSONSchemaRef | undefined)) => {
 			if (Array.isArray(items)) {
 				for (const entry of items) {
-					if (typeof entry === 'object') {
+					if (isObject(entry)) {
 						toWalk.push(entry);
 					}
 				}
-			} else if (typeof items === 'object') {
+			} else if (isObject(items)) {
 				toWalk.push(items);
 			}
 		};
@@ -594,7 +595,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				seen.add(next);
 				handle(next);
 				collectEntries(next.additionalItems, next.additionalProperties, next.not, next.contains, next.propertyNames, next.if, next.then, next.else, next.unevaluatedItems, next.unevaluatedProperties);
-				collectMapEntries(next.definitions, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies);
+				collectMapEntries(next.definitions, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies, next.dependentSchemas);
 				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, next.prefixItems);
 				collectEntryOrArrayEntries(next.items);
 			}

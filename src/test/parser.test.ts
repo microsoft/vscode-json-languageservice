@@ -2168,8 +2168,8 @@ suite('JSON Parser', () => {
 		}
 	});
 
-	test('dependencies with array', function () {
-		const schema: JSONSchema = {
+	test('dependencies with array / dependentRequired', function () {
+		let schema: JSONSchema = {
 			type: 'object',
 			properties: {
 				a: {
@@ -2198,10 +2198,50 @@ suite('JSON Parser', () => {
 			const semanticErrors = jsonDoc.validate(textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
 		}
+		schema = {
+			"type": "object",
+
+			"properties": {
+				"name": { "type": "string" },
+				"credit_card": { "type": "number" },
+				"billing_address": { "type": "string" }
+			},
+
+			"required": ["name"],
+
+			"dependentRequired": {
+				"credit_card": ["billing_address"]
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"credit_card": 5555555555555555,
+				"billing_address": "555 Debtor's Lane"
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"credit_card": 5555555555555555
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"billing_address": "555 Debtor's Lane"
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
 	});
 
-	test('dependencies with schema', function () {
-		const schema: JSONSchema = {
+	test('dependencies with schema / dependentSchemas', function () {
+		let schema: JSONSchema = {
 			type: 'object',
 			properties: {
 				a: {
@@ -2237,6 +2277,50 @@ suite('JSON Parser', () => {
 			const { textDoc, jsonDoc } = toDocument('{"a":true, "b": "string"}');
 			const semanticErrors = jsonDoc.validate(textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			"type": "object",
+
+			"properties": {
+				"name": { "type": "string" },
+				"credit_card": { "type": "number" }
+			},
+
+			"required": ["name"],
+
+			"dependentSchemas": {
+				"credit_card": {
+					"properties": {
+						"billing_address": { "type": "string" }
+					},
+					"required": ["billing_address"]
+				}
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"credit_card": 5555555555555555,
+				"billing_address": "555 Debtor's Lane"
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"credit_card": 5555555555555555
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"billing_address": "555 Debtor's Lane"
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
 		}
 	});
 

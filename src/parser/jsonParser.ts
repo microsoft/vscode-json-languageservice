@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Json from 'jsonc-parser';
-import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
-import { isNumber, equals, isBoolean, isString, isDefined } from '../utils/objects';
+import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
+import { isNumber, equals, isBoolean, isString, isDefined, isObject } from '../utils/objects';
 import { extendedRegExp } from '../utils/strings';
 import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range } from '../jsonLanguageTypes';
 
@@ -1001,30 +1001,30 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			}
 		}
 
+		if (schema.dependentRequired) {
+			for (const key in schema.dependentRequired) {
+				const prop = seenKeys[key];
+				const propertyDeps = schema.dependentRequired[key];
+				if (prop && Array.isArray(propertyDeps)) {
+					_validatePropertyDependencies(key, propertyDeps);
+				}
+			}
+		}
+		if (schema.dependentSchemas) {
+			for (const key in schema.dependentSchemas) {
+				const prop = seenKeys[key];
+				const propertyDeps = schema.dependentSchemas[key];
+				if (prop && isObject(propertyDeps)) {
+					_validatePropertyDependencies(key, propertyDeps);
+				}
+			}
+		}
+
 		if (schema.dependencies) {
-			for (const key of Object.keys(schema.dependencies)) {
+			for (const key in schema.dependencies) {
 				const prop = seenKeys[key];
 				if (prop) {
-					const propertyDep = schema.dependencies[key];
-					if (Array.isArray(propertyDep)) {
-						for (const requiredProp of propertyDep) {
-							if (!seenKeys[requiredProp]) {
-								validationResult.problems.push({
-									location: { offset: node.offset, length: node.length },
-									message: localize('RequiredDependentPropWarning', 'Object is missing property {0} required by property {1}.', requiredProp, key)
-								});
-							} else {
-								validationResult.propertiesValueMatches++;
-							}
-						}
-					} else {
-						const propertySchema = asSchema(propertyDep);
-						if (propertySchema) {
-							const propertyValidationResult = new ValidationResult();
-							validate(node, propertySchema, propertyValidationResult, matchingSchemas);
-							validationResult.mergePropertyMatch(propertyValidationResult);
-						}
-					}
+					_validatePropertyDependencies(key, schema.dependencies[key]);
 				}
 			}
 		}
@@ -1038,8 +1038,29 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				}
 			}
 		}
-	}
 
+		function _validatePropertyDependencies(key: string, propertyDep: string[] | JSONSchemaRef) {
+			if (Array.isArray(propertyDep)) {
+				for (const requiredProp of propertyDep) {
+					if (!seenKeys[requiredProp]) {
+						validationResult.problems.push({
+							location: { offset: node.offset, length: node.length },
+							message: localize('RequiredDependentPropWarning', 'Object is missing property {0} required by property {1}.', requiredProp, key)
+						});
+					} else {
+						validationResult.propertiesValueMatches++;
+					}
+				}
+			} else {
+				const propertySchema = asSchema(propertyDep);
+				if (propertySchema) {
+					const propertyValidationResult = new ValidationResult();
+					validate(node, propertySchema, propertyValidationResult, matchingSchemas);
+					validationResult.mergePropertyMatch(propertyValidationResult);
+				}
+			}
+		}
+	}
 }
 
 
@@ -1216,7 +1237,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		const seen = keysSeen[key.value];
 		if (seen) {
 			_errorAtRange(localize('DuplicateKeyWarning', "Duplicate object key"), ErrorCode.DuplicateKey, node.keyNode.offset, node.keyNode.offset + node.keyNode.length, DiagnosticSeverity.Warning);
-			if (typeof seen === 'object') {
+			if (isObject(seen)) {
 				_errorAtRange(localize('DuplicateKeyWarning', "Duplicate object key"), ErrorCode.DuplicateKey, seen.keyNode.offset, seen.keyNode.offset + seen.keyNode.length, DiagnosticSeverity.Warning);
 			}
 			keysSeen[key.value] = true; // if the same key is duplicate again, avoid duplicate error reporting

@@ -59,6 +59,8 @@ export interface JSONSchema {
 	minContains?: number;
 	maxContains?: number;
 	deprecated?: boolean;
+	dependentRequired?: { [prop: string]: string[] };
+	dependentSchemas?: JSONSchemaMap;
 
 	// schema 2020-12
 	prefixItems?: JSONSchemaRef[];
