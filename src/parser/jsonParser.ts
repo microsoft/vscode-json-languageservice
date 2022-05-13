@@ -714,11 +714,20 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 	}
 	function _validateArrayNode(node: ArrayASTNode): void {
-		const prefixItemsSchemas = Array.isArray(schema.items) ? schema.items : schema.prefixItems;
-		const additionalItemSchema = schema.items && !Array.isArray(schema.items) ? schema.items : schema.additionalItems;
+		let prefixItemsSchemas: JSONSchemaRef[] | undefined;
+		let additionalItemSchema: JSONSchemaRef | undefined;
+		let isSchema_2020_12 = Array.isArray(schema.prefixItems) || (schema.items !== undefined && !Array.isArray(schema.items) && schema.additionalItems === undefined);
+		if (isSchema_2020_12) {
+			prefixItemsSchemas = schema.prefixItems;
+			additionalItemSchema = !Array.isArray(schema.items) ? schema.items : undefined;
+		} else {
+			prefixItemsSchemas = Array.isArray(schema.items) ? schema.items : undefined;
+			additionalItemSchema = !Array.isArray(schema.items) ? schema.items : schema.additionalItems;
+		}
+		let index = 0;
 		if (prefixItemsSchemas !== undefined) {
 			const max = Math.min(prefixItemsSchemas.length, node.items.length);
-			for (let index = 0; index < max; index++) {
+			for (; index < max; index++) {
 				const subSchemaRef = prefixItemsSchemas[index];
 				const subSchema = asSchema(subSchemaRef);
 				const itemValidationResult = new ValidationResult();
@@ -729,33 +738,23 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				}
 				validationResult.processedProperties.add(String(index));
 			}
-			if (node.items.length > prefixItemsSchemas.length) {
-				if (additionalItemSchema !== undefined) {
-					if (typeof additionalItemSchema === 'object') {
-						for (let i = prefixItemsSchemas.length; i < node.items.length; i++) {
-							const itemValidationResult = new ValidationResult();
-							validate(node.items[i], <any>schema.additionalItems, itemValidationResult, matchingSchemas);
-							validationResult.mergePropertyMatch(itemValidationResult);
-						}
-					} else if (additionalItemSchema === false) {
-						validationResult.problems.push({
-							location: { offset: node.offset, length: node.length },
-							message: localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer.', subSchemas.length)
-						});
-					}
-					for (let i = prefixItemsSchemas.length; i < node.items.length; i++) {
-						validationResult.processedProperties.add(String(i));
-						validationResult.propertiesValueMatches++;
-					}
+		}
+		if (additionalItemSchema !== undefined && index < node.items.length) {
+			if (typeof additionalItemSchema === 'boolean') {
+				if (additionalItemSchema === false) {
+					validationResult.problems.push({
+						location: { offset: node.offset, length: node.length },
+						message: localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer.', index)
+					});
 				}
-			}
-		} else if (additionalItemSchema) {
-			const itemSchema = asSchema(additionalItemSchema);
-			if (itemSchema) {
-				for (let index = 0; index < node.items.length; index++) {
-					const item = node.items[index];
+				for (; index < node.items.length; index++) {
+					validationResult.processedProperties.add(String(index));
+					validationResult.propertiesValueMatches++;
+				}
+			} else {
+				for (; index < node.items.length; index++) {
 					const itemValidationResult = new ValidationResult();
-					validate(item, itemSchema, itemValidationResult, matchingSchemas);
+					validate(node.items[index], additionalItemSchema, itemValidationResult, matchingSchemas);
 					validationResult.mergePropertyMatch(itemValidationResult);
 					validationResult.processedProperties.add(String(index));
 				}
@@ -771,7 +770,11 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				validate(item, containsSchema, itemValidationResult, NoOpSchemaCollector.instance);
 				if (!itemValidationResult.hasProblems()) {
 					doesContain = true;
-					validationResult.processedProperties.add(String(index));
+					if (isSchema_2020_12) {
+						validationResult.processedProperties.add(String(index));
+					} else {
+						break;
+					}
 				}
 			}
 			if (!doesContain) {

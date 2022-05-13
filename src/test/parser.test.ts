@@ -1816,8 +1816,8 @@ suite('JSON Parser', () => {
 		}
 	});
 
-	test('items as array', function () {
-		const schema: JSONSchema = {
+	test('items as array / prefixItems', function () {
+		let schema: JSONSchema = {
 			type: 'array',
 			items: [
 				{
@@ -1848,6 +1848,32 @@ suite('JSON Parser', () => {
 
 			const semanticErrors = jsonDoc.validate(textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		schema = {
+			type: 'array',
+			prefixItems: [
+				{
+					type: 'integer'
+				},
+				{
+					type: 'boolean'
+				}
+			],
+			items: {
+				type: 'string'
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true, "string", "another"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true, "string", "another", 1]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
 		}
 	});
 
@@ -1916,7 +1942,8 @@ suite('JSON Parser', () => {
 		}
 	});
 
-	test.only('unevaluatedItems', function () {
+
+	test('unevaluatedItems', function () {
 		let schema: JSONSchema = {
 			type: 'array',
 			items: [
@@ -1994,7 +2021,43 @@ suite('JSON Parser', () => {
 			"prefixItems": [{ "type": "string" }, { "type": "string" }],
 			"contains": { "type": "string", "minLength": 3 },
 			"unevaluatedItems": false
-		  };
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('["Hello", "Hello", "1"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('["Hello", "Hello", "Hello"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('["Hello", "Hello", "1", "Hello"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			"type": "array",
+			"items": [{ "type": "string" }, { "type": "string" }],
+			"contains": { "type": "string", "minLength": 3 },
+			"unevaluatedItems": false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('["Hello", "Hello", "1"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('["Hello", "Hello", "Hello"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
 	});
 
 	test('multipleOf', function () {
