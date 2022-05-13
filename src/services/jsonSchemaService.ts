@@ -12,6 +12,7 @@ import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Then
 
 import * as nls from 'vscode-nls';
 import { createRegex } from '../utils/glob';
+import { isObject, isString } from '../utils/objects';
 
 const localize = nls.loadMessageBundle();
 
@@ -519,12 +520,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const result = new Map<string, JSONSchema>();
 			this.traverseNodes(root, next => {
 				const id = next.$id || next.id;
-				if (typeof id === 'string' && id.charAt(0) === '#') {
-					// delete next.$id;
-					// delete next.id;
-					const anchor = id.substring(1);
+				const anchor = isString(id) && id.charAt(0) === '#' ? id.substring(1) : next.$anchor;
+				if (anchor) {
 					if (result.has(anchor)) {
-						resolveErrors.push(localize('json.schema.duplicateid', 'Duplicate id declaration: \'{0}\'', id));
+						resolveErrors.push(localize('json.schema.duplicateid', 'Duplicate anchor declaration: \'{0}\'', anchor));
 					} else {
 						result.set(anchor, next);
 					}
@@ -545,18 +544,18 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const collectEntries = (...entries: (JSONSchemaRef | undefined)[]) => {
 			for (const entry of entries) {
-				if (typeof entry === 'object') {
+				if (isObject(entry)) {
 					toWalk.push(entry);
 				}
 			}
 		};
 		const collectMapEntries = (...maps: (JSONSchemaMap | undefined)[]) => {
 			for (const map of maps) {
-				if (typeof map === 'object') {
+				if (isObject(map)) {
 					for (const k in map) {
 						const key = k as keyof JSONSchemaMap;
 						const entry = map[key];
-						if (typeof entry === 'object') {
+						if (isObject(entry)) {
 							toWalk.push(entry);
 						}
 					}
@@ -567,11 +566,22 @@ export class JSONSchemaService implements IJSONSchemaService {
 			for (const array of arrays) {
 				if (Array.isArray(array)) {
 					for (const entry of array) {
-						if (typeof entry === 'object') {
+						if (isObject(entry)) {
 							toWalk.push(entry);
 						}
 					}
 				}
+			}
+		};
+		const collectEntryOrArrayEntries = (items: (JSONSchemaRef[] | JSONSchemaRef | undefined)) => {
+			if (Array.isArray(items)) {
+				for (const entry of items) {
+					if (isObject(entry)) {
+						toWalk.push(entry);
+					}
+				}
+			} else if (isObject(items)) {
+				toWalk.push(items);
 			}
 		};
 
@@ -582,9 +592,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 			if (!seen.has(next)) {
 				seen.add(next);
 				handle(next);
-				collectEntries(<JSONSchema>next.items, next.additionalItems, <JSONSchema>next.additionalProperties, next.not, next.contains, next.propertyNames, next.if, next.then, next.else);
-				collectMapEntries(next.definitions, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies);
-				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, <JSONSchema[]>next.items);
+				collectEntries(next.additionalItems, next.additionalProperties, next.not, next.contains, next.propertyNames, next.if, next.then, next.else, next.unevaluatedItems, next.unevaluatedProperties);
+				collectMapEntries(next.definitions, next.$defs, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies, next.dependentSchemas);
+				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, next.prefixItems);
+				collectEntryOrArrayEntries(next.items);
 			}
 			next = toWalk.pop();
 		}

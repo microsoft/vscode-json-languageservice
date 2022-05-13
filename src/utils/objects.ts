@@ -71,3 +71,7 @@ export function isBoolean(val: any): val is boolean {
 export function isString(val: any): val is string {
 	return typeof val === 'string';
 }
+
+export function isObject(val: any): val is object {
+	return typeof val === 'object' && val !== null && !Array.isArray(val);
+}

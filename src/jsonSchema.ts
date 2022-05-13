@@ -15,7 +15,7 @@ export interface JSONSchema {
 	description?: string;
 	properties?: JSONSchemaMap;
 	patternProperties?: JSONSchemaMap;
-	additionalProperties?: boolean | JSONSchemaRef;
+	additionalProperties?: JSONSchemaRef;
 	minProperties?: number;
 	maxProperties?: number;
 	dependencies?: JSONSchemaMap | { [prop: string]: string[] };
@@ -23,7 +23,7 @@ export interface JSONSchema {
 	minItems?: number;
 	maxItems?: number;
 	uniqueItems?: boolean;
-	additionalItems?: boolean | JSONSchemaRef;
+	additionalItems?: JSONSchemaRef;
 	pattern?: string;
 	minLength?: number;
 	maxLength?: number;
@@ -52,6 +52,20 @@ export interface JSONSchema {
 	if?: JSONSchemaRef;
 	then?: JSONSchemaRef;
 	else?: JSONSchemaRef;
+
+	// schema 2019-09
+	unevaluatedProperties?: boolean | JSONSchemaRef;
+	unevaluatedItems?: boolean | JSONSchemaRef;
+	minContains?: number;
+	maxContains?: number;
+	deprecated?: boolean;
+	dependentRequired?: { [prop: string]: string[] };
+	dependentSchemas?: JSONSchemaMap;
+	$defs?: { [name: string]: JSONSchema };
+	$anchor?: string;
+
+	// schema 2020-12
+	prefixItems?: JSONSchemaRef[];
 
 	// VSCode extensions
 

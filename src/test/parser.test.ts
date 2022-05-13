@@ -1429,6 +1429,207 @@ suite('JSON Parser', () => {
 		}
 	});
 
+	test('unevaluatedProperties', function () {
+
+		let schema: JSONSchema = {
+			properties: {
+				prop1: {
+					type: 'number'
+				}
+			},
+			unevaluatedProperties: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 42}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 42, "prop2": true}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			properties: {
+				prop1: {
+					type: 'number'
+				}
+			},
+			unevaluatedProperties: {
+				type: 'number'
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": true, "prop2": true}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 2);
+		}
+		schema = {
+			allOf: [
+				{
+					properties: {
+						prop1: {
+							type: 'number'
+						}
+					},
+				},
+				{
+					properties: {
+						prop2: {
+							type: 'number'
+						}
+					},
+				},
+			],
+			unevaluatedProperties: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 23, "prop2": 42}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop3": true}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			anyOf: [
+				{
+					properties: {
+						prop1: {
+							type: 'number'
+						}
+					},
+					patternProperties: {
+						['^x']: {
+							type: 'boolean'
+						}
+					}
+				},
+				{
+					properties: {
+						prop2: {
+							type: 'number'
+						}
+					},
+				},
+			],
+			unevaluatedProperties: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 12, "prop2": 23, "x": true, "y": 23}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			oneOf: [
+				{
+					properties: {
+						prop1: {
+							type: 'number'
+						}
+					},
+					additionalProperties: {
+						type: 'boolean'
+					}
+				},
+				{
+					properties: {
+						prop2: {
+							type: 'number'
+						}
+					},
+					required: ['prop2']
+				},
+			],
+			unevaluatedProperties: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 12, "prop3": true }');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		schema = {
+			"title": "Vehicle",
+			"type": "object",
+			"oneOf": [
+				{
+					"title": "Car",
+					"required": ["wheels", "headlights"],
+					"properties": {
+						"wheels": {},
+						"headlights": {}
+					}
+				},
+				{
+					"title": "Boat",
+					"required": ["pontoons"],
+					"properties": {
+						"pontoons": {}
+					}
+				},
+				{
+					"title": "Plane",
+					"required": ["wings"],
+					"properties": {
+						"wings": {}
+					}
+				}
+			],
+			"unevaluatedProperties": false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"pontoons": 1}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"pontoons": 1, "wheels" 2}');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			if: {
+				properties: {
+					prop1: {
+						type: 'number'
+					}
+				},
+			},
+			then: {
+				required: ['prop2'],
+				properties: {
+					prop2: {
+						type: 'boolean'
+					}
+				},
+			},
+			else: {
+				required: ['prop3'],
+				properties: {
+					prop3: {
+						type: 'boolean'
+					}
+				},
+			},
+			unevaluatedProperties: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop1": 12, "prop2": true }');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+	});
+
 	test('enum', function () {
 		let schema: JSONSchema = {
 			properties: {
@@ -1615,8 +1816,59 @@ suite('JSON Parser', () => {
 		}
 	});
 
-	test('items as array', function () {
-		const schema: JSONSchema = {
+	test('minContains / maxContains', function () {
+
+		let schema: JSONSchema = {
+			type: 'array',
+			contains: { type: "string" },
+			"minContains": 1,
+			"maxContains": 3
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('["1", 2, 3]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, 2, 3]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('["1", "2", "3", 4]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('["1", "2", "3", "4"]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			type: 'array',
+			contains: { type: "string" },
+			"minContains": 0,
+			"maxContains": 1
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('[ 1 ]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[ 1, "1" ]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[ 1, "1", "2" ]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+	});
+
+	test('items as array / prefixItems', function () {
+		let schema: JSONSchema = {
 			type: 'array',
 			items: [
 				{
@@ -1647,6 +1899,32 @@ suite('JSON Parser', () => {
 
 			const semanticErrors = jsonDoc.validate(textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		schema = {
+			type: 'array',
+			prefixItems: [
+				{
+					type: 'integer'
+				},
+				{
+					type: 'boolean'
+				}
+			],
+			items: {
+				type: 'string'
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true, "string", "another"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true, "string", "another", 1]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
 		}
 	});
 
@@ -1715,6 +1993,124 @@ suite('JSON Parser', () => {
 		}
 	});
 
+
+	test('unevaluatedItems', function () {
+		let schema: JSONSchema = {
+			type: 'array',
+			items: [
+				{
+					type: 'integer'
+				},
+				{
+					type: 'boolean'
+				}
+			],
+			unevaluatedItems: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true, "string", 42]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 2);
+		}
+		schema = {
+			anyOf: [
+				{
+					type: 'array',
+					items: [
+						{
+							type: 'integer'
+						},
+						{
+							type: 'integer'
+						}
+					],
+				},
+				{
+					type: 'array',
+					items: [
+						{
+							type: 'integer'
+						},
+						{
+							type: 'boolean'
+						},
+						{
+							type: 'boolean'
+						}
+					],
+				},
+			],
+			unevaluatedItems: false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, 1]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true, true]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, true, true, true, "Hello"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 2);
+		}
+		schema = {
+			"type": "array",
+			"prefixItems": [{ "type": "string" }, { "type": "string" }],
+			"contains": { "type": "string", "minLength": 3 },
+			"unevaluatedItems": false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('["Hello", "Hello", "1"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('["Hello", "Hello", "Hello"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('["Hello", "Hello", "1", "Hello"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			"type": "array",
+			"items": [{ "type": "string" }, { "type": "string" }],
+			"contains": { "type": "string", "minLength": 3 },
+			"unevaluatedItems": false
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('["Hello", "Hello", "1"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('["Hello", "Hello", "Hello"]');
+
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+	});
+
 	test('multipleOf', function () {
 		const schema: JSONSchema = {
 			type: 'array',
@@ -1772,8 +2168,8 @@ suite('JSON Parser', () => {
 		}
 	});
 
-	test('dependencies with array', function () {
-		const schema: JSONSchema = {
+	test('dependencies with array / dependentRequired', function () {
+		let schema: JSONSchema = {
 			type: 'object',
 			properties: {
 				a: {
@@ -1802,10 +2198,50 @@ suite('JSON Parser', () => {
 			const semanticErrors = jsonDoc.validate(textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
 		}
+		schema = {
+			"type": "object",
+
+			"properties": {
+				"name": { "type": "string" },
+				"credit_card": { "type": "number" },
+				"billing_address": { "type": "string" }
+			},
+
+			"required": ["name"],
+
+			"dependentRequired": {
+				"credit_card": ["billing_address"]
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"credit_card": 5555555555555555,
+				"billing_address": "555 Debtor's Lane"
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"credit_card": 5555555555555555
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"billing_address": "555 Debtor's Lane"
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
 	});
 
-	test('dependencies with schema', function () {
-		const schema: JSONSchema = {
+	test('dependencies with schema / dependentSchemas', function () {
+		let schema: JSONSchema = {
 			type: 'object',
 			properties: {
 				a: {
@@ -1842,6 +2278,50 @@ suite('JSON Parser', () => {
 			const semanticErrors = jsonDoc.validate(textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
 		}
+		schema = {
+			"type": "object",
+
+			"properties": {
+				"name": { "type": "string" },
+				"credit_card": { "type": "number" }
+			},
+
+			"required": ["name"],
+
+			"dependentSchemas": {
+				"credit_card": {
+					"properties": {
+						"billing_address": { "type": "string" }
+					},
+					"required": ["billing_address"]
+				}
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"credit_card": 5555555555555555,
+				"billing_address": "555 Debtor's Lane"
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"credit_card": 5555555555555555
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(`{
+				"name": "John Doe",
+				"billing_address": "555 Debtor's Lane"
+			  }`);
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
 	});
 
 	test('type as array', function () {
@@ -1873,9 +2353,7 @@ suite('JSON Parser', () => {
 
 	test('deprecated', function () {
 
-		const { textDoc, jsonDoc } = toDocument('{"prop": 42}');
-
-		const schema: JSONSchema = {
+		let schema: JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop': {
@@ -1883,10 +2361,26 @@ suite('JSON Parser', () => {
 				}
 			}
 		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop": 42}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
 
-		const semanticErrors = jsonDoc.validate(textDoc, schema);
+		schema = {
+			type: 'object',
+			properties: {
+				'prop': {
+					deprecated: true
+				}
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop": 42}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
 
-		assert.strictEqual(semanticErrors!.length, 1);
 	});
 
 	test('Strings with spaces', function () {
