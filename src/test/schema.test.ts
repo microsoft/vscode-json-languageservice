@@ -1572,6 +1572,43 @@ suite('JSON Schema', () => {
 
 	});
 
+	test('Validate Schema with fragment', async function () {
+		const mockRequestService = newMockRequestService({
+			"https://appsemble.app/api.json": <any>{
+				components: {
+					schemas: {
+						AppDefinition: {
+							properties: {
+								name: {
+									type: 'string'
+								}
+							}
+						}
+					}
+				}
+			}
+		});
+
+
+		const service = new SchemaService.JSONSchemaService(mockRequestService, workspaceContext);
+
+		const input = {
+			"$schema": "https://appsemble.app/api.json#/components/schemas/AppDefinition",
+			"name": 123
+		};
+
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify(input));
+
+		const resolvedSchema = await service.getSchemaForResource('file://doc/mydoc.json', jsonDoc);
+		assert.deepStrictEqual(resolvedSchema?.errors, []);
+
+		const problems = jsonDoc.validate(textDoc, resolvedSchema?.schema);
+
+		assert.strictEqual(problems?.length, 1);
+		assert.strictEqual(problems?.[0].message, 'Incorrect type. Expected "string".');
+
+	});
+
 	test('Complex enums', function () {
 
 		const input = {

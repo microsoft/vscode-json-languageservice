@@ -379,17 +379,28 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const errorMessage = localize('json.schema.norequestservice', 'Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
 			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [errorMessage]));
 		}
-		return this.requestService(url).then(
+		const uri = URI.parse(url);
+
+		return this.requestService(uri.with({ fragment: null }).toString(true)).then(
 			content => {
 				if (!content) {
 					const errorMessage = localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': No content.', toDisplayString(url));
 					return new UnresolvedSchema(<JSONSchema>{}, [errorMessage]);
 				}
-
-				let schemaContent: JSONSchema = {};
 				const jsonErrors: Json.ParseError[] = [];
-				schemaContent = Json.parse(content, jsonErrors);
-				const errors = jsonErrors.length ? [localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset)] : [];
+				let schemaContent = Json.parse(content, jsonErrors);
+				let errors : string[] = [];
+				if (jsonErrors.length) {
+					errors.push(localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset));
+				} else {
+					const fragment = uri.fragment;
+					if (fragment?.startsWith('/')) {
+						schemaContent = findSectionByJSONPointer(schemaContent, fragment);
+						if (!schemaContent) {
+							errors.push(localize('json.schema.invalidFragment', 'Unable to read schema \'{0}\': No content at {1}.', toDisplayString(url), fragment));
+						}
+					}
+				}
 				return new UnresolvedSchema(schemaContent, errors);
 			},
 			(error: any) => {
@@ -425,19 +436,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const contextService = this.contextService;
 
-		const findSectionByJSONPointer = (schema: JSONSchema, path: string): any => {
-			path = decodeURIComponent(path);
-			let current: any = schema;
-			if (path[0] === '/') {
-				path = path.substring(1);
-			}
-			path.split('/').some((part) => {
-				part = part.replace(/~1/g, '/').replace(/~0/g, '~');
-				current = current[part];
-				return !current;
-			});
-			return current;
-		};
+
 
 		const findSchemaById = (schema: JSONSchema, handle: SchemaHandle, id: string) => {
 			if (!handle.anchors) {
@@ -699,6 +698,20 @@ function normalizeId(id: string): string {
 		return id;
 	}
 
+}
+
+function findSectionByJSONPointer(schema: any, path: string): any {
+	path = decodeURIComponent(path);
+	let current: any = schema;
+	if (path[0] === '/') {
+		path = path.substring(1);
+	}
+	path.split('/').some((part) => {
+		part = part.replace(/~1/g, '/').replace(/~0/g, '~');
+		current = current[part];
+		return !current;
+	});
+	return current;
 }
 
 function normalizeResourceForMatching(resource: string): string {
