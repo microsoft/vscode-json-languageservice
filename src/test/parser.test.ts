@@ -2269,9 +2269,7 @@ suite('JSON Parser', () => {
 
 	test('deprecated', function () {
 
-		const { textDoc, jsonDoc } = toDocument('{"prop": 42}');
-
-		const schema: JSONSchema = {
+		let schema: JSONSchema = {
 			type: 'object',
 			properties: {
 				'prop': {
@@ -2279,10 +2277,26 @@ suite('JSON Parser', () => {
 				}
 			}
 		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop": 42}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
 
-		const semanticErrors = jsonDoc.validate(textDoc, schema);
+		schema = {
+			type: 'object',
+			properties: {
+				'prop': {
+					deprecated: true
+				}
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop": 42}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
 
-		assert.strictEqual(semanticErrors!.length, 1);
 	});
 
 	test('Strings with spaces', function () {

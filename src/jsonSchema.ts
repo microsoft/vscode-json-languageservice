@@ -58,6 +58,7 @@ export interface JSONSchema {
 	unevaluatedItems?: boolean | JSONSchemaRef;
 	minContains?: number;
 	maxContains?: number;
+	deprecated?: boolean;
 
 	// schema 2020-12
 	prefixItems?: JSONSchemaRef[];

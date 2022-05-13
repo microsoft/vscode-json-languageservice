@@ -554,11 +554,13 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			validationResult.enumValues = [schema.const];
 		}
 
-		if (schema.deprecationMessage && node.parent) {
+		let deprecationMessage = schema.deprecationMessage;
+		if ((deprecationMessage || schema.deprecated) && node.parent) {
+			deprecationMessage = deprecationMessage || localize('deprecated', 'Value is deprecated');
 			validationResult.problems.push({
 				location: { offset: node.parent.offset, length: node.parent.length },
 				severity: DiagnosticSeverity.Warning,
-				message: schema.deprecationMessage,
+				message: deprecationMessage,
 				code: ErrorCode.Deprecated
 			});
 		}
