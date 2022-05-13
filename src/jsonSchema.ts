@@ -15,7 +15,7 @@ export interface JSONSchema {
 	description?: string;
 	properties?: JSONSchemaMap;
 	patternProperties?: JSONSchemaMap;
-	additionalProperties?: boolean | JSONSchemaRef;
+	additionalProperties?: JSONSchemaRef;
 	minProperties?: number;
 	maxProperties?: number;
 	dependencies?: JSONSchemaMap | { [prop: string]: string[] };
@@ -23,7 +23,7 @@ export interface JSONSchema {
 	minItems?: number;
 	maxItems?: number;
 	uniqueItems?: boolean;
-	additionalItems?: boolean | JSONSchemaRef;
+	additionalItems?: JSONSchemaRef;
 	pattern?: string;
 	minLength?: number;
 	maxLength?: number;

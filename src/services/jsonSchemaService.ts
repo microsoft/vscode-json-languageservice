@@ -574,6 +574,17 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 			}
 		};
+		const collectEntryOrArrayEntries = (items: (JSONSchemaRef[] | JSONSchemaRef | undefined)) => {
+			if (Array.isArray(items)) {
+				for (const entry of items) {
+					if (typeof entry === 'object') {
+						toWalk.push(entry);
+					}
+				}
+			} else if (typeof items === 'object') {
+				toWalk.push(items);
+			}
+		};
 
 		const toWalk: JSONSchema[] = [root];
 
@@ -582,9 +593,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 			if (!seen.has(next)) {
 				seen.add(next);
 				handle(next);
-				collectEntries(<JSONSchema>next.items, next.additionalItems, <JSONSchema>next.additionalProperties, next.not, next.contains, next.propertyNames, next.if, next.then, next.else);
+				collectEntries(next.additionalItems, next.additionalProperties, next.not, next.contains, next.propertyNames, next.if, next.then, next.else, next.unevaluatedItems, next.unevaluatedProperties);
 				collectMapEntries(next.definitions, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies);
-				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, <JSONSchema[]>next.items);
+				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, next.prefixItems);
+				collectEntryOrArrayEntries(next.items);
 			}
 			next = toWalk.pop();
 		}
