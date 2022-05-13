@@ -62,6 +62,7 @@ export interface JSONSchema {
 	dependentRequired?: { [prop: string]: string[] };
 	dependentSchemas?: JSONSchemaMap;
 	$defs?: { [name: string]: JSONSchema };
+	$anchor?: string;
 
 	// schema 2020-12
 	prefixItems?: JSONSchemaRef[];

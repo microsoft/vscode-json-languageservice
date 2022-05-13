@@ -12,7 +12,7 @@ import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Then
 
 import * as nls from 'vscode-nls';
 import { createRegex } from '../utils/glob';
-import { isObject } from '../utils/objects';
+import { isObject, isString } from '../utils/objects';
 
 const localize = nls.loadMessageBundle();
 
@@ -520,12 +520,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const result = new Map<string, JSONSchema>();
 			this.traverseNodes(root, next => {
 				const id = next.$id || next.id;
-				if (typeof id === 'string' && id.charAt(0) === '#') {
-					// delete next.$id;
-					// delete next.id;
-					const anchor = id.substring(1);
+				const anchor = isString(id) && id.charAt(0) === '#' ? id.substring(1) : next.$anchor;
+				if (anchor) {
 					if (result.has(anchor)) {
-						resolveErrors.push(localize('json.schema.duplicateid', 'Duplicate id declaration: \'{0}\'', id));
+						resolveErrors.push(localize('json.schema.duplicateid', 'Duplicate anchor declaration: \'{0}\'', anchor));
 					} else {
 						result.set(anchor, next);
 					}

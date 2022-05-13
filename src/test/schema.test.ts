@@ -312,6 +312,46 @@ suite('JSON Schema', () => {
 		});
 	});
 
+	test('Resolving $refs to local $anchors', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+
+		service.setSchemaContributions({
+			schemas: {
+				"https://example.com/schemas/address": {
+					"$id": "https://example.com/schemas/address",
+
+					"type": "object",
+					"properties": {
+						"street_address":
+						{
+							"$anchor": "street_address",
+							"type": "string"
+						},
+						"city": { "type": "string" },
+						"state": { "type": "string" }
+					},
+					"required": ["street_address", "city", "state"]
+				},
+				"https://example.com/schemas/customer": {
+					"$id": "https://example.com/schemas/customer",
+
+					"type": "object",
+					"properties": {
+						"first_name": { "type": "string" },
+						"last_name": { "type": "string" },
+						"street_address": { "$ref": "/schemas/address#street_address" },
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://example.com/schemas/customer');
+		assert.deepStrictEqual(fs?.schema.properties?.street_address, {
+			type: 'string',
+			$anchor: "street_address"
+		});
+	});
+
 	test('Resolving $refs to external $ids', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({
