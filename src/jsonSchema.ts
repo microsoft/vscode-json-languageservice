@@ -61,6 +61,7 @@ export interface JSONSchema {
 	deprecated?: boolean;
 	dependentRequired?: { [prop: string]: string[] };
 	dependentSchemas?: JSONSchemaMap;
+	$defs?: { [name: string]: JSONSchema };
 
 	// schema 2020-12
 	prefixItems?: JSONSchemaRef[];
