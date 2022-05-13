@@ -56,6 +56,8 @@ export interface JSONSchema {
 	// schema 2019-09
 	unevaluatedProperties?: boolean | JSONSchemaRef;
 	unevaluatedItems?: boolean | JSONSchemaRef;
+	minContains?: number;
+	maxContains?: number;
 
 	// schema 2020-12
 	prefixItems?: JSONSchemaRef[];

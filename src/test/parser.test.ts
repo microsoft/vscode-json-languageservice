@@ -1816,6 +1816,57 @@ suite('JSON Parser', () => {
 		}
 	});
 
+	test('minContains / maxContains', function () {
+
+		let schema: JSONSchema = {
+			type: 'array',
+			contains: { type: "string" },
+			"minContains": 1,
+			"maxContains": 3
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('["1", 2, 3]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[1, 2, 3]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('["1", "2", "3", 4]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('["1", "2", "3", "4"]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		schema = {
+			type: 'array',
+			contains: { type: "string" },
+			"minContains": 0,
+			"maxContains": 1
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('[ 1 ]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[ 1, "1" ]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('[ 1, "1", "2" ]');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+	});
+
 	test('items as array / prefixItems', function () {
 		let schema: JSONSchema = {
 			type: 'array',

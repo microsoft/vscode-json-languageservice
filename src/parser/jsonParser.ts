@@ -763,24 +763,34 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 		const containsSchema = asSchema(schema.contains);
 		if (containsSchema) {
-			let doesContain = false;
+			let containsCount = 0;
 			for (let index = 0; index < node.items.length; index++) {
 				const item = node.items[index];
 				const itemValidationResult = new ValidationResult();
 				validate(item, containsSchema, itemValidationResult, NoOpSchemaCollector.instance);
 				if (!itemValidationResult.hasProblems()) {
-					doesContain = true;
+					containsCount++;
 					if (isSchema_2020_12) {
 						validationResult.processedProperties.add(String(index));
-					} else {
-						break;
 					}
 				}
 			}
-			if (!doesContain) {
+			if (containsCount === 0 && !isNumber(schema.minContains)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
 					message: schema.errorMessage || localize('requiredItemMissingWarning', 'Array does not contain required item.')
+				});
+			}
+			if (isNumber(schema.minContains) && containsCount < schema.minContains) {
+				validationResult.problems.push({
+					location: { offset: node.offset, length: node.length },
+					message: localize('minContainsWarning', 'Array has too few items that match the contains contraint. Expected {0} or more.', schema.minContains)
+				});
+			}
+			if (isNumber(schema.maxContains) && containsCount > schema.maxContains) {
+				validationResult.problems.push({
+					location: { offset: node.offset, length: node.length },
+					message: localize('maxContainsWarning', 'Array has too many items that match the contains contraint. Expected {0} or less.', schema.maxContains)
 				});
 			}
 		}
