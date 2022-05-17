@@ -55,24 +55,31 @@ export class JSONValidation {
 			let schemaRequest = documentSettings?.schemaRequest ? toDiagnosticSeverity(documentSettings.schemaRequest) : DiagnosticSeverity.Warning;
 
 			if (schema) {
-				if (schema.errors.length && jsonDocument.root && schemaRequest) {
-					const astRoot = jsonDocument.root;
-					const property = astRoot.type === 'object' ? astRoot.properties[0] : undefined;
-					if (property && property.keyNode.value === '$schema') {
-						const node = property.valueNode || property;
-						const range = Range.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
-						addProblem(Diagnostic.create(range, schema.errors[0], schemaRequest, ErrorCode.SchemaResolveError));
-					} else {
-						const range = Range.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
-						addProblem(Diagnostic.create(range, schema.errors[0], schemaRequest, ErrorCode.SchemaResolveError));
+				const addSchemaProblem = (errorMessage: string, errorCode: ErrorCode) => {
+					if (jsonDocument.root && schemaRequest) {
+						const astRoot = jsonDocument.root;
+						const property = astRoot.type === 'object' ? astRoot.properties[0] : undefined;
+						if (property && property.keyNode.value === '$schema') {
+							const node = property.valueNode || property;
+							const range = Range.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
+							addProblem(Diagnostic.create(range, errorMessage, schemaRequest, errorCode));
+						} else {
+							const range = Range.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
+							addProblem(Diagnostic.create(range, errorMessage, schemaRequest, errorCode));
+						}
 					}
+				};
+				if (schema.errors.length) {
+					addSchemaProblem(schema.errors[0], ErrorCode.SchemaResolveError);
 				} else if (schemaValidation) {
+					for (const warning of schema.warnings) {
+						addSchemaProblem(warning, ErrorCode.SchemaUnsupportedFeature);
+					}
 					const semanticErrors = jsonDocument.validate(textDocument, schema.schema, schemaValidation);
 					if (semanticErrors) {
 						semanticErrors.forEach(addProblem);
 					}
 				}
-
 				if (schemaAllowsComments(schema.schema)) {
 					commentSeverity = undefined;
 				}
