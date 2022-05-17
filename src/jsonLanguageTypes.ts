@@ -59,7 +59,8 @@ export enum ErrorCode {
 	TrailingComma = 0x207,
 	DuplicateKey = 0x208,
 	CommentNotPermitted = 0x209,
-	SchemaResolveError = 0x300
+	SchemaResolveError = 0x300,
+	SchemaUnsupportedFeature = 0x301
 }
 
 export type ASTNode = ObjectASTNode | PropertyASTNode | ArrayASTNode | StringASTNode | NumberASTNode | BooleanASTNode | NullASTNode;

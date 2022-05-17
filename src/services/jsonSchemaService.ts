@@ -13,6 +13,7 @@ import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Then
 import * as nls from 'vscode-nls';
 import { createRegex } from '../utils/glob';
 import { isObject, isString } from '../utils/objects';
+import { setgroups } from 'process';
 
 const localize = nls.loadMessageBundle();
 
@@ -183,12 +184,16 @@ export class UnresolvedSchema {
 }
 
 export class ResolvedSchema {
-	public schema: JSONSchema;
-	public errors: string[];
+	public readonly schema: JSONSchema;
+	public readonly errors: string[];
+	public readonly warnings: string[];
+	public readonly schemaDraft: string | undefined;
 
-	constructor(schema: JSONSchema, errors: string[] = []) {
+	constructor(schema: JSONSchema, errors: string[] = [], warnings: string[] = [], schemaDraft: string | undefined) {
 		this.schema = schema;
 		this.errors = errors;
+		this.warnings = warnings;
+		this.schemaDraft = schemaDraft;
 	}
 
 	public getSection(path: string[]): JSONSchema | undefined {
@@ -412,16 +417,12 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const resolveErrors: string[] = schemaToResolve.errors.slice(0);
 		const schema = schemaToResolve.schema;
 
-		if (schema.$schema) {
-			const id = normalizeId(schema.$schema);
-			if (id === 'http://json-schema.org/draft-03/schema') {
-				return this.promise.resolve(new ResolvedSchema({}, [localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.")]));
-			} else if (id === 'https://json-schema.org/draft/2019-09/schema') {
-				resolveErrors.push(localize('json.schema.draft201909.notsupported', "Draft 2019-09 schemas are not yet fully supported."));
-			} else if (id === 'https://json-schema.org/draft/2020-12/schema') {
-				resolveErrors.push(localize('json.schema.draft202012.notsupported', "Draft 2020-12 schemas are not yet fully supported."));
-			}
+		let schemaDraft = schema.$schema ? normalizeId(schema.$schema) : undefined;
+		if (schemaDraft === 'http://json-schema.org/draft-03/schema') {
+			return this.promise.resolve(new ResolvedSchema({}, [localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.")], [], schemaDraft));
 		}
+
+		let usesUnsupportedFeatures = new Set();
 
 		const contextService = this.contextService;
 
@@ -511,6 +512,12 @@ export class JSONSchemaService implements IJSONSchemaService {
 						}
 					}
 				}
+				if (next.$recursiveRef) {
+					usesUnsupportedFeatures.add('$recursiveRef');
+				}
+				if (next.$dynamicRef) {
+					usesUnsupportedFeatures.add('$dynamicRef');
+				}
 			});
 
 			return this.promise.all(openPromises);
@@ -528,11 +535,21 @@ export class JSONSchemaService implements IJSONSchemaService {
 						result.set(anchor, next);
 					}
 				}
+				if (next.$recursiveAnchor) {
+					usesUnsupportedFeatures.add('$recursiveAnchor');
+				}
+				if (next.$dynamicAnchor) {
+					usesUnsupportedFeatures.add('$dynamicAnchor');
+				}
 			});
 			return result;
 		};
 		return resolveRefs(schema, schema, handle).then(_ => {
-			return new ResolvedSchema(schema, resolveErrors);
+			let resolveWarnings: string[] = [];
+			if (usesUnsupportedFeatures.size) {
+				resolveWarnings.push(localize('json.schema.warnings', 'The schema uses meta-schema features ({0}) that are not yet supported by the validator.', Array.from(usesUnsupportedFeatures.keys()).join(', ')));
+			}
+			return new ResolvedSchema(schema, resolveErrors, resolveWarnings, schemaDraft);
 		});
 	}
 

@@ -63,9 +63,14 @@ export interface JSONSchema {
 	dependentSchemas?: JSONSchemaMap;
 	$defs?: { [name: string]: JSONSchema };
 	$anchor?: string;
+	$recursiveRef?: string;
+	$recursiveAnchor?: string;
+	$vocabulary?: any;
 
 	// schema 2020-12
 	prefixItems?: JSONSchemaRef[];
+	$dynamicRef?: string;
+	$dynamicAnchor?: string;
 
 	// VSCode extensions
 
