@@ -13,7 +13,6 @@ import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Then
 import * as nls from 'vscode-nls';
 import { createRegex } from '../utils/glob';
 import { isObject, isString } from '../utils/objects';
-import { setgroups } from 'process';
 
 const localize = nls.loadMessageBundle();
 
