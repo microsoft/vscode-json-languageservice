@@ -886,7 +886,8 @@ export class JSONCompletion {
 						break;
 					case 'number':
 					case 'integer':
-						value = '${1:0}';
+						let defaultValue = propertySchema.const ?? 0;
+						value = '${1:' + String(defaultValue) +'}';
 						break;
 					case 'null':
 						value = '${1:null}';
