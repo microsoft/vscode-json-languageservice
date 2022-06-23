@@ -1234,15 +1234,19 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		}
 		node.keyNode = key;
 
-		const seen = keysSeen[key.value];
-		if (seen) {
-			_errorAtRange(localize('DuplicateKeyWarning', "Duplicate object key"), ErrorCode.DuplicateKey, node.keyNode.offset, node.keyNode.offset + node.keyNode.length, DiagnosticSeverity.Warning);
-			if (isObject(seen)) {
-				_errorAtRange(localize('DuplicateKeyWarning', "Duplicate object key"), ErrorCode.DuplicateKey, seen.keyNode.offset, seen.keyNode.offset + seen.keyNode.length, DiagnosticSeverity.Warning);
+		// For JSON files that forbid code comments, there is a convention to use the key name "//" to add comments.
+		// Multiple instances of "//" are okay.
+		if (key.value !== "//") {
+			const seen = keysSeen[key.value];
+			if (seen) {
+				_errorAtRange(localize('DuplicateKeyWarning', "Duplicate object key"), ErrorCode.DuplicateKey, node.keyNode.offset, node.keyNode.offset + node.keyNode.length, DiagnosticSeverity.Warning);
+				if (isObject(seen)) {
+					_errorAtRange(localize('DuplicateKeyWarning', "Duplicate object key"), ErrorCode.DuplicateKey, seen.keyNode.offset, seen.keyNode.offset + seen.keyNode.length, DiagnosticSeverity.Warning);
+				}
+				keysSeen[key.value] = true; // if the same key is duplicate again, avoid duplicate error reporting
+			} else {
+				keysSeen[key.value] = node;
 			}
-			keysSeen[key.value] = true; // if the same key is duplicate again, avoid duplicate error reporting
-		} else {
-			keysSeen[key.value] = node;
 		}
 
 		if (scanner.getToken() === Json.SyntaxKind.ColonToken) {
