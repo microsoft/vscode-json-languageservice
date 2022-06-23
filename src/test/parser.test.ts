@@ -128,6 +128,10 @@ suite('JSON Parser', () => {
 	test('Comments', function () {
 		isValid('/*d*/ { } /*e*/');
 		isInvalid('/*d { }');
+
+		// comments in JSON keys
+		isValid('{ "//": "comment1", "//": "comment2" }');
+		isInvalid('{ "regularKey": "value1", "regularKey": "value2" }', ErrorCode.DuplicateKey, ErrorCode.DuplicateKey);
 	});
 
 	test('Simple AST', function () {
