@@ -354,7 +354,12 @@ suite('JSON Completion', () => {
 					items: {
 						type: 'string'
 					}
-				}
+				},
+				"version": {
+					"type": "number",
+					"const": 2,
+					"markdownDescription": "version",
+				},
 			}
 		};
 		await testCompletionsFor('{ "a": | }', schema, {
@@ -377,6 +382,18 @@ suite('JSON Completion', () => {
 			count: 3,
 			items: [
 				{ label: '"John"', resultText: '{ "a": "John", "b": 1 }' }
+			]
+		});
+		await testCompletionsFor('{ "version": | }', schema, {
+			count: 1,
+			items: [
+				{ label: '2', resultText: '{ "version": 2 }' },
+			]
+		});
+		await testCompletionsFor('{ "version": 2| }', schema, {
+			count: 1,
+			items: [
+				{ label: '2', resultText: '{ "version": 2 }' },
 			]
 		});
 	});
