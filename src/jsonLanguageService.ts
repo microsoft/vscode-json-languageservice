@@ -102,7 +102,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 				const length = d.offsetAt(r.end) - offset;
 				range = { offset, length };
 			}
-			const options = { tabSize: o ? o.tabSize : 4, insertSpaces: o?.insertSpaces === true, insertFinalNewline: o?.insertFinalNewline === true, eol: '\n' };
+			const options = { tabSize: o ? o.tabSize : 4, insertSpaces: o?.insertSpaces === true, insertFinalNewline: o?.insertFinalNewline === true, eol: '\n', keepLines : o?.keepLines === true };
 			return formatJSON(d.getText(), range, options).map(e => {
 				return TextEdit.replace(Range.create(d.positionAt(e.offset), d.positionAt(e.offset + e.length)), e.content);
 			});
