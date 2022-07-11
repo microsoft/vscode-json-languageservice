@@ -850,6 +850,12 @@ export class JSONCompletion {
 				}
 				nValueProposals += propertySchema.enum.length;
 			}
+			if (isDefined(propertySchema.const)) {
+				if (!value) {
+					value = this.getInsertTextForGuessedValue(propertySchema.const, '');
+				}
+				nValueProposals++;
+			}
 			if (isDefined(propertySchema.default)) {
 				if (!value) {
 					value = this.getInsertTextForGuessedValue(propertySchema.default, '');
@@ -886,8 +892,7 @@ export class JSONCompletion {
 						break;
 					case 'number':
 					case 'integer':
-						const defaultValue = propertySchema.const ?? 0;
-						value = '${1:' + String(defaultValue) +'}';
+						value = '${1:0}';
 						break;
 					case 'null':
 						value = '${1:null}';
