@@ -850,6 +850,12 @@ export class JSONCompletion {
 				}
 				nValueProposals += propertySchema.enum.length;
 			}
+			if (isDefined(propertySchema.const)) {
+				if (!value) {
+					value = this.getInsertTextForGuessedValue(propertySchema.const, '');
+				}
+				nValueProposals++;
+			}
 			if (isDefined(propertySchema.default)) {
 				if (!value) {
 					value = this.getInsertTextForGuessedValue(propertySchema.default, '');
