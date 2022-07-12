@@ -6,67 +6,68 @@
 import * as assert from 'assert';
 import * as SchemaService from '../services/jsonSchemaService';
 import * as Parser from '../parser/jsonParser';
-import { promises as fs } from 'fs';
+import * as fs from 'fs';
 import * as url from 'url';
 import * as path from 'path';
 import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema } from '../jsonLanguageService';
-import { DiagnosticSeverity, SchemaConfiguration } from '../jsonLanguageTypes';
 
+const testsPath = path.join(__dirname, "../../../node_modules/json-schema-test-suite/tests");
 
-const testsPath = path.join("../../node_modules/json-schema-test-suite/tests");
-
+// const drafts = [
+//     'draft4', 'draft6', 'draft7', 'draft2019-09', 'draft2020-12'
+// ];
 const drafts = [
-    'draft4', 'draft6', 'draft7', 'draft2019-09', 'draft2020-12'
-]
+    'draft4'
+];
 
-function assertSchemaValidation(input: any, schema: any, valid: boolean) {
-    
+const workspaceContext = {
+    resolveRelativePath: (relativePath: string, resource: string) => {
+        return url.resolve(resource, relativePath);
+    }
+};
+const ls = getLanguageService({ workspaceContext });
+
+async function assertSchemaValidation(input: any, schema: any, valid: boolean, description: string) {
+    const textDoc = TextDocument.create('foo://bar/file.json', 'json', 0, JSON.stringify(input));
+    const jsonDoc = Parser.parse(textDoc);
+
+    assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
+    const semanticErrors = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+    if (valid && semanticErrors.length > 0) {
+        assert.deepStrictEqual([], semanticErrors, `No error expected for '${description}': ${JSON.stringify(input)} against ${JSON.stringify(schema)}`);
+    } else if (!valid && semanticErrors.length === 0) {
+        assert.fail(`Expected error for '${description}': ${JSON.stringify(input)} against ${JSON.stringify(schema)}`);
+    }
 }
 
 
-
-suite('JSON Schema Test Suite', () => {
-    const workspaceContext = {
-		resolveRelativePath: (relativePath: string, resource: string) => {
-			return url.resolve(resource, relativePath);
-		}
-	};
-    const ls = getLanguageService({ workspaceContext });
-
-    for (const draft of drafts) {
-        suite(draft, async () => {
-            const entries = await fs.readdir(path.join(testsPath, draft), { withFileTypes: true });
-            for (const entry of entries) {
-                if (entry.isFile() && entry.name.endsWith('json')) {
-                    const filePath = path.join(testsPath, draft, entry.name);
-                    try {
-                        const testFileContent = JSON.parse((await fs.readFile(filePath)).toString());
-                        if (Array.isArray(testFileContent)) {
+for (const draft of drafts) {
+    suite.only(`JSON Schema Test Suite - ${draft}`, () => {
+        const folderPath = path.resolve(testsPath, draft);
+        const entries = fs.readdirSync(folderPath, { withFileTypes: true });
+        for (const entry of entries) {
+            if (entry.isFile() && entry.name.endsWith('json')) {
+                const filePath = path.join(folderPath, entry.name);
+                try {
+                    const testFileContent = JSON.parse((fs.readFileSync(filePath)).toString());
+                    if (Array.isArray(testFileContent)) {
+                        suite(entry.name, () => {
                             for (const testGroupEntry of testFileContent) {
-                                test(testGroupEntry.description, () => {
+                                test(testGroupEntry.description, async () => {
                                     for (const testEntry of testGroupEntry.tests) {
-                                        const schema =  JSON.parse(JSON.stringify(testGroupEntry.schema));
-                                        ls.doValidation()
+                                        //test(testEntry.description, async () => {
+                                        const schema = JSON.parse(JSON.stringify(testGroupEntry.schema));
+                                        await assertSchemaValidation(testEntry.data, schema, testEntry.valid, testEntry.description);
+                                        //});
                                     }
-
-
-
-                                }
-
-
-
-                        }
-
-
-                    } catch (e) {
-                        fail(`Problem parsing ${filePath}`);
+                                });
+                            }
+                        });
                     }
-                    
+                } catch (e) {
+                    //assert.fail(`Problem parsing ${filePath}`);
                 }
             }
-
-
-    }
-
-
+        }
+    });
 }
