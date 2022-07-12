@@ -346,4 +346,5 @@ export interface ColorInformationContext {
 
 export interface FormattingOptions extends LSPFormattingOptions {
 	insertFinalNewline?: boolean;
+	keepLines?: boolean;
 }

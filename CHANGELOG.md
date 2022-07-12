@@ -1,3 +1,7 @@
+5.1.0 / 2022-07-11
+================
+* new API option `FormattingOptions.keepLines` to indicate the formatter should keep the initial line positions 
+
 5.0.0 / 2022-05-17
 ================
  * Update to `vscode-languageserver-types@3.17`
