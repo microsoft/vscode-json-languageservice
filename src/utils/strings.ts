@@ -65,3 +65,19 @@ export function extendedRegExp(pattern: string): RegExp | undefined {
 		}
 	}
 }
+
+// from https://tanishiking.github.io/posts/count-unicode-codepoint/#work-hard-with-for-statements
+export function stringLength(str: string) {
+	let count = 0;
+	for (let i = 0; i < str.length; i++) {
+		count++;
+		// obtain the i-th 16-bit
+		const code = str.charCodeAt(i);
+		if (0xD800 <= code && code <= 0xDBFF) {
+			// if the i-th 16bit is an upper surrogate
+			// skip the next 16 bits (lower surrogate)
+			i++;
+		}
+	}
+	return count;
+}
