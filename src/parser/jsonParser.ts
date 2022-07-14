@@ -6,7 +6,7 @@
 import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
 import { isNumber, equals, isBoolean, isString, isDefined, isObject } from '../utils/objects';
-import { extendedRegExp } from '../utils/strings';
+import { extendedRegExp, stringLength } from '../utils/strings';
 import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range } from '../jsonLanguageTypes';
 
 import * as nls from 'vscode-nls';
@@ -648,14 +648,14 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 	}
 
 	function _validateStringNode(node: StringASTNode): void {
-		if (isNumber(schema.minLength) && node.value.length < schema.minLength) {
+		if (isNumber(schema.minLength) && stringLength(node.value) < schema.minLength) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
 				message: localize('minLengthWarning', 'String is shorter than the minimum length of {0}.', schema.minLength)
 			});
 		}
 
-		if (isNumber(schema.maxLength) && node.value.length > schema.maxLength) {
+		if (isNumber(schema.maxLength) && stringLength(node.value) > schema.maxLength) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
 				message: localize('maxLengthWarning', 'String is longer than the maximum length of {0}.', schema.maxLength)
