@@ -13,8 +13,8 @@ import { schemaContributions } from './services/configuration';
 import { JSONSchemaService } from './services/jsonSchemaService';
 import { getFoldingRanges } from './services/jsonFolding';
 import { getSelectionRanges } from './services/jsonSelectionRanges';
+import { format as formatJSONFunc, Range as JSONCRange, parse} from 'jsonc-parser';
 
-import { format as formatJSON, Range as JSONCRange } from 'jsonc-parser';
 import {
 	Thenable,
 	ASTNode,
@@ -50,19 +50,49 @@ export interface LanguageService {
 	getColorPresentations(document: TextDocument, doc: JSONDocument, color: Color, range: Range): ColorPresentation[];
 	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover | null>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
+	sort(document: TextDocument, options: FormattingOptions): string;
 	getFoldingRanges(document: TextDocument, context?: FoldingRangesContext): FoldingRange[];
 	getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[];
 	findDefinition(document: TextDocument, position: Position, doc: JSONDocument): Thenable<DefinitionLink[]>;
 	findLinks(document: TextDocument, doc: JSONDocument): Thenable<DocumentLink[]>;
 }
 
+function sortJSON(jsonObject: Record<any, any>): Record<any, any> {
+	let sortedJSON : Record<any, any> = {};
+	if (jsonObject.constructor.name === "Array") {
+		sortedJSON = jsonObject;
+		sortedJSON.forEach(function (value : any, index : number) {
+			sortedJSON[index] = sortJSON(value);
+		});
+	} else if (jsonObject.constructor.name === "Object") {
+		sortedJSON = {};
+		Object.keys(jsonObject).sort().forEach(function (key : any) {
+			sortedJSON[key] = sortJSON(jsonObject[key]);
+		});
+	} else {
+		sortedJSON = jsonObject;
+	}
+	return sortedJSON;
+}
+
+function formatJSON(d: TextDocument, r: Range | undefined, o: FormattingOptions) : TextEdit[]{
+	let range: JSONCRange | undefined = undefined;
+	if (r) {
+		const offset = d.offsetAt(r.start);
+		const length = d.offsetAt(r.end) - offset;
+		range = { offset, length };
+	}
+	const options = { tabSize: o ? o.tabSize : 4, insertSpaces: o?.insertSpaces === true, insertFinalNewline: o?.insertFinalNewline === true, eol: '\n', keepLines: o?.keepLines === true };
+	return formatJSONFunc(d.getText(), range, options).map(e => {
+		return TextEdit.replace(Range.create(d.positionAt(e.offset), d.positionAt(e.offset + e.length)), e.content);
+	});
+}
 
 export function getLanguageService(params: LanguageServiceParams): LanguageService {
 	const promise = params.promiseConstructor || Promise;
 
 	const jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext, promise);
 	jsonSchemaService.setSchemaContributions(schemaContributions);
-
 	const jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise, params.clientCapabilities);
 	const jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
 	const jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
@@ -95,17 +125,13 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		getSelectionRanges,
 		findDefinition: () => Promise.resolve([]),
 		findLinks,
-		format: (d, r, o) => {
-			let range: JSONCRange | undefined = undefined;
-			if (r) {
-				const offset = d.offsetAt(r.start);
-				const length = d.offsetAt(r.end) - offset;
-				range = { offset, length };
-			}
-			const options = { tabSize: o ? o.tabSize : 4, insertSpaces: o?.insertSpaces === true, insertFinalNewline: o?.insertFinalNewline === true, eol: '\n', keepLines : o?.keepLines === true };
-			return formatJSON(d.getText(), range, options).map(e => {
-				return TextEdit.replace(Range.create(d.positionAt(e.offset), d.positionAt(e.offset + e.length)), e.content);
-			});
-		}
+		sort: (d: TextDocument, o: FormattingOptions) => {
+			let originalJSONString = d.getText();
+			let sortedJSONObject = sortJSON(parse(originalJSONString));		
+			let sortedJSONString = JSON.stringify(sortedJSONObject);	 
+			let document = TextDocument.create('test://test.json', 'json', 0, sortedJSONString);
+			return TextDocument.applyEdits(TextDocument.create('test://test.json', 'json', 0, sortedJSONString), formatJSON(document, undefined, o));
+		},
+		format: (document: TextDocument, range: Range, options: FormattingOptions) => formatJSON(document, range, options),
 	};
 }

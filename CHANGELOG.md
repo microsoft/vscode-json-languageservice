@@ -1,3 +1,7 @@
+5.1.1 / 2022-07-14
+===============
+* new API `getLanguageService.sort` which sorts and formats the JSON document. Line breaks and comments are removed. 
+
 5.1.0 / 2022-07-11
 ================
 * new API option `FormattingOptions.keepLines` to indicate the formatter should keep the initial line positions 
