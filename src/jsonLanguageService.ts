@@ -6,15 +6,15 @@
 import { JSONCompletion } from './services/jsonCompletion';
 import { JSONHover } from './services/jsonHover';
 import { JSONValidation } from './services/jsonValidation';
-
 import { JSONDocumentSymbols } from './services/jsonDocumentSymbols';
-import { parse as parseJSON, JSONDocument as InternalJSONDocument, newJSONDocument } from './parser/jsonParser';
 import { schemaContributions } from './services/configuration';
 import { JSONSchemaService } from './services/jsonSchemaService';
 import { getFoldingRanges } from './services/jsonFolding';
 import { getSelectionRanges } from './services/jsonSelectionRanges';
-import { format as formatJSONFunc, Range as JSONCRange, parse} from 'jsonc-parser';
-
+import { findLinks } from './services/jsonLinks';
+import { parse as parseJSON, newJSONDocument } from './parser/jsonParser';
+import { sort } from './utils/sort';
+import { format } from './utils/format';
 import {
 	Thenable,
 	ASTNode,
@@ -25,14 +25,14 @@ import {
 	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
 	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink, MatchingSchema, JSONLanguageStatus
 } from './jsonLanguageTypes';
-import { findLinks } from './services/jsonLinks';
 import { DocumentLink } from 'vscode-languageserver-types';
+
+export * from './jsonLanguageTypes';
 
 export type JSONDocument = {
 	root: ASTNode | undefined;
 	getNodeFromOffset(offset: number, includeRightBound?: boolean): ASTNode | undefined;
 };
-export * from './jsonLanguageTypes';
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;
@@ -57,40 +57,8 @@ export interface LanguageService {
 	findLinks(document: TextDocument, doc: JSONDocument): Thenable<DocumentLink[]>;
 }
 
-function sortJSON(jsonObject: Record<any, any>): Record<any, any> {
-	let sortedJSON : Record<any, any> = {};
-	if (jsonObject.constructor.name === "Array") {
-		sortedJSON = jsonObject;
-		sortedJSON.forEach(function (value : any, index : number) {
-			sortedJSON[index] = sortJSON(value);
-		});
-	} else if (jsonObject.constructor.name === "Object") {
-		sortedJSON = {};
-		Object.keys(jsonObject).sort().forEach(function (key : any) {
-			sortedJSON[key] = sortJSON(jsonObject[key]);
-		});
-	} else {
-		sortedJSON = jsonObject;
-	}
-	return sortedJSON;
-}
-
-function formatJSON(d: TextDocument, r: Range | undefined, o: FormattingOptions) : TextEdit[]{
-	let range: JSONCRange | undefined = undefined;
-	if (r) {
-		const offset = d.offsetAt(r.start);
-		const length = d.offsetAt(r.end) - offset;
-		range = { offset, length };
-	}
-	const options = { tabSize: o ? o.tabSize : 4, insertSpaces: o?.insertSpaces === true, insertFinalNewline: o?.insertFinalNewline === true, eol: '\n', keepLines: o?.keepLines === true };
-	return formatJSONFunc(d.getText(), range, options).map(e => {
-		return TextEdit.replace(Range.create(d.positionAt(e.offset), d.positionAt(e.offset + e.length)), e.content);
-	});
-}
-
 export function getLanguageService(params: LanguageServiceParams): LanguageService {
 	const promise = params.promiseConstructor || Promise;
-
 	const jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext, promise);
 	jsonSchemaService.setSchemaContributions(schemaContributions);
 	const jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise, params.clientCapabilities);
@@ -125,13 +93,9 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		getSelectionRanges,
 		findDefinition: () => Promise.resolve([]),
 		findLinks,
-		sort: (d: TextDocument, o: FormattingOptions) => {
-			let originalJSONString = d.getText();
-			let sortedJSONObject = sortJSON(parse(originalJSONString));		
-			let sortedJSONString = JSON.stringify(sortedJSONObject);	 
-			let document = TextDocument.create('test://test.json', 'json', 0, sortedJSONString);
-			return TextDocument.applyEdits(TextDocument.create('test://test.json', 'json', 0, sortedJSONString), formatJSON(document, undefined, o));
-		},
-		format: (document: TextDocument, range: Range, options: FormattingOptions) => formatJSON(document, range, options),
+		format: (document: TextDocument, range: Range, options: FormattingOptions) => format(document, range, options),
+		sort: (document: TextDocument, options: FormattingOptions) => sort(document, options)
 	};
 }
+
+
