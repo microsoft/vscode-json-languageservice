@@ -75,9 +75,9 @@ export class JSONValidation {
 					for (const warning of schema.warnings) {
 						addSchemaProblem(warning, ErrorCode.SchemaUnsupportedFeature);
 					}
-					const semanticErrors = jsonDocument.validate(textDocument, schema.schema, schemaValidation);
+					const semanticErrors = jsonDocument.validate(textDocument, schema.schema, schemaValidation, documentSettings?.schemaDraft);
 					if (semanticErrors) {
-						semanticErrors.forEach(addProblem);
+						semanticErrors.forEach(addProblem); 
 					}
 				}
 				if (schemaAllowsComments(schema.schema)) {

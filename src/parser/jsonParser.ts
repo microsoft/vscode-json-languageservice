@@ -7,7 +7,7 @@ import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
 import { isNumber, equals, isBoolean, isString, isDefined, isObject } from '../utils/objects';
 import { extendedRegExp, stringLength } from '../utils/strings';
-import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range } from '../jsonLanguageTypes';
+import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range, SchemaDraft } from '../jsonLanguageTypes';
 
 import * as nls from 'vscode-nls';
 
@@ -160,6 +160,7 @@ export function asSchema(schema: JSONSchemaRef | undefined): JSONSchema | undefi
 
 export interface JSONDocumentConfig {
 	collectComments?: boolean;
+	schemaDraft?: SchemaDraft;
 }
 
 export interface IApplicableSchema {
@@ -172,6 +173,15 @@ export enum EnumMatch {
 	Key, Enum
 }
 
+const schemaDraftFromId : { [id:string]: SchemaDraft } = {
+	'http://json-schema.org/draft-03/schema#': SchemaDraft.v3,
+	'http://json-schema.org/draft-04/schema#': SchemaDraft.v4,
+	'http://json-schema.org/draft-06/schema#': SchemaDraft.v6,
+	'http://json-schema.org/draft-07/schema#': SchemaDraft.v7,
+	'https://json-schema.org/draft/2019-09/schema': SchemaDraft.v2019_09,
+	'https://json-schema.org/draft/2020-12/schema': SchemaDraft.v2020_12
+};
+
 export interface ISchemaCollector {
 	schemas: IApplicableSchema[];
 	add(schema: IApplicableSchema): void;
@@ -179,6 +189,16 @@ export interface ISchemaCollector {
 	include(node: ASTNode): boolean;
 	newSub(): ISchemaCollector;
 }
+
+export interface IEvaluationContext {
+	readonly schemaDraft: SchemaDraft;
+}
+
+class EvaluationContext implements IEvaluationContext {
+	constructor(public readonly schemaDraft: SchemaDraft) {
+	}
+}
+
 
 class SchemaCollector implements ISchemaCollector {
 	schemas: IApplicableSchema[] = [];
@@ -201,9 +221,9 @@ class SchemaCollector implements ISchemaCollector {
 class NoOpSchemaCollector implements ISchemaCollector {
 	private constructor() { }
 	get schemas() { return []; }
-	add(schema: IApplicableSchema) { }
-	merge(other: ISchemaCollector) { }
-	include(node: ASTNode) { return true; }
+	add(_schema: IApplicableSchema) { }
+	merge(_other: ISchemaCollector) { }
+	include(_node: ASTNode) { return true; }
 	newSub(): ISchemaCollector { return this; }
 
 	static instance = new NoOpSchemaCollector();
@@ -233,14 +253,11 @@ export class ValidationResult {
 		return !!this.problems.length;
 	}
 
-	public mergeAll(validationResults: ValidationResult[]): void {
-		for (const validationResult of validationResults) {
-			this.merge(validationResult);
-		}
-	}
-
 	public merge(validationResult: ValidationResult): void {
 		this.problems = this.problems.concat(validationResult.problems);
+		this.propertiesMatches += validationResult.propertiesMatches;
+		this.propertiesValueMatches += validationResult.propertiesValueMatches;
+		this.mergeProcessedProperties(validationResult);
 	}
 
 	public mergeEnumValues(validationResult: ValidationResult): void {
@@ -255,7 +272,7 @@ export class ValidationResult {
 	}
 
 	public mergePropertyMatch(propertyValidationResult: ValidationResult): void {
-		this.merge(propertyValidationResult);
+		this.problems = this.problems.concat(propertyValidationResult.problems);
 		this.propertiesMatches++;
 		if (propertyValidationResult.enumValueMatch || !propertyValidationResult.hasProblems() && propertyValidationResult.propertiesMatches) {
 			this.propertiesValueMatches++;
@@ -332,10 +349,10 @@ export class JSONDocument {
 		}
 	}
 
-	public validate(textDocument: TextDocument, schema: JSONSchema | undefined, severity: DiagnosticSeverity = DiagnosticSeverity.Warning): Diagnostic[] | undefined {
+	public validate(textDocument: TextDocument, schema: JSONSchema | undefined, severity: DiagnosticSeverity = DiagnosticSeverity.Warning, schemaDraft?: SchemaDraft): Diagnostic[] | undefined {
 		if (this.root && schema) {
 			const validationResult = new ValidationResult();
-			validate(this.root, schema, validationResult, NoOpSchemaCollector.instance);
+			validate(this.root, schema, validationResult, NoOpSchemaCollector.instance, new EvaluationContext(schemaDraft ?? getSchemaDraft(schema)));
 			return validationResult.problems.map(p => {
 				const range = Range.create(textDocument.positionAt(p.location.offset), textDocument.positionAt(p.location.offset + p.location.length));
 				return Diagnostic.create(range, p.message, p.severity ?? severity, p.code);
@@ -345,21 +362,31 @@ export class JSONDocument {
 	}
 
 	public getMatchingSchemas(schema: JSONSchema, focusOffset: number = -1, exclude?: ASTNode): IApplicableSchema[] {
-		const matchingSchemas = new SchemaCollector(focusOffset, exclude);
 		if (this.root && schema) {
-			validate(this.root, schema, new ValidationResult(), matchingSchemas);
+			const matchingSchemas = new SchemaCollector(focusOffset, exclude);
+			const schemaDraft = getSchemaDraft(schema);
+			const context = new EvaluationContext(schemaDraft);
+			validate(this.root, schema, new ValidationResult(), matchingSchemas, context);
+			return matchingSchemas.schemas;
 		}
-		return matchingSchemas.schemas;
+		return [];
 	}
 }
+ function getSchemaDraft(schema: JSONSchema, fallBack = SchemaDraft.v2020_12 ) {
+	let schemaId = schema.$schema;
+	if (schemaId) {
+		return schemaDraftFromId[schemaId] ?? fallBack;
+	}
+	return fallBack;
+ }
 
-function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector): void {
+function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector, context: IEvaluationContext): void {
 
 	if (!n || !matchingSchemas.include(n)) {
 		return;
 	}
 	if (n.type === 'property') {
-		return validate(n.valueNode, schema, validationResult, matchingSchemas);
+		return validate(n.valueNode, schema, validationResult, matchingSchemas, context);
 	}
 	const node = n;
 	_validateNode();
@@ -405,14 +432,18 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		}
 		if (Array.isArray(schema.allOf)) {
 			for (const subSchemaRef of schema.allOf) {
-				validate(node, asSchema(subSchemaRef), validationResult, matchingSchemas);
+				const subValidationResult = new ValidationResult();
+				const subMatchingSchemas = matchingSchemas.newSub();
+				validate(node, asSchema(subSchemaRef), subValidationResult, subMatchingSchemas, context);
+				validationResult.merge(subValidationResult);
+				matchingSchemas.merge(subMatchingSchemas);
 			}
 		}
 		const notSchema = asSchema(schema.not);
 		if (notSchema) {
 			const subValidationResult = new ValidationResult();
 			const subMatchingSchemas = matchingSchemas.newSub();
-			validate(node, notSchema, subValidationResult, subMatchingSchemas);
+			validate(node, notSchema, subValidationResult, subMatchingSchemas, context);
 			if (!subValidationResult.hasProblems()) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
@@ -434,7 +465,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				const subSchema = asSchema(subSchemaRef);
 				const subValidationResult = new ValidationResult();
 				const subMatchingSchemas = matchingSchemas.newSub();
-				validate(node, subSchema, subValidationResult, subMatchingSchemas);
+				validate(node, subSchema, subValidationResult, subMatchingSchemas, context);
 				if (!subValidationResult.hasProblems()) {
 					matches.push(subSchema);
 				}
@@ -469,9 +500,6 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			}
 			if (bestMatch) {
 				validationResult.merge(bestMatch.validationResult);
-				validationResult.propertiesMatches += bestMatch.validationResult.propertiesMatches;
-				validationResult.propertiesValueMatches += bestMatch.validationResult.propertiesValueMatches;
-				validationResult.mergeProcessedProperties(bestMatch.validationResult);
 				matchingSchemas.merge(bestMatch.matchingSchemas);
 			}
 			return matches.length;
@@ -487,12 +515,9 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			const subValidationResult = new ValidationResult();
 			const subMatchingSchemas = matchingSchemas.newSub();
 
-			validate(node, asSchema(schema), subValidationResult, subMatchingSchemas);
+			validate(node, asSchema(schema), subValidationResult, subMatchingSchemas, context);
 
 			validationResult.merge(subValidationResult);
-			validationResult.propertiesMatches += subValidationResult.propertiesMatches;
-			validationResult.propertiesValueMatches += subValidationResult.propertiesValueMatches;
-			validationResult.mergeProcessedProperties(subValidationResult);
 			matchingSchemas.merge(subMatchingSchemas);
 		};
 
@@ -501,7 +526,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			const subValidationResult = new ValidationResult();
 			const subMatchingSchemas = matchingSchemas.newSub();
 
-			validate(node, subSchema, subValidationResult, subMatchingSchemas);
+			validate(node, subSchema, subValidationResult, subMatchingSchemas, context);
 			matchingSchemas.merge(subMatchingSchemas);
 			validationResult.mergeProcessedProperties(subValidationResult);
 
@@ -718,8 +743,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 	function _validateArrayNode(node: ArrayASTNode): void {
 		let prefixItemsSchemas: JSONSchemaRef[] | undefined;
 		let additionalItemSchema: JSONSchemaRef | undefined;
-		let isSchema_2020_12 = Array.isArray(schema.prefixItems) || (schema.items !== undefined && !Array.isArray(schema.items) && schema.additionalItems === undefined);
-		if (isSchema_2020_12) {
+		if (context.schemaDraft >= SchemaDraft.v2020_12) {
 			prefixItemsSchemas = schema.prefixItems;
 			additionalItemSchema = !Array.isArray(schema.items) ? schema.items : undefined;
 		} else {
@@ -735,7 +759,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				const itemValidationResult = new ValidationResult();
 				const item = node.items[index];
 				if (item) {
-					validate(item, subSchema, itemValidationResult, matchingSchemas);
+					validate(item, subSchema, itemValidationResult, matchingSchemas, context);
 					validationResult.mergePropertyMatch(itemValidationResult);
 				}
 				validationResult.processedProperties.add(String(index));
@@ -756,7 +780,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			} else {
 				for (; index < node.items.length; index++) {
 					const itemValidationResult = new ValidationResult();
-					validate(node.items[index], additionalItemSchema, itemValidationResult, matchingSchemas);
+					validate(node.items[index], additionalItemSchema, itemValidationResult, matchingSchemas, context);
 					validationResult.mergePropertyMatch(itemValidationResult);
 					validationResult.processedProperties.add(String(index));
 				}
@@ -769,10 +793,10 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			for (let index = 0; index < node.items.length; index++) {
 				const item = node.items[index];
 				const itemValidationResult = new ValidationResult();
-				validate(item, containsSchema, itemValidationResult, NoOpSchemaCollector.instance);
+				validate(item, containsSchema, itemValidationResult, NoOpSchemaCollector.instance, context);
 				if (!itemValidationResult.hasProblems()) {
 					containsCount++;
-					if (isSchema_2020_12) {
+					if (context.schemaDraft >= SchemaDraft.v2020_12) {
 						validationResult.processedProperties.add(String(index));
 					}
 				}
@@ -808,7 +832,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 						});
 					} else {
 						const itemValidationResult = new ValidationResult();
-						validate(node.items[i], <any>schema.additionalItems, itemValidationResult, matchingSchemas);
+						validate(node.items[i], <any>schema.unevaluatedItems, itemValidationResult, matchingSchemas, context);
 						validationResult.mergePropertyMatch(itemValidationResult);
 					}
 				}
@@ -892,7 +916,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 						}
 					} else {
 						const propertyValidationResult = new ValidationResult();
-						validate(child, propertySchema, propertyValidationResult, matchingSchemas);
+						validate(child, propertySchema, propertyValidationResult, matchingSchemas, context);
 						validationResult.mergePropertyMatch(propertyValidationResult);
 					}
 				}
@@ -924,7 +948,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 									}
 								} else {
 									const propertyValidationResult = new ValidationResult();
-									validate(child, propertySchema, propertyValidationResult, matchingSchemas);
+									validate(child, propertySchema, propertyValidationResult, matchingSchemas, context);
 									validationResult.mergePropertyMatch(propertyValidationResult);
 								}
 							}
@@ -951,7 +975,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 						});
 					} else {
 						const propertyValidationResult = new ValidationResult();
-						validate(child, additionalProperties, propertyValidationResult, matchingSchemas);
+						validate(child, additionalProperties, propertyValidationResult, matchingSchemas, context);
 						validationResult.mergePropertyMatch(propertyValidationResult);
 					}
 				}
@@ -974,7 +998,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 							});
 						} else {
 							const propertyValidationResult = new ValidationResult();
-							validate(child, unevaluatedProperties, propertyValidationResult, matchingSchemas);
+							validate(child, unevaluatedProperties, propertyValidationResult, matchingSchemas, context);
 							validationResult.mergePropertyMatch(propertyValidationResult);
 						}
 					}
@@ -1034,7 +1058,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			for (const f of node.properties) {
 				const key = f.keyNode;
 				if (key) {
-					validate(key, propertyNames, validationResult, NoOpSchemaCollector.instance);
+					validate(key, propertyNames, validationResult, NoOpSchemaCollector.instance, context);
 				}
 			}
 		}
@@ -1055,7 +1079,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				const propertySchema = asSchema(propertyDep);
 				if (propertySchema) {
 					const propertyValidationResult = new ValidationResult();
-					validate(node, propertySchema, propertyValidationResult, matchingSchemas);
+					validate(node, propertySchema, propertyValidationResult, matchingSchemas, context);
 					validationResult.mergePropertyMatch(propertyValidationResult);
 				}
 			}

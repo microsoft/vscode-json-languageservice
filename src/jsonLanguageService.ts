@@ -8,7 +8,7 @@ import { JSONHover } from './services/jsonHover';
 import { JSONValidation } from './services/jsonValidation';
 
 import { JSONDocumentSymbols } from './services/jsonDocumentSymbols';
-import { parse as parseJSON, JSONDocument as InternalJSONDocument, newJSONDocument } from './parser/jsonParser';
+import { parse as parseJSON, newJSONDocument } from './parser/jsonParser';
 import { schemaContributions } from './services/configuration';
 import { JSONSchemaService } from './services/jsonSchemaService';
 import { getFoldingRanges } from './services/jsonFolding';

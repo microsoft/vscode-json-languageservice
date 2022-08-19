@@ -136,6 +136,15 @@ export interface LanguageSettings {
 
 export type SeverityLevel = 'error' | 'warning' | 'ignore';
 
+export enum SchemaDraft {
+	v3 = 3,
+	v4 = 4,
+	v6 = 6,
+	v7 = 7,
+	v2019_09 = 19,
+	v2020_12 = 20
+}
+
 export interface DocumentLanguageSettings {
 	/**
 	 * The severity of reported comments. If not set, 'LanguageSettings.allowComments' defines whether comments are ignored or reported as errors.
@@ -156,6 +165,11 @@ export interface DocumentLanguageSettings {
 	 * The severity of problems that occurred when resolving and loading schemas. If set to 'ignore', schema resolving problems are not reported. If not set, 'warning' is used. 
 	 */
 	schemaRequest?: SeverityLevel;
+
+	/**
+	 * The draft version of schema to use if the schema doesn't specify one at $schema
+	 */
+	schemaDraft?: SchemaDraft;
 }
 
 export interface SchemaConfiguration {
