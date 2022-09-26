@@ -1,3 +1,8 @@
+5.2.0 / 2022-08/19
+================
+* new type `SchemaDraft`, representing the offical JSON schema draft versions
+* new property `DocumentLanguageSettings.schemaDraft` to specify the schema version to use, if the schema does not contain a `$schema` property
+
 5.1.0 / 2022-07-11
 ================
 * new API option `FormattingOptions.keepLines` to indicate the formatter should keep the initial line positions 
