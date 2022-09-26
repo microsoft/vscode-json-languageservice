@@ -961,7 +961,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 
 		const additionalProperties = schema.additionalProperties;
-		if (additionalProperties !== undefined && additionalProperties !== true) {
+		if (additionalProperties !== undefined) {
 			for (const propertyName of unprocessedProperties) {
 				propertyProcessed(propertyName);
 				const child = seenKeys[propertyName];
@@ -973,7 +973,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 							location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
 							message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
 						});
-					} else {
+					} else if (additionalProperties !== true) {
 						const propertyValidationResult = new ValidationResult();
 						validate(child, additionalProperties, propertyValidationResult, matchingSchemas, context);
 						validationResult.mergePropertyMatch(propertyValidationResult);
@@ -982,7 +982,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			}
 		}
 		const unevaluatedProperties = schema.unevaluatedProperties;
-		if (unevaluatedProperties !== undefined && unevaluatedProperties !== true) {
+		if (unevaluatedProperties !== undefined) {
 			const processed = [];
 			for (const propertyName of unprocessedProperties) {
 				if (!validationResult.processedProperties.has(propertyName)) {
@@ -996,7 +996,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 								location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
 								message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
 							});
-						} else {
+						} else if (unevaluatedProperties !== true) {
 							const propertyValidationResult = new ValidationResult();
 							validate(child, unevaluatedProperties, propertyValidationResult, matchingSchemas, context);
 							validationResult.mergePropertyMatch(propertyValidationResult);
