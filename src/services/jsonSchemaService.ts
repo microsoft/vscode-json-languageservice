@@ -389,11 +389,18 @@ export class JSONSchemaService implements IJSONSchemaService {
 					const errorMessage = localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': No content.', toDisplayString(url));
 					return new UnresolvedSchema(<JSONSchema>{}, [errorMessage]);
 				}
+				const errors = [];
+				if (content.charCodeAt(0) === 65279) {
+					errors.push(localize('json.schema.encodingWithBOM', 'Problem reading content from \'{0}\': UTF-8 with BOM detected, only UTF 8 is allowed.', toDisplayString(url)));
+					content = content.trimStart();
+				}
 
 				let schemaContent: JSONSchema = {};
 				const jsonErrors: Json.ParseError[] = [];
 				schemaContent = Json.parse(content, jsonErrors);
-				const errors = jsonErrors.length ? [localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset)] : [];
+				if (jsonErrors.length) {
+					errors.push(localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset));
+				}
 				return new UnresolvedSchema(schemaContent, errors);
 			},
 			(error: any) => {
