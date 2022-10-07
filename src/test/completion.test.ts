@@ -249,6 +249,25 @@ suite('JSON Completion', () => {
 
 	});
 
+	test('Complete JS inherited property with schema', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'constructor': {
+					type: 'integer',
+					description: 'constructor'
+				}
+			}
+		};
+		await testCompletionsFor('{|}', schema, {
+			count: 1,
+			items: [
+				{ label: 'constructor', documentation: 'constructor', resultText: '{"constructor": ${1:0}}' },
+			]
+		});
+
+	});
+
 	test('Complete propertyNames', async function () {
 		const schema: JSONSchema = {
 			type: 'object',

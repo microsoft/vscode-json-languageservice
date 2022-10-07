@@ -90,8 +90,7 @@ export class JSONCompletion {
 		const collector: CompletionsCollector = {
 			add: (suggestion: CompletionItem) => {
 				let label = suggestion.label;
-				const existing = proposed[label];
-				if (!existing) {
+				if (!proposed.hasOwnProperty(label)) {
 					label = label.replace(/[\n]/g, '↵');
 					if (label.length > 60) {
 						const shortendedLabel = label.substr(0, 57).trim() + '...';
@@ -109,6 +108,7 @@ export class JSONCompletion {
 					proposed[label] = suggestion;
 					result.items.push(suggestion);
 				} else {
+					const existing = proposed[label];
 					if (!existing.documentation) {
 						existing.documentation = suggestion.documentation;
 					}
