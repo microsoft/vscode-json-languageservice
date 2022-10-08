@@ -86,15 +86,16 @@ export class JSONCompletion {
 
 		const supportsCommitCharacters = false; //this.doesSupportsCommitCharacters(); disabled for now, waiting for new API: https://github.com/microsoft/vscode/issues/42544
 
-		const proposed: { [key: string]: CompletionItem } = {};
+		const proposed = new Map<string, CompletionItem>();
 		const collector: CompletionsCollector = {
 			add: (suggestion: CompletionItem) => {
 				let label = suggestion.label;
-				if (!proposed.hasOwnProperty(label)) {
+				const existing = proposed.get(label);
+				if (!existing) {
 					label = label.replace(/[\n]/g, '↵');
 					if (label.length > 60) {
 						const shortendedLabel = label.substr(0, 57).trim() + '...';
-						if (!proposed[shortendedLabel]) {
+						if (!proposed.has(shortendedLabel)) {
 							label = shortendedLabel;
 						}
 					}
@@ -105,10 +106,9 @@ export class JSONCompletion {
 						suggestion.commitCharacters = suggestion.kind === CompletionItemKind.Property ? propertyCommitCharacters : valueCommitCharacters;
 					}
 					suggestion.label = label;
-					proposed[label] = suggestion;
+					proposed.set(label, suggestion);
 					result.items.push(suggestion);
 				} else {
-					const existing = proposed[label];
 					if (!existing.documentation) {
 						existing.documentation = suggestion.documentation;
 					}
@@ -163,7 +163,7 @@ export class JSONCompletion {
 				const properties = node.properties;
 				properties.forEach(p => {
 					if (!currentProperty || currentProperty !== p) {
-						proposed[p.keyNode.value] = CompletionItem.create('__');
+						proposed.set(p.keyNode.value, CompletionItem.create('__'));
 					}
 				});
 				let separatorAfter = '';

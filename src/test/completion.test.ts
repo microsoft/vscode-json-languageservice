@@ -253,15 +253,20 @@ suite('JSON Completion', () => {
 		const schema: JSONSchema = {
 			type: 'object',
 			properties: {
+				'hasOwnProperty': {
+					type: 'integer',
+					description: 'hasOwnProperty'
+				},
 				'constructor': {
 					type: 'integer',
 					description: 'constructor'
-				}
+				},
 			}
 		};
 		await testCompletionsFor('{|}', schema, {
-			count: 1,
+			count: 2,
 			items: [
+				{ label: 'hasOwnProperty', documentation: 'hasOwnProperty', resultText: '{"hasOwnProperty": ${1:0}}' },
 				{ label: 'constructor', documentation: 'constructor', resultText: '{"constructor": ${1:0}}' },
 			]
 		});
