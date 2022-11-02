@@ -46,8 +46,6 @@
     "coverage": "npx nyc -r lcov npm run test",
     "lint": "eslint src/**/*.ts",
     "install-types-next": "npm install vscode-languageserver-types@next -f -S && npm install vscode-languageserver-textdocument@next -f -S",
-    "preversion": "npm test",
-    "postversion": "git push && git push --tags",
     "sample": "npm run compile && node ./lib/umd/example/sample.js"
   }
 }

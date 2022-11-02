@@ -4,7 +4,7 @@ JSON language service extracted from VSCode to be reused, e.g in the Monaco edit
 
 [![npm Package](https://img.shields.io/npm/v/vscode-json-languageservice.svg?style=flat-square)](https://www.npmjs.org/package/vscode-json-languageservice)
 [![NPM Downloads](https://img.shields.io/npm/dm/vscode-json-languageservice.svg)](https://npmjs.org/package/vscode-json-languageservice)
-[![Build Status](https://travis-ci.org/Microsoft/vscode-json-languageservice.svg?branch=master)](https://travis-ci.org/Microsoft/vscode-json-languageservice)
+[![Build Status](https://github.com/microsoft/vscode-json-languageservice/actions/workflows/node.js.yml/badge.svg)](https://github.com/microsoft/vscode-json-languageservice/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Why?
