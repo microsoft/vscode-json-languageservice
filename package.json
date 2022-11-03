@@ -33,7 +33,7 @@
     "vscode-uri": "^3.0.6"
   },
   "scripts": {
-    "prepublishOnly": "npm run clean && npm run compile-esm && npm run test && npm run remove-sourcemap-refs",
+    "prepack": "npm run clean && npm run compile-esm && npm run test && npm run remove-sourcemap-refs",
     "compile": "tsc -p ./src",
     "compile-esm": "tsc -p ./src/tsconfig.esm.json",
     "clean": "rimraf lib",

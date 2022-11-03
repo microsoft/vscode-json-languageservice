@@ -26,7 +26,15 @@ extends:
     npmPackages:
       - name: vscode-json-languageservice
 
-        buildPlatforms:
+        buildSteps:
+          - script: npm ci
+            displayName: Install dependencies
+
+          # the rest of the build steps are part of the 'prepack' script, automatically run when the pipeline invokes 'npm pack'
+
+        publishPackage: ${{ parameters.publishPackage }}            
+
+        testPlatforms:
           - name: Linux
             nodeVersions:
               - 16.x
@@ -35,14 +43,10 @@ extends:
               - 16.x
           - name: Windows
             nodeVersions:
-              - 16.x              
-
-        buildSteps:
-          - script: npm i
-            displayName: Install dependencies         
+              - 16.x                   
 
         testSteps:
+          - script: npm ci
+            displayName: Install dependencies        
           - script: npm test
             displayName: Test npm package
-
-        publishPackage: ${{ parameters.publishPackage }}
