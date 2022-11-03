@@ -33,8 +33,7 @@
     "vscode-uri": "^3.0.6"
   },
   "scripts": {
-    "prepublishOnly": "npm run clean && npm run compile-esm && npm run test && npm run remove-sourcemap-refs",
-    "postpublish": "node ./build/post-publish.js",
+    "prepack": "npm run clean && npm run compile-esm && npm run test && npm run remove-sourcemap-refs",
     "compile": "tsc -p ./src",
     "compile-esm": "tsc -p ./src/tsconfig.esm.json",
     "clean": "rimraf lib",
@@ -46,8 +45,6 @@
     "coverage": "npx nyc -r lcov npm run test",
     "lint": "eslint src/**/*.ts",
     "install-types-next": "npm install vscode-languageserver-types@next -f -S && npm install vscode-languageserver-textdocument@next -f -S",
-    "preversion": "npm test",
-    "postversion": "git push && git push --tags",
     "sample": "npm run compile && node ./lib/umd/example/sample.js"
   }
 }
