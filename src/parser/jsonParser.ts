@@ -4,14 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Json from 'jsonc-parser';
-import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
+import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import { isNumber, equals, isBoolean, isString, isDefined, isObject } from '../utils/objects';
 import { extendedRegExp, stringLength } from '../utils/strings';
 import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range, SchemaDraft } from '../jsonLanguageTypes';
 
-import * as nls from 'vscode-nls';
-
-const localize = nls.loadMessageBundle();
+import * as l10n from '@vscode/l10n';
 
 export interface IRange {
 	offset: number;
@@ -19,14 +17,14 @@ export interface IRange {
 }
 
 const formats = {
-	'color-hex': { errorMessage: localize('colorHexFormatWarning', 'Invalid color format. Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.'), pattern: /^#([0-9A-Fa-f]{3,4}|([0-9A-Fa-f]{2}){3,4})$/ },
-	'date-time': { errorMessage: localize('dateTimeFormatWarning', 'String is not a RFC3339 date-time.'), pattern: /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)(\.[0-9]+)?(Z|(\+|-)([01][0-9]|2[0-3]):([0-5][0-9]))$/i },
-	'date': { errorMessage: localize('dateFormatWarning', 'String is not a RFC3339 date.'), pattern: /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/i },
-	'time': { errorMessage: localize('timeFormatWarning', 'String is not a RFC3339 time.'), pattern: /^([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)(\.[0-9]+)?(Z|(\+|-)([01][0-9]|2[0-3]):([0-5][0-9]))$/i },
-	'email': { errorMessage: localize('emailFormatWarning', 'String is not an e-mail address.'), pattern: /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}))$/ },
-	'hostname': { errorMessage: localize('hostnameFormatWarning', 'String is not a hostname.'), pattern: /^(?=.{1,253}\.?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[-0-9a-z]{0,61}[0-9a-z])?)*\.?$/i },
-	'ipv4': { errorMessage: localize('ipv4FormatWarning', 'String is not an IPv4 address.'), pattern: /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/ },
-	'ipv6': { errorMessage: localize('ipv6FormatWarning', 'String is not an IPv6 address.'), pattern: /^((([0-9a-f]{1,4}:){7}([0-9a-f]{1,4}|:))|(([0-9a-f]{1,4}:){6}(:[0-9a-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){5}(((:[0-9a-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){4}(((:[0-9a-f]{1,4}){1,3})|((:[0-9a-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){3}(((:[0-9a-f]{1,4}){1,4})|((:[0-9a-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){2}(((:[0-9a-f]{1,4}){1,5})|((:[0-9a-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){1}(((:[0-9a-f]{1,4}){1,6})|((:[0-9a-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9a-f]{1,4}){1,7})|((:[0-9a-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))$/i },
+	'color-hex': { errorMessage: l10n.t('Invalid color format. Use #RGB, #RGBA, #RRGGBB or #RRGGBBAA.'), pattern: /^#([0-9A-Fa-f]{3,4}|([0-9A-Fa-f]{2}){3,4})$/ },
+	'date-time': { errorMessage: l10n.t('String is not a RFC3339 date-time.'), pattern: /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)(\.[0-9]+)?(Z|(\+|-)([01][0-9]|2[0-3]):([0-5][0-9]))$/i },
+	'date': { errorMessage: l10n.t('String is not a RFC3339 date.'), pattern: /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/i },
+	'time': { errorMessage: l10n.t('String is not a RFC3339 time.'), pattern: /^([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)(\.[0-9]+)?(Z|(\+|-)([01][0-9]|2[0-3]):([0-5][0-9]))$/i },
+	'email': { errorMessage: l10n.t('String is not an e-mail address.'), pattern: /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}))$/ },
+	'hostname': { errorMessage: l10n.t('String is not a hostname.'), pattern: /^(?=.{1,253}\.?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[-0-9a-z]{0,61}[0-9a-z])?)*\.?$/i },
+	'ipv4': { errorMessage: l10n.t('String is not an IPv4 address.'), pattern: /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/ },
+	'ipv6': { errorMessage: l10n.t('String is not an IPv6 address.'), pattern: /^((([0-9a-f]{1,4}:){7}([0-9a-f]{1,4}|:))|(([0-9a-f]{1,4}:){6}(:[0-9a-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){5}(((:[0-9a-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){4}(((:[0-9a-f]{1,4}){1,3})|((:[0-9a-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){3}(((:[0-9a-f]{1,4}){1,4})|((:[0-9a-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){2}(((:[0-9a-f]{1,4}){1,5})|((:[0-9a-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){1}(((:[0-9a-f]{1,4}){1,6})|((:[0-9a-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9a-f]{1,4}){1,7})|((:[0-9a-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))$/i },
 };
 
 export interface IProblem {
@@ -265,7 +263,7 @@ export class ValidationResult {
 			this.enumValues = this.enumValues.concat(validationResult.enumValues);
 			for (const error of this.problems) {
 				if (error.code === ErrorCode.EnumValueMismatch) {
-					error.message = localize('enumWarning', 'Value is not accepted. Valid values: {0}.', this.enumValues.map(v => JSON.stringify(v)).join(', '));
+					error.message = l10n.t('Value is not accepted. Valid values: {0}.', this.enumValues.map(v => JSON.stringify(v)).join(', '));
 				}
 			}
 		}
@@ -418,7 +416,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!schema.type.some(matchesType)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: schema.errorMessage || localize('typeArrayMismatchWarning', 'Incorrect type. Expected one of {0}.', (<string[]>schema.type).join(', '))
+					message: schema.errorMessage || l10n.t('Incorrect type. Expected one of {0}.', (<string[]>schema.type).join(', '))
 				});
 			}
 		}
@@ -426,7 +424,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!matchesType(schema.type)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: schema.errorMessage || localize('typeMismatchWarning', 'Incorrect type. Expected "{0}".', schema.type)
+					message: schema.errorMessage || l10n.t('Incorrect type. Expected "{0}".', schema.type)
 				});
 			}
 		}
@@ -447,7 +445,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!subValidationResult.hasProblems()) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: localize('notSchemaWarning', "Matches a schema that is not allowed.")
+					message: l10n.t("Matches a schema that is not allowed.")
 				});
 			}
 			for (const ms of subMatchingSchemas.schemas) {
@@ -495,7 +493,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (matches.length > 1 && maxOneMatch) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: 1 },
-					message: localize('oneOfWarning', "Matches multiple schemas when only one must validate.")
+					message: l10n.t("Matches multiple schemas when only one must validate.")
 				});
 			}
 			if (bestMatch) {
@@ -559,7 +557,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
 					code: ErrorCode.EnumValueMismatch,
-					message: schema.errorMessage || localize('enumWarning', 'Value is not accepted. Valid values: {0}.', schema.enum.map(v => JSON.stringify(v)).join(', '))
+					message: schema.errorMessage || l10n.t('Value is not accepted. Valid values: {0}.', schema.enum.map(v => JSON.stringify(v)).join(', '))
 				});
 			}
 		}
@@ -570,7 +568,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
 					code: ErrorCode.EnumValueMismatch,
-					message: schema.errorMessage || localize('constWarning', 'Value must be {0}.', JSON.stringify(schema.const))
+					message: schema.errorMessage || l10n.t('Value must be {0}.', JSON.stringify(schema.const))
 				});
 				validationResult.enumValueMatch = false;
 			} else {
@@ -581,7 +579,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 		let deprecationMessage = schema.deprecationMessage;
 		if ((deprecationMessage || schema.deprecated) && node.parent) {
-			deprecationMessage = deprecationMessage || localize('deprecated', 'Value is deprecated');
+			deprecationMessage = deprecationMessage || l10n.t('Value is deprecated');
 			validationResult.problems.push({
 				location: { offset: node.parent.offset, length: node.parent.length },
 				severity: DiagnosticSeverity.Warning,
@@ -623,7 +621,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (remainder !== 0) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: localize('multipleOfWarning', 'Value is not divisible by {0}.', schema.multipleOf)
+					message: l10n.t('Value is not divisible by {0}.', schema.multipleOf)
 				});
 			}
 		}
@@ -646,28 +644,28 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (isNumber(exclusiveMinimum) && val <= exclusiveMinimum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				message: localize('exclusiveMinimumWarning', 'Value is below the exclusive minimum of {0}.', exclusiveMinimum)
+				message: l10n.t('Value is below the exclusive minimum of {0}.', exclusiveMinimum)
 			});
 		}
 		const exclusiveMaximum = getExclusiveLimit(schema.maximum, schema.exclusiveMaximum);
 		if (isNumber(exclusiveMaximum) && val >= exclusiveMaximum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				message: localize('exclusiveMaximumWarning', 'Value is above the exclusive maximum of {0}.', exclusiveMaximum)
+				message: l10n.t('Value is above the exclusive maximum of {0}.', exclusiveMaximum)
 			});
 		}
 		const minimum = getLimit(schema.minimum, schema.exclusiveMinimum);
 		if (isNumber(minimum) && val < minimum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				message: localize('minimumWarning', 'Value is below the minimum of {0}.', minimum)
+				message: l10n.t('Value is below the minimum of {0}.', minimum)
 			});
 		}
 		const maximum = getLimit(schema.maximum, schema.exclusiveMaximum);
 		if (isNumber(maximum) && val > maximum) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				message: localize('maximumWarning', 'Value is above the maximum of {0}.', maximum)
+				message: l10n.t('Value is above the maximum of {0}.', maximum)
 			});
 		}
 	}
@@ -676,14 +674,14 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (isNumber(schema.minLength) && stringLength(node.value) < schema.minLength) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				message: localize('minLengthWarning', 'String is shorter than the minimum length of {0}.', schema.minLength)
+				message: l10n.t('String is shorter than the minimum length of {0}.', schema.minLength)
 			});
 		}
 
 		if (isNumber(schema.maxLength) && stringLength(node.value) > schema.maxLength) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				message: localize('maxLengthWarning', 'String is longer than the maximum length of {0}.', schema.maxLength)
+				message: l10n.t('String is longer than the maximum length of {0}.', schema.maxLength)
 			});
 		}
 
@@ -692,7 +690,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!(regex?.test(node.value))) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: schema.patternErrorMessage || schema.errorMessage || localize('patternWarning', 'String does not match the pattern of "{0}".', schema.pattern)
+					message: schema.patternErrorMessage || schema.errorMessage || l10n.t('String does not match the pattern of "{0}".', schema.pattern)
 				});
 			}
 		}
@@ -703,19 +701,19 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				case 'uri-reference': {
 					let errorMessage;
 					if (!node.value) {
-						errorMessage = localize('uriEmpty', 'URI expected.');
+						errorMessage = l10n.t('URI expected.');
 					} else {
 						const match = /^(([^:/?#]+?):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/.exec(node.value);
 						if (!match) {
-							errorMessage = localize('uriMissing', 'URI is expected.');
+							errorMessage = l10n.t('URI is expected.');
 						} else if (!match[2] && schema.format === 'uri') {
-							errorMessage = localize('uriSchemeMissing', 'URI with a scheme is expected.');
+							errorMessage = l10n.t('URI with a scheme is expected.');
 						}
 					}
 					if (errorMessage) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
-							message: schema.patternErrorMessage || schema.errorMessage || localize('uriFormatWarning', 'String is not a URI: {0}', errorMessage)
+							message: schema.patternErrorMessage || schema.errorMessage || l10n.t('String is not a URI: {0}', errorMessage)
 						});
 					}
 				}
@@ -770,7 +768,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				if (additionalItemSchema === false) {
 					validationResult.problems.push({
 						location: { offset: node.offset, length: node.length },
-						message: localize('additionalItemsWarning', 'Array has too many items according to schema. Expected {0} or fewer.', index)
+						message: l10n.t('Array has too many items according to schema. Expected {0} or fewer.', index)
 					});
 				}
 				for (; index < node.items.length; index++) {
@@ -804,19 +802,19 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (containsCount === 0 && !isNumber(schema.minContains)) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: schema.errorMessage || localize('requiredItemMissingWarning', 'Array does not contain required item.')
+					message: schema.errorMessage || l10n.t('Array does not contain required item.')
 				});
 			}
 			if (isNumber(schema.minContains) && containsCount < schema.minContains) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: localize('minContainsWarning', 'Array has too few items that match the contains contraint. Expected {0} or more.', schema.minContains)
+					message: l10n.t('Array has too few items that match the contains contraint. Expected {0} or more.', schema.minContains)
 				});
 			}
 			if (isNumber(schema.maxContains) && containsCount > schema.maxContains) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: localize('maxContainsWarning', 'Array has too many items that match the contains contraint. Expected {0} or less.', schema.maxContains)
+					message: l10n.t('Array has too many items that match the contains contraint. Expected {0} or less.', schema.maxContains)
 				});
 			}
 		}
@@ -828,7 +826,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 					if (unevaluatedItems === false) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
-							message: localize('unevaluatedItemsWarning', 'Item does not match any validation rule from the array.')
+							message: l10n.t('Item does not match any validation rule from the array.')
 						});
 					} else {
 						const itemValidationResult = new ValidationResult();
@@ -844,14 +842,14 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (isNumber(schema.minItems) && node.items.length < schema.minItems) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				message: localize('minItemsWarning', 'Array has too few items. Expected {0} or more.', schema.minItems)
+				message: l10n.t('Array has too few items. Expected {0} or more.', schema.minItems)
 			});
 		}
 
 		if (isNumber(schema.maxItems) && node.items.length > schema.maxItems) {
 			validationResult.problems.push({
 				location: { offset: node.offset, length: node.length },
-				message: localize('maxItemsWarning', 'Array has too many items. Expected {0} or fewer.', schema.maxItems)
+				message: l10n.t('Array has too many items. Expected {0} or fewer.', schema.maxItems)
 			});
 		}
 
@@ -863,7 +861,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (duplicates) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: localize('uniqueItemsWarning', 'Array has duplicate items.')
+					message: l10n.t('Array has duplicate items.')
 				});
 			}
 		}
@@ -886,7 +884,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 					const location = keyNode ? { offset: keyNode.offset, length: keyNode.length } : { offset: node.offset, length: 1 };
 					validationResult.problems.push({
 						location: location,
-						message: localize('MissingRequiredPropWarning', 'Missing property "{0}".', propertyName)
+						message: l10n.t('Missing property "{0}".', propertyName)
 					});
 				}
 			}
@@ -908,7 +906,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 							const propertyNode = <PropertyASTNode>child.parent;
 							validationResult.problems.push({
 								location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-								message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
+								message: schema.errorMessage || l10n.t('Property {0} is not allowed.', propertyName)
 							});
 						} else {
 							validationResult.propertiesMatches++;
@@ -940,7 +938,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 										const propertyNode = <PropertyASTNode>child.parent;
 										validationResult.problems.push({
 											location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-											message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
+											message: schema.errorMessage || l10n.t('Property {0} is not allowed.', propertyName)
 										});
 									} else {
 										validationResult.propertiesMatches++;
@@ -971,7 +969,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 						validationResult.problems.push({
 							location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-							message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
+							message: schema.errorMessage || l10n.t('Property {0} is not allowed.', propertyName)
 						});
 					} else if (additionalProperties !== true) {
 						const propertyValidationResult = new ValidationResult();
@@ -994,7 +992,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 							validationResult.problems.push({
 								location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-								message: schema.errorMessage || localize('DisallowedExtraPropWarning', 'Property {0} is not allowed.', propertyName)
+								message: schema.errorMessage || l10n.t('Property {0} is not allowed.', propertyName)
 							});
 						} else if (unevaluatedProperties !== true) {
 							const propertyValidationResult = new ValidationResult();
@@ -1011,7 +1009,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (node.properties.length > schema.maxProperties) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: localize('MaxPropWarning', 'Object has more properties than limit of {0}.', schema.maxProperties)
+					message: l10n.t('Object has more properties than limit of {0}.', schema.maxProperties)
 				});
 			}
 		}
@@ -1020,7 +1018,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (node.properties.length < schema.minProperties) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: localize('MinPropWarning', 'Object has fewer properties than the required number of {0}', schema.minProperties)
+					message: l10n.t('Object has fewer properties than the required number of {0}', schema.minProperties)
 				});
 			}
 		}
@@ -1069,7 +1067,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 					if (!seenKeys[requiredProp]) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
-							message: localize('RequiredDependentPropWarning', 'Object is missing property {0} required by property {1}.', requiredProp, key)
+							message: l10n.t('Object is missing property {0} required by property {1}.', requiredProp, key)
 						});
 					} else {
 						validationResult.propertiesValueMatches++;
@@ -1167,22 +1165,22 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 	function _checkScanError(): boolean {
 		switch (scanner.getTokenError()) {
 			case Json.ScanError.InvalidUnicode:
-				_error(localize('InvalidUnicode', 'Invalid unicode sequence in string.'), ErrorCode.InvalidUnicode);
+				_error(l10n.t('Invalid unicode sequence in string.'), ErrorCode.InvalidUnicode);
 				return true;
 			case Json.ScanError.InvalidEscapeCharacter:
-				_error(localize('InvalidEscapeCharacter', 'Invalid escape character in string.'), ErrorCode.InvalidEscapeCharacter);
+				_error(l10n.t('Invalid escape character in string.'), ErrorCode.InvalidEscapeCharacter);
 				return true;
 			case Json.ScanError.UnexpectedEndOfNumber:
-				_error(localize('UnexpectedEndOfNumber', 'Unexpected end of number.'), ErrorCode.UnexpectedEndOfNumber);
+				_error(l10n.t('Unexpected end of number.'), ErrorCode.UnexpectedEndOfNumber);
 				return true;
 			case Json.ScanError.UnexpectedEndOfComment:
-				_error(localize('UnexpectedEndOfComment', 'Unexpected end of comment.'), ErrorCode.UnexpectedEndOfComment);
+				_error(l10n.t('Unexpected end of comment.'), ErrorCode.UnexpectedEndOfComment);
 				return true;
 			case Json.ScanError.UnexpectedEndOfString:
-				_error(localize('UnexpectedEndOfString', 'Unexpected end of string.'), ErrorCode.UnexpectedEndOfString);
+				_error(l10n.t('Unexpected end of string.'), ErrorCode.UnexpectedEndOfString);
 				return true;
 			case Json.ScanError.InvalidCharacter:
-				_error(localize('InvalidCharacter', 'Invalid characters in string. Control characters must be escaped.'), ErrorCode.InvalidCharacter);
+				_error(l10n.t('Invalid characters in string. Control characters must be escaped.'), ErrorCode.InvalidCharacter);
 				return true;
 		}
 		return false;
@@ -1210,22 +1208,22 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		while (scanner.getToken() !== Json.SyntaxKind.CloseBracketToken && scanner.getToken() !== Json.SyntaxKind.EOF) {
 			if (scanner.getToken() === Json.SyntaxKind.CommaToken) {
 				if (!needsComma) {
-					_error(localize('ValueExpected', 'Value expected'), ErrorCode.ValueExpected);
+					_error(l10n.t('Value expected'), ErrorCode.ValueExpected);
 				}
 				const commaOffset = scanner.getTokenOffset();
 				_scanNext(); // consume comma
 				if (scanner.getToken() === Json.SyntaxKind.CloseBracketToken) {
 					if (needsComma) {
-						_errorAtRange(localize('TrailingComma', 'Trailing comma'), ErrorCode.TrailingComma, commaOffset, commaOffset + 1);
+						_errorAtRange(l10n.t('Trailing comma'), ErrorCode.TrailingComma, commaOffset, commaOffset + 1);
 					}
 					continue;
 				}
 			} else if (needsComma) {
-				_error(localize('ExpectedComma', 'Expected comma'), ErrorCode.CommaExpected);
+				_error(l10n.t('Expected comma'), ErrorCode.CommaExpected);
 			}
 			const item = _parseValue(node);
 			if (!item) {
-				_error(localize('PropertyExpected', 'Value expected'), ErrorCode.ValueExpected, undefined, [], [Json.SyntaxKind.CloseBracketToken, Json.SyntaxKind.CommaToken]);
+				_error(l10n.t('Value expected'), ErrorCode.ValueExpected, undefined, [], [Json.SyntaxKind.CloseBracketToken, Json.SyntaxKind.CommaToken]);
 			} else {
 				node.items.push(item);
 			}
@@ -1233,7 +1231,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		}
 
 		if (scanner.getToken() !== Json.SyntaxKind.CloseBracketToken) {
-			return _error(localize('ExpectedCloseBracket', 'Expected comma or closing bracket'), ErrorCode.CommaOrCloseBacketExpected, node);
+			return _error(l10n.t('Expected comma or closing bracket'), ErrorCode.CommaOrCloseBacketExpected, node);
 		}
 
 		return _finalize(node, true);
@@ -1247,7 +1245,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		if (!key) {
 			if (scanner.getToken() === Json.SyntaxKind.Unknown) {
 				// give a more helpful error message
-				_error(localize('DoubleQuotesExpected', 'Property keys must be doublequoted'), ErrorCode.Undefined);
+				_error(l10n.t('Property keys must be doublequoted'), ErrorCode.Undefined);
 				const keyNode = new StringASTNodeImpl(node, scanner.getTokenOffset(), scanner.getTokenLength());
 				keyNode.value = scanner.getTokenValue();
 				key = keyNode;
@@ -1263,9 +1261,9 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		if (key.value !== "//") {
 			const seen = keysSeen[key.value];
 			if (seen) {
-				_errorAtRange(localize('DuplicateKeyWarning', "Duplicate object key"), ErrorCode.DuplicateKey, node.keyNode.offset, node.keyNode.offset + node.keyNode.length, DiagnosticSeverity.Warning);
+				_errorAtRange(l10n.t("Duplicate object key"), ErrorCode.DuplicateKey, node.keyNode.offset, node.keyNode.offset + node.keyNode.length, DiagnosticSeverity.Warning);
 				if (isObject(seen)) {
-					_errorAtRange(localize('DuplicateKeyWarning', "Duplicate object key"), ErrorCode.DuplicateKey, seen.keyNode.offset, seen.keyNode.offset + seen.keyNode.length, DiagnosticSeverity.Warning);
+					_errorAtRange(l10n.t("Duplicate object key"), ErrorCode.DuplicateKey, seen.keyNode.offset, seen.keyNode.offset + seen.keyNode.length, DiagnosticSeverity.Warning);
 				}
 				keysSeen[key.value] = true; // if the same key is duplicate again, avoid duplicate error reporting
 			} else {
@@ -1277,7 +1275,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			node.colonOffset = scanner.getTokenOffset();
 			_scanNext(); // consume ColonToken
 		} else {
-			_error(localize('ColonExpected', 'Colon expected'), ErrorCode.ColonExpected);
+			_error(l10n.t('Colon expected'), ErrorCode.ColonExpected);
 			if (scanner.getToken() === Json.SyntaxKind.StringLiteral && textDocument.positionAt(key.offset + key.length).line < textDocument.positionAt(scanner.getTokenOffset()).line) {
 				node.length = key.length;
 				return node;
@@ -1285,7 +1283,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		}
 		const value = _parseValue(node);
 		if (!value) {
-			return _error(localize('ValueExpected', 'Value expected'), ErrorCode.ValueExpected, node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
+			return _error(l10n.t('Value expected'), ErrorCode.ValueExpected, node, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
 		}
 		node.valueNode = value;
 		node.length = value.offset + value.length - node.offset;
@@ -1304,22 +1302,22 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		while (scanner.getToken() !== Json.SyntaxKind.CloseBraceToken && scanner.getToken() !== Json.SyntaxKind.EOF) {
 			if (scanner.getToken() === Json.SyntaxKind.CommaToken) {
 				if (!needsComma) {
-					_error(localize('PropertyExpected', 'Property expected'), ErrorCode.PropertyExpected);
+					_error(l10n.t('Property expected'), ErrorCode.PropertyExpected);
 				}
 				const commaOffset = scanner.getTokenOffset();
 				_scanNext(); // consume comma
 				if (scanner.getToken() === Json.SyntaxKind.CloseBraceToken) {
 					if (needsComma) {
-						_errorAtRange(localize('TrailingComma', 'Trailing comma'), ErrorCode.TrailingComma, commaOffset, commaOffset + 1);
+						_errorAtRange(l10n.t('Trailing comma'), ErrorCode.TrailingComma, commaOffset, commaOffset + 1);
 					}
 					continue;
 				}
 			} else if (needsComma) {
-				_error(localize('ExpectedComma', 'Expected comma'), ErrorCode.CommaExpected);
+				_error(l10n.t('Expected comma'), ErrorCode.CommaExpected);
 			}
 			const property = _parseProperty(node, keysSeen);
 			if (!property) {
-				_error(localize('PropertyExpected', 'Property expected'), ErrorCode.PropertyExpected, undefined, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
+				_error(l10n.t('Property expected'), ErrorCode.PropertyExpected, undefined, [], [Json.SyntaxKind.CloseBraceToken, Json.SyntaxKind.CommaToken]);
 			} else {
 				node.properties.push(property);
 			}
@@ -1327,7 +1325,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		}
 
 		if (scanner.getToken() !== Json.SyntaxKind.CloseBraceToken) {
-			return _error(localize('ExpectedCloseBrace', 'Expected comma or closing brace'), ErrorCode.CommaOrCloseBraceExpected, node);
+			return _error(l10n.t('Expected comma or closing brace'), ErrorCode.CommaOrCloseBraceExpected, node);
 		}
 		return _finalize(node, true);
 	}
@@ -1354,11 +1352,11 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			try {
 				const numberValue = JSON.parse(tokenValue);
 				if (!isNumber(numberValue)) {
-					return _error(localize('InvalidNumberFormat', 'Invalid number format.'), ErrorCode.Undefined, node);
+					return _error(l10n.t('Invalid number format.'), ErrorCode.Undefined, node);
 				}
 				node.value = numberValue;
 			} catch (e) {
-				return _error(localize('InvalidNumberFormat', 'Invalid number format.'), ErrorCode.Undefined, node);
+				return _error(l10n.t('Invalid number format.'), ErrorCode.Undefined, node);
 			}
 			node.isInteger = tokenValue.indexOf('.') === -1;
 		}
@@ -1388,9 +1386,9 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 	if (token !== Json.SyntaxKind.EOF) {
 		_root = _parseValue(_root);
 		if (!_root) {
-			_error(localize('Invalid symbol', 'Expected a JSON object, array or literal.'), ErrorCode.Undefined);
+			_error(l10n.t('Expected a JSON object, array or literal.'), ErrorCode.Undefined);
 		} else if (scanner.getToken() !== Json.SyntaxKind.EOF) {
-			_error(localize('End of file expected', 'End of file expected.'), ErrorCode.Undefined);
+			_error(l10n.t('End of file expected.'), ErrorCode.Undefined);
 		}
 	}
 	return new JSONDocument(_root, problems, commentRanges);
