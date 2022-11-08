@@ -18,8 +18,7 @@ import {
 	CompletionItem, CompletionItemKind, CompletionList, Position, Range, TextEdit, InsertTextFormat, MarkupContent, MarkupKind
 } from '../jsonLanguageTypes';
 
-import * as nls from 'vscode-nls';
-const localize = nls.loadMessageBundle();
+import * as l10n from '@vscode/l10n';
 
 const valueCommitCharacters = [',', '}', ']'];
 const propertyCommitCharacters = [':'];
@@ -557,7 +556,7 @@ export class JSONCompletion {
 				label: this.getLabelForValue(value),
 				insertText: this.getInsertTextForValue(value, separatorAfter),
 				insertTextFormat: InsertTextFormat.Snippet,
-				detail: localize('json.suggest.default', 'Default value')
+				detail: l10n.t('Default value')
 			});
 			hasProposals = true;
 		}
@@ -675,7 +674,7 @@ export class JSONCompletion {
 				label: '{}',
 				insertText: this.getInsertTextForGuessedValue({}, separatorAfter),
 				insertTextFormat: InsertTextFormat.Snippet,
-				detail: localize('defaults.object', 'New object'),
+				detail: l10n.t('New object'),
 				documentation: ''
 			});
 		}
@@ -685,7 +684,7 @@ export class JSONCompletion {
 				label: '[]',
 				insertText: this.getInsertTextForGuessedValue([], separatorAfter),
 				insertTextFormat: InsertTextFormat.Snippet,
-				detail: localize('defaults.array', 'New array'),
+				detail: l10n.t('New array'),
 				documentation: ''
 			});
 		}
