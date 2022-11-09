@@ -524,8 +524,6 @@ for (const schemaName in schemaContributions.schemas) {
 		const description = descriptions[property];
 		if (description) {
 			propertyObject['description'] = description;
-		} else {
-			console.log(`${property}: l10n.t("")`);
 		}
 	}
 }
