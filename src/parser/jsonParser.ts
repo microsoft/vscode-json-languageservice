@@ -445,7 +445,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (!subValidationResult.hasProblems()) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: l10n.t("Matches a schema that is not allowed.")
+					message: schema.errorMessage || l10n.t("Matches a schema that is not allowed.")
 				});
 			}
 			for (const ms of subMatchingSchemas.schemas) {
