@@ -9,7 +9,7 @@ import * as Parser from '../parser/jsonParser';
 import { promises as fs } from 'fs';
 import * as url from 'url';
 import * as path from 'path';
-import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema } from '../jsonLanguageService';
+import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema, LanguageService } from '../jsonLanguageService';
 import { DiagnosticSeverity, SchemaConfiguration } from '../jsonLanguageTypes';
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig, uri = 'foo://bar/file.json'): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
@@ -841,7 +841,7 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id, ['*.json'], schema);
+		service.registerExternalSchema({ uri: id, fileMatch: ['*.json'], schema: schema });
 
 		const fs = await service.getSchemaForResource('test.json');
 		const section = fs?.getSection(['child', 'grandchild']);
@@ -867,7 +867,7 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id, ['*.json'], schema);
+		service.registerExternalSchema({ uri: id, fileMatch: ['*.json'], schema: schema });
 
 		const fs = await service.getSchemaForResource('test.json');
 		const section = fs?.getSection(['child', 'grandchild']);
@@ -896,8 +896,8 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id1, ['*.json'], schema1);
-		service.registerExternalSchema(id2, ['test.json'], schema2);
+		service.registerExternalSchema({ uri: id1, fileMatch: ['*.json'], schema: schema1 });
+		service.registerExternalSchema({ uri: id2, fileMatch: ['test.json'], schema: schema2 });
 
 		const fs = await service.getSchemaForResource('test.json');
 		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ foo: true, bar: true }));
@@ -924,7 +924,7 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id, ['*.json'], schema);
+		service.registerExternalSchema({ uri: id, fileMatch: ['*.json'], schema: schema });
 
 		const fs = await service.getSchemaForResource('test.json');
 		const section = fs?.getSection(['child', 'grandchild']);
@@ -960,7 +960,7 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id, ['*.json'], schema);
+		service.registerExternalSchema({ uri: id, fileMatch: ['*.json'], schema: schema });
 
 		const fs = await service.getSchemaForResource('test.json');
 		const section = fs?.getSection(['child', '0', 'grandchild']);
@@ -994,7 +994,7 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		const fsm = service.registerExternalSchema(id, ['*.json'], schema);
+		const fsm = service.registerExternalSchema({ uri: id, fileMatch: ['*.json'], schema: schema });
 		const fs = await fsm.getResolvedSchema();
 		const section = fs.getSection(['child', '0', 'grandchild']);
 		assert.strictEqual(section?.description, 'Meaning of Life');
@@ -1023,14 +1023,14 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id1, ['test.json', 'bar.json'], schema1);
+		service.registerExternalSchema({ uri: id1, fileMatch: ['test.json', 'bar.json'], schema: schema1 });
 
 		const fs = await service.getSchemaForResource('test.json');
 		assert.strictEqual(fs?.getSection(['child'])?.type, 'number');
 
 		service.clearExternalSchemas();
 
-		service.registerExternalSchema(id2, ['*.json'], schema2);
+		service.registerExternalSchema({ uri: id2, fileMatch: ['*.json'], schema: schema2 });
 
 		const fs2 = await service.getSchemaForResource('test.json');
 		assert.strictEqual(fs2?.getSection(['child'])?.type, 'string');
@@ -1070,7 +1070,7 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id2, undefined, schema2);
+		service.registerExternalSchema({ uri: id2, schema: schema2 });
 
 		let resolvedSchema = await service.getSchemaForResource('main.bar');
 		assert.deepStrictEqual(resolvedSchema?.errors, []);
@@ -1083,7 +1083,7 @@ suite('JSON Schema', () => {
 		assert.strictEqual(resolvedSchema?.errors[0], "Problems loading reference 'http://myschemastore/myschemafoo': Unable to load schema from 'http://myschemastore/myschemafoo': Resource not found.");
 
 		service.clearExternalSchemas();
-		service.registerExternalSchema(id2, undefined, schema2);
+		service.registerExternalSchema({ uri: id2, schema: schema2 });
 
 		resolvedSchema = await service.getSchemaForResource('main.bar');
 		assert.strictEqual(resolvedSchema?.errors.length, 0);
@@ -1117,14 +1117,7 @@ suite('JSON Schema', () => {
 		}
 	});
 
-	test('Schema matching, where fileMatch is a literal pattern, and denotes filename only', async function () {
-
-		const ls = getLanguageService({ workspaceContext });
-		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['part.json'], schema: { type: 'object', required: ['foo'] } }] });
-
-		const positives = ['file:///folder/part.json', 'file:///folder/part.json?f=true', 'file:///folder/part.json#f=true'];
-		const negatives = ['file:///folder/rampart.json', 'file:///folder/part.json/no.part.json', 'file:///folder/foo?part.json', 'file:///folder/foo#part.json'];
-
+	async function assertMatchingSchemas(ls: LanguageService, positives: string[], negatives: string[]) {
 		for (const positive of positives) {
 			const doc = toDocument("{}", undefined, positive);
 			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
@@ -1136,6 +1129,17 @@ suite('JSON Schema', () => {
 			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
 			assert.ok(ms.length === 0, negative);
 		}
+	}
+
+	test('Schema matching, where fileMatch is a literal pattern, and denotes filename only', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['part.json'], schema: { type: 'object', required: ['foo'] } }] });
+
+		const positives = ['file:///folder/part.json', 'file:///folder/part.json?f=true', 'file:///folder/part.json#f=true'];
+		const negatives = ['file:///folder/rampart.json', 'file:///folder/part.json/no.part.json', 'file:///folder/foo?part.json', 'file:///folder/foo#part.json'];
+
+		assertMatchingSchemas(ls, positives, negatives);
 	});
 
 	test('Schema matching, match files starting with dots', async function () {
@@ -1145,11 +1149,7 @@ suite('JSON Schema', () => {
 
 		const positives = ['vscode-userdata:/home/martin/.config/Code%20-%20Insiders/User/settings.json'];
 
-		for (const positive of positives) {
-			const doc = toDocument("{}", undefined, positive);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length > 0, positive);
-		}
+		assertMatchingSchemas(ls, positives, []);
 	});
 
 
@@ -1162,17 +1162,7 @@ suite('JSON Schema', () => {
 		const positives = ['file:///folder/part.json', 'file:///folder/part.json?f=true', 'file:///folder/part.json#f=true'];
 		const negatives = ['file:///folder/rampart.json', 'file:///folder/part.json/no.part.json', 'file:///folder/foo?part.json', 'file:///folder/foo#part.json'];
 
-		for (const positive of positives) {
-			const doc = toDocument("{}", undefined, positive);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length > 0, positive);
-		}
-
-		for (const negative of negatives) {
-			const doc = toDocument("{}", undefined, negative);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length === 0, negative);
-		}
+		assertMatchingSchemas(ls, positives, negatives);
 	});
 
 	test('Schema matching, where fileMatch is a literal pattern, and denotes a path', async function () {
@@ -1183,17 +1173,7 @@ suite('JSON Schema', () => {
 		const positives = ['file:///folder/take/part.json', 'file:///folder/take/part.json?f=true', 'file:///folder/take/part.json#f=true'];
 		const negatives = ['file:///folder/part.json', 'file:///folder/.take/part.json', 'file:///folder/take.part.json', 'file:///folder/take/part.json/no.part.json', 'file:///folder/take?part.json', 'file:///folder/foo?take/part.json', 'file:///folder/take#part.json', 'file:///folder/foo#take/part.json', 'file:///folder/take/no/part.json'];
 
-		for (const positive of positives) {
-			const doc = toDocument("{}", undefined, positive);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length > 0, positive);
-		}
-
-		for (const negative of negatives) {
-			const doc = toDocument("{}", undefined, negative);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length === 0, negative);
-		}
+		assertMatchingSchemas(ls, positives, negatives);
 	});
 
 	test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes filename only', async function () {
@@ -1204,17 +1184,7 @@ suite('JSON Schema', () => {
 		const positives = ['file:///folder/a.foo.json', 'file:///folder/a.foo.json?f=true', 'file:///folder/a.foo.json#f=true'];
 		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo?a.foo.json', 'file:///folder/foo#a.foo.json'];
 
-		for (const positive of positives) {
-			const doc = toDocument("{}", undefined, positive);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length > 0, positive);
-		}
-
-		for (const negative of negatives) {
-			const doc = toDocument("{}", undefined, negative);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length === 0, negative);
-		}
+		assertMatchingSchemas(ls, positives, negatives);
 	});
 
 	test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes a path', async function () {
@@ -1225,17 +1195,7 @@ suite('JSON Schema', () => {
 		const positives = ['file:///folder/foo/bat/bar.json', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/bat/bar.json#f=true'];
 		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
 
-		for (const positive of positives) {
-			const doc = toDocument("{}", undefined, positive);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length > 0, positive);
-		}
-
-		for (const negative of negatives) {
-			const doc = toDocument("{}", undefined, negative);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length === 0, negative);
-		}
+		assertMatchingSchemas(ls, positives, negatives);
 	});
 
 	test('Schema matching, where fileMatch is a wildcard pattern, contains double-star, and denotes a path', async function () {
@@ -1246,17 +1206,29 @@ suite('JSON Schema', () => {
 		const positives = ['file:///folder/foo/bar.json', 'file:///folder/foo/bat/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/bat/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json'];
 		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
 
-		for (const positive of positives) {
-			const doc = toDocument("{}", undefined, positive);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length > 0, positive);
-		}
+		assertMatchingSchemas(ls, positives, negatives);
+	});
 
-		for (const negative of negatives) {
-			const doc = toDocument("{}", undefined, negative);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length === 0, negative);
-		}
+	test('Schema matching with folder URI ', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo.json'], folderUri: 'file:///folder1', schema: { type: 'object', required: ['foo'] } }] });
+
+		const positives = ['file:///folder1/foo.json', 'file:///folder1/foo/foo.json', 'file:///folder1/foo/can/be/as/deep/as/the/ocean/floor/foo.json', 'file:///folder1/foo/foo.json?f=true', 'file:///folder1/foo/bat/foo.json?f=true', 'file:///folder1/foo/foo.json/bat/foo.json'];
+		const negatives = ['file:///folder/foo.json', 'file:///folder11/foo.json', 'file:///folder2/foo/foo.json', 'file:///folder2/foo/can/be/as/deep/as/the/ocean/floor/foo.json', 'file:///folder2/foo/foo.json?f=true'];
+
+		assertMatchingSchemas(ls, positives, negatives);
+	});
+
+	test('Schema matching with folder URI ending with slash', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo.json'], folderUri: 'file:///parent/folder1/', schema: { type: 'object', required: ['foo'] } }] });
+
+		const positives = ['file:///parent/folder1/foo.json', 'file:///parent/folder1/foo/foo.json',];
+		const negatives = ['file:///folder1/foo.json', 'file:///folder1/parent/folder1/foo.json'];
+
+		assertMatchingSchemas(ls, positives, negatives);
 	});
 
 
@@ -1347,8 +1319,8 @@ suite('JSON Schema', () => {
 			},
 		};
 
-		const fsm0 = service.registerExternalSchema(id0, ['*.json'], schema0);
-		service.registerExternalSchema(id1, [], schema1);
+		const fsm0 = service.registerExternalSchema({ uri: id0, fileMatch: ['*.json'], schema: schema0 });
+		service.registerExternalSchema({ uri: id1, fileMatch: [], schema: schema1 });
 		const fs0 = await fsm0.getResolvedSchema();
 		assert.strictEqual((<JSONSchema>fs0?.schema.allOf?.[0]).type, 'object');
 	});
@@ -1493,7 +1465,7 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		const fsm0 = service.registerExternalSchema(id0, ['*.json'], schema);
+		const fsm0 = service.registerExternalSchema({ uri: id0, fileMatch: ['*.json'], schema: schema });
 		const fs0 = await fsm0.getResolvedSchema();
 		assert.deepStrictEqual(fs0.errors, []);
 		assert.strictEqual((<JSONSchema>fs0?.schema.properties?.p2).type, 'object');

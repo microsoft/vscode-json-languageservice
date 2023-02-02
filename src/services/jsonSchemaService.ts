@@ -8,7 +8,7 @@ import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
 import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument } from '../jsonLanguageTypes';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument, SchemaConfiguration } from '../jsonLanguageTypes';
 
 import * as l10n from '@vscode/l10n';
 import { createRegex } from '../utils/glob';
@@ -19,7 +19,7 @@ export interface IJSONSchemaService {
 	/**
 	 * Registers a schema file in the current workspace to be applicable to files that match the pattern
 	 */
-	registerExternalSchema(uri: string, filePatterns?: string[], unresolvedSchema?: JSONSchema): ISchemaHandle;
+	registerExternalSchema(config: SchemaConfiguration): ISchemaHandle;
 
 	/**
 	 * Clears all cached schema files
@@ -45,6 +45,7 @@ export interface IJSONSchemaService {
 export interface SchemaAssociation {
 	pattern: string[];
 	uris: string[];
+	folderUri?: string;
 }
 
 export interface ISchemaContributions {
@@ -79,10 +80,9 @@ interface IGlobWrapper {
 
 class FilePatternAssociation {
 
-	private readonly uris: string[];
 	private readonly globWrappers: IGlobWrapper[];
 
-	constructor(pattern: string[], uris: string[]) {
+	constructor(pattern: string[], private readonly folderUri: string | undefined, private readonly uris: string[]) {
 		this.globWrappers = [];
 		try {
 			for (let patternString of pattern) {
@@ -100,7 +100,9 @@ class FilePatternAssociation {
 					});
 				}
 			};
-			this.uris = uris;
+			if (folderUri && !folderUri.endsWith('/')) {
+				this.folderUri = folderUri + '/';
+			}
 		} catch (e) {
 			this.globWrappers.length = 0;
 			this.uris = [];
@@ -108,6 +110,9 @@ class FilePatternAssociation {
 	}
 
 	public matchesPattern(fileName: string): boolean {
+		if (this.folderUri && !fileName.startsWith(this.folderUri)) {
+			return false;
+		}
 		let match = false;
 		for (const { regexp, include } of this.globWrappers) {
 			if (regexp.test(fileName)) {
@@ -319,7 +324,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const schemaAssociations = schemaContributions.schemaAssociations;
 			for (let schemaAssociation of schemaAssociations) {
 				const uris = schemaAssociation.uris.map(normalizeId);
-				const association = this.addFilePatternAssociation(schemaAssociation.pattern, uris);
+				const association = this.addFilePatternAssociation(schemaAssociation.pattern, schemaAssociation.folderUri, uris);
 				this.contributionAssociations.push(association);
 			}
 		}
@@ -335,21 +340,21 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return this.schemasById[id] || this.addSchemaHandle(id, unresolvedSchemaContent);
 	}
 
-	private addFilePatternAssociation(pattern: string[], uris: string[]): FilePatternAssociation {
-		const fpa = new FilePatternAssociation(pattern, uris);
+	private addFilePatternAssociation(pattern: string[], folderUri: string | undefined, uris: string[]): FilePatternAssociation {
+		const fpa = new FilePatternAssociation(pattern, folderUri, uris);
 		this.filePatternAssociations.push(fpa);
 		return fpa;
 	}
 
-	public registerExternalSchema(uri: string, filePatterns?: string[], unresolvedSchemaContent?: JSONSchema): ISchemaHandle {
-		const id = normalizeId(uri);
+	public registerExternalSchema(config: SchemaConfiguration): ISchemaHandle {
+		const id = normalizeId(config.uri);
 		this.registeredSchemasIds[id] = true;
 		this.cachedSchemaForResource = undefined;
 
-		if (filePatterns) {
-			this.addFilePatternAssociation(filePatterns, [id]);
+		if (config.fileMatch && config.fileMatch.length) {
+			this.addFilePatternAssociation(config.fileMatch, config.folderUri, [id]);
 		}
-		return unresolvedSchemaContent ? this.addSchemaHandle(id, unresolvedSchemaContent) : this.getOrAddSchemaHandle(id);
+		return config.schema ? this.addSchemaHandle(id, config.schema) : this.getOrAddSchemaHandle(id);
 	}
 
 	public clearExternalSchemas(): void {

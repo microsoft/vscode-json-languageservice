@@ -107,8 +107,8 @@ export class JSONValidation {
 		};
 
 		if (schema) {
-			const id = schema.id || ('schemaservice://untitled/' + idCounter++);
-			const handle = this.jsonSchemaService.registerExternalSchema(id, [], schema);
+			const uri = schema.id || ('schemaservice://untitled/' + idCounter++);
+			const handle = this.jsonSchemaService.registerExternalSchema({ uri, schema });
 			return handle.getResolvedSchema().then(resolvedSchema => {
 				return getDiagnostics(resolvedSchema);
 			});
