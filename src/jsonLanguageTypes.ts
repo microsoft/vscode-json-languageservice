@@ -189,6 +189,11 @@ export interface SchemaConfiguration {
 	 * If no schema is provided, the schema will be fetched with the schema request service (if available).
 	 */
 	schema?: JSONSchema;
+	/**
+	 * A parent folder for folder specifc associations. An association that has a folder URI set is only used
+	 * if the document that is validated has the folderUri as parent
+	 */
+	folderUri?: string;
 }
 
 export interface WorkspaceContextService {
