@@ -13,8 +13,9 @@ import { schemaContributions } from './services/configuration';
 import { JSONSchemaService } from './services/jsonSchemaService';
 import { getFoldingRanges } from './services/jsonFolding';
 import { getSelectionRanges } from './services/jsonSelectionRanges';
+import { sort } from './utils/sort';
+import { format } from './utils/format';
 
-import { format as formatJSON, Range as JSONCRange } from 'jsonc-parser';
 import {
 	Thenable,
 	ASTNode,
@@ -49,11 +50,12 @@ export interface LanguageService {
 	findDocumentColors(document: TextDocument, doc: JSONDocument, context?: DocumentColorsContext): Thenable<ColorInformation[]>;
 	getColorPresentations(document: TextDocument, doc: JSONDocument, color: Color, range: Range): ColorPresentation[];
 	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover | null>;
-	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
 	getFoldingRanges(document: TextDocument, context?: FoldingRangesContext): FoldingRange[];
 	getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[];
 	findDefinition(document: TextDocument, position: Position, doc: JSONDocument): Thenable<DefinitionLink[]>;
 	findLinks(document: TextDocument, doc: JSONDocument): Thenable<DocumentLink[]>;
+	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
+	sort(document: TextDocument, options: FormattingOptions): string;
 }
 
 
@@ -91,17 +93,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		getSelectionRanges,
 		findDefinition: () => Promise.resolve([]),
 		findLinks,
-		format: (d, r, o) => {
-			let range: JSONCRange | undefined = undefined;
-			if (r) {
-				const offset = d.offsetAt(r.start);
-				const length = d.offsetAt(r.end) - offset;
-				range = { offset, length };
-			}
-			const options = { tabSize: o ? o.tabSize : 4, insertSpaces: o?.insertSpaces === true, insertFinalNewline: o?.insertFinalNewline === true, eol: '\n', keepLines : o?.keepLines === true };
-			return formatJSON(d.getText(), range, options).map(e => {
-				return TextEdit.replace(Range.create(d.positionAt(e.offset), d.positionAt(e.offset + e.length)), e.content);
-			});
-		}
+		format: (document: TextDocument, range: Range, options: FormattingOptions) => format(document, options, range),
+		sort: (document: TextDocument, options: FormattingOptions) => sort(document, options)
 	};
 }
