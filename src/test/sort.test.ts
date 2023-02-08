@@ -58,6 +58,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
+    // DONE
     test('sorting a JSON object with nested objects', () => {
         var content = [
             '{"name": "Brigitte","age" : 30,',
@@ -100,6 +101,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
+    // DONE
     test('sorting a JSON object with line comments', () => {
         var content = [
             '{ // this is a comment',

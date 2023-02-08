@@ -2,6 +2,7 @@ import { TextEdit} from 'vscode-languageserver-textdocument';
 import { createScanner, SyntaxKind, JSONScanner } from 'jsonc-parser';
 import { TextDocument, FormattingOptions } from '../jsonLanguageTypes';
 import { format } from './format';
+import { json } from 'node:stream/consumers';
 
 export function sort(documentToSort: TextDocument, formattingOptions: FormattingOptions): string {
     const options = { 
@@ -77,7 +78,12 @@ class PropertyTree {
         let childProperty : PropertyTree = new PropertyTree(propertyName, beginningLineNumber, endLineNumber, lastProperty, commaIndex)
         childProperty.parent = this;
         if(this.childrenProperties.length > 0) {
-            this.childrenProperties.splice(binarySearchOnPropertyArray(this.childrenProperties, childProperty, compareProperties), 0, childProperty)
+            console.log('binarySearch : ', binarySearchOnPropertyArray(this.childrenProperties, childProperty, compareProperties))
+            let insertionIndex = binarySearchOnPropertyArray(this.childrenProperties, childProperty, compareProperties)
+            if(insertionIndex < 0) {
+                insertionIndex = (insertionIndex * -1) - 1
+            }
+            this.childrenProperties.splice(insertionIndex, 0, childProperty)
         } else {
             this.childrenProperties.push(childProperty)
         }
@@ -97,7 +103,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
     let currentTree : PropertyTree | undefined = rootTree;
     let currentProperty : PropertyTree | undefined = rootTree;
     let token : SyntaxKind | undefined = undefined;
-    let lastNonTriviaToken : SyntaxKind | undefined = undefined;
+    let lastNonTriviaNonCommentToken : SyntaxKind | undefined = undefined;
     let beginningLineNumber : number = startLine;
     let currentContainerStack : Container[] = []
     let numberOfCharactersOnPreviousLines : number = 0;
@@ -126,74 +132,76 @@ function findPropertyTree(formattedString : string, startLine : number) {
             EOF = 17
         }
         */
-        
+        console.log('\n')
+        console.log('***')
+        console.log('lastNonTriviaToken : ', lastNonTriviaNonCommentToken)
         switch(token) { 
             
             case SyntaxKind.StringLiteral: {
                 console.log('Entered into string literal')
-                if (lastNonTriviaToken === undefined || lastNonTriviaToken === SyntaxKind.OpenBraceToken || 
-                    (lastNonTriviaToken === SyntaxKind.CommaToken && 
-                    currentContainerStack[currentContainerStack.length - 1] === Container.Object)) {
+                if ((lastNonTriviaNonCommentToken === undefined || lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken || 
+                    (lastNonTriviaNonCommentToken === SyntaxKind.CommaToken && 
+                    currentContainerStack[currentContainerStack.length - 1] === Container.Object))
+                    && currentTree) {
                         let propertyName = scanner.getTokenValue();
-                        currentProperty = rootTree.addChildProperty(propertyName, beginningLineNumber);
+                        currentProperty = currentTree.addChildProperty(propertyName, beginningLineNumber);
                 }
-                lastNonTriviaToken = SyntaxKind.StringLiteral;
+                lastNonTriviaNonCommentToken = SyntaxKind.StringLiteral;
                 break;
             }
             case SyntaxKind.OpenBracketToken: {
                 console.log('Entered into open bracket token')
                 currentContainerStack.push(Container.Array)
-                lastNonTriviaToken = SyntaxKind.OpenBracketToken;
+                lastNonTriviaNonCommentToken = SyntaxKind.OpenBracketToken;
                 break;
             }
             case SyntaxKind.OpenBraceToken: {
                 console.log('Entered into open brace token')
                 currentContainerStack.push(Container.Object)
                 currentTree = currentProperty;
-                lastNonTriviaToken = SyntaxKind.OpenBraceToken;
+                lastNonTriviaNonCommentToken = SyntaxKind.OpenBraceToken;
                 beginningLineNumber++;
                 break;
             }
             case SyntaxKind.CloseBracketToken: {
                 console.log('Entered into close brace token')
                 currentContainerStack.pop();
-                lastNonTriviaToken = SyntaxKind.CloseBracketToken;
+                lastNonTriviaNonCommentToken = SyntaxKind.CloseBracketToken;
                 break;
             }
             case SyntaxKind.CloseBraceToken: { 
                 console.log('Entered into close brace token')
                 currentContainerStack.pop();
                 currentTree = currentTree? currentTree.parent : undefined;
-                if(lastNonTriviaToken !== SyntaxKind.OpenBraceToken && currentProperty) {
-                    let endLineNumber = scanner.getTokenStartLine();
+                let endLineNumber = scanner.getTokenStartLine();
+                beginningLineNumber = endLineNumber + 1;
+                if(lastNonTriviaNonCommentToken !== SyntaxKind.OpenBraceToken && currentProperty) {
                     currentProperty.endLineNumber = endLineNumber - 1;
                     currentProperty.lastProperty = true;
                 }
                 currentProperty = currentProperty ? currentProperty.parent : undefined;
-                lastNonTriviaToken = SyntaxKind.CloseBraceToken;
-                beginningLineNumber++;
+                lastNonTriviaNonCommentToken = SyntaxKind.CloseBraceToken;
                 break;
             }
             case SyntaxKind.CommaToken: {
                 console.log('Entered into comma token')
+                let endLineNumber = scanner.getTokenStartLine();
                 if (currentContainerStack[currentContainerStack.length - 1] === Container.Object && currentProperty) {
-                    let endLineNumber = scanner.getTokenStartLine();
                     currentProperty.endLineNumber = endLineNumber;
                     currentProperty.commaIndex = scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1;
+                    
                 }
-                lastNonTriviaToken = SyntaxKind.CommaToken;
-                beginningLineNumber++;
+                beginningLineNumber = endLineNumber + 1;
+                lastNonTriviaNonCommentToken = SyntaxKind.CommaToken;
                 break;
             }
-            case SyntaxKind.LineCommentTrivia:
-            case SyntaxKind.BlockCommentTrivia:
             case SyntaxKind.ColonToken:
             case SyntaxKind.NullKeyword:
             case SyntaxKind.TrueKeyword:
             case SyntaxKind.FalseKeyword:
             case SyntaxKind.NumericLiteral: {
                 console.log('Entered into other token ')
-                lastNonTriviaToken = token;
+                lastNonTriviaNonCommentToken = token;
                 break;
             }
             case SyntaxKind.LineBreakTrivia: {
@@ -212,14 +220,15 @@ function findPropertyTree(formattedString : string, startLine : number) {
         console.log('curentProperty : ', currentProperty)
         console.log('beginningLineNumber : ', beginningLineNumber)
     }
+    console.log('\n')
     console.log('root tree :', rootTree);
     return rootTree;
 }
 
 function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, sortingRange : number[]) {
 
-    console.log('arrayOfLines : ', arrayOfLines);
-    console.log('propertyTree : ', propertyTree);
+    // console.log('arrayOfLines : ', arrayOfLines);
+    // console.log('propertyTree : ', propertyTree);
 
     if (propertyTree.childrenProperties.length === 0) {
         return arrayOfLines;
@@ -227,15 +236,19 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
     
     let sortedArrayOfLines = Object.assign([], arrayOfLines);
     let queueToSort = []
-    queueToSort.push({'sortingRange': sortingRange, 'propertyArray': propertyTree.childrenProperties})
+    queueToSort.push({'sortingRange': sortingRange, 'beginningLineNumber' : sortingRange[0], 'propertyArray': propertyTree.childrenProperties})
 
     while (queueToSort.length > 0) {
 
         let dataToSort = queueToSort.shift()
-        console.log('dataToSort : ', dataToSort);
+        // console.log('dataToSort : ', dataToSort);
         let sortingRange : number[] = dataToSort!['sortingRange'];
         let propertyArray : PropertyTree[] = dataToSort!['propertyArray'];
-        let beginningLineNumber = sortingRange[0]
+        let beginningLineNumber : number = dataToSort!['beginningLineNumber']
+
+        console.log('\n')
+        console.log('propertyArray : ', propertyArray)
+        console.log('sortingRange : ', sortingRange)
         
         for (let i = 0; i < propertyArray.length; i++) {
 
@@ -249,20 +262,20 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                 let commaIndex = property.commaIndex;
                 jsonContentToReplace[jsonContentToReplace.length - 1] = jsonContentToReplace[jsonContentToReplace.length - 1].slice(0, commaIndex) + jsonContentToReplace[jsonContentToReplace.length - 1].slice(commaIndex! + 1);
             }
+            console.log('jsoncContentToReplace : ', jsonContentToReplace)
 
-            console.log('jsonContentToReplace : ', jsonContentToReplace);
+            // console.log('jsonContentToReplace : ', jsonContentToReplace);
             let length = property.endLineNumber! - property.beginningLineNumber! + 1;
             sortedArrayOfLines.splice(beginningLineNumber, length);
-            console.log('sortedArrayOfLines : ', sortedArrayOfLines)
             sortedArrayOfLines.splice(beginningLineNumber, 0, ...jsonContentToReplace);
             console.log('sortedArrayOfLines : ', sortedArrayOfLines)
-            beginningLineNumber = beginningLineNumber + length;
-
+            console.log('beginningLineNumber : ', beginningLineNumber)
             if(property.childrenProperties.length > 0) {
                 let childrenSortingRange : number[] = [property.beginningLineNumber! + 1, property.endLineNumber! - 1]
                 let childrenProperties : PropertyTree[] = property.childrenProperties;
-                queueToSort.push({'sortingRange' : childrenSortingRange, 'propertyArray' : childrenProperties})
+                queueToSort.push({'sortingRange' : childrenSortingRange, 'beginningLineNumber' : beginningLineNumber + 1, 'propertyArray' : childrenProperties})
             }
+            beginningLineNumber = beginningLineNumber + length;
         }
     }
 
