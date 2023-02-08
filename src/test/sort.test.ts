@@ -127,6 +127,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
+    // DONE
     test('sorting a JSON object with an object nested inside of an array value', () => {
         var content = [
             '{',
@@ -139,9 +140,12 @@ suite('Sort JSON', () => {
         var expected = [
             '{',
             '  "array": [',
-            '    "element1", {',
+            '    "element1",',
+            '    {',
             '      "property": "element2"',
-            '    }, "element3" ],',
+            '    },',
+            '    "element3"',
+            '  ],',
             '  "boolean": true',
             '}'
         ].join('\n');

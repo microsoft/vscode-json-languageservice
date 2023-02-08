@@ -230,7 +230,7 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
     // console.log('arrayOfLines : ', arrayOfLines);
     // console.log('propertyTree : ', propertyTree);
 
-    if (propertyTree.childrenProperties.length === 0) {
+    if (propertyTree.childrenProperties.length <= 1) {
         return arrayOfLines;
     }
     
@@ -270,7 +270,7 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
             sortedArrayOfLines.splice(beginningLineNumber, 0, ...jsonContentToReplace);
             console.log('sortedArrayOfLines : ', sortedArrayOfLines)
             console.log('beginningLineNumber : ', beginningLineNumber)
-            if(property.childrenProperties.length > 0) {
+            if(property.childrenProperties.length > 1) {
                 let childrenSortingRange : number[] = [property.beginningLineNumber! + 1, property.endLineNumber! - 1]
                 let childrenProperties : PropertyTree[] = property.childrenProperties;
                 queueToSort.push({'sortingRange' : childrenSortingRange, 'beginningLineNumber' : beginningLineNumber + 1, 'propertyArray' : childrenProperties})
