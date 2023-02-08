@@ -2,7 +2,6 @@ import { TextEdit} from 'vscode-languageserver-textdocument';
 import { createScanner, SyntaxKind, JSONScanner } from 'jsonc-parser';
 import { TextDocument, FormattingOptions } from '../jsonLanguageTypes';
 import { format } from './format';
-import { json } from 'node:stream/consumers';
 
 export function sort(documentToSort: TextDocument, formattingOptions: FormattingOptions): string {
     const options = { 

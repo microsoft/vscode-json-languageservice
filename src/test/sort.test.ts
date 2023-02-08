@@ -19,7 +19,8 @@ suite('Sort JSON', () => {
     function testSort(unsorted: string, expected: string, options: FormattingOptions) {
         let document = TextDocument.create('test://test.json', 'json', 0, unsorted);
         const sorted = ls.sort(document, options);
-        console.log("At the very end : ", sorted);
+        console.log("At the very end : ");
+        console.log(sorted);
         assert.equal(sorted, expected);
     }
 
@@ -153,6 +154,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
+    // DONE
     test('sorting a JSON object with comments appearing before and after the main JSON object', () => {
         var content = [
             '// comment appearing before',
@@ -168,12 +170,14 @@ suite('Sort JSON', () => {
 
         var expected = [
             '// comment appearing before',
-            '',
             '{',
             '  "array": [',
-            '    "element1", {',
+            '    "element1",',
+            '    {',
             '      "property": "element2"',
-            '    }, "element3" ],',
+            '    },',
+            '    "element3"',
+            '  ],',
             '  "boolean": true',
             '} /* block comment appearing ',
             'after, it spans several',
@@ -197,17 +201,16 @@ suite('Sort JSON', () => {
         ].join('\n');
 
         var expected = [
-            '',
-            '',
             '{',
             '  "array": [',
-            '    "element1", {',
+            '    "element1",',
+            '    {',
             '      "property": "element2"',
-            '    }, "element3" ],',
+            '    },',
+            '    "element3"',
+            '  ],',
             '  "boolean": true',
             '}',
-            '',
-            ''
         ].join('\n');
 
         testSort(content, expected, formattingOptions);
