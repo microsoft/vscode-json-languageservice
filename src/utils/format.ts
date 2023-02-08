@@ -1,6 +1,19 @@
 import { format as formatJSON, Range as JSONCRange } from 'jsonc-parser'; 
 import { TextDocument, Range, TextEdit, FormattingOptions } from '../jsonLanguageTypes';
 
+format: (d, r, o) => {
+	let range: JSONCRange | undefined = undefined;
+	if (r) {
+		const offset = d.offsetAt(r.start);
+		const length = d.offsetAt(r.end) - offset;
+		range = { offset, length };
+	}
+	const options = { tabSize: o ? o.tabSize : 4, insertSpaces: o?.insertSpaces === true, insertFinalNewline: o?.insertFinalNewline === true, eol: '\n', keepLines : o?.keepLines === true };
+	return formatJSON(d.getText(), range, options).map(e => {
+		return TextEdit.replace(Range.create(d.positionAt(e.offset), d.positionAt(e.offset + e.length)), e.content);
+	});
+}
+
 export function format(documentToFormat: TextDocument, formattingOptions?: FormattingOptions, formattingRange?: Range | undefined): TextEdit[] {
 	let range: JSONCRange | undefined = undefined;
 	if (formattingRange) {
@@ -9,11 +22,11 @@ export function format(documentToFormat: TextDocument, formattingOptions?: Forma
 		range = { offset, length };
 	}
 	const options = { 
-		tabSize: formattingOptions && formattingOptions.tabSize ? formattingOptions.tabSize : 4, 
-		insertSpaces: formattingOptions && formattingOptions.insertSpaces ? formattingOptions.insertSpaces : true, 
-		insertFinalNewline: formattingOptions && formattingOptions.insertFinalNewline ? formattingOptions.insertFinalNewline : false,
-		keepLines : formattingOptions && formattingOptions.keepLines ? formattingOptions.keepLines : false,
-		eol: '\n'
+		tabSize: formattingOptions ? formattingOptions.tabSize : 4, 
+		insertSpaces: formattingOptions?.insertSpaces === true, 
+		insertFinalNewline: formattingOptions?.insertFinalNewline === true, 
+		eol: '\n', 
+		keepLines : formattingOptions?.keepLines === true 
 	};
 	return formatJSON(documentToFormat.getText(), range, options).map(edit => {
 		return TextEdit.replace(Range.create(documentToFormat.positionAt(edit.offset), documentToFormat.positionAt(edit.offset + edit.length)), edit.content);
