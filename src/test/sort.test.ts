@@ -10,6 +10,7 @@ suite('Sort JSON', () => {
     function testSort(unsorted: string, expected: string, options: FormattingOptions) {
         let document = TextDocument.create('test://test.json', 'json', 0, unsorted);
         const sorted = ls.sort(document, options);
+        console.log('sorted : ', sorted)
         assert.equal(sorted, expected);
     }
 
@@ -315,4 +316,79 @@ suite('Sort JSON', () => {
 
         testSort(content, expected, formattingOptions);
     });
+
+    test('sorting a more complicated JSON object', () => {
+        var content = [
+            '// Comment ouside the main JSON object',
+            '',
+            '{',
+            '// A comment which belongs to b',
+            '"b": "some value",',
+            '',
+            '"a": "some other value" /* a block comment which starts on the same line as key a',
+            '..*/,',
+            '',
+            '"array": [',
+            '"first element",',
+            '{',
+            '    // comment belonging to r',
+            '    "r" : 1,',
+            '',
+            '    // comment belonging to q',
+            '    "q" : {',
+            '        "s" : 2',
+            '    },',
+            '    // comment belonging to p',
+            '    "p" : 3',
+            '},',
+            '"third element"',
+            '] // some comment on the line where the array ends',
+            ',',
+            '',
+            '"numeric" : [ 1, 2, 3]',
+            '}',
+            '',
+            '',
+            '/* Comment below the main JSON object',
+            '...',
+            '...',
+            '*/'
+        ].join('\n');
+
+        var expected = [
+            '// Comment ouside the main JSON object',
+            '{',
+            '  "a": "some other value" /* a block comment which starts on the same line as key a',
+            '..*/,',
+            '  "array": [',
+            '    "first element",',
+            '    {',
+            '      // comment belonging to p',
+            '      "p": 3',
+            '      // comment belonging to q',
+            '      "q": {',
+            '        "s": 2',
+            '      }',
+            '      // comment belonging to r',
+            '      "r": 1,',
+            '    },',
+            '    "third element"',
+            '  ] // some comment on the line where the array ends',
+            '  ,',
+            '  // A comment which belongs to b',
+            '  "b": "some value",',
+            '  "numeric": [',
+            '    1,',
+            '    2,',
+            '    3',
+            '  ]',
+            '}',
+            '/* Comment below the main JSON object',
+            '...',
+            '...',
+            '*/'
+        ].join('\n');
+        
+        testSort(content, expected, formattingOptions);
+    })
 });

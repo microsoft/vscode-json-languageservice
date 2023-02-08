@@ -18,9 +18,11 @@ export function sort(documentToSort: TextDocument, formattingOptions: Formatting
         eol: '\n'
     };
     let formattedJSONString: string = TextDocument.applyEdits(documentToSort, format(documentToSort, options, undefined));
+    console.log('formattedJSONString : ', formattedJSONString)
     const arrayOfLines: string[] = formattedJSONString.split('\n');
     const sortingRange : number[] = findSortingRange(arrayOfLines);
     const propertyTree : PropertyTree = findPropertyTree(formattedJSONString, sortingRange[0])
+    console.log('propertyTree : ', propertyTree)
     sortingRange[0]++;
     sortingRange[1]--;
     const sortedArrayOfLines = sortLinesOfArray(arrayOfLines, propertyTree, sortingRange);
@@ -71,6 +73,8 @@ function findPropertyTree(formattedString : string, startLine : number) {
             beginningLineNumber = endLineNumber + 1;
             updateCurrentPropertyEndLineNumber = false;
         }
+
+        console.log('token : ', token);
 
         switch(token) { 
             case SyntaxKind.StringLiteral: {
@@ -157,6 +161,8 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
 
         const dataToSort = queueToSort.shift()
         const propertyArray : PropertyTree[] = dataToSort!['propertyArray'];
+        console.log('\n')
+        console.log('propertyArray : ', propertyArray)
         let beginningLineNumber : number = dataToSort!['beginningLineNumber']
 
         for (let i = 0; i < propertyArray.length; i++) {
@@ -171,11 +177,23 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                 const commaLine = property.commaLine;
                 jsonContentToReplace[commaLine! - property.beginningLineNumber!] = jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(0, commaIndex) + jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(commaIndex! + 1);
             }
+            console.log('jsonContentToReplace : ', jsonContentToReplace)
+            console.log('beginningLineNumber : ', beginningLineNumber)
             const length = property.endLineNumber! - property.beginningLineNumber! + 1;
             sortedArrayOfLines.splice(beginningLineNumber, length);
             sortedArrayOfLines.splice(beginningLineNumber, 0, ...jsonContentToReplace);
+            console.log('sortedArrayOfLines : ', sortedArrayOfLines)
             if(property.childrenProperties.length > 1) {
-                queueToSort.push({'beginningLineNumber' : beginningLineNumber + 1, 'propertyArray' : property.childrenProperties})
+                let minimumBeginningLineNumber = Infinity;
+                for(const childProperty of property.childrenProperties) {
+                    if(childProperty.beginningLineNumber! < minimumBeginningLineNumber) {
+                        minimumBeginningLineNumber = childProperty.beginningLineNumber!;
+                    }
+                }
+                console.log('minimumBeginningLineNumber : ', minimumBeginningLineNumber)
+                const diff = minimumBeginningLineNumber - property.beginningLineNumber!;
+                console.log('diff : ', diff)
+                queueToSort.push({'beginningLineNumber' : beginningLineNumber + diff, 'propertyArray' : property.childrenProperties})
             }
             beginningLineNumber = beginningLineNumber + length;
         }
