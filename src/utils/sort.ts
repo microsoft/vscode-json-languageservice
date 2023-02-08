@@ -51,13 +51,15 @@ class PropertyTree {
     parent : PropertyTree | undefined;
     lastProperty : boolean;
     commaIndex  : number | undefined;
+    commaLine : number | undefined;
 
     constructor(
         propertyName?: any, 
         beginningLineNumber?: number, 
         endLineNumber?: number, 
         lastProperty? : boolean, 
-        commaIndex? : number) {
+        commaIndex? : number, 
+        commaLine?: number) {
 
         this.propertyName = propertyName;
         this.beginningLineNumber = beginningLineNumber ;
@@ -65,6 +67,7 @@ class PropertyTree {
         this.childrenProperties = [];
         this.lastProperty = lastProperty ? lastProperty : false;
         this.commaIndex = commaIndex;
+        this.commaLine = commaLine;
     }
 
     addChildProperty(
@@ -72,9 +75,10 @@ class PropertyTree {
         beginningLineNumber? : number, 
         endLineNumber? : number, 
         lastProperty? : boolean, 
-        commaIndex? : number) : PropertyTree {
+        commaIndex? : number,
+        commaLine? : number) : PropertyTree {
 
-        let childProperty : PropertyTree = new PropertyTree(propertyName, beginningLineNumber, endLineNumber, lastProperty, commaIndex)
+        let childProperty : PropertyTree = new PropertyTree(propertyName, beginningLineNumber, endLineNumber, lastProperty, commaIndex, commaLine)
         childProperty.parent = this;
         if(this.childrenProperties.length > 0) {
             console.log('binarySearch : ', binarySearchOnPropertyArray(this.childrenProperties, childProperty, compareProperties))
@@ -103,10 +107,12 @@ function findPropertyTree(formattedString : string, startLine : number) {
     let currentProperty : PropertyTree | undefined = rootTree;
     let token : SyntaxKind | undefined = undefined;
     let lastNonTriviaNonCommentToken : SyntaxKind | undefined = undefined;
+    let lineOfLastNonTriviaNonCommentToken : number | undefined = undefined;
     let beginningLineNumber : number = startLine;
     let currentContainerStack : Container[] = []
     let numberOfCharactersOnPreviousLines : number = 0;
     let tempNumberOfCharacters = 0;
+    let updateCurrentPropertyLineNumber = false;
 
     while ((token = scanner.scan()) !== SyntaxKind.EOF) {
 
@@ -133,7 +139,16 @@ function findPropertyTree(formattedString : string, startLine : number) {
         */
         console.log('\n')
         console.log('***')
-        console.log('lastNonTriviaToken : ', lastNonTriviaNonCommentToken)
+        console.log('lastNonTriviaNonCommentToken : ', lastNonTriviaNonCommentToken)
+
+        if (updateCurrentPropertyLineNumber === true && currentProperty) {
+            let endLineNumber = scanner.getTokenStartLine();
+            console.log('endLineNumber when updateCurrentPropertyLineNumber : ', endLineNumber)
+            currentProperty.endLineNumber = endLineNumber;
+            beginningLineNumber = endLineNumber + 1;
+            updateCurrentPropertyLineNumber = false;
+        }
+
         switch(token) { 
             
             case SyntaxKind.StringLiteral: {
@@ -146,12 +161,14 @@ function findPropertyTree(formattedString : string, startLine : number) {
                         currentProperty = currentTree.addChildProperty(propertyName, beginningLineNumber);
                 }
                 lastNonTriviaNonCommentToken = SyntaxKind.StringLiteral;
+                lineOfLastNonTriviaNonCommentToken = scanner.getTokenStartLine();
                 break;
             }
             case SyntaxKind.OpenBracketToken: {
                 console.log('Entered into open bracket token')
                 currentContainerStack.push(Container.Array)
                 lastNonTriviaNonCommentToken = SyntaxKind.OpenBracketToken;
+                lineOfLastNonTriviaNonCommentToken = scanner.getTokenStartLine();
                 break;
             }
             case SyntaxKind.OpenBraceToken: {
@@ -159,6 +176,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 currentContainerStack.push(Container.Object)
                 currentTree = currentProperty;
                 lastNonTriviaNonCommentToken = SyntaxKind.OpenBraceToken;
+                lineOfLastNonTriviaNonCommentToken = scanner.getTokenStartLine();
                 beginningLineNumber++;
                 break;
             }
@@ -166,6 +184,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 console.log('Entered into close brace token')
                 currentContainerStack.pop();
                 lastNonTriviaNonCommentToken = SyntaxKind.CloseBracketToken;
+                lineOfLastNonTriviaNonCommentToken = scanner.getTokenStartLine();
                 break;
             }
             case SyntaxKind.CloseBraceToken: { 
@@ -180,6 +199,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 }
                 currentProperty = currentProperty ? currentProperty.parent : undefined;
                 lastNonTriviaNonCommentToken = SyntaxKind.CloseBraceToken;
+                lineOfLastNonTriviaNonCommentToken = scanner.getTokenStartLine();
                 break;
             }
             case SyntaxKind.CommaToken: {
@@ -188,10 +208,19 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 if (currentContainerStack[currentContainerStack.length - 1] === Container.Object && currentProperty) {
                     currentProperty.endLineNumber = endLineNumber;
                     currentProperty.commaIndex = scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1;
-                    
+                    currentProperty.commaLine = endLineNumber;
                 }
                 beginningLineNumber = endLineNumber + 1;
                 lastNonTriviaNonCommentToken = SyntaxKind.CommaToken;
+                lineOfLastNonTriviaNonCommentToken = scanner.getTokenStartLine();
+                break;
+            }
+            case SyntaxKind.BlockCommentTrivia: {
+                if(lastNonTriviaNonCommentToken === SyntaxKind.CommaToken 
+                    && lineOfLastNonTriviaNonCommentToken 
+                    && lineOfLastNonTriviaNonCommentToken === scanner.getTokenStartLine()) {
+                        updateCurrentPropertyLineNumber = true;
+                }
                 break;
             }
             case SyntaxKind.ColonToken:
@@ -201,6 +230,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
             case SyntaxKind.NumericLiteral: {
                 console.log('Entered into other token ')
                 lastNonTriviaNonCommentToken = token;
+                lineOfLastNonTriviaNonCommentToken = scanner.getTokenStartLine();
                 break;
             }
             case SyntaxKind.LineBreakTrivia: {
@@ -259,7 +289,10 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                 jsonContentToReplace[jsonContentToReplace.length - 1] = jsonContentToReplace[jsonContentToReplace.length - 1] + ',';
             } else if (property.lastProperty === false && i === propertyArray.length - 1) {
                 let commaIndex = property.commaIndex;
-                jsonContentToReplace[jsonContentToReplace.length - 1] = jsonContentToReplace[jsonContentToReplace.length - 1].slice(0, commaIndex) + jsonContentToReplace[jsonContentToReplace.length - 1].slice(commaIndex! + 1);
+                let commaLine = property.commaLine;
+                console.log('commaLine : ', commaLine)
+                console.log('jsonContentToReplace : ', jsonContentToReplace)
+                jsonContentToReplace[commaLine! - property.beginningLineNumber!] = jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(0, commaIndex) + jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(commaIndex! + 1);
             }
             console.log('jsoncContentToReplace : ', jsonContentToReplace)
 

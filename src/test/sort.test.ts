@@ -3,8 +3,6 @@ import { getLanguageService, ClientCapabilities, TextDocument, FormattingOptions
 import * as assert from 'assert';
 
 // Try all of the test cases in the formatter.test.ts file and focus on these particular corner cases
-// 1. block comment after a comma but ending not on the same line as the comma
-// 2. new property starting on the same line as the end of a block comment
 // 3. colon index not on the same line as the property value followed by the value
 // 4. colon index not on the same line as the proeprty value and not on the same line as the value itself either
 // 5. new lines (more than one) between two properties
@@ -187,6 +185,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
+    // DONE
     test('sorting a JSON object with new lines appearing before and after the main JSON object', () => {
         var content = [
             '',
@@ -210,6 +209,27 @@ suite('Sort JSON', () => {
             '    "element3"',
             '  ],',
             '  "boolean": true',
+            '}',
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
+
+    // DONE
+    test('sorting a JSON object with a block comment appearing on the same line as a comma but not ending on that line', () => {
+        var content = [
+            '{',
+            '"boolean" : true, /* this is block comment starting on',
+            'the line where the comma is but ending on another line */',
+            '"array" : []',
+            '}',
+        ].join('\n');
+
+        var expected = [
+            '{',
+            '  "array": [],',
+            '  "boolean": true /* this is block comment starting on',
+            'the line where the comma is but ending on another line */',
             '}',
         ].join('\n');
 
