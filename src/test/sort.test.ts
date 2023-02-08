@@ -235,4 +235,24 @@ suite('Sort JSON', () => {
 
         testSort(content, expected, formattingOptions);
     });
+
+    // DONE
+    test('sorting a JSON object with a block comment starting at the end of a property and such that a new property starts on the end of that block comment', () => {
+        var content = [
+            '{',
+            '"boolean" : true, /* this is block comment starting on',
+            'the line where the comma is but ending on another line */ "array" : []',
+            '}',
+        ].join('\n');
+
+        var expected = [
+            '{',
+            '  "array": [],',
+            '  "boolean": true /* this is block comment starting on',
+            'the line where the comma is but ending on another line */',
+            '}',
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
 });
