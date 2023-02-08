@@ -2,13 +2,6 @@
 import { getLanguageService, ClientCapabilities, TextDocument, FormattingOptions } from '../jsonLanguageService';
 import * as assert from 'assert';
 
-// Try all of the test cases in the formatter.test.ts file and focus on these particular corner cases
-// 3. colon index not on the same line as the property value followed by the value
-// 4. colon index not on the same line as the proeprty value and not on the same line as the value itself either
-// 5. new lines (more than one) between two properties
-// 6. property value followed by a line comment followed by a block comment (on several lines) on the same line
-// 7. sorting a JSON object with comments appearing between a value and its comma
-
 suite('Sort JSON', () => {
 
     const ls = getLanguageService({ clientCapabilities: ClientCapabilities.LATEST });
@@ -22,7 +15,6 @@ suite('Sort JSON', () => {
         assert.equal(sorted, expected);
     }
 
-    // DONE
     test('sorting a simple JSON object with numeric values', () => {
         var content = [
             '{"b" : 1, "a" : 2}'
@@ -35,7 +27,6 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    // DONE
     test('sorting a simple JSON object with an array spanning several lines', () => {
         var content = [
             '{"array":["volleyball",',
@@ -57,7 +48,6 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    // DONE
     test('sorting a JSON object with nested objects', () => {
         var content = [
             '{"name": "Brigitte","age" : 30,',
@@ -100,7 +90,6 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    // DONE
     test('sorting a JSON object with line comments', () => {
         var content = [
             '{ // this is a comment',
@@ -126,7 +115,6 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    // DONE
     test('sorting a JSON object with an object nested inside of an array value', () => {
         var content = [
             '{',
@@ -152,7 +140,6 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    // DONE
     test('sorting a JSON object with comments appearing before and after the main JSON object', () => {
         var content = [
             '// comment appearing before',
@@ -185,7 +172,6 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    // DONE
     test('sorting a JSON object with new lines appearing before and after the main JSON object', () => {
         var content = [
             '',
@@ -215,7 +201,6 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    // DONE
     test('sorting a JSON object with a block comment appearing on the same line as a comma but not ending on that line', () => {
         var content = [
             '{',
@@ -236,7 +221,6 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    // DONE
     test('sorting a JSON object with a block comment starting at the end of a property and such that a new property starts on the end of that block comment', () => {
         var content = [
             '{',
@@ -251,6 +235,84 @@ suite('Sort JSON', () => {
             '  "boolean": true /* this is block comment starting on',
             'the line where the comma is but ending on another line */',
             '}',
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
+
+    test('sorting a JSON object with comments between properties', () => {
+        var content = [
+            '// comment appearing before',
+            '',
+            '{',
+            ' // some comment',
+            '"boolean" : true,',
+            ' // some other comment',
+            '"numeric" : 2,',
+            ' /* a third comment',
+            ' which is a block comment */',
+            '"array": []',
+            '}'
+        ].join('\n');
+
+        var expected = [
+            '// comment appearing before',
+            '{',
+            '  /* a third comment',
+            ' which is a block comment */',
+            '  "array": [],',
+            '  // some comment',
+            '  "boolean": true,',
+            '  // some other comment',
+            '  "numeric": 2',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
+
+    test('sorting a JSON object with comments appearing between a value and the comma', () => {
+        var content = [
+            '{',
+            '"boolean" : true // some comment',
+            ',',
+            '"array" : [],',
+            '"numeric" : 2',
+            '}'
+        ].join('\n');
+
+        var expected = [
+            '{',
+            '  "array": [],',
+            '  "boolean": true // some comment',
+            '  ,',
+            '  "numeric": 2',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
+
+    test('sorting a JSON object where the colon is not on the same line as the key or the value', () => {
+        var content = [
+            '{',
+            '"boolean"',
+            ':', 
+            'true // some comment',
+            ',',
+            '"array"',
+            ': [],',
+            '"numeric" : 2',
+            '}'
+        ].join('\n');
+
+        var expected = [
+            '{',
+            '  "array": [],',
+            '  "boolean": true // some comment',
+            '  ,',
+            '  "numeric": 2',
+            '}'
         ].join('\n');
 
         testSort(content, expected, formattingOptions);
