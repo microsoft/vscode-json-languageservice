@@ -75,7 +75,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
     while ((token = scanner.scan()) !== SyntaxKind.EOF) {
 
         if (updateCurrentPropertyEndLineNumber === true && currentProperty) {
-            if(token !== SyntaxKind.LineBreakTrivia && token !== SyntaxKind.Trivia) {
+            if(token !== SyntaxKind.LineBreakTrivia && token !== SyntaxKind.Trivia && currentProperty.endLineNumber === undefined) {
                 let endLineNumber = scanner.getTokenStartLine();
                 currentProperty.endLineNumber = endLineNumber - 1;
                 updateCurrentPropertyEndLineNumber = false;
@@ -150,12 +150,19 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 console.log('currentProperty : ', currentProperty)
                 
                 const endLineNumber = scanner.getTokenStartLine();
-                if (currentProperty) {
+                // When currentTree === currentProperty, this means that there is a property inside of the array for which we found the end
+                // otherwise there is no property
+                if (currentProperty && currentTree !== currentProperty && currentProperty.endLineNumber === undefined) {
                     currentProperty.endLineNumber = endLineNumber - 1;
                     currentProperty.lastProperty = true;
+                    // USED TO BE ON THE INSIDE
+                    // currentProperty = currentProperty ? currentProperty.parent : undefined;
                 }
-                beginningLineNumber = endLineNumber + 1;
                 currentProperty = currentProperty ? currentProperty.parent : undefined;
+                beginningLineNumber = endLineNumber + 1;
+                // dont go up yet because the end has not been found yet, it is found when the next comma will be found
+                // currentProperty = currentProperty ? currentProperty.parent : undefined;
+                
                 // for(let j = propertiesVisited.length - 1; j >= 0; j--) {
                 //    if(propertiesVisited[j].type === Container.Array) {
                 //        propertiesVisited[j].endLineNumber = endLineNumber;
@@ -171,9 +178,9 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 console.log('currenTree before change : ', currentTree);
                 console.log('currentProperty before change : ', currentProperty)
                 currentContainerStack.pop();
-                currentTree = currentTree? currentTree.parent : undefined;
+                // currentTree = currentTree? currentTree.parent : undefined;
                 const endLineNumber = scanner.getTokenStartLine();
-                if( lastNonTriviaNonCommentToken !== SyntaxKind.OpenBraceToken && currentProperty && currentTree) {
+                if( lastNonTriviaNonCommentToken !== SyntaxKind.OpenBraceToken && currentProperty && currentProperty.endLineNumber === undefined) {
 
                     currentProperty.endLineNumber = endLineNumber - 1;
                     currentProperty.lastProperty = true;
@@ -189,10 +196,15 @@ function findPropertyTree(formattedString : string, startLine : number) {
             }
             case SyntaxKind.CommaToken: {
                 let endLineNumber = scanner.getTokenStartLine();
-                if ((currentContainerStack[currentContainerStack.length - 1] === Container.Object || (currentContainerStack[currentContainerStack.length - 1] === Container.Array && lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken )) && currentProperty) {
+                if (currentProperty && currentProperty.endLineNumber === undefined && (currentContainerStack[currentContainerStack.length - 1] === Container.Object || (currentContainerStack[currentContainerStack.length - 1] === Container.Array && lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken ))) {
                     currentProperty.endLineNumber = endLineNumber;
                     currentProperty.commaIndex =  scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1;
                     currentProperty.commaLine = endLineNumber;
+                }
+                // if the current property was a cotainer, not a simple value, go up the tree
+
+                if (lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || lastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
+                    currentTree = currentTree ? currentTree.parent : undefined;
                 }
                 beginningLineNumber = endLineNumber + 1;
                 break;
@@ -225,9 +237,10 @@ function findPropertyTree(formattedString : string, startLine : number) {
         if(token !== SyntaxKind.LineBreakTrivia
             && token !== SyntaxKind.Trivia
             && token !== SyntaxKind.BlockCommentTrivia
-            && token !== SyntaxKind.LineCommentTrivia) {
+            && token !== SyntaxKind.LineCommentTrivia
+            && token !== SyntaxKind.ColonToken
+            && token !== SyntaxKind.NumericLiteral) {
                 console.log('*** After Changes ***')
-                console.log('propertiesVisited : ', propertiesVisited)
                 console.log('currentTree : ', currentTree)
                 console.log('currentTree.childrenProperties.length : ', currentTree?.childrenProperties.length)
                 console.log('currentProperty : ', currentProperty)
