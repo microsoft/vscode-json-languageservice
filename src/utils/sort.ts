@@ -190,7 +190,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 let endLineNumber = scanner.getTokenStartLine();
                 if ((currentContainerStack[currentContainerStack.length - 1] === Container.Object || (currentContainerStack[currentContainerStack.length - 1] === Container.Array && lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken )) && currentProperty) {
                     currentProperty.endLineNumber = endLineNumber;
-                    currentProperty.commaIndex = indexOfLastNonTriviaNonCommentToken - 1; // scanner.getTokenOffset() - numberOfCharactersOnPreviousLines
+                    currentProperty.commaIndex =  scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1; // indexOfLastNonTriviaNonCommentToken
                     currentProperty.commaLine = endLineNumber;
                 }
                 beginningLineNumber = endLineNumber + 1;
@@ -265,6 +265,8 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
             const property = propertyArray[i]
             console.log('property : ', property);
             const jsonContentToReplace = arrayOfLines.slice(property.beginningLineNumber, property.endLineNumber! + 1);
+            console.log('range beginningLineNumber : ', property.beginningLineNumber);
+            console.log('range endLineNumber : ', property.endLineNumber);
             console.log('jsonContentToReplace before adding or removing commas : ', jsonContentToReplace);
 
             if (property.lastProperty === true && i !== propertyArray.length - 1) {
