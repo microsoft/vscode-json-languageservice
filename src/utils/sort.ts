@@ -133,15 +133,14 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 console.log('currentProperty : ', currentProperty)
 
                 beginningLineNumber = scanner.getTokenStartLine();
-                currentProperty!.type = Container.Object;
-                currentContainerStack.push(Container.Object)
 
-                // TODO ? confusing if statement, see how to make it more clear
-                if(currentContainerStack[currentContainerStack.length - 1] !== Container.Array 
-                    || currentProperty!.childrenProperties.length === 0) {
-                    // The new object is itself inside of an object which has at least one element
+                // The currentProperty has already been created but now we enter into it
+                if(currentContainerStack[currentContainerStack.length - 1] === Container.Object ) { // || currentProperty!.childrenProperties.length === 0
+                    console.log('Inside top if')
                     currentTree = currentProperty;
-                } else if (currentContainerStack[currentContainerStack.length - 1] === Container.Array) {
+                } 
+                // Otherwise this property has not yet been created and needs to be created
+                else if (currentContainerStack[currentContainerStack.length - 1] === Container.Array) {
                     // The object found has no associated key, it is of the form: ["a", {...}, "b"]
                     console.log('noKeyName case')
                     let childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
@@ -150,6 +149,8 @@ function findPropertyTree(formattedString : string, startLine : number) {
                     currentProperty = currentTree!.addChildProperty(childProperty);
                 }
 
+                currentProperty!.type = Container.Object;
+                currentContainerStack.push(Container.Object);
                 // Enter into the object
                 currentTree = currentProperty;
                 beginningLineNumber++;
@@ -166,16 +167,19 @@ function findPropertyTree(formattedString : string, startLine : number) {
 
                 // When currentTree === currentProperty, no object was found inside of the array, it is a simple (non-nested) array, endLineNumber does not need to be redefined
                 // If currentProperty.endLineNumber is defined then it does not need to be redefined
+                // Property has been found on the inside of the array
                 if (currentTree !== currentProperty 
                     && currentProperty!.endLineNumber === undefined) {
 
                     currentProperty!.endLineNumber = endLineNumber - 1;
                     // currentProperty!.lastProperty = true;
-                    // USED TO BE ON THE INSIDE
-                    // currentProperty = currentProperty ? currentProperty.parent : undefined;
+
+                    // While the end line number has not been set, do not go to parent of current property
+                    currentProperty = currentProperty ? currentProperty.parent : undefined;
+                    currentTree = currentProperty;
                 }
-                currentProperty = currentProperty ? currentProperty.parent : undefined;
-                currentTree = currentProperty;
+                // currentProperty = currentProperty ? currentProperty.parent : undefined;
+                // currentTree = currentProperty;
                 beginningLineNumber = endLineNumber + 1;
                 break;
             }
@@ -198,10 +202,11 @@ function findPropertyTree(formattedString : string, startLine : number) {
                     currentProperty!.lineWhereToAddComma = lineOfLastNonTriviaNonCommentToken;
                     currentProperty!.indexWhereToAddComa = indexOfLastNonTriviaNonCommentToken;
                     console.log('currentProperty after change before parent : ', currentProperty)
+
+                    currentProperty = currentProperty ? currentProperty.parent : undefined;
+                    currentTree = currentProperty;
                 }
                 beginningLineNumber = endLineNumber + 1;
-                currentProperty = currentProperty ? currentProperty.parent : undefined;
-                currentTree = currentProperty;
                 break;
             }
 
@@ -221,10 +226,10 @@ function findPropertyTree(formattedString : string, startLine : number) {
                     currentProperty!.commaLine = endLineNumber;
                 }
 
-                // Not needed?
-                // if (lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || lastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
-                //    currentTree = currentTree ? currentTree.parent : undefined;
-                // }
+                if (lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || lastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
+                    currentProperty = currentProperty ? currentProperty.parent : undefined;
+                    currentTree = currentProperty;
+                }
                 beginningLineNumber = endLineNumber + 1;
                 break;
             }
@@ -329,7 +334,8 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
             sortedArrayOfLines.splice(beginningLineNumber, length);
             sortedArrayOfLines.splice(beginningLineNumber, 0, ...jsonContentToReplace);
             console.log('sortedArrayOfLines : ', sortedArrayOfLines)
-            if(property.childrenProperties.length > 1) {
+
+            if(property.childrenProperties.length > 1 && property.type === Container.Object) {
                 let minimumBeginningLineNumber = Infinity;
                 for(const childProperty of property.childrenProperties) {
                     if(childProperty.beginningLineNumber! < minimumBeginningLineNumber) {
@@ -340,7 +346,39 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                 const diff = minimumBeginningLineNumber - property.beginningLineNumber!;
                 // console.log('diff : ', diff)
                 queueToSort.push({'beginningLineNumber' : beginningLineNumber + diff, 'propertyArray' : property.childrenProperties})
+            } else if (property.childrenProperties.length > 0 && property.type === Container.Array) {
+                console.log('In the case when we have an array with subobjects');
+                ///
+                let minimumBeginningLineNumber = Infinity;
+                for(const childProperty of property.childrenProperties) {
+                    if(childProperty.beginningLineNumber! < minimumBeginningLineNumber) {
+                        minimumBeginningLineNumber = childProperty.beginningLineNumber!;
+                    }
+                }
+                // console.log('minimumBeginningLineNumber : ', minimumBeginningLineNumber)
+                const initialDiff = minimumBeginningLineNumber - property.beginningLineNumber!;
+                ///
+
+                for(const subObject of property.childrenProperties) {
+
+                    let minimumBeginningLineNumber = Infinity;
+                    for(const childProperty of subObject.childrenProperties) {
+                        if(childProperty.beginningLineNumber! < minimumBeginningLineNumber) {
+                            minimumBeginningLineNumber = childProperty.beginningLineNumber!;
+                        }
+                    }
+                    console.log('minimumBeginningLineNumber : ', minimumBeginningLineNumber)
+                    const diff = minimumBeginningLineNumber - subObject.beginningLineNumber!;
+                    console.log('diff : ', diff)
+                    console.log('subObject.beginningLineNumber : ', subObject.beginningLineNumber)
+                    console.log('subObject.childrenProperties : ', subObject.childrenProperties)
+                    // Beginning line number should be one plus the position of the opening brace after transformation
+                    // Relative brace position will be the same wihin array, brace will be at: subObject.beginningLineNumber - property.beginningLineNumber + 1, away from the position of the [ after transformation
+                    // Total : beginningLineNumber + subObject.beginningLineNumber - property.beginningLineNumber + 1
+                    queueToSort.push({'beginningLineNumber' : beginningLineNumber + subObject.beginningLineNumber! - property.beginningLineNumber! + 1, 'propertyArray' : subObject.childrenProperties})
+                }
             }
+
             beginningLineNumber = beginningLineNumber + length;
         }
     }
