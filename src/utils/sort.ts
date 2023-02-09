@@ -53,34 +53,47 @@ function findSortingRange(arrayOfLines: string[]): number[] {
 
 function findPropertyTree(formattedString : string, startLine : number) {
     const scanner : JSONScanner = createScanner(formattedString, false);
+    // The tree that will be returned
     let rootTree : PropertyTree = new PropertyTree();
+    // The tree where the properties can be added as children
     let currentTree : PropertyTree | undefined = rootTree;
+    // The tree representing the current property analyzed
     let currentProperty : PropertyTree | undefined = rootTree;
+    // The current scanned token
     let token : SyntaxKind | undefined = undefined;
-    let lastNonTriviaNonCommentToken : SyntaxKind | undefined = undefined;
 
-    // variables which are used in order to find out where to place the comma if it needs to be placed
-    // avoids the case of placing a comma at the end of a comma (thus equivalent to no separating comma)
+    // The last token scanned that is not trivial, nor a comment
+    let lastNonTriviaNonCommentToken : SyntaxKind | undefined = undefined;
+    // Line number of last token that is not trivial, nor a comment
     let lineOfLastNonTriviaNonCommentToken : number = -1;
+    // Index on its line of last token that is not trivial, nor a comment
     let indexOfLastNonTriviaNonCommentToken : number = -1;
 
+    // Line number of the start of the range of current/next property
     let beginningLineNumber : number = startLine;
+    // Line number of the end of the range of current/next property
+    let endLineNumber : number = startLine;
+
+    // Stack indicating whether we are inside of an object or an array
     let currentContainerStack : Container[] = []
-    let propertiesVisited : PropertyTree[] = []
+    // Total number of characters on the lines prior to current line 
     let numberOfCharactersOnPreviousLines : number = 0;
+    // Temporary number of characters on current line 
     let tempNumberOfCharacters : number = 0;
+    // Boolean indicating that the current property end line number needs to be updated
     let updateCurrentPropertyEndLineNumber : boolean = false;
-    propertiesVisited.push(rootTree)
 
     while ((token = scanner.scan()) !== SyntaxKind.EOF) {
 
-        if (updateCurrentPropertyEndLineNumber === true && currentProperty) {
-            if(token !== SyntaxKind.LineBreakTrivia && token !== SyntaxKind.Trivia && currentProperty.endLineNumber === undefined) {
-                let endLineNumber = scanner.getTokenStartLine();
-                currentProperty.endLineNumber = endLineNumber - 1;
-                updateCurrentPropertyEndLineNumber = false;
-                beginningLineNumber = endLineNumber;
-            }
+        if (updateCurrentPropertyEndLineNumber === true 
+            && token !== SyntaxKind.LineBreakTrivia 
+            && token !== SyntaxKind.Trivia 
+            && currentProperty!.endLineNumber === undefined) {
+
+            let endLineNumber = scanner.getTokenStartLine();
+            currentProperty!.endLineNumber = endLineNumber - 1;
+            updateCurrentPropertyEndLineNumber = false;
+            beginningLineNumber = endLineNumber;
         }
 
         console.log('***')
@@ -91,54 +104,53 @@ function findPropertyTree(formattedString : string, startLine : number) {
 
         switch(token) {
 
-            // When we encounter a string literal, if it is after a comma and inside an object -> key
-            // if it is apfter an open brace -> key
-            // otherwise it is a simple string value
+            // When a string is found, if it follows an open brace, a comma token and it is within an object, then it corresponds to a key name
             case SyntaxKind.StringLiteral: {
                 if ((lastNonTriviaNonCommentToken === undefined 
                     || lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken 
-                    || (lastNonTriviaNonCommentToken === SyntaxKind.CommaToken && currentContainerStack[currentContainerStack.length - 1] === Container.Object)) && currentTree) {
+                    || (lastNonTriviaNonCommentToken === SyntaxKind.CommaToken && currentContainerStack[currentContainerStack.length - 1] === Container.Object))) {
 
                         let childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
-                        currentProperty = currentTree.addChildProperty(childProperty);
-                        propertiesVisited.push(currentProperty)
+                        currentProperty = currentTree!.addChildProperty(childProperty);
                 }
                 break;
             }
-            // When token is open brace token, we find the type of the current property
-            // a property can have as a value, an array like in this example, an object, or some number or string
+            
+            // When the token is an open bracket, then we enter into an array
             case SyntaxKind.OpenBracketToken: {
                 currentContainerStack.push(Container.Array)
-                if (currentProperty) {
-                    currentProperty.type = Container.Array;
-                }
+                currentProperty!.type = Container.Array;
+                // Enter into the array
                 currentTree = currentProperty;
                 break;
             }
-            // When token is open brace token, we find the type of the current property
-            // a property can have as a value, an array, an object like in this example, or some number or string
+            
+            // When the token is an open brace
             case SyntaxKind.OpenBraceToken: {
                 console.log('Before the curent property and current tree are changed inside of OpenBraceToken')
                 console.log('currentContainerStack : ', currentContainerStack)
                 console.log('currentTree : ', currentTree)
                 console.log('currentProperty : ', currentProperty)
 
-                if(currentContainerStack[currentContainerStack.length - 1] !== Container.Array || currentProperty && currentProperty.childrenProperties.length === 0) {
-                    currentTree = currentProperty;
-                }
                 beginningLineNumber = scanner.getTokenStartLine();
-                if(currentContainerStack[currentContainerStack.length - 1] === Container.Array && currentTree) {
-                    console.log('noKeyName case')
-                    // Adding a new property which does not have a name, it has an empty name
-                    let childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
-                    childProperty.noKeyName = true;
-                    currentProperty = currentTree.addChildProperty(childProperty);
-                    propertiesVisited.push(currentProperty)
-                }
+                currentProperty!.type = Container.Object;
                 currentContainerStack.push(Container.Object)
-                if(currentProperty) {
-                    currentProperty.type = Container.Object;
+
+                // TODO ? confusing if statement, see how to make it more clear
+                if(currentContainerStack[currentContainerStack.length - 1] !== Container.Array 
+                    || currentProperty!.childrenProperties.length === 0) {
+                    // The new object is itself inside of an object which has at least one element
+                    currentTree = currentProperty;
+                } else if (currentContainerStack[currentContainerStack.length - 1] === Container.Array) {
+                    // The object found has no associated key, it is of the form: ["a", {...}, "b"]
+                    console.log('noKeyName case')
+                    let childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
+                    // In this case set the noKeyName propery to true
+                    childProperty.noKeyName = true;
+                    currentProperty = currentTree!.addChildProperty(childProperty);
                 }
+
+                // Enter into the object
                 currentTree = currentProperty;
                 beginningLineNumber++;
                 break;
@@ -149,84 +161,98 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 console.log('currentTree : ', currentTree)
                 console.log('currentProperty : ', currentProperty)
                 
-                const endLineNumber = scanner.getTokenStartLine();
-                // When currentTree === currentProperty, this means that there is a property inside of the array for which we found the end
-                // otherwise there is no property
-                if (currentProperty && currentTree !== currentProperty && currentProperty.endLineNumber === undefined) {
-                    currentProperty.endLineNumber = endLineNumber - 1;
-                    currentProperty.lastProperty = true;
+                endLineNumber = scanner.getTokenStartLine();
+                currentContainerStack.pop();
+
+                // When currentTree === currentProperty, no object was found inside of the array, it is a simple (non-nested) array, endLineNumber does not need to be redefined
+                // If currentProperty.endLineNumber is defined then it does not need to be redefined
+                if (currentTree !== currentProperty 
+                    && currentProperty!.endLineNumber === undefined) {
+
+                    currentProperty!.endLineNumber = endLineNumber - 1;
+                    // currentProperty!.lastProperty = true;
                     // USED TO BE ON THE INSIDE
                     // currentProperty = currentProperty ? currentProperty.parent : undefined;
                 }
                 currentProperty = currentProperty ? currentProperty.parent : undefined;
+                currentTree = currentProperty;
                 beginningLineNumber = endLineNumber + 1;
-                // dont go up yet because the end has not been found yet, it is found when the next comma will be found
-                // currentProperty = currentProperty ? currentProperty.parent : undefined;
-                
-                // for(let j = propertiesVisited.length - 1; j >= 0; j--) {
-                //    if(propertiesVisited[j].type === Container.Array) {
-                //        propertiesVisited[j].endLineNumber = endLineNumber;
-                //        break;
-                //    }
-                // }
-                currentContainerStack.pop();
-                propertiesVisited.pop()
                 break;
             }
             case SyntaxKind.CloseBraceToken: {
                 console.log('close brace token')
                 console.log('currenTree before change : ', currentTree);
                 console.log('currentProperty before change : ', currentProperty)
-                currentContainerStack.pop();
-                // currentTree = currentTree? currentTree.parent : undefined;
-                const endLineNumber = scanner.getTokenStartLine();
-                if( lastNonTriviaNonCommentToken !== SyntaxKind.OpenBraceToken && currentProperty && currentProperty.endLineNumber === undefined) {
 
-                    currentProperty.endLineNumber = endLineNumber - 1;
-                    currentProperty.lastProperty = true;
-                    currentProperty.lineWhereToAddComma = lineOfLastNonTriviaNonCommentToken;
-                    currentProperty.indexWhereToAddComa = indexOfLastNonTriviaNonCommentToken;
+                endLineNumber = scanner.getTokenStartLine();
+                currentContainerStack.pop();
+
+                // If we are not inside of an empty object and current property end line number was not yet defined, define it
+                if( lastNonTriviaNonCommentToken !== SyntaxKind.OpenBraceToken 
+                    && currentProperty!.endLineNumber === undefined) {
+
+                    currentProperty!.endLineNumber = endLineNumber - 1;
+                    currentProperty!.lastProperty = true;
+
+                    // The last property of an object is associated with the line and index of where to add the comma, in case after sorting, it is no longer at the end
+                    currentProperty!.lineWhereToAddComma = lineOfLastNonTriviaNonCommentToken;
+                    currentProperty!.indexWhereToAddComa = indexOfLastNonTriviaNonCommentToken;
                     console.log('currentProperty after change before parent : ', currentProperty)
-                    // currentTree.endLineNumber = endLineNumber;
                 }
                 beginningLineNumber = endLineNumber + 1;
                 currentProperty = currentProperty ? currentProperty.parent : undefined;
-                propertiesVisited.pop()
+                currentTree = currentProperty;
                 break;
             }
-            case SyntaxKind.CommaToken: {
-                let endLineNumber = scanner.getTokenStartLine();
-                if (currentProperty && currentProperty.endLineNumber === undefined && (currentContainerStack[currentContainerStack.length - 1] === Container.Object || (currentContainerStack[currentContainerStack.length - 1] === Container.Array && lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken ))) {
-                    currentProperty.endLineNumber = endLineNumber;
-                    currentProperty.commaIndex =  scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1;
-                    currentProperty.commaLine = endLineNumber;
-                }
-                // if the current property was a cotainer, not a simple value, go up the tree
 
-                if (lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || lastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
-                    currentTree = currentTree ? currentTree.parent : undefined;
+            case SyntaxKind.CommaToken: {
+                
+                endLineNumber = scanner.getTokenStartLine();
+
+                // If the last container is an object, or it is an array such that the last non trivia non-comment token is a brace, update hthe end line number of the current property
+                if (currentProperty!.endLineNumber === undefined 
+                    && (currentContainerStack[currentContainerStack.length - 1] === Container.Object 
+                        || (currentContainerStack[currentContainerStack.length - 1] === Container.Array 
+                            && lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken ))) {
+
+                    currentProperty!.endLineNumber = endLineNumber;
+                    // Store the line and the index of the comma in case it needs to be removed during the sorting
+                    currentProperty!.commaIndex =  scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1;
+                    currentProperty!.commaLine = endLineNumber;
                 }
+
+                // Not needed?
+                // if (lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || lastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
+                //    currentTree = currentTree ? currentTree.parent : undefined;
+                // }
                 beginningLineNumber = endLineNumber + 1;
                 break;
             }
+
             case SyntaxKind.BlockCommentTrivia: {
+                
+                // If the last non trivia non-comment token is a comma and the block comment starts on the same line as the comma, then update the end line number
                 if(lastNonTriviaNonCommentToken === SyntaxKind.CommaToken 
                     && lineOfLastNonTriviaNonCommentToken === scanner.getTokenStartLine()) {
+                        currentProperty!.endLineNumber = undefined;
                         updateCurrentPropertyEndLineNumber = true;
                 }
                 break;
             }
+
+            // If a line break trivia is encountered, add the number of characters on the current line to the total, reset the temporary variable
             case SyntaxKind.LineBreakTrivia: {
                 numberOfCharactersOnPreviousLines = numberOfCharactersOnPreviousLines + tempNumberOfCharacters;
                 tempNumberOfCharacters = 0;
             }
         }
 
+        // For all non-comment, non-trvia tokens, update the line and index of the last non-trivia non-comment token
         if(token !== SyntaxKind.LineBreakTrivia
             && token !== SyntaxKind.BlockCommentTrivia
             && token !== SyntaxKind.LineCommentTrivia
-            && token !== SyntaxKind.Trivia
-            && token !== SyntaxKind.ColonToken) {
+            && token !== SyntaxKind.Trivia) {
+        
                 lastNonTriviaNonCommentToken = token;
                 lineOfLastNonTriviaNonCommentToken = scanner.getTokenStartLine();
                 indexOfLastNonTriviaNonCommentToken = scanner.getTokenOffset() + scanner.getTokenLength() - numberOfCharactersOnPreviousLines;
