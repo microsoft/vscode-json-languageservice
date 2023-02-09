@@ -79,6 +79,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 let endLineNumber = scanner.getTokenStartLine();
                 currentProperty.endLineNumber = endLineNumber - 1;
                 updateCurrentPropertyEndLineNumber = false;
+                beginningLineNumber = endLineNumber;
             }
         }
 
@@ -190,7 +191,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 let endLineNumber = scanner.getTokenStartLine();
                 if ((currentContainerStack[currentContainerStack.length - 1] === Container.Object || (currentContainerStack[currentContainerStack.length - 1] === Container.Array && lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken )) && currentProperty) {
                     currentProperty.endLineNumber = endLineNumber;
-                    currentProperty.commaIndex =  scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1; // indexOfLastNonTriviaNonCommentToken
+                    currentProperty.commaIndex =  scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1;
                     currentProperty.commaLine = endLineNumber;
                 }
                 beginningLineNumber = endLineNumber + 1;
@@ -285,7 +286,6 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                 jsonContentToReplace[commaLine! - property.beginningLineNumber!] = jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(0, commaIndex) + jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(commaIndex! + 1);
             }
             console.log('jsonContentToReplace : ', jsonContentToReplace)
-            // console.log('beginningLineNumber : ', beginningLineNumber)
             const length = property.endLineNumber! - property.beginningLineNumber! + 1;
             sortedArrayOfLines.splice(beginningLineNumber, length);
             sortedArrayOfLines.splice(beginningLineNumber, 0, ...jsonContentToReplace);
