@@ -348,16 +348,6 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                 queueToSort.push({'beginningLineNumber' : beginningLineNumber + diff, 'propertyArray' : property.childrenProperties})
             } else if (property.childrenProperties.length > 0 && property.type === Container.Array) {
                 console.log('In the case when we have an array with subobjects');
-                ///
-                let minimumBeginningLineNumber = Infinity;
-                for(const childProperty of property.childrenProperties) {
-                    if(childProperty.beginningLineNumber! < minimumBeginningLineNumber) {
-                        minimumBeginningLineNumber = childProperty.beginningLineNumber!;
-                    }
-                }
-                // console.log('minimumBeginningLineNumber : ', minimumBeginningLineNumber)
-                const initialDiff = minimumBeginningLineNumber - property.beginningLineNumber!;
-                ///
 
                 for(const subObject of property.childrenProperties) {
 
