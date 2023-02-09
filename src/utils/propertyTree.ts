@@ -17,6 +17,7 @@ export class PropertyTree {
     lastProperty : boolean;
     commaIndex  : number | undefined;
     commaLine : number | undefined;
+    type : Container | undefined;
 
     constructor(
         propertyName?: any, 
@@ -24,7 +25,8 @@ export class PropertyTree {
         endLineNumber?: number, 
         lastProperty? : boolean, 
         commaIndex? : number, 
-        commaLine?: number) {
+        commaLine?: number,
+        type?: Container) {
 
         this.propertyName = propertyName;
         this.beginningLineNumber = beginningLineNumber ;
@@ -33,6 +35,7 @@ export class PropertyTree {
         this.lastProperty = lastProperty ? lastProperty : false;
         this.commaIndex = commaIndex;
         this.commaLine = commaLine;
+        this.type = type;
     }
 
     addChildProperty(
@@ -41,9 +44,10 @@ export class PropertyTree {
         endLineNumber? : number, 
         lastProperty? : boolean, 
         commaIndex? : number,
-        commaLine? : number) : PropertyTree {
+        commaLine? : number, 
+        type?: Container) : PropertyTree {
 
-        let childProperty : PropertyTree = new PropertyTree(propertyName, beginningLineNumber, endLineNumber, lastProperty, commaIndex, commaLine)
+        let childProperty : PropertyTree = new PropertyTree(propertyName, beginningLineNumber, endLineNumber, lastProperty, commaIndex, commaLine, type)
         childProperty.parent = this;
         if(this.childrenProperties.length > 0) {
             let insertionIndex = binarySearchOnPropertyArray(this.childrenProperties, childProperty, compareProperties)

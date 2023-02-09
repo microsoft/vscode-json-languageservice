@@ -61,9 +61,12 @@ function findPropertyTree(formattedString : string, startLine : number) {
     let lineOfLastNonTriviaNonCommentToken : number = -1;
     let beginningLineNumber : number = startLine;
     let currentContainerStack : Container[] = []
+    let propertiesVisited : PropertyTree[] = []
     let numberOfCharactersOnPreviousLines : number = 0;
     let tempNumberOfCharacters : number = 0;
     let updateCurrentPropertyEndLineNumber : boolean = false;
+
+    propertiesVisited.push(rootTree)
 
     while ((token = scanner.scan()) !== SyntaxKind.EOF) {
 
@@ -74,32 +77,76 @@ function findPropertyTree(formattedString : string, startLine : number) {
             updateCurrentPropertyEndLineNumber = false;
         }
 
+        console.log('***')
+        console.log('\n')
         console.log('token : ', token);
+        console.log('token.value : ', scanner.getTokenValue());
 
-        switch(token) { 
+        switch(token) {
+
+            // When we encounter a string literal, if it is after a comma and inside an object -> key
+            // if it is apfter an open brace -> key
+            // otherwise it is a simple string value
             case SyntaxKind.StringLiteral: {
                 if ((lastNonTriviaNonCommentToken === undefined 
                     || lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken 
                     || (lastNonTriviaNonCommentToken === SyntaxKind.CommaToken && currentContainerStack[currentContainerStack.length - 1] === Container.Object)) && currentTree) {
                         currentProperty = currentTree.addChildProperty(scanner.getTokenValue(), beginningLineNumber);
+                        propertiesVisited.push(currentProperty)
                 }
                 break;
             }
+            // When token is open brace token, we find the type of the current property
+            // a property can have as a value, an array like in this example, an object, or some number or string
             case SyntaxKind.OpenBracketToken: {
                 currentContainerStack.push(Container.Array)
+                if (currentProperty) {
+                    currentProperty.type = Container.Array;
+                }
                 break;
             }
+            // When token is open brace token, we find the type of the current property
+            // a property can have as a value, an array, an object like in this example, or some number or string
             case SyntaxKind.OpenBraceToken: {
+                console.log('Before the curent property and current tree are changed inside of OpenBraceToken')
+                console.log('currentContainerStack : ', currentContainerStack)
+                console.log('currentTree : ', currentTree)
+                console.log('currentProperty : ', currentProperty)
+
+                if(currentContainerStack[currentContainerStack.length - 1] !== Container.Array || currentProperty && currentProperty.childrenProperties.length === 0) {
+                    currentTree = currentProperty;
+                }
+                beginningLineNumber = scanner.getTokenStartLine();
+                if(currentContainerStack[currentContainerStack.length - 1] === Container.Array && currentTree) {
+                    currentProperty = currentTree.addChildProperty(scanner.getTokenValue(), beginningLineNumber);
+                    propertiesVisited.push(currentProperty)
+                }
                 currentContainerStack.push(Container.Object)
+                if(currentProperty) {
+                    currentProperty.type = Container.Object;
+                }
                 currentTree = currentProperty;
                 beginningLineNumber++;
                 break;
             }
             case SyntaxKind.CloseBracketToken: {
+                console.log('Before the current property and the current tree are changed inside of CloseBracketToken')
+                console.log('currentContainerStack : ', currentContainerStack)
+                console.log('currentTree : ', currentTree)
+                console.log('currentProperty : ', currentProperty)
+                
+                const endLineNumber = scanner.getTokenStartLine();
+                for(let j = propertiesVisited.length - 1; j >= 0; j--) {
+                    if(propertiesVisited[j].type === Container.Array) {
+                        propertiesVisited[j].endLineNumber = endLineNumber;
+                        break;
+                    }
+                }
                 currentContainerStack.pop();
                 break;
             }
-            case SyntaxKind.CloseBraceToken: { 
+            case SyntaxKind.CloseBraceToken: {
+                console.log('close brace token')
                 currentContainerStack.pop();
                 currentTree = currentTree? currentTree.parent : undefined;
                 const endLineNumber = scanner.getTokenStartLine();
@@ -109,11 +156,12 @@ function findPropertyTree(formattedString : string, startLine : number) {
                     currentProperty.lastProperty = true;
                 }
                 currentProperty = currentProperty ? currentProperty.parent : undefined;
+                propertiesVisited.pop()
                 break;
             }
             case SyntaxKind.CommaToken: {
                 let endLineNumber = scanner.getTokenStartLine();
-                if (currentContainerStack[currentContainerStack.length - 1] === Container.Object && currentProperty) {
+                if ((currentContainerStack[currentContainerStack.length - 1] === Container.Object || (currentContainerStack[currentContainerStack.length - 1] === Container.Array && lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken )) && currentProperty) {
                     currentProperty.endLineNumber = endLineNumber;
                     currentProperty.commaIndex = scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1;
                     currentProperty.commaLine = endLineNumber;
@@ -143,12 +191,23 @@ function findPropertyTree(formattedString : string, startLine : number) {
         }
         
         tempNumberOfCharacters += scanner.getTokenLength();
+        console.log('*** After Changes ***')
+        console.log('propertiesVisited : ', propertiesVisited)
+        console.log('currentTree : ', currentTree)
+        console.log('currentTree.childrenProperties.length : ', currentTree?.childrenProperties.length)
+        console.log('currentProperty : ', currentProperty)
+        console.log('currentProperty.childrenProperties.length : ', currentProperty?.childrenProperties.length)
+        console.log('beginningLineNumber : ', beginningLineNumber)
     }
     return rootTree;
 }
 
 function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, sortingRange : number[]) {
 
+    console.log('\n')
+    console.log('***')
+    console.log('sortLinesOfArray')
+    console.log('***')
     if (propertyTree.childrenProperties.length <= 1) {
         return arrayOfLines;
     }
@@ -167,8 +226,11 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
 
         for (let i = 0; i < propertyArray.length; i++) {
 
+            console.log('i : ', i)
             const property = propertyArray[i]
+            console.log('property : ', property);
             const jsonContentToReplace = arrayOfLines.slice(property.beginningLineNumber, property.endLineNumber! + 1);
+            console.log('jsonContentToReplace : ', jsonContentToReplace);
 
             if (property.lastProperty === true && i !== propertyArray.length - 1) {
                 jsonContentToReplace[jsonContentToReplace.length - 1] = jsonContentToReplace[jsonContentToReplace.length - 1] + ',';
@@ -177,8 +239,8 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                 const commaLine = property.commaLine;
                 jsonContentToReplace[commaLine! - property.beginningLineNumber!] = jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(0, commaIndex) + jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(commaIndex! + 1);
             }
-            console.log('jsonContentToReplace : ', jsonContentToReplace)
-            console.log('beginningLineNumber : ', beginningLineNumber)
+            // console.log('jsonContentToReplace : ', jsonContentToReplace)
+            // console.log('beginningLineNumber : ', beginningLineNumber)
             const length = property.endLineNumber! - property.beginningLineNumber! + 1;
             sortedArrayOfLines.splice(beginningLineNumber, length);
             sortedArrayOfLines.splice(beginningLineNumber, 0, ...jsonContentToReplace);
@@ -190,9 +252,9 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                         minimumBeginningLineNumber = childProperty.beginningLineNumber!;
                     }
                 }
-                console.log('minimumBeginningLineNumber : ', minimumBeginningLineNumber)
+                // console.log('minimumBeginningLineNumber : ', minimumBeginningLineNumber)
                 const diff = minimumBeginningLineNumber - property.beginningLineNumber!;
-                console.log('diff : ', diff)
+                // console.log('diff : ', diff)
                 queueToSort.push({'beginningLineNumber' : beginningLineNumber + diff, 'propertyArray' : property.childrenProperties})
             }
             beginningLineNumber = beginningLineNumber + length;
