@@ -58,29 +58,35 @@ function findPropertyTree(formattedString : string, startLine : number) {
     let currentProperty : PropertyTree | undefined = rootTree;
     let token : SyntaxKind | undefined = undefined;
     let lastNonTriviaNonCommentToken : SyntaxKind | undefined = undefined;
+
+    // variables which are used in order to find out where to place the comma if it needs to be placed
+    // avoids the case of placing a comma at the end of a comma (thus equivalent to no separating comma)
     let lineOfLastNonTriviaNonCommentToken : number = -1;
+    let indexOfLastNonTriviaNonCommentToken : number = -1;
+
     let beginningLineNumber : number = startLine;
     let currentContainerStack : Container[] = []
     let propertiesVisited : PropertyTree[] = []
     let numberOfCharactersOnPreviousLines : number = 0;
     let tempNumberOfCharacters : number = 0;
     let updateCurrentPropertyEndLineNumber : boolean = false;
-
     propertiesVisited.push(rootTree)
 
     while ((token = scanner.scan()) !== SyntaxKind.EOF) {
 
         if (updateCurrentPropertyEndLineNumber === true && currentProperty) {
-            let endLineNumber = scanner.getTokenStartLine();
-            currentProperty.endLineNumber = endLineNumber;
-            beginningLineNumber = endLineNumber + 1;
-            updateCurrentPropertyEndLineNumber = false;
+            if(token !== SyntaxKind.LineBreakTrivia && token !== SyntaxKind.Trivia) {
+                let endLineNumber = scanner.getTokenStartLine();
+                currentProperty.endLineNumber = endLineNumber - 1;
+                updateCurrentPropertyEndLineNumber = false;
+            }
         }
 
         console.log('***')
         console.log('\n')
         console.log('token : ', token);
         console.log('token.value : ', scanner.getTokenValue());
+        console.log('token.line : ', scanner.getTokenStartLine())
 
         switch(token) {
 
@@ -91,7 +97,9 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 if ((lastNonTriviaNonCommentToken === undefined 
                     || lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken 
                     || (lastNonTriviaNonCommentToken === SyntaxKind.CommaToken && currentContainerStack[currentContainerStack.length - 1] === Container.Object)) && currentTree) {
-                        currentProperty = currentTree.addChildProperty(scanner.getTokenValue(), beginningLineNumber);
+
+                        let childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
+                        currentProperty = currentTree.addChildProperty(childProperty);
                         propertiesVisited.push(currentProperty)
                 }
                 break;
@@ -103,6 +111,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 if (currentProperty) {
                     currentProperty.type = Container.Array;
                 }
+                currentTree = currentProperty;
                 break;
             }
             // When token is open brace token, we find the type of the current property
@@ -118,7 +127,11 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 }
                 beginningLineNumber = scanner.getTokenStartLine();
                 if(currentContainerStack[currentContainerStack.length - 1] === Container.Array && currentTree) {
-                    currentProperty = currentTree.addChildProperty(scanner.getTokenValue(), beginningLineNumber);
+                    console.log('noKeyName case')
+                    // Adding a new property which does not have a name, it has an empty name
+                    let childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
+                    childProperty.noKeyName = true;
+                    currentProperty = currentTree.addChildProperty(childProperty);
                     propertiesVisited.push(currentProperty)
                 }
                 currentContainerStack.push(Container.Object)
@@ -136,25 +149,39 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 console.log('currentProperty : ', currentProperty)
                 
                 const endLineNumber = scanner.getTokenStartLine();
-                for(let j = propertiesVisited.length - 1; j >= 0; j--) {
-                    if(propertiesVisited[j].type === Container.Array) {
-                        propertiesVisited[j].endLineNumber = endLineNumber;
-                        break;
-                    }
+                if (currentProperty) {
+                    currentProperty.endLineNumber = endLineNumber - 1;
+                    currentProperty.lastProperty = true;
                 }
+                beginningLineNumber = endLineNumber + 1;
+                currentProperty = currentProperty ? currentProperty.parent : undefined;
+                // for(let j = propertiesVisited.length - 1; j >= 0; j--) {
+                //    if(propertiesVisited[j].type === Container.Array) {
+                //        propertiesVisited[j].endLineNumber = endLineNumber;
+                //        break;
+                //    }
+                // }
                 currentContainerStack.pop();
+                propertiesVisited.pop()
                 break;
             }
             case SyntaxKind.CloseBraceToken: {
                 console.log('close brace token')
+                console.log('currenTree before change : ', currentTree);
+                console.log('currentProperty before change : ', currentProperty)
                 currentContainerStack.pop();
                 currentTree = currentTree? currentTree.parent : undefined;
                 const endLineNumber = scanner.getTokenStartLine();
-                beginningLineNumber = endLineNumber + 1;
-                if( lastNonTriviaNonCommentToken !== SyntaxKind.OpenBraceToken && currentProperty) {
+                if( lastNonTriviaNonCommentToken !== SyntaxKind.OpenBraceToken && currentProperty && currentTree) {
+
                     currentProperty.endLineNumber = endLineNumber - 1;
                     currentProperty.lastProperty = true;
+                    currentProperty.lineWhereToAddComma = lineOfLastNonTriviaNonCommentToken;
+                    currentProperty.indexWhereToAddComa = indexOfLastNonTriviaNonCommentToken;
+                    console.log('currentProperty after change before parent : ', currentProperty)
+                    // currentTree.endLineNumber = endLineNumber;
                 }
+                beginningLineNumber = endLineNumber + 1;
                 currentProperty = currentProperty ? currentProperty.parent : undefined;
                 propertiesVisited.pop()
                 break;
@@ -163,7 +190,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 let endLineNumber = scanner.getTokenStartLine();
                 if ((currentContainerStack[currentContainerStack.length - 1] === Container.Object || (currentContainerStack[currentContainerStack.length - 1] === Container.Array && lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken )) && currentProperty) {
                     currentProperty.endLineNumber = endLineNumber;
-                    currentProperty.commaIndex = scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1;
+                    currentProperty.commaIndex = indexOfLastNonTriviaNonCommentToken - 1; // scanner.getTokenOffset() - numberOfCharactersOnPreviousLines
                     currentProperty.commaLine = endLineNumber;
                 }
                 beginningLineNumber = endLineNumber + 1;
@@ -185,19 +212,27 @@ function findPropertyTree(formattedString : string, startLine : number) {
         if(token !== SyntaxKind.LineBreakTrivia
             && token !== SyntaxKind.BlockCommentTrivia
             && token !== SyntaxKind.LineCommentTrivia
-            && token !== SyntaxKind.Trivia) {
+            && token !== SyntaxKind.Trivia
+            && token !== SyntaxKind.ColonToken) {
                 lastNonTriviaNonCommentToken = token;
                 lineOfLastNonTriviaNonCommentToken = scanner.getTokenStartLine();
+                indexOfLastNonTriviaNonCommentToken = scanner.getTokenOffset() + scanner.getTokenLength() - numberOfCharactersOnPreviousLines;
         }
         
         tempNumberOfCharacters += scanner.getTokenLength();
-        console.log('*** After Changes ***')
-        console.log('propertiesVisited : ', propertiesVisited)
-        console.log('currentTree : ', currentTree)
-        console.log('currentTree.childrenProperties.length : ', currentTree?.childrenProperties.length)
-        console.log('currentProperty : ', currentProperty)
-        console.log('currentProperty.childrenProperties.length : ', currentProperty?.childrenProperties.length)
-        console.log('beginningLineNumber : ', beginningLineNumber)
+
+        if(token !== SyntaxKind.LineBreakTrivia
+            && token !== SyntaxKind.Trivia
+            && token !== SyntaxKind.BlockCommentTrivia
+            && token !== SyntaxKind.LineCommentTrivia) {
+                console.log('*** After Changes ***')
+                console.log('propertiesVisited : ', propertiesVisited)
+                console.log('currentTree : ', currentTree)
+                console.log('currentTree.childrenProperties.length : ', currentTree?.childrenProperties.length)
+                console.log('currentProperty : ', currentProperty)
+                console.log('currentProperty.childrenProperties.length : ', currentProperty?.childrenProperties.length)
+                console.log('beginningLineNumber : ', beginningLineNumber)
+            }
     }
     return rootTree;
 }
@@ -230,16 +265,24 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
             const property = propertyArray[i]
             console.log('property : ', property);
             const jsonContentToReplace = arrayOfLines.slice(property.beginningLineNumber, property.endLineNumber! + 1);
-            console.log('jsonContentToReplace : ', jsonContentToReplace);
+            console.log('jsonContentToReplace before adding or removing commas : ', jsonContentToReplace);
 
             if (property.lastProperty === true && i !== propertyArray.length - 1) {
-                jsonContentToReplace[jsonContentToReplace.length - 1] = jsonContentToReplace[jsonContentToReplace.length - 1] + ',';
+                const lineWhereToAddComma = property.lineWhereToAddComma ? property.lineWhereToAddComma - property.beginningLineNumber! : jsonContentToReplace.length - 1;
+                const line = jsonContentToReplace[lineWhereToAddComma];
+                const lineLength = line.length;
+                const indexWhereToAddComma = property.indexWhereToAddComa ? property.indexWhereToAddComa: lineLength - 1;
+                console.log('lineWhereToAddComma : ', lineWhereToAddComma)
+                console.log('indexWhereToAddComma : ', indexWhereToAddComma);
+                jsonContentToReplace[lineWhereToAddComma] = line.slice(0, indexWhereToAddComma) + ',' + line.slice(indexWhereToAddComma);
             } else if (property.lastProperty === false && i === propertyArray.length - 1) {
                 const commaIndex = property.commaIndex;
                 const commaLine = property.commaLine;
+                console.log('commaIndex : ', commaIndex);
+                console.log('commaLine! - property.beginningLineNumber! : ', commaLine! - property.beginningLineNumber!);
                 jsonContentToReplace[commaLine! - property.beginningLineNumber!] = jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(0, commaIndex) + jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(commaIndex! + 1);
             }
-            // console.log('jsonContentToReplace : ', jsonContentToReplace)
+            console.log('jsonContentToReplace : ', jsonContentToReplace)
             // console.log('beginningLineNumber : ', beginningLineNumber)
             const length = property.endLineNumber! - property.beginningLineNumber! + 1;
             sortedArrayOfLines.splice(beginningLineNumber, length);

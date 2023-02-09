@@ -17,7 +17,10 @@ export class PropertyTree {
     lastProperty : boolean;
     commaIndex  : number | undefined;
     commaLine : number | undefined;
+    lineWhereToAddComma : number | undefined;
+    indexWhereToAddComa : number | undefined;
     type : Container | undefined;
+    noKeyName : boolean;
 
     constructor(
         propertyName?: any, 
@@ -26,7 +29,10 @@ export class PropertyTree {
         lastProperty? : boolean, 
         commaIndex? : number, 
         commaLine?: number,
-        type?: Container) {
+        type?: Container,
+        noKeyName?: boolean,
+        lineWhereToAddComma? : number,
+        indexWhereToAddComma? : number) {
 
         this.propertyName = propertyName;
         this.beginningLineNumber = beginningLineNumber ;
@@ -36,24 +42,28 @@ export class PropertyTree {
         this.commaIndex = commaIndex;
         this.commaLine = commaLine;
         this.type = type;
+        this.noKeyName = noKeyName? noKeyName : false;
+        this.lineWhereToAddComma = lineWhereToAddComma;
+        this.indexWhereToAddComa = indexWhereToAddComma;
     }
 
     addChildProperty(
-        propertyName? : string, 
-        beginningLineNumber? : number, 
-        endLineNumber? : number, 
-        lastProperty? : boolean, 
-        commaIndex? : number,
-        commaLine? : number, 
-        type?: Container) : PropertyTree {
+        childProperty : PropertyTree) : PropertyTree {
 
-        let childProperty : PropertyTree = new PropertyTree(propertyName, beginningLineNumber, endLineNumber, lastProperty, commaIndex, commaLine, type)
         childProperty.parent = this;
+        console.log('this.childrenProperties.length : ', this.childrenProperties.length)
         if(this.childrenProperties.length > 0) {
-            let insertionIndex = binarySearchOnPropertyArray(this.childrenProperties, childProperty, compareProperties)
+
+            let insertionIndex = 0;
+            if(childProperty.noKeyName) {
+                insertionIndex = this.childrenProperties.length;
+            } else {
+                insertionIndex = binarySearchOnPropertyArray(this.childrenProperties, childProperty, compareProperties);
+            }
             if(insertionIndex < 0) {
                 insertionIndex = (insertionIndex * -1) - 1
             }
+            console.log('insertionIndex : ', insertionIndex)
             this.childrenProperties.splice(insertionIndex, 0, childProperty)
         } else {
             this.childrenProperties.push(childProperty)
