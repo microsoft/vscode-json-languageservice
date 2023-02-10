@@ -592,4 +592,36 @@ suite('Sort JSON', () => {
         
         testSort(content, expected, formattingOptions);
     })
+
+    test('sorting a simple JSONC document where the outer container is an array', () => {
+        var content = [
+            '[',
+            '    {',
+            '        "hi": 1',
+            '    },',
+            '',
+            '    // some comment',
+            '',
+            '    {',
+            '        "b" : 2,',
+            '        "a" : 1',
+            '    }',
+            ']'
+        ].join('\n');
+
+        var expected = [
+            '[',
+            '    {',
+            '        "hi": 1',
+            '    },',
+            '    // some comment',
+            '    {',
+            '        "a" : 1,',
+            '        "b" : 2',
+            '    }',
+            ']'
+        ].join('\n');
+        
+        testSort(content, expected, formattingOptions);
+    })
 });

@@ -18,6 +18,7 @@ export function sort(documentToSort: TextDocument, formattingOptions: Formatting
         eol: '\n'
     };
     let formattedJSONString: string = TextDocument.applyEdits(documentToSort, format(documentToSort, options, undefined));
+    console.log('formattedJSONString : ', formattedJSONString);
     const arrayOfLines: string[] = formattedJSONString.split('\n');
     const propertyTree : PropertyTree = findPropertyTree(formattedJSONString)
     const sortingRange = [propertyTree.beginningLineNumber! + 1, propertyTree.endLineNumber! - 1]
@@ -27,7 +28,7 @@ export function sort(documentToSort: TextDocument, formattingOptions: Formatting
     return TextDocument.applyEdits(sortedDocument, edits);
 }
 
-function findPropertyTree(formattedString : string) { // startLine : number
+function findPropertyTree(formattedString : string) {
     const scanner : JSONScanner = createScanner(formattedString, false);
     // The tree that will be returned
     let rootTree : PropertyTree = new PropertyTree();
@@ -82,14 +83,13 @@ function findPropertyTree(formattedString : string) { // startLine : number
         }
 
         // Setting the beginning line of the root tree
-        console.log('rootTree : ', rootTree)
         if((token === SyntaxKind.OpenBraceToken || token == SyntaxKind.OpenBracketToken) && rootTree.beginningLineNumber === undefined) {
             console.log('setting the beginning line of the root tree')
             rootTree.beginningLineNumber = scanner.getTokenStartLine();
         }
 
-        console.log('***')
         console.log('\n')
+        console.log('***')
         console.log('token : ', token);
         console.log('token.value : ', scanner.getTokenValue());
         console.log('token.line : ', scanner.getTokenStartLine())
@@ -111,7 +111,6 @@ function findPropertyTree(formattedString : string) { // startLine : number
             // When the token is an open bracket, then we enter into an array
             case SyntaxKind.OpenBracketToken: {
 
-                console.log('Inside of open bracket token')
                 beginningLineNumber = scanner.getTokenStartLine();
 
                 // We can also have the case of an array inside of an array, it should also be unnamed in that case
@@ -140,10 +139,6 @@ function findPropertyTree(formattedString : string) { // startLine : number
             
             // When the token is an open brace
             case SyntaxKind.OpenBraceToken: {
-                console.log('Before the curent property and current tree are changed inside of OpenBraceToken')
-                console.log('currentContainerStack : ', currentContainerStack)
-                console.log('currentTree : ', currentTree)
-                console.log('currentProperty : ', currentProperty)
 
                 beginningLineNumber = scanner.getTokenStartLine();
 
@@ -170,7 +165,7 @@ function findPropertyTree(formattedString : string) { // startLine : number
                 break;
             }
             case SyntaxKind.CloseBracketToken: {
-                console.log('Before the current property and the current tree are changed inside of CloseBracketToken')
+                console.log('Before change in close bracket token')
                 console.log('currentContainerStack : ', currentContainerStack)
                 console.log('currentTree : ', currentTree)
                 console.log('currentProperty : ', currentProperty)
@@ -197,9 +192,10 @@ function findPropertyTree(formattedString : string) { // startLine : number
                 break;
             }
             case SyntaxKind.CloseBraceToken: {
-                console.log('close brace token')
-                console.log('currenTree before change : ', currentTree);
-                console.log('currentProperty before change : ', currentProperty)
+                console.log('Before change in close brace token')
+                console.log('currentContainerStack : ', currentContainerStack)
+                console.log('currentTree : ', currentTree)
+                console.log('currentProperty : ', currentProperty)
 
                 endLineNumber = scanner.getTokenStartLine();
                 currentContainerStack.pop();
@@ -228,14 +224,21 @@ function findPropertyTree(formattedString : string) { // startLine : number
 
             case SyntaxKind.CommaToken: {
                 
+                console.log('Before change in close bracket token')
+                console.log('currentContainerStack : ', currentContainerStack)
+                console.log('currentTree : ', currentTree)
+                console.log('currentProperty : ', currentProperty)
+
                 endLineNumber = scanner.getTokenStartLine();
 
                 // If the last container is an object, or it is an array such that the last non trivia non-comment token is a brace, update hthe end line number of the current property
                 if (currentProperty!.endLineNumber === undefined 
                     && (currentContainerStack[currentContainerStack.length - 1] === Container.Object 
                         || (currentContainerStack[currentContainerStack.length - 1] === Container.Array 
-                            && lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken ))) {
-
+                            && (lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken 
+                            || lastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken)))) {
+                    
+                    console.log('Entered into the first if')
                     currentProperty!.endLineNumber = endLineNumber;
                     // Store the line and the index of the comma in case it needs to be removed during the sorting
                     currentProperty!.commaIndex =  scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1;
@@ -243,6 +246,7 @@ function findPropertyTree(formattedString : string) { // startLine : number
                 }
 
                 if (lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || lastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
+                    console.log('Entered into the second if')
                     currentProperty = currentProperty ? currentProperty.parent : undefined;
                     currentTree = currentProperty;
                 }
@@ -263,7 +267,7 @@ function findPropertyTree(formattedString : string) { // startLine : number
                 // { /**
                 // ../
                 // }
-                if (lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken) {
+                if (lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken || lastNonTriviaNonCommentToken === SyntaxKind.OpenBracketToken) {
                     updateBeginningLineNumber = true;
                 }
                 break;
