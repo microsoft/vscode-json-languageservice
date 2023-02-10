@@ -167,6 +167,9 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 // !!! basically handle the case differently for when we have no key name objects inside of the array
                 // when we have no key-name objects, the current tree and the property tree coule already be at the level of the full array
                 // but it could also be at the level of the inner object
+                // consider for this the last non trivial non-comment object, whether it is an object or an array or some other value
+                // if some other value, then current tree on the same level as property tree
+                // if object or array, then property tree different from current tree
 
                 // When currentTree === currentProperty, no object was found inside of the array, it is a simple (non-nested) array, endLineNumber does not need to be redefined
                 // If currentProperty.endLineNumber is defined then it does not need to be redefined
