@@ -276,7 +276,9 @@ function findPropertyTree(formattedString : string) {
                 // { /**
                 // ../
                 // }
-                if (lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken || lastNonTriviaNonCommentToken === SyntaxKind.OpenBracketToken) {
+                if ((lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken 
+                    || lastNonTriviaNonCommentToken === SyntaxKind.OpenBracketToken) 
+                    && lineOfLastNonTriviaNonCommentToken === scanner.getTokenStartLine()) {
                     updateBeginningLineNumber = true;
                 }
                 break;
