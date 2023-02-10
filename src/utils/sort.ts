@@ -163,41 +163,17 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 console.log('currentProperty : ', currentProperty)
                 
                 endLineNumber = scanner.getTokenStartLine();
+                currentContainerStack.pop();
 
-                // !!! basically handle the case differently for when we have no key name objects inside of the array
-                // when we have no key-name objects, the current tree and the property tree coule already be at the level of the full array
-                // but it could also be at the level of the inner object
-                // consider for this the last non trivial non-comment object, whether it is an object or an array or some other value
-                // if some other value, then current tree on the same level as property tree
-                // if object or array, then property tree different from current tree
-
-                // When currentTree === currentProperty, no object was found inside of the array, it is a simple (non-nested) array, endLineNumber does not need to be redefined
-                // If currentProperty.endLineNumber is defined then it does not need to be redefined
-                // Property has been found on the inside of the array
-
-                // currentTree !== currentProperty -> all pass except for last
-                // currentProperty!.childrenProperties.length > 0 -> 4 tests fail but last one passes
-
-                // if an object has been found inside of the array that needs to have its number reassigned
-                // for the case when 4 tests fail, currentTree is the actual array property and the children have already an end line assigned
-                if (((currentContainerStack[currentContainerStack.length - 1] === Container.Array 
-                    && currentProperty!.childrenProperties.length > 0)
-                    || currentContainerStack[currentContainerStack.length - 1] === Container.Object)
-                    && currentProperty!.endLineNumber === undefined) {
-
+                // If the last non-trivial non-comment token is an object or an array, then the currentProperty end line number has not been set yet, set it
+                // Otherwise it has been set, and furthermore currentProperty and currentTree are at the same level
+                if (lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || lastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
                     currentProperty!.endLineNumber = endLineNumber - 1;
-                    // currentProperty!.lastProperty = true;
-
-                    // While the end line number has not been set, do not go to parent of current property
                     currentProperty = currentProperty ? currentProperty.parent : undefined;
                     currentTree = currentProperty;
                 }
-                // currentProperty = currentProperty ? currentProperty.parent : undefined;
-                // currentTree = currentProperty;
-                beginningLineNumber = endLineNumber + 1;
 
-                // wrong should be at the front
-                currentContainerStack.pop();
+                beginningLineNumber = endLineNumber + 1;
                 break;
             }
             case SyntaxKind.CloseBraceToken: {
