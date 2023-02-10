@@ -519,4 +519,77 @@ suite('Sort JSON', () => {
         
         testSort(content, expected, formattingOptions);
     })
+
+    test('sorting a deeply nested JSONC object', () => {
+        var content = [
+            '{',
+            '    "a" : {',
+            '        "y" : {},',
+            '        "a" : {}',
+            '    }, // comment',
+            '',
+            '   "b" : [',
+            '        [',
+            '            { /* some comment',
+            '            */',
+            '                "b" : {',
+            '                    "y" : [],',
+            '                    "x" : []',
+            '                },',
+            '                "a" : {',
+            '                    "z" : [],',
+            '                    "m" : [],',
+            '                    "b" : {',
+            '                        "b" : 1,',
+            '                        "a" : 2',
+            '                    }',
+            '                },',
+            '                "c" : {',
+            '                    "a" : {',
+            '                        "b" : 1',
+            '                    }',
+            '                   // comment at the end',
+            '                }',
+            '            }',
+            '        ]',
+            '    ]',
+            '}'
+        ].join('\n');
+
+        var expected = [
+            '{',
+            '  "a": {',
+            '    "a": {},',
+            '    "y": {}',
+            '  }, // comment',
+            '  "b": [',
+            '    [',
+            '      { /* some comment',
+            '            */',
+            '        "a": {',
+            '          "b": {',
+            '            "a": 2,',
+            '            "b": 1',
+            '          },',
+            '          "m": [],',
+            '          "z": []',
+            '        },',
+            '        "b": {',
+            '          "x": [],',
+            '          "y": []',
+            '        },',
+            '        "c": {',
+            '          "a": {',
+            '            "b": 1',
+            '          }',
+            '          // comment at the end',
+            '        }',
+            '      }',
+            '    ]',
+            '  ]',
+            '}'
+        ].join('\n');
+        
+        testSort(content, expected, formattingOptions);
+    })
 });

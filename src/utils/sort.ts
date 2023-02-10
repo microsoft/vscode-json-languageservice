@@ -80,8 +80,11 @@ function findPropertyTree(formattedString : string, startLine : number) {
     let numberOfCharactersOnPreviousLines : number = 0;
     // Temporary number of characters on current line 
     let tempNumberOfCharacters : number = 0;
-    // Boolean indicating that the current property end line number needs to be updated
+
+    // Boolean indicating that the current property end line number needs to be updated. Used only when block comments are encountered.
     let updateCurrentPropertyEndLineNumber : boolean = false;
+    // Boolean indicating that the beginning line number should be updated. Used only when block comments are encountered. 
+    let updateBeginningLineNumber : boolean = false;
 
     while ((token = scanner.scan()) !== SyntaxKind.EOF) {
 
@@ -94,6 +97,12 @@ function findPropertyTree(formattedString : string, startLine : number) {
             currentProperty!.endLineNumber = endLineNumber - 1;
             updateCurrentPropertyEndLineNumber = false;
             beginningLineNumber = endLineNumber;
+        }
+
+        if (updateBeginningLineNumber === true
+            && token !== SyntaxKind.LineBreakTrivia 
+            && token !== SyntaxKind.Trivia) {
+                beginningLineNumber = scanner.getTokenStartLine();
         }
 
         console.log('***')
@@ -118,10 +127,31 @@ function findPropertyTree(formattedString : string, startLine : number) {
             
             // When the token is an open bracket, then we enter into an array
             case SyntaxKind.OpenBracketToken: {
+
+                console.log('Inside of open bracket token')
+                beginningLineNumber = scanner.getTokenStartLine();
+
+                // We can also have the case of an array inside of an array, it should also be unnamed in that case
+                // This happens when we are inside of an array in that case the current property has not been set yet
+                if (currentContainerStack[currentContainerStack.length - 1] === Container.Object ) {
+                    console.log('Inside top if')
+                    currentTree = currentProperty;
+                } 
+                // Otherwise this property has not yet been created and needs to be created
+                else if (currentContainerStack[currentContainerStack.length - 1] === Container.Array) {
+                    // The object found has no associated key, it is of the form: ["a", [...], "b"]
+                    console.log('noKeyName case')
+                    let childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
+                    // In this case set the noKeyName propery to true
+                    childProperty.noKeyName = true;
+                    currentProperty = currentTree!.addChildProperty(childProperty);
+                }
+
                 currentContainerStack.push(Container.Array)
                 currentProperty!.type = Container.Array;
                 // Enter into the array
                 currentTree = currentProperty;
+                beginningLineNumber++;
                 break;
             }
             
@@ -135,7 +165,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 beginningLineNumber = scanner.getTokenStartLine();
 
                 // The currentProperty has already been created but now we enter into it
-                if(currentContainerStack[currentContainerStack.length - 1] === Container.Object ) { // || currentProperty!.childrenProperties.length === 0
+                if (currentContainerStack[currentContainerStack.length - 1] === Container.Object ) { // || currentProperty!.childrenProperties.length === 0
                     console.log('Inside top if')
                     currentTree = currentProperty;
                 } 
@@ -169,6 +199,12 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 // Otherwise it has been set, and furthermore currentProperty and currentTree are at the same level
                 if (lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || lastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
                     currentProperty!.endLineNumber = endLineNumber - 1;
+
+                    // Also set the data for comma slicing
+                    currentProperty!.lastProperty = true;
+                    currentProperty!.lineWhereToAddComma = lineOfLastNonTriviaNonCommentToken;
+                    currentProperty!.indexWhereToAddComa = indexOfLastNonTriviaNonCommentToken;
+
                     currentProperty = currentProperty ? currentProperty.parent : undefined;
                     currentTree = currentProperty;
                 }
@@ -234,6 +270,14 @@ function findPropertyTree(formattedString : string, startLine : number) {
                     && lineOfLastNonTriviaNonCommentToken === scanner.getTokenStartLine()) {
                         currentProperty!.endLineNumber = undefined;
                         updateCurrentPropertyEndLineNumber = true;
+                }
+
+                // In this case we have the following scenario, in which case the block comment should be assigned to the open brace not the first property below it
+                // { /**
+                // ../
+                // }
+                if (lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken) {
+                    updateBeginningLineNumber = true;
                 }
                 break;
             }
