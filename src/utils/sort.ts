@@ -21,8 +21,7 @@ export function sort(documentToSort: TextDocument, formattingOptions: Formatting
     console.log('formattedJSONString : ', formattedJSONString);
     const arrayOfLines: string[] = formattedJSONString.split('\n');
     const propertyTree : PropertyTree = findPropertyTree(formattedJSONString)
-    const sortingRange = [propertyTree.beginningLineNumber! + 1, propertyTree.endLineNumber! - 1]
-    const sortedArrayOfLines = sortLinesOfArray(arrayOfLines, propertyTree, sortingRange);
+    const sortedArrayOfLines = sortLinesOfArray(arrayOfLines, propertyTree);
     const sortedDocument: TextDocument = TextDocument.create('test://test.json', 'json', 0, sortedArrayOfLines.join('\n'));
     const edits: TextEdit[] = format(sortedDocument, options, undefined);
     return TextDocument.applyEdits(sortedDocument, edits);
@@ -331,7 +330,7 @@ function findPropertyTree(formattedString : string) {
     return rootTree;
 }
 
-function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, sortingRange : number[]) {
+function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree) {
 
     console.log('\n')
     console.log('***')
@@ -343,7 +342,32 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
     
     const sortedArrayOfLines = Object.assign([], arrayOfLines);
     const queueToSort = []
-    queueToSort.push({'beginningLineNumber' : sortingRange[0], 'propertyArray': propertyTree.childrenProperties})
+
+    let beginningLineNumber = propertyTree.beginningLineNumber!;
+
+    if (propertyTree.type === Container.Object) {
+        let minimumBeginningLineNumber = Infinity;
+        for(const childProperty of propertyTree.childrenProperties) {
+            if(childProperty.beginningLineNumber! < minimumBeginningLineNumber) {
+                minimumBeginningLineNumber = childProperty.beginningLineNumber!;
+            }
+        }
+        const diff = minimumBeginningLineNumber - propertyTree.beginningLineNumber!;
+        beginningLineNumber = beginningLineNumber + diff
+        queueToSort.push({'beginningLineNumber' : beginningLineNumber, 'propertyArray': propertyTree.childrenProperties})
+
+    } else if (propertyTree.type === Container.Array) {
+        for(const subObject of propertyTree.childrenProperties) {
+            let minimumBeginningLineNumber = Infinity;
+            for(const childProperty of subObject.childrenProperties) {
+                if(childProperty.beginningLineNumber! < minimumBeginningLineNumber) {
+                    minimumBeginningLineNumber = childProperty.beginningLineNumber!;
+                }
+            }
+            const diff = minimumBeginningLineNumber - subObject.beginningLineNumber!;
+            queueToSort.push({'beginningLineNumber' : beginningLineNumber + subObject.beginningLineNumber! - propertyTree.beginningLineNumber! + diff, 'propertyArray' : subObject.childrenProperties})
+        }
+    }
 
     while (queueToSort.length > 0) {
 
@@ -351,7 +375,7 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
         const propertyArray : PropertyTree[] = dataToSort!['propertyArray'];
         console.log('\n')
         console.log('propertyArray : ', propertyArray)
-        let beginningLineNumber : number = dataToSort!['beginningLineNumber']
+        beginningLineNumber = dataToSort!['beginningLineNumber']
         console.log('beginningLineNumber : ', beginningLineNumber);
 
         for (let i = 0; i < propertyArray.length; i++) {
@@ -424,7 +448,7 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                     // if (subObject.offsetStartInnerRange) {
                     //    beginningLineNumber += subObject.offsetStartInnerRange;
                     // }
-                    queueToSort.push({'beginningLineNumber' : beginningLineNumber + subObject.beginningLineNumber! - property.beginningLineNumber! + 1 + diff - 1, 'propertyArray' : subObject.childrenProperties})
+                    queueToSort.push({'beginningLineNumber' : beginningLineNumber + subObject.beginningLineNumber! - property.beginningLineNumber! + diff, 'propertyArray' : subObject.childrenProperties})
                 }
             }
 
