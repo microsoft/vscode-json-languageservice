@@ -326,6 +326,7 @@ function findPropertyTree(formattedString : string) {
             }
         
         console.log('beginningLineNumber : ', beginningLineNumber)
+        console.log('\n')
     }
     return rootTree;
 }
@@ -351,6 +352,7 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
         console.log('\n')
         console.log('propertyArray : ', propertyArray)
         let beginningLineNumber : number = dataToSort!['beginningLineNumber']
+        console.log('beginningLineNumber : ', beginningLineNumber);
 
         for (let i = 0; i < propertyArray.length; i++) {
 
@@ -378,6 +380,7 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                 jsonContentToReplace[commaLine! - property.beginningLineNumber!] = jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(0, commaIndex) + jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(commaIndex! + 1);
             }
             console.log('jsonContentToReplace : ', jsonContentToReplace)
+            console.log('beginningLineNumber : ', beginningLineNumber)
             const length = property.endLineNumber! - property.beginningLineNumber! + 1;
             sortedArrayOfLines.splice(beginningLineNumber, length);
             sortedArrayOfLines.splice(beginningLineNumber, 0, ...jsonContentToReplace);
@@ -393,6 +396,10 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                 }
                 // console.log('minimumBeginningLineNumber : ', minimumBeginningLineNumber)
                 const diff = minimumBeginningLineNumber - property.beginningLineNumber!;
+                // if (property.offsetStartInnerRange) {
+                //    beginningLineNumber += property.offsetStartInnerRange;
+                //    console.log('beginningLineNumber when offset added : ', beginningLineNumber)
+                // }
                 // console.log('diff : ', diff)
                 queueToSort.push({'beginningLineNumber' : beginningLineNumber + diff, 'propertyArray' : property.childrenProperties})
             } else if (property.childrenProperties.length > 0 && property.type === Container.Array) {
@@ -414,7 +421,10 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
                     // Beginning line number should be one plus the position of the opening brace after transformation
                     // Relative brace position will be the same wihin array, brace will be at: subObject.beginningLineNumber - property.beginningLineNumber + 1, away from the position of the [ after transformation
                     // Total : beginningLineNumber + subObject.beginningLineNumber - property.beginningLineNumber + 1
-                    queueToSort.push({'beginningLineNumber' : beginningLineNumber + subObject.beginningLineNumber! - property.beginningLineNumber! + 1, 'propertyArray' : subObject.childrenProperties})
+                    // if (subObject.offsetStartInnerRange) {
+                    //    beginningLineNumber += subObject.offsetStartInnerRange;
+                    // }
+                    queueToSort.push({'beginningLineNumber' : beginningLineNumber + subObject.beginningLineNumber! - property.beginningLineNumber! + 1 + diff - 1, 'propertyArray' : subObject.childrenProperties})
                 }
             }
 
