@@ -14,7 +14,7 @@ suite('Sort JSON', () => {
         assert.equal(sorted, expected);
     }
 
-    test('sorting a simple JSON object with numeric values', () => {
+    test('sorting a simple JSONC object with numeric values', () => {
         var content = [
             '{"b" : 1, "a" : 2}'
         ].join('\n');
@@ -26,7 +26,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a simple JSON object with an array spanning several lines', () => {
+    test('sorting a simple JSONC object with an array spanning several lines', () => {
         var content = [
             '{"array":["volleyball",',
             '      "drawing",',
@@ -47,7 +47,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a JSON object with nested objects', () => {
+    test('sorting a JSONC object with nested objects', () => {
         var content = [
             '{"name": "Brigitte","age" : 30,',
             '"hobbies" : ["volleyball","drawing","hiking"],',
@@ -89,7 +89,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a JSON object with line comments', () => {
+    test('sorting a JSONC object with line comments', () => {
         var content = [
             '{ // this is a comment',
             '"boolean" : true,',
@@ -114,7 +114,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a JSON object with an object nested inside of an array value', () => {
+    test('sorting a JSONC object with an object nested inside of an array value', () => {
         var content = [
             '{',
             '"boolean" : true,',
@@ -139,7 +139,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a JSON object with comments appearing before and after the main JSON object', () => {
+    test('sorting a JSONC object with comments appearing before and after the main JSON object', () => {
         var content = [
             '// comment appearing before',
             '',
@@ -171,7 +171,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a JSON object with new lines appearing before and after the main JSON object', () => {
+    test('sorting a JSONC object with new lines appearing before and after the main JSON object', () => {
         var content = [
             '',
             '',
@@ -200,7 +200,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a JSON object with a block comment appearing on the same line as a comma but not ending on that line', () => {
+    test('sorting a JSONC object with a block comment appearing on the same line as a comma but not ending on that line', () => {
         var content = [
             '{',
             '"boolean" : true, /* this is block comment starting on',
@@ -220,7 +220,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a JSON object with a block comment starting at the end of a property and such that a new property starts on the end of that block comment', () => {
+    test('sorting a JSONC object with a block comment starting at the end of a property and such that a new property starts on the end of that block comment', () => {
         var content = [
             '{',
             '"boolean" : true, /* this is block comment starting on',
@@ -239,7 +239,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a JSON object with comments between properties', () => {
+    test('sorting a JSONC object with comments between properties', () => {
         var content = [
             '// comment appearing before',
             '',
@@ -270,7 +270,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a JSON object with comments appearing between a value and the comma', () => {
+    test('sorting a JSONC object with comments appearing between a value and the comma', () => {
         var content = [
             '{',
             '"boolean" : true // some comment',
@@ -292,7 +292,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a JSON object where the colon is not on the same line as the key or the value', () => {
+    test('sorting a JSONC object where the colon is not on the same line as the key or the value', () => {
         var content = [
             '{',
             '"boolean"',
@@ -317,7 +317,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
-    test('sorting a complicated JSON object 1', () => {
+    test('sorting a complicated JSONC object 1', () => {
         var content = [
             '// Comment ouside the main JSON object',
             '',
@@ -392,7 +392,7 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     })
 
-    test('sorting a complicated JSON object 2', () => {
+    test('sorting a complicated JSONC object 2', () => {
         var content = [
             '/*', 
             '',
@@ -620,6 +620,302 @@ suite('Sort JSON', () => {
             '    "b": 2',
             '  }',
             ']'
+        ].join('\n');
+        
+        testSort(content, expected, formattingOptions);
+    })
+
+    test('sorting a complicated JSONC object 3', () => {
+        var content = [
+            '{',
+            '    "type": "array",',
+            '    "items": {',
+            '        /* multi-line comment',
+            '        ..',
+            '        */',
+            '        "oneOf": [ /* multi-line comment',
+            '                ..',
+            '                */',
+            '            {',
+            '                "type": "object",',
+            '                "required": [ /* multi-line comment',
+            '                            ..',
+            '                            */',
+            '                    "name",',
+            '                    "prependLicenseText"',
+            '                   /* multi-line comment',
+            '                    ..',
+            '                    */,',
+            '                    {',
+            '                        "name" : "some property", /* multi-line comment',
+            '                        ..',
+            '                        */',
+            '                        "value" : "some value" // some value',
+            '                        /* multi-line comment',
+            '                        ..',
+            '                        */',
+            '                    }',
+            '                ],',
+            '                // one-line comment',
+            '                "properties": { // one-line comment',
+            '                    "name": {',
+            '                        "type": "string",',
+            '                        "description": "The name of the dependency" // one-line comment',
+            '                    },',
+            '                    "fullLicenseText": {',
+            '                        "type": "array",',
+            '                        "description": "The complete license text of the dependency",',
+            '                        "items": {',
+            '                            "type": "string"',
+            '                            /* multi-line comment',
+            '                            ..',
+            '                            */',
+            '                        },',
+            '                        "array" : [',
+            '                            {',
+            '                                "key" : "value" /* multi-line comment',
+            '                                ..',
+            '                                */',
+            '                            }',
+            '                        ]',
+            '                    },',
+            '                    // one-line comment',
+            '                    "prependLicenseText": {',
+            '                        "type": "array", /* multi-line comment',
+            '                        ..',
+            '                        */',
+            '                        "description": "A piece of text to prepend to the auto-detected license text of the dependency",',
+            '                        /* multi-line comment',
+            '                        ..',
+            '                        */',
+            '                        "items": {',
+            '                            "type": "string"',
+            '                        }',
+            '                    }',
+            '                }',
+            '            },',
+            '            {',
+            '                "type": "object",',
+            '                "required": [ // one-line comment',
+            '                     "name",',
+            '                    // one-line comment',
+            '                    "fullLicenseText"',
+            '                ],',
+            '                "properties": {',
+            '                    /* multi-line comment',
+            '                    ..',
+            '                    */',
+            '                    "name": {',
+            '                        "type": "string",',
+            '                        "description": "The name of the dependency"',
+            '                    },',
+            '                    "fullLicenseText": {',
+            '                        "type": "array",',
+            '                        "description": "The complete license text of the dependency",',
+            '                        "items": {',
+            '                            "type": "string"',
+            '                        }',
+            '                    },',
+            '                    /* multi-line comment',
+            '                    ..',
+            '                    */',
+            '                    "prependLicenseText": {',
+            '                        "type": "array",',
+            '                        "description": "A piece of text to prepend to the auto-detected license text of the dependency", /* multi-line comment',
+            '                        ..',
+            '                        */',
+            '                        "items": {',
+            '                            "type": "string"',
+            '                        }',
+            '                    }',
+            '                }',
+            '            },',
+            '            {',
+            '                "type": "object",',
+            '                "required": [',
+            '                    "name",',
+            '                    /* multi-line comment',
+            '                    ..',
+            '                    */',
+            '                    "fullLicenseTextUri"',
+            '                ],',
+            '                "properties": {',
+            '                    "name": {',
+            '                        "type": "string", /* multi-line comment',
+            '                        ..',
+            '                        */',
+            '                         "description": "The name of the dependency"',
+            '                    },',
+            '                    "fullLicenseTextUri": {',
+            '                        "type": "string",',
+            '                        "description": "The URI to the license text of this repository",',
+            '                        "format": "uri" /* multi-line comment',
+            '                        ..',
+            '                        */',
+            '                    },',
+            '                    // one-line comment',
+            '                    "prependLicenseText": { // one-line comment',
+            '                        "type": "array",',
+            '                        "description": "A piece of text to prepend to the auto-detected license text of the dependency",',
+            '                        "items": {',
+            '                            "type": "string"',
+            '                        }',
+            '                    } /* multi-line comment',
+            '                    ..',
+            '                    */',
+            '                }',
+            '            } /* multi-line comment',
+            '            ..',
+            '            */',
+            '        ]',
+            '    } // one-line comment',
+            '}',
+        ].join('\n');
+
+        var expected = [
+            '{',
+            '  "items": {',
+            '  /* multi-line comment',
+            '    ..',
+            '    */',
+            '    "oneOf": [ /* multi-line comment',
+            '      ..',
+            '      */',
+            '      {',
+            '        // one-line comment',
+            '        "properties": { // one-line comment',
+            '          "fullLicenseText": {',
+            '            "array" : [',
+            '              {',
+            '                "key" : "value" /* multi-line comment',
+            '                  ..',
+            '                  */',
+            '              }',
+            '            ],',
+            '            "description": "The complete license text of the dependency",',
+            '            "items": {',
+            '              "type": "string"',
+            '              /* multi-line comment',
+            '                ..',
+            '                */',
+            '            },',
+            '            "type": "array"',
+            '          },',
+            '          "name": {',
+            '            "description": "The name of the dependency", // one-line comment',
+            '            "type": "string"',
+            '          },',
+            '          // one-line comment',
+            '          "prependLicenseText": {',
+            '            "description": "A piece of text to prepend to the auto-detected license text of the dependency",',
+            '            /* multi-line comment',
+            '              ..',
+            '              */',
+            '            "items": {',
+            '              "type": "string"',
+            '            },',
+            '            "type": "array", /* multi-line comment',
+            '              ..',
+            '              */',
+            '          }',
+            '        },',
+            '        "required": [ /* multi-line comment',
+            '          ..',
+            '          */',
+            '          "name",',
+            '          "prependLicenseText"',
+            '          /* multi-line comment',
+            '            ..',
+            '            */,',
+            '          {',
+            '            "name" : "some property", /* multi-line comment',
+            '              ..',
+            '              */',
+            '            "value" : "some value" // some value',
+            '            /* multi-line comment',
+            '              ..',
+            '              */',
+            '          }',
+            '        ],',
+            '        "type": "object"',
+            '      },',
+            '      {',
+            '        "properties": {',
+            '          "fullLicenseText": {',
+            '            "description": "The complete license text of the dependency",',
+            '            "type": "array",',
+            '            "items": {',
+            '              "type": "string"',
+            '            }',
+            '          },',
+            '          /* multi-line comment',
+            '            ..',
+            '            */',
+            '          "name": {',
+            '            "description": "The name of the dependency",',
+            '            "type": "string"',
+            '           },',
+            '           /* multi-line comment',
+            '             ..',
+            '             */',
+            '           "prependLicenseText": {',
+            '             "description": "A piece of text to prepend to the auto-detected license text of the dependency", /* multi-line comment',
+            '               ..',
+            '               */',
+            '             "items": {',
+            '               "type": "string"',
+            '             },',
+            '             "type": "array"',
+            '           }',
+            '         },',
+            '         "required": [ // one-line comment',
+            '           "name",',
+            '           // one-line comment',
+            '           "fullLicenseText"',
+            '         ],',
+            '         "type": "object"',
+            '       },',
+            '       {',
+            '         "properties": {',
+            '           "fullLicenseTextUri": {',
+            '             "description": "The URI to the license text of this repository",',
+            '             "format": "uri", /* multi-line comment',
+            '               ..',
+            '               */',
+            '             "type": "string"',
+            '           },',
+            '           "name": {',
+            '             "description": "The name of the dependency",',
+            '             "type": "string" /* multi-line comment',
+            '               ..',
+            '               */',
+            '           },',
+            '           // one-line comment',
+            '           "prependLicenseText": { // one-line comment',
+            '             "description": "A piece of text to prepend to the auto-detected license text of the dependency",',
+            '             "items": {',
+            '               "type": "string"',
+            '             },',
+            '             "type": "array"',
+            '           } /* multi-line comment',
+            '             ..',
+            '             */',
+            '         },',
+            '         "required": [',
+            '           "name",',
+            '           /* multi-line comment',
+            '             ..',
+            '             */',
+            '           "fullLicenseTextUri"',
+            '         ],',
+            '         "type": "object"',
+            '       } /* multi-line comment',
+            '         ..',
+            '         */',
+            '     ]',
+            '   }, // one-line comment',
+            '   "type": "array"',
+            '}',
         ].join('\n');
         
         testSort(content, expected, formattingOptions);

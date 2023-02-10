@@ -232,7 +232,7 @@ function findPropertyTree(formattedString : string) {
 
             case SyntaxKind.CommaToken: {
                 
-                console.log('Before change in close bracket token')
+                console.log('Before change in comma token')
                 console.log('currentContainerStack : ', currentContainerStack)
                 console.log('currentTree : ', currentTree)
                 console.log('currentProperty : ', currentProperty)
@@ -372,7 +372,8 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree, s
             sortedArrayOfLines.splice(beginningLineNumber, 0, ...jsonContentToReplace);
             console.log('sortedArrayOfLines : ', sortedArrayOfLines)
 
-            if(property.childrenProperties.length > 1 && property.type === Container.Object) {
+            // used to be property.childrenProperties.length > 1
+            if(property.childrenProperties.length > 0 && property.type === Container.Object) {
                 let minimumBeginningLineNumber = Infinity;
                 for(const childProperty of property.childrenProperties) {
                     if(childProperty.beginningLineNumber! < minimumBeginningLineNumber) {
