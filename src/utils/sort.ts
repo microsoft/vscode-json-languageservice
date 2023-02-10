@@ -163,12 +163,23 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 console.log('currentProperty : ', currentProperty)
                 
                 endLineNumber = scanner.getTokenStartLine();
-                currentContainerStack.pop();
+
+                // !!! basically handle the case differently for when we have no key name objects inside of the array
+                // when we have no key-name objects, the current tree and the property tree coule already be at the level of the full array
+                // but it could also be at the level of the inner object
 
                 // When currentTree === currentProperty, no object was found inside of the array, it is a simple (non-nested) array, endLineNumber does not need to be redefined
                 // If currentProperty.endLineNumber is defined then it does not need to be redefined
                 // Property has been found on the inside of the array
-                if (currentTree !== currentProperty 
+
+                // currentTree !== currentProperty -> all pass except for last
+                // currentProperty!.childrenProperties.length > 0 -> 4 tests fail but last one passes
+
+                // if an object has been found inside of the array that needs to have its number reassigned
+                // for the case when 4 tests fail, currentTree is the actual array property and the children have already an end line assigned
+                if (((currentContainerStack[currentContainerStack.length - 1] === Container.Array 
+                    && currentProperty!.childrenProperties.length > 0)
+                    || currentContainerStack[currentContainerStack.length - 1] === Container.Object)
                     && currentProperty!.endLineNumber === undefined) {
 
                     currentProperty!.endLineNumber = endLineNumber - 1;
@@ -181,6 +192,9 @@ function findPropertyTree(formattedString : string, startLine : number) {
                 // currentProperty = currentProperty ? currentProperty.parent : undefined;
                 // currentTree = currentProperty;
                 beginningLineNumber = endLineNumber + 1;
+
+                // wrong should be at the front
+                currentContainerStack.pop();
                 break;
             }
             case SyntaxKind.CloseBraceToken: {
