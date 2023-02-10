@@ -14,44 +14,20 @@ export function sort(documentToSort: TextDocument, formattingOptions: Formatting
         tabSize: formattingOptions.tabSize ? formattingOptions.tabSize : 4,
         insertFinalNewline: formattingOptions.insertFinalNewline === true,
         insertSpaces: true, 
-        keepLines: false,
+        keepLines: false, // keepLines must be false because we need the properties to be all on separate lines for the sorting
         eol: '\n'
     };
     let formattedJSONString: string = TextDocument.applyEdits(documentToSort, format(documentToSort, options, undefined));
-    console.log('formattedJSONString : ', formattedJSONString)
     const arrayOfLines: string[] = formattedJSONString.split('\n');
-    const sortingRange : number[] = findSortingRange(arrayOfLines);
-    const propertyTree : PropertyTree = findPropertyTree(formattedJSONString, sortingRange[0])
-    console.log('propertyTree : ', propertyTree)
-    sortingRange[0]++;
-    sortingRange[1]--;
+    const propertyTree : PropertyTree = findPropertyTree(formattedJSONString)
+    const sortingRange = [propertyTree.beginningLineNumber! + 1, propertyTree.endLineNumber! - 1]
     const sortedArrayOfLines = sortLinesOfArray(arrayOfLines, propertyTree, sortingRange);
     const sortedDocument: TextDocument = TextDocument.create('test://test.json', 'json', 0, sortedArrayOfLines.join('\n'));
     const edits: TextEdit[] = format(sortedDocument, options, undefined);
     return TextDocument.applyEdits(sortedDocument, edits);
 }
 
-function findSortingRange(arrayOfLines: string[]): number[] {
-    let beginningLineRange: number = 0;
-    let endLineRange: number = 0;
-    const range: number[] = [];
-    for (let i = 0; i < arrayOfLines.length; i++) {
-        if (arrayOfLines[i].includes('{') || arrayOfLines[i].includes('[')) {
-            beginningLineRange = i;
-            break;
-        }
-    }
-    for (let i = arrayOfLines.length - 1; i >= 0; i--) {
-        if (arrayOfLines[i].includes('}') || arrayOfLines[i].includes(']')) {
-            endLineRange = i;
-            break;
-        }
-    }
-    range.push(beginningLineRange, endLineRange);
-    return range;
-}
-
-function findPropertyTree(formattedString : string, startLine : number) {
+function findPropertyTree(formattedString : string) { // startLine : number
     const scanner : JSONScanner = createScanner(formattedString, false);
     // The tree that will be returned
     let rootTree : PropertyTree = new PropertyTree();
@@ -70,9 +46,9 @@ function findPropertyTree(formattedString : string, startLine : number) {
     let indexOfLastNonTriviaNonCommentToken : number = -1;
 
     // Line number of the start of the range of current/next property
-    let beginningLineNumber : number = startLine;
+    let beginningLineNumber : number = 0; // startLine;
     // Line number of the end of the range of current/next property
-    let endLineNumber : number = startLine;
+    let endLineNumber : number = 0; // startLine;
 
     // Stack indicating whether we are inside of an object or an array
     let currentContainerStack : Container[] = []
@@ -103,6 +79,13 @@ function findPropertyTree(formattedString : string, startLine : number) {
             && token !== SyntaxKind.LineBreakTrivia 
             && token !== SyntaxKind.Trivia) {
                 beginningLineNumber = scanner.getTokenStartLine();
+        }
+
+        // Setting the beginning line of the root tree
+        console.log('rootTree : ', rootTree)
+        if((token === SyntaxKind.OpenBraceToken || token == SyntaxKind.OpenBracketToken) && rootTree.beginningLineNumber === undefined) {
+            console.log('setting the beginning line of the root tree')
+            rootTree.beginningLineNumber = scanner.getTokenStartLine();
         }
 
         console.log('***')
@@ -209,6 +192,7 @@ function findPropertyTree(formattedString : string, startLine : number) {
                     currentTree = currentProperty;
                 }
 
+                rootTree.endLineNumber = scanner.getTokenStartLine();
                 beginningLineNumber = endLineNumber + 1;
                 break;
             }
@@ -235,6 +219,9 @@ function findPropertyTree(formattedString : string, startLine : number) {
                     currentProperty = currentProperty ? currentProperty.parent : undefined;
                     currentTree = currentProperty;
                 }
+
+                // Updating the last line of the rootTree
+                rootTree.endLineNumber = scanner.getTokenStartLine();
                 beginningLineNumber = endLineNumber + 1;
                 break;
             }
