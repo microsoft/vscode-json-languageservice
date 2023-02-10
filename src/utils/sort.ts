@@ -69,7 +69,8 @@ function findPropertyTree(formattedString : string) {
             && token !== SyntaxKind.LineBreakTrivia 
             && token !== SyntaxKind.Trivia 
             && currentProperty!.endLineNumber === undefined) {
-
+            
+            console.log('Entered into first update')
             let endLineNumber = scanner.getTokenStartLine();
             currentProperty!.endLineNumber = endLineNumber - 1;
             updateCurrentPropertyEndLineNumber = false;
@@ -79,7 +80,9 @@ function findPropertyTree(formattedString : string) {
         if (updateBeginningLineNumber === true
             && token !== SyntaxKind.LineBreakTrivia 
             && token !== SyntaxKind.Trivia) {
+                console.log('Entered into the second update')
                 beginningLineNumber = scanner.getTokenStartLine();
+                updateBeginningLineNumber = false;
         }
 
         // Setting the beginning line of the root tree
@@ -98,6 +101,8 @@ function findPropertyTree(formattedString : string) {
 
             // When a string is found, if it follows an open brace, a comma token and it is within an object, then it corresponds to a key name
             case SyntaxKind.StringLiteral: {
+                console.log('Inside of string literal token')
+                console.log('beginningLineNumber : ', beginningLineNumber)
                 if ((lastNonTriviaNonCommentToken === undefined 
                     || lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken 
                     || (lastNonTriviaNonCommentToken === SyntaxKind.CommaToken && currentContainerStack[currentContainerStack.length - 1] === Container.Object))) {
@@ -187,9 +192,12 @@ function findPropertyTree(formattedString : string) {
                     currentProperty!.endLineNumber = endLineNumber - 1;
 
                     // Also set the data for comma slicing
+                    // But if noKeyName is true, then no need to know if last property, because noKeyName objects are not displaced
+                    // if (currentProperty!.noKeyName===false) {
                     currentProperty!.lastProperty = true;
                     currentProperty!.lineWhereToAddComma = lineOfLastNonTriviaNonCommentToken;
                     currentProperty!.indexWhereToAddComa = indexOfLastNonTriviaNonCommentToken;
+                    // }
 
                     currentProperty = currentProperty ? currentProperty.parent : undefined;
                     currentTree = currentProperty;
@@ -315,8 +323,9 @@ function findPropertyTree(formattedString : string) {
                 console.log('currentTree.childrenProperties.length : ', currentTree?.childrenProperties.length)
                 console.log('currentProperty : ', currentProperty)
                 console.log('currentProperty.childrenProperties.length : ', currentProperty?.childrenProperties.length)
-                console.log('beginningLineNumber : ', beginningLineNumber)
             }
+        
+        console.log('beginningLineNumber : ', beginningLineNumber)
     }
     return rootTree;
 }
