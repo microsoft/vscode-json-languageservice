@@ -35,11 +35,16 @@ function findPropertyTree(formattedString : string) {
     let currentTree : PropertyTree | undefined = rootTree;
     // The tree representing the current property analyzed
     let currentProperty : PropertyTree | undefined = rootTree;
+    // The last tree representing the previous property analyzed
+    let lastProperty : PropertyTree | undefined = rootTree;
     // The current scanned token
     let token : SyntaxKind | undefined = undefined;
 
     // The last token scanned that is not trivial, nor a comment
     let lastNonTriviaNonCommentToken : SyntaxKind | undefined = undefined;
+    // The second to last token scanned that is not trivial, nor a comment
+    let secondToLastNonTriviaNonCommentToken : SyntaxKind | undefined = undefined;
+
     // Line number of last token that is not trivial, nor a comment
     let lineOfLastNonTriviaNonCommentToken : number = -1;
     // Index on its line of last token that is not trivial, nor a comment
@@ -58,13 +63,13 @@ function findPropertyTree(formattedString : string) {
     let tempNumberOfCharacters : number = 0;
 
     // Boolean indicating that the current property end line number needs to be updated. Used only when block comments are encountered.
-    let updateCurrentPropertyEndLineNumber : boolean = false;
+    let updateLastPropertyEndLineNumber : boolean = false;
     // Boolean indicating that the beginning line number should be updated. Used only when block comments are encountered. 
     let updateBeginningLineNumber : boolean = false;
 
     while ((token = scanner.scan()) !== SyntaxKind.EOF) {
 
-        if (updateCurrentPropertyEndLineNumber === true 
+        if (updateLastPropertyEndLineNumber === true 
             && token !== SyntaxKind.LineBreakTrivia 
             && token !== SyntaxKind.Trivia 
             && token !== SyntaxKind.LineCommentTrivia
@@ -73,9 +78,13 @@ function findPropertyTree(formattedString : string) {
             
             console.log('Entered into first update')
             let endLineNumber = scanner.getTokenStartLine();
-            currentProperty!.endLineNumber = endLineNumber - 1;
-            updateCurrentPropertyEndLineNumber = false;
+            if (secondToLastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || secondToLastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
+                lastProperty!.endLineNumber = endLineNumber - 1;
+            } else {
+                currentProperty!.endLineNumber = endLineNumber - 1;
+            }
             beginningLineNumber = endLineNumber;
+            updateLastPropertyEndLineNumber = false;
         }
 
         if (updateBeginningLineNumber === true
@@ -111,6 +120,7 @@ function findPropertyTree(formattedString : string) {
                     || (lastNonTriviaNonCommentToken === SyntaxKind.CommaToken && currentContainerStack[currentContainerStack.length - 1] === Container.Object))) {
 
                         let childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
+                        lastProperty = currentProperty;
                         currentProperty = currentTree!.addChildProperty(childProperty);
                 }
                 break;
@@ -134,6 +144,7 @@ function findPropertyTree(formattedString : string) {
                     let childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
                     // In this case set the noKeyName propery to true
                     childProperty.noKeyName = true;
+                    lastProperty = currentProperty;
                     currentProperty = currentTree!.addChildProperty(childProperty);
                 }
 
@@ -165,6 +176,7 @@ function findPropertyTree(formattedString : string) {
                     let childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
                     // In this case set the noKeyName propery to true
                     childProperty.noKeyName = true;
+                    lastProperty = currentProperty;
                     currentProperty = currentTree!.addChildProperty(childProperty);
                 }
 
@@ -230,7 +242,8 @@ function findPropertyTree(formattedString : string) {
                     currentProperty!.lineWhereToAddComma = lineOfLastNonTriviaNonCommentToken;
                     currentProperty!.indexWhereToAddComa = indexOfLastNonTriviaNonCommentToken;
                     console.log('currentProperty after change before parent : ', currentProperty)
-
+                    
+                    lastProperty = currentProperty;
                     currentProperty = currentProperty ? currentProperty.parent : undefined;
                     currentTree = currentProperty;
                 }
@@ -266,6 +279,7 @@ function findPropertyTree(formattedString : string) {
 
                 if (lastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || lastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
                     console.log('Entered into the second if')
+                    lastProperty = currentProperty;
                     currentProperty = currentProperty ? currentProperty.parent : undefined;
                     currentTree = currentProperty;
                 }
@@ -277,10 +291,13 @@ function findPropertyTree(formattedString : string) {
             case SyntaxKind.BlockCommentTrivia: {
                 
                 // If the last non trivia non-comment token is a comma and the block comment starts on the same line as the comma, then update the end line number
+                console.log('lastNonTriviaNonCommentToken : ', lastNonTriviaNonCommentToken)
+                console.log('lineOfLastNonTriviaNonCommentToken : ', lineOfLastNonTriviaNonCommentToken)
                 if(lastNonTriviaNonCommentToken === SyntaxKind.CommaToken 
                     && lineOfLastNonTriviaNonCommentToken === scanner.getTokenStartLine()) {
+                        console.log('Entered into the first if loop')
                         currentProperty!.endLineNumber = undefined;
-                        updateCurrentPropertyEndLineNumber = true;
+                        updateLastPropertyEndLineNumber = true;
                 }
 
                 // In this case we have the following scenario, in which case the block comment should be assigned to the open brace not the first property below it
@@ -290,6 +307,7 @@ function findPropertyTree(formattedString : string) {
                 if ((lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken 
                     || lastNonTriviaNonCommentToken === SyntaxKind.OpenBracketToken) 
                     && lineOfLastNonTriviaNonCommentToken === scanner.getTokenStartLine()) {
+                    console.log('Entered into the second if condition')
                     updateBeginningLineNumber = true;
                 }
                 break;
@@ -307,8 +325,10 @@ function findPropertyTree(formattedString : string) {
             && token !== SyntaxKind.BlockCommentTrivia
             && token !== SyntaxKind.LineCommentTrivia
             && token !== SyntaxKind.Trivia) {
-        
+                
+                secondToLastNonTriviaNonCommentToken = lastNonTriviaNonCommentToken;
                 lastNonTriviaNonCommentToken = token;
+
                 lineOfLastNonTriviaNonCommentToken = scanner.getTokenStartLine();
                 indexOfLastNonTriviaNonCommentToken = scanner.getTokenOffset() + scanner.getTokenLength() - numberOfCharactersOnPreviousLines;
         }
