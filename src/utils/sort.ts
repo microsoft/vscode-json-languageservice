@@ -140,7 +140,10 @@ function findPropertyTree(formattedString : string) {
             // When the token is an open brace
             case SyntaxKind.OpenBraceToken: {
 
-                beginningLineNumber = scanner.getTokenStartLine();
+                // If the open brace is inside of an array, all the comments preceeding it and before the last comma should be associated to the object
+                if(currentContainerStack[currentContainerStack.length - 1] !== Container.Array) {
+                    beginningLineNumber = scanner.getTokenStartLine();
+                }
 
                 // The currentProperty has already been created but now we enter into it
                 if (currentContainerStack[currentContainerStack.length - 1] === Container.Object ) { // || currentProperty!.childrenProperties.length === 0
@@ -155,6 +158,11 @@ function findPropertyTree(formattedString : string) {
                     // In this case set the noKeyName propery to true
                     childProperty.noKeyName = true;
                     currentProperty = currentTree!.addChildProperty(childProperty);
+                }
+
+                // In the case when we are inside of the array, then update the beginning line number since it was not done before
+                if(currentContainerStack[currentContainerStack.length - 1] === Container.Array) {
+                    beginningLineNumber = scanner.getTokenStartLine();
                 }
 
                 currentProperty!.type = Container.Object;
@@ -250,6 +258,7 @@ function findPropertyTree(formattedString : string) {
                     currentProperty = currentProperty ? currentProperty.parent : undefined;
                     currentTree = currentProperty;
                 }
+
                 beginningLineNumber = endLineNumber + 1;
                 break;
             }
