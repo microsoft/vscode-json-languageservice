@@ -67,6 +67,8 @@ function findPropertyTree(formattedString : string) {
         if (updateCurrentPropertyEndLineNumber === true 
             && token !== SyntaxKind.LineBreakTrivia 
             && token !== SyntaxKind.Trivia 
+            && token !== SyntaxKind.LineCommentTrivia
+            && token != SyntaxKind.BlockCommentTrivia 
             && currentProperty!.endLineNumber === undefined) {
             
             console.log('Entered into first update')
@@ -78,7 +80,9 @@ function findPropertyTree(formattedString : string) {
 
         if (updateBeginningLineNumber === true
             && token !== SyntaxKind.LineBreakTrivia 
-            && token !== SyntaxKind.Trivia) {
+            && token !== SyntaxKind.Trivia
+            && token !== SyntaxKind.LineCommentTrivia
+            && token != SyntaxKind.BlockCommentTrivia ) {
                 console.log('Entered into the second update')
                 beginningLineNumber = scanner.getTokenStartLine();
                 updateBeginningLineNumber = false;

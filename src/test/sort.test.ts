@@ -292,6 +292,60 @@ suite('Sort JSON', () => {
         testSort(content, expected, formattingOptions);
     });
 
+    test('sorting a JSONC object with block comments on the same line as the arrays', () => {
+        var content = [
+            '/* multi-line comment',
+            '..',
+            '*/',
+            '{ /* multi-line comment',
+            '..',
+            '*/ ',
+            '"information_for_contributors": [',
+            '/* multi-line comment',
+            '..',
+            '*/',
+            '"This file has been converted from https://github.com/textmate/perl.tmbundle/blob/master/Syntaxes/Perl%206.tmLanguage",',
+            '"Once accepted there, we are happy to receive an update request."',
+            '], /* multi-line comment',
+            '..',
+            '*/',
+            '"version": "https://github.com/textmate/perl.tmbundle/commit/d9841a0878239fa43f88c640f8d458590f97e8f5", /* multi-line comment',
+            '..',
+            '*/',
+            '"name": "Perl 6" /* multi-line comment',
+            '..',
+            '*/',
+            '}'
+        ].join('\n');
+
+        var expected = [
+            '/* multi-line comment',
+            '  ..',
+            '  */',
+            '{ /* multi-line comment',
+            '  ..',
+            '  */ ',
+            '  "information_for_contributors": [',
+            '    /* multi-line comment',
+            '    ..',
+            '    */',
+            '    "This file has been converted from https://github.com/textmate/perl.tmbundle/blob/master/Syntaxes/Perl%206.tmLanguage",',
+            '    "Once accepted there, we are happy to receive an update request."',
+            '  ], /* multi-line comment',
+            '  ..',
+            '  */',
+            '  "name": "Perl 6" /* multi-line comment',
+            '  ..',
+            '  */',
+            '  "version": "https://github.com/textmate/perl.tmbundle/commit/d9841a0878239fa43f88c640f8d458590f97e8f5" /* multi-line comment',
+            '  ..',
+            '  */',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
+
     test('sorting a JSONC object where the colon is not on the same line as the key or the value', () => {
         var content = [
             '{',
