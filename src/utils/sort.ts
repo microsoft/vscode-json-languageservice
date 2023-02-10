@@ -14,13 +14,12 @@ export function sort(documentToSort: TextDocument, formattingOptions: Formatting
         tabSize: formattingOptions.tabSize ? formattingOptions.tabSize : 4,
         insertFinalNewline: formattingOptions.insertFinalNewline === true,
         insertSpaces: true, 
-        keepLines: false, // keepLines must be false because we need the properties to be all on separate lines for the sorting
+        keepLines: false, // keepLines must be false so that the properties are on separate lines for the sorting
         eol: '\n'
     };
     let formattedJSONString: string = TextDocument.applyEdits(documentToSort, format(documentToSort, options, undefined));
-    console.log('formattedJSONString : ', formattedJSONString);
     const arrayOfLines: string[] = formattedJSONString.split('\n');
-    const propertyTree : PropertyTree = findPropertyTree(formattedJSONString)
+    const propertyTree : PropertyTree = findPropertyTree(formattedJSONString);
     const sortedArrayOfLines = sortLinesOfArray(arrayOfLines, propertyTree);
     const sortedDocument: TextDocument = TextDocument.create('test://test.json', 'json', 0, sortedArrayOfLines.join('\n'));
     const edits: TextEdit[] = format(sortedDocument, options, undefined);
@@ -28,6 +27,7 @@ export function sort(documentToSort: TextDocument, formattingOptions: Formatting
 }
 
 function findPropertyTree(formattedString : string) {
+
     const scanner : JSONScanner = createScanner(formattedString, false);
     // The tree that will be returned
     let rootTree : PropertyTree = new PropertyTree();
@@ -69,6 +69,11 @@ function findPropertyTree(formattedString : string) {
 
     while ((token = scanner.scan()) !== SyntaxKind.EOF) {
 
+        // In the case when a block comment has been encountered that starts on the same line as the comma of a property, update the end line of that
+        // property so that it covers the block comment. For example, if we have: 
+        // 1. "key" : {}, /* some block
+        // 2. comment */
+        // Then, the end of the property "key" should be line 2 not line 1
         if (updateLastPropertyEndLineNumber === true 
             && token !== SyntaxKind.LineBreakTrivia 
             && token !== SyntaxKind.Trivia 
@@ -76,50 +81,45 @@ function findPropertyTree(formattedString : string) {
             && token != SyntaxKind.BlockCommentTrivia 
             && currentProperty!.endLineNumber === undefined) {
             
-            console.log('Entered into first update')
             let endLineNumber = scanner.getTokenStartLine();
+            // Update the end line when the last property visited was a container (object or array)
             if (secondToLastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || secondToLastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
                 lastProperty!.endLineNumber = endLineNumber - 1;
-            } else {
+            } 
+            // Update the end line when the last property visited was a simple property
+            else {
                 currentProperty!.endLineNumber = endLineNumber - 1;
             }
             beginningLineNumber = endLineNumber;
             updateLastPropertyEndLineNumber = false;
         }
 
+        // When block comment follows an open brace or an open bracket, that block comment should be associated to that brace or bracket, not the property below it. For example, for:
+        // 1. { /*
+        // 2. ... */
+        // 3. "key" : {}
+        // 4. }
+        // Instead of associating the block comment to the property on line 3, it is associate to the property on line 1
         if (updateBeginningLineNumber === true
             && token !== SyntaxKind.LineBreakTrivia 
             && token !== SyntaxKind.Trivia
             && token !== SyntaxKind.LineCommentTrivia
             && token != SyntaxKind.BlockCommentTrivia ) {
-                console.log('Entered into the second update')
                 beginningLineNumber = scanner.getTokenStartLine();
                 updateBeginningLineNumber = false;
         }
 
-        // Setting the beginning line of the root tree
-        if((token === SyntaxKind.OpenBraceToken || token == SyntaxKind.OpenBracketToken) && rootTree.beginningLineNumber === undefined) {
-            console.log('setting the beginning line of the root tree')
-            rootTree.beginningLineNumber = scanner.getTokenStartLine();
-        }
-
-        console.log('\n')
-        console.log('***')
-        console.log('token : ', token);
-        console.log('token.value : ', scanner.getTokenValue());
-        console.log('token.line : ', scanner.getTokenStartLine())
-
         switch(token) {
 
-            // When a string is found, if it follows an open brace, a comma token and it is within an object, then it corresponds to a key name
+            // When a string is found, if it follows an open brace or a comma token and it is within an object, then it corresponds to a key name, not a simple string
             case SyntaxKind.StringLiteral: {
-                console.log('Inside of string literal token')
-                console.log('beginningLineNumber : ', beginningLineNumber)
                 if ((lastNonTriviaNonCommentToken === undefined 
                     || lastNonTriviaNonCommentToken === SyntaxKind.OpenBraceToken 
-                    || (lastNonTriviaNonCommentToken === SyntaxKind.CommaToken && currentContainerStack[currentContainerStack.length - 1] === Container.Object))) {
+                    || (lastNonTriviaNonCommentToken === SyntaxKind.CommaToken 
+                        && currentContainerStack[currentContainerStack.length - 1] === Container.Object))) {
 
-                        let childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
+                        // In that case create the childProperty which starts at beginningLineNumber a
+                        const childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
                         lastProperty = currentProperty;
                         currentProperty = currentTree!.addChildProperty(childProperty);
                 }
@@ -128,6 +128,10 @@ function findPropertyTree(formattedString : string) {
             
             // When the token is an open bracket, then we enter into an array
             case SyntaxKind.OpenBracketToken: {
+
+                if(rootTree.beginningLineNumber === undefined) {
+                    rootTree.beginningLineNumber = scanner.getTokenStartLine();
+                }
 
                 beginningLineNumber = scanner.getTokenStartLine();
 
@@ -159,6 +163,10 @@ function findPropertyTree(formattedString : string) {
             // When the token is an open brace
             case SyntaxKind.OpenBraceToken: {
 
+                if(rootTree.beginningLineNumber === undefined) {
+                    rootTree.beginningLineNumber = scanner.getTokenStartLine();
+                }
+                
                 // If the open brace is inside of an array, all the comments preceeding it and before the last comma should be associated to the object
                 if(currentContainerStack[currentContainerStack.length - 1] !== Container.Array) {
                     beginningLineNumber = scanner.getTokenStartLine();
