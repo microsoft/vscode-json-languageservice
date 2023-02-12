@@ -18,6 +18,7 @@ export function sort(documentToSort: TextDocument, formattingOptions: Formatting
         eol: '\n'
     };
     let formattedJSONString: string = TextDocument.applyEdits(documentToSort, format(documentToSort, options, undefined));
+    console.log('formattedJSONSTring : ', formattedJSONString)
     const arrayOfLines: string[] = formattedJSONString.split('\n');
     const propertyTree : PropertyTree = findPropertyTree(formattedJSONString);
     const sortedArrayOfLines = sortLinesOfArray(arrayOfLines, propertyTree);
@@ -69,6 +70,12 @@ function findPropertyTree(formattedString : string) {
 
     while ((token = scanner.scan()) !== SyntaxKind.EOF) {
 
+        console.log('\n')
+        console.log('***')
+        console.log('token : ', token);
+        console.log('token.value : ', scanner.getTokenValue())
+        console.log('token.line : ', scanner.getTokenStartLine())
+
         // In the case when a block comment has been encountered that starts on the same line as the comma of a property, update the end line of that
         // property so that it covers the block comment. For example, if we have: 
         // 1. "key" : {}, /* some block
@@ -81,13 +88,18 @@ function findPropertyTree(formattedString : string) {
             && token != SyntaxKind.BlockCommentTrivia 
             && currentProperty!.endLineNumber === undefined) {
             
+            console.log('updateLastPropertyEndLineNumber')
             let endLineNumber = scanner.getTokenStartLine();
             // Update the end line when the last property visited was a container (object or array)
             if (secondToLastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || secondToLastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken) {
+                console.log('Inside of if loop')
+                console.log('lastProperty : ', lastProperty)
                 lastProperty!.endLineNumber = endLineNumber - 1;
             } 
             // Update the end line when the last property visited was a simple property
             else {
+                console.log('Inside of else loop')
+                console.log('currentProperty : ', currentProperty)
                 currentProperty!.endLineNumber = endLineNumber - 1;
             }
             beginningLineNumber = endLineNumber;
@@ -118,7 +130,7 @@ function findPropertyTree(formattedString : string) {
                     || (lastNonTriviaNonCommentToken === SyntaxKind.CommaToken 
                         && currentContainerStack[currentContainerStack.length - 1] === Container.Object))) {
 
-                        // In that case create the childProperty which starts at beginningLineNumber a
+                        // In that case create the child property which starts at beginningLineNumber, add it to the current tree
                         const childProperty : PropertyTree = new PropertyTree(scanner.getTokenValue(), beginningLineNumber);
                         lastProperty = currentProperty;
                         currentProperty = currentTree!.addChildProperty(childProperty);
@@ -304,8 +316,14 @@ function findPropertyTree(formattedString : string) {
                 if(lastNonTriviaNonCommentToken === SyntaxKind.CommaToken 
                     && lineOfLastNonTriviaNonCommentToken === scanner.getTokenStartLine()) {
                         console.log('Entered into the first if loop')
-                        currentProperty!.endLineNumber = undefined;
-                        updateLastPropertyEndLineNumber = true;
+                        console.log('currentProperty : ', currentProperty)
+
+                        // only important when we are inside of an array and the last property is an object or an array
+                        // or if we are inside of an object
+                        if(currentContainerStack[currentContainerStack.length - 1] === Container.Array && (secondToLastNonTriviaNonCommentToken === SyntaxKind.CloseBraceToken || secondToLastNonTriviaNonCommentToken === SyntaxKind.CloseBracketToken)|| currentContainerStack[currentContainerStack.length - 1] === Container.Object) {
+                            currentProperty!.endLineNumber = undefined;
+                            updateLastPropertyEndLineNumber = true;
+                        }
                 }
 
                 // In this case we have the following scenario, in which case the block comment should be assigned to the open brace not the first property below it
