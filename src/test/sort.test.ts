@@ -1126,7 +1126,7 @@ suite('Sort JSON', () => {
             '      "type": "npm" /** multi-line or block comment',
             '            ...',
             '            ...',
-            '            */,',            
+            '            */',            
             '    },',
             '    { /** multi-line or block comment',
             '        ...',

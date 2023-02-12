@@ -29,6 +29,9 @@ export function sort(documentToSort: TextDocument, formattingOptions: Formatting
 
 function findPropertyTree(formattedString : string) {
 
+    const arrayOfLines: string[] = formattedString.split('\n');
+    const lengthsOfLinesOfArray = arrayOfLines.map(line => line.length + 1);
+
     const scanner : JSONScanner = createScanner(formattedString, false);
     // The tree that will be returned
     let rootTree : PropertyTree = new PropertyTree();
@@ -60,8 +63,9 @@ function findPropertyTree(formattedString : string) {
     let currentContainerStack : Container[] = []
     // Total number of characters on the lines prior to current line 
     let numberOfCharactersOnPreviousLines : number = 0;
+    let lastTokenLine : number = 0;
     // Temporary number of characters on current line 
-    let tempNumberOfCharacters : number = 0;
+    // let tempNumberOfCharacters : number = 0;
 
     // Boolean indicating that the current property end line number needs to be updated. Used only when block comments are encountered.
     let updateLastPropertyEndLineNumber : boolean = false;
@@ -120,6 +124,18 @@ function findPropertyTree(formattedString : string) {
                 beginningLineNumber = scanner.getTokenStartLine();
                 updateBeginningLineNumber = false;
         }
+
+        console.log('scanner.getTokenStartLine() : ', scanner.getTokenStartLine())
+        console.log('lastTokenLine : ', lastTokenLine);
+        if(scanner.getTokenStartLine() !== lastTokenLine) {
+            // The token is on a previous line to the previous token
+            for(let i = lastTokenLine; i < scanner.getTokenStartLine(); i++) {
+                numberOfCharactersOnPreviousLines = numberOfCharactersOnPreviousLines + lengthsOfLinesOfArray[i];
+            }
+            lastTokenLine = scanner.getTokenStartLine();
+        }
+
+        console.log('numberOfCharactersOnPreviousLines : ', numberOfCharactersOnPreviousLines)
 
         switch(token) {
 
@@ -293,7 +309,9 @@ function findPropertyTree(formattedString : string) {
                     console.log('Entered into the first if')
                     currentProperty!.endLineNumber = endLineNumber;
                     // Store the line and the index of the comma in case it needs to be removed during the sorting
-                    currentProperty!.commaIndex =  scanner.getTokenOffset() - numberOfCharactersOnPreviousLines - 1;
+                    // The issue is that sometimes the token is on several lines like a block comment, in which case the wrong index is calculated
+                    // Because when block comment is encountered the new line breaks inside of it are not calculated
+                    currentProperty!.commaIndex =  scanner.getTokenOffset() - numberOfCharactersOnPreviousLines; // - 1;
                     currentProperty!.commaLine = endLineNumber;
                 }
 
@@ -336,14 +354,15 @@ function findPropertyTree(formattedString : string) {
                     console.log('Entered into the second if condition')
                     updateBeginningLineNumber = true;
                 }
+
                 break;
             }
 
             // If a line break trivia is encountered, add the number of characters on the current line to the total, reset the temporary variable
-            case SyntaxKind.LineBreakTrivia: {
-                numberOfCharactersOnPreviousLines = numberOfCharactersOnPreviousLines + tempNumberOfCharacters;
-                tempNumberOfCharacters = 0;
-            }
+            // case SyntaxKind.LineBreakTrivia: {
+            //    numberOfCharactersOnPreviousLines = numberOfCharactersOnPreviousLines + tempNumberOfCharacters;
+            //    tempNumberOfCharacters = 0;
+            // }
         }
 
         // For all non-comment, non-trvia tokens, update the line and index of the last non-trivia non-comment token
@@ -359,7 +378,7 @@ function findPropertyTree(formattedString : string) {
                 indexOfLastNonTriviaNonCommentToken = scanner.getTokenOffset() + scanner.getTokenLength() - numberOfCharactersOnPreviousLines;
         }
         
-        tempNumberOfCharacters += scanner.getTokenLength();
+        // tempNumberOfCharacters += scanner.getTokenLength();
 
         if(token !== SyntaxKind.LineBreakTrivia
             && token !== SyntaxKind.Trivia
@@ -451,6 +470,7 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree) {
                 const commaLine = property.commaLine;
                 console.log('commaIndex : ', commaIndex);
                 console.log('commaLine! - property.beginningLineNumber! : ', commaLine! - property.beginningLineNumber!);
+                console.log('jsonContentToReplace[commaLine! - property.beginningLineNumber!].length : ', jsonContentToReplace[commaLine! - property.beginningLineNumber!].length)
                 jsonContentToReplace[commaLine! - property.beginningLineNumber!] = jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(0, commaIndex) + jsonContentToReplace[commaLine! - property.beginningLineNumber!].slice(commaIndex! + 1);
             }
             console.log('jsonContentToReplace : ', jsonContentToReplace)
