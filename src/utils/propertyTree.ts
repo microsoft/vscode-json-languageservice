@@ -9,49 +9,34 @@ export enum Container {
 }
 
 export class PropertyTree {
-    propertyName: any;
+    propertyName: string;
     beginningLineNumber: number | undefined;
     endLineNumber: number | undefined;
-    childrenProperties: PropertyTree[];
     parent : PropertyTree | undefined;
-    lastProperty : boolean;
     commaIndex  : number | undefined;
     commaLine : number | undefined;
     lineWhereToAddComma : number | undefined;
     indexWhereToAddComa : number | undefined;
     type : Container | undefined;
+    childrenProperties: PropertyTree[];
+    lastProperty : boolean;
     noKeyName : boolean;
 
     constructor(
-        propertyName?: any, 
-        beginningLineNumber?: number, 
-        endLineNumber?: number, 
-        lastProperty? : boolean, 
-        commaIndex? : number, 
-        commaLine?: number,
-        type?: Container,
-        noKeyName?: boolean,
-        lineWhereToAddComma? : number,
-        indexWhereToAddComma? : number) {
+        propertyName?: string, 
+        beginningLineNumber?: number
+        ) {
 
-        this.propertyName = propertyName;
-        this.beginningLineNumber = beginningLineNumber ;
-        this.endLineNumber = endLineNumber;
+        this.propertyName = propertyName ? propertyName : '';
+        this.beginningLineNumber = beginningLineNumber;
         this.childrenProperties = [];
-        this.lastProperty = lastProperty ? lastProperty : false;
-        this.commaIndex = commaIndex;
-        this.commaLine = commaLine;
-        this.type = type;
-        this.noKeyName = noKeyName? noKeyName : false;
-        this.lineWhereToAddComma = lineWhereToAddComma;
-        this.indexWhereToAddComa = indexWhereToAddComma;
+        this.lastProperty = false;
+        this.noKeyName = false;
     }
 
-    addChildProperty(
-        childProperty : PropertyTree) : PropertyTree {
+    addChildProperty(childProperty : PropertyTree) : PropertyTree {
 
         childProperty.parent = this;
-        console.log('this.childrenProperties.length : ', this.childrenProperties.length)
         if(this.childrenProperties.length > 0) {
 
             let insertionIndex = 0;
@@ -61,36 +46,37 @@ export class PropertyTree {
                 insertionIndex = binarySearchOnPropertyArray(this.childrenProperties, childProperty, compareProperties);
             }
             if(insertionIndex < 0) {
-                insertionIndex = (insertionIndex * -1) - 1
+                insertionIndex = (insertionIndex * -1) - 1;
             }
-            console.log('insertionIndex : ', insertionIndex)
-            this.childrenProperties.splice(insertionIndex, 0, childProperty)
+            this.childrenProperties.splice(insertionIndex, 0, childProperty);
         } else {
-            this.childrenProperties.push(childProperty)
+            this.childrenProperties.push(childProperty);
         }
         return childProperty;
     }
 }
 
-function compareProperties(property1 : PropertyTree, property2 : PropertyTree) {
-    if ( property1.propertyName < property2.propertyName){
+function compareProperties(propertyTree1 : PropertyTree, propertyTree2 : PropertyTree) {
+    if ( propertyTree1.propertyName < propertyTree2.propertyName){
       return -1;
-    } else if ( property1.propertyName > property2.propertyName ){
+    } else if ( propertyTree1.propertyName > propertyTree2.propertyName ){
       return 1;
     }
     return 0;
 }
 
-function binarySearchOnPropertyArray(propertyArray : PropertyTree[], property : PropertyTree, compare_fn : (p1 : PropertyTree, p2: PropertyTree) => number) {
-    if (property.propertyName < propertyArray[0].propertyName)
+function binarySearchOnPropertyArray(propertyTreeArray : PropertyTree[], propertyTree : PropertyTree, compare_fn : (p1 : PropertyTree, p2: PropertyTree) => number) {
+    if (propertyTree.propertyName < propertyTreeArray[0].propertyName) {
         return 0;
-    if (property.propertyName > propertyArray[propertyArray.length-1].propertyName)
-        return propertyArray.length;
-    var m = 0;
-    var n = propertyArray.length - 1;
+    }
+    if (propertyTree.propertyName > propertyTreeArray[propertyTreeArray.length-1].propertyName) {
+        return propertyTreeArray.length;
+    }
+    let m = 0;
+    let n = propertyTreeArray.length - 1;
     while (m <= n) {
-        var k = (n + m) >> 1;
-        var cmp = compare_fn(property, propertyArray[k]);
+        let k = (n + m) >> 1;
+        let cmp = compare_fn(propertyTree, propertyTreeArray[k]);
         if (cmp > 0) {
             m = k + 1;
         } else if(cmp < 0) {
