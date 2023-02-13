@@ -12,13 +12,12 @@ import { PropertyTree, Container} from './propertyTree';
 export function sort(documentToSort: TextDocument, formattingOptions: FormattingOptions): string {
     const options = { 
         tabSize: formattingOptions.tabSize ? formattingOptions.tabSize : 4,
-        insertFinalNewline: formattingOptions.insertFinalNewline === true,
-        insertSpaces: true, 
+        insertFinalNewline: formattingOptions.insertFinalNewline ? formattingOptions.insertFinalNewline : false,
+        insertSpaces: formattingOptions.insertFinalNewline ? formattingOptions.insertFinalNewline : true, 
         keepLines: false, // keepLines must be false so that the properties are on separate lines for the sorting
         eol: '\n'
     };
     let formattedJSONString: string = TextDocument.applyEdits(documentToSort, format(documentToSort, options, undefined));
-    console.log('formattedJSONSTring : ', formattedJSONString)
     const arrayOfLines: string[] = formattedJSONString.split('\n');
     const propertyTree : PropertyTree = findPropertyTree(formattedJSONString);
     const sortedArrayOfLines = sortLinesOfArray(arrayOfLines, propertyTree);
@@ -63,9 +62,8 @@ function findPropertyTree(formattedString : string) {
     let currentContainerStack : Container[] = []
     // Total number of characters on the lines prior to current line 
     let numberOfCharactersOnPreviousLines : number = 0;
+    // Line number of the last token found
     let lastTokenLine : number = 0;
-    // Temporary number of characters on current line 
-    // let tempNumberOfCharacters : number = 0;
 
     // Boolean indicating that the current property end line number needs to be updated. Used only when block comments are encountered.
     let updateLastPropertyEndLineNumber : boolean = false;
