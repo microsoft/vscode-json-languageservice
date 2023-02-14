@@ -55,7 +55,7 @@ export interface LanguageService {
 	findDefinition(document: TextDocument, position: Position, doc: JSONDocument): Thenable<DefinitionLink[]>;
 	findLinks(document: TextDocument, doc: JSONDocument): Thenable<DocumentLink[]>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
-	sort(document: TextDocument, options: FormattingOptions): string;
+	sort(document: TextDocument, options: FormattingOptions): TextEdit[];
 }
 
 

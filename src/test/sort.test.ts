@@ -9,8 +9,8 @@ suite('Sort JSON', () => {
 
     function testSort(unsorted: string, expected: string, options: FormattingOptions) {
         let document = TextDocument.create('test://test.json', 'json', 0, unsorted);
-        const sorted = ls.sort(document, options);
-        console.log('sorted : ', sorted)
+        const edits = ls.sort(document, options);
+        const sorted = TextDocument.applyEdits(document, edits);
         assert.equal(sorted, expected);
     }
 

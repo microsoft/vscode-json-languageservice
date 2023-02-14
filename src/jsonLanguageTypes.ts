@@ -19,10 +19,11 @@ import {
 	TextDocumentEdit, VersionedTextDocumentIdentifier, DocumentHighlightKind
 } from 'vscode-languageserver-types';
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
 export {
 	TextDocument,
+	TextDocumentContentChangeEvent,
 	Range, Position, DocumentUri, MarkupContent, MarkupKind,
 	JSONSchema, JSONWorkerContribution, JSONPath, Segment, CompletionsCollector,
 	Color, ColorInformation, ColorPresentation,

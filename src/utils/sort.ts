@@ -3,13 +3,13 @@
 *  Licensed under the MIT License. See License.txt in the project root for license information.
 *--------------------------------------------------------------------------------------------*/
 
-import { TextEdit} from 'vscode-languageserver-textdocument';
+// import { TextEdit} from 'vscode-languageserver-textdocument';
 import { createScanner, SyntaxKind, JSONScanner } from 'jsonc-parser';
-import { TextDocument, FormattingOptions } from '../jsonLanguageTypes';
+import { TextDocument, TextEdit, FormattingOptions, Position, Range, TextDocumentContentChangeEvent } from '../jsonLanguageTypes';
 import { format } from './format';
 import { PropertyTree, Container} from './propertyTree';
 
-export function sort(documentToSort: TextDocument, formattingOptions: FormattingOptions): string {
+export function sort(documentToSort: TextDocument, formattingOptions: FormattingOptions): TextEdit[] {
     const options = { 
         tabSize: formattingOptions.tabSize ? formattingOptions.tabSize : 4,
         insertFinalNewline: formattingOptions.insertFinalNewline ? formattingOptions.insertFinalNewline : false,
@@ -17,19 +17,24 @@ export function sort(documentToSort: TextDocument, formattingOptions: Formatting
         keepLines: false, // keepLines must be false so that the properties are on separate lines for the sorting
         eol: '\n'
     };
-    let formattedJSONString: string = TextDocument.applyEdits(documentToSort, format(documentToSort, options, undefined));
-    const arrayOfLines: string[] = formattedJSONString.split('\n');
-    const jsonPropertyTree : PropertyTree = findJSONPropertyTree(formattedJSONString);
-    const sortedArrayOfLines = sortLinesOfArray(arrayOfLines, jsonPropertyTree);
-    const sortedDocument: TextDocument = TextDocument.create('test://test.json', 'json', 0, sortedArrayOfLines.join('\n'));
-    const edits: TextEdit[] = format(sortedDocument, options, undefined);
-    return TextDocument.applyEdits(sortedDocument, edits);
+    const formattedJsonString: string = TextDocument.applyEdits(documentToSort, format(documentToSort, options, undefined));
+    const formattedJsonDocument = TextDocument.create('test://test.json', 'json', 0, formattedJsonString);
+    const jsonPropertyTree : PropertyTree = findJsoncPropertyTree(formattedJsonDocument);    
+    const sortedJsonDocument = sortJsoncDocument(formattedJsonDocument, jsonPropertyTree);
+    const edits: TextEdit[] = format(sortedJsonDocument, options, undefined);
+    const sortedAndFormattedJsonDocument = TextDocument.applyEdits(sortedJsonDocument, edits);
+    return [TextEdit.replace(Range.create(Position.create(0, 0), documentToSort.positionAt(documentToSort.getText().length)), sortedAndFormattedJsonDocument)];
 }
 
-function findJSONPropertyTree(formattedString : string) {
+function findJsoncPropertyTree(formattedDocument : TextDocument) {
 
-    const arrayOfLines: string[] = formattedString.split('\n');
-    const lengthsOfLinesOfArray = arrayOfLines.map(line => line.length + 1);
+    const numberOfLines = formattedDocument.lineCount;
+    const lengthsOfLinesOfArray : number[] = [];
+    for(let i = 0; i < numberOfLines; i++) {
+        const lineLength = formattedDocument.getText(Range.create(Position.create(i, 0), Position.create(i + 1, 0))).length;
+        lengthsOfLinesOfArray.push(lineLength);
+    }
+    const formattedString = formattedDocument.getText();
     const scanner : JSONScanner = createScanner(formattedString, false);
     
     // The tree that will be returned
@@ -323,13 +328,13 @@ function findJSONPropertyTree(formattedString : string) {
     return rootTree;
 }
 
-function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree) {
+function sortJsoncDocument(jsonDocument : TextDocument, propertyTree: PropertyTree) {
 
-    if (propertyTree.childrenProperties.length <= 1) {
-        return arrayOfLines;
+    if (propertyTree.childrenProperties.length === 0) {
+        return jsonDocument;
     }
-    
-    const sortedArrayOfLines = Object.assign([], arrayOfLines);
+
+    const sortedJsonDocument = TextDocument.create('test://test.json', 'json', 0, jsonDocument.getText());
     const queueToSort : SortingRange[] = [];
     updateSortingQueue(queueToSort, propertyTree, propertyTree.beginningLineNumber!);
 
@@ -342,29 +347,39 @@ function sortLinesOfArray(arrayOfLines : string[], propertyTree: PropertyTree) {
         for (let i = 0; i < propertyTreeArray.length; i++) {
 
             const propertyTree = propertyTreeArray[i];
-            const jsonContentToReplace = arrayOfLines.slice(propertyTree.beginningLineNumber, propertyTree.endLineNumber! + 1);
+            const range : Range = Range.create(Position.create(propertyTree.beginningLineNumber!, 0), Position.create(propertyTree.endLineNumber! + 1, 0));
+            const jsonContentToReplace = jsonDocument.getText(range);
+            const jsonDocumentToReplace = TextDocument.create('test://test.json', 'json', 0, jsonContentToReplace);
 
             if (propertyTree.lastProperty === true && i !== propertyTreeArray.length - 1) {
-                const lineWhereToAddComma = propertyTree.lineWhereToAddComma ? propertyTree.lineWhereToAddComma - propertyTree.beginningLineNumber! : jsonContentToReplace.length - 1;
-                const line = jsonContentToReplace[lineWhereToAddComma];
-                const lineLength = line.length;
-                const indexWhereToAddComma = propertyTree.indexWhereToAddComa ? propertyTree.indexWhereToAddComa: lineLength - 1;
-                jsonContentToReplace[lineWhereToAddComma] = line.slice(0, indexWhereToAddComma) + ',' + line.slice(indexWhereToAddComma);
+                const lineWhereToAddComma = propertyTree.lineWhereToAddComma! - propertyTree.beginningLineNumber!;
+                const indexWhereToAddComma = propertyTree.indexWhereToAddComa!;
+                const edit : TextDocumentContentChangeEvent = {
+                    range: Range.create(Position.create(lineWhereToAddComma, indexWhereToAddComma), Position.create(lineWhereToAddComma, indexWhereToAddComma)),
+                    text: ','
+                }
+                TextDocument.update(jsonDocumentToReplace, [edit], 1);
             } else if (propertyTree.lastProperty === false && i === propertyTreeArray.length - 1) {
-                const commaIndex = propertyTree.commaIndex;
-                const commaLine = propertyTree.commaLine;
-                const lineWhereToRemoveComma = commaLine! - propertyTree.beginningLineNumber!;
-                jsonContentToReplace[lineWhereToRemoveComma] = jsonContentToReplace[lineWhereToRemoveComma].slice(0, commaIndex) + jsonContentToReplace[lineWhereToRemoveComma].slice(commaIndex! + 1);
+                const commaIndex = propertyTree.commaIndex!;
+                const commaLine = propertyTree.commaLine!;
+                const lineWhereToRemoveComma = commaLine - propertyTree.beginningLineNumber!;
+                const edit : TextDocumentContentChangeEvent = {
+                    range: Range.create(Position.create(lineWhereToRemoveComma, commaIndex), Position.create(lineWhereToRemoveComma, commaIndex + 1)),
+                    text: ''
+                }
+                TextDocument.update(jsonDocumentToReplace, [edit], 1);
             }
             const length = propertyTree.endLineNumber! - propertyTree.beginningLineNumber! + 1;
-            sortedArrayOfLines.splice(beginningLineNumber, length);
-            sortedArrayOfLines.splice(beginningLineNumber, 0, ...jsonContentToReplace);
-
+            const edit : TextDocumentContentChangeEvent = {
+                range: Range.create(Position.create(beginningLineNumber, 0), Position.create(beginningLineNumber + length, 0)),
+                text: jsonDocumentToReplace.getText()
+            }
+            TextDocument.update(sortedJsonDocument, [edit], 1);
             updateSortingQueue(queueToSort, propertyTree, beginningLineNumber);
             beginningLineNumber = beginningLineNumber + length;
         }
     }
-    return sortedArrayOfLines;
+    return sortedJsonDocument;
 }
 
 function updateSortingQueue(queue : any[], propertyTree : PropertyTree, beginningLineNumber : number) {
