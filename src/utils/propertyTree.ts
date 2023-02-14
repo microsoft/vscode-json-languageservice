@@ -27,7 +27,7 @@ export class PropertyTree {
         beginningLineNumber?: number
         ) {
 
-        this.propertyName = propertyName ? propertyName : '';
+        this.propertyName = propertyName ?? '';
         this.beginningLineNumber = beginningLineNumber;
         this.childrenProperties = [];
         this.lastProperty = false;
