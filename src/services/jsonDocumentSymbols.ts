@@ -6,6 +6,7 @@
 import * as Parser from '../parser/jsonParser';
 import * as Strings from '../utils/strings';
 import { colorFromHex } from '../utils/colors';
+import * as l10n from '@vscode/l10n';
 
 import {
 	TextDocument, Thenable, ColorInformation, ColorPresentation, Color, ASTNode, PropertyASTNode, DocumentSymbolsContext, Range, TextEdit,
@@ -38,7 +39,7 @@ export class JSONDocumentSymbols {
 						for (const property of item.properties) {
 							if (property.keyNode.value === 'key' && property.valueNode) {
 								const location = Location.create(document.uri, getRange(document, item));
-								result.push({ name: Parser.getNodeValue(property.valueNode), kind: SymbolKind.Function, location: location });
+								result.push({ name: getName(property.valueNode), kind: SymbolKind.Function, location: location });
 								limit--;
 								if (limit <= 0) {
 									if (context && context.onResultLimitExceeded) {
@@ -119,7 +120,7 @@ export class JSONDocumentSymbols {
 							if (property.keyNode.value === 'key' && property.valueNode) {
 								const range = getRange(document, item);
 								const selectionRange = getRange(document, property.keyNode);
-								result.push({ name: Parser.getNodeValue(property.valueNode), kind: SymbolKind.Function, range, selectionRange });
+								result.push({ name: getName(property.valueNode), kind: SymbolKind.Function, range, selectionRange });
 								limit--;
 								if (limit <= 0) {
 									if (context && context.onResultLimitExceeded) {
@@ -190,7 +191,6 @@ export class JSONDocumentSymbols {
 		}
 		return result;
 	}
-
 
 	private getSymbolKind(nodeType: string): SymbolKind {
 		switch (nodeType) {
@@ -292,4 +292,8 @@ export class JSONDocumentSymbols {
 
 function getRange(document: TextDocument, node: ASTNode) {
 	return Range.create(document.positionAt(node.offset), document.positionAt(node.offset + node.length));
+}
+
+function getName(node: ASTNode) {
+	return Parser.getNodeValue(node) || l10n.t('<empty>');
 }
