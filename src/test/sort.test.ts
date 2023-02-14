@@ -444,7 +444,7 @@ suite('Sort JSON', () => {
         ].join('\n');
         
         testSort(content, expected, formattingOptions);
-    })
+    });
 
     test('sorting a complicated JSONC object 2', () => {
         var content = [
@@ -572,7 +572,7 @@ suite('Sort JSON', () => {
         ].join('\n');
         
         testSort(content, expected, formattingOptions);
-    })
+    });
 
     test('sorting a deeply nested JSONC object', () => {
         var content = [
@@ -645,7 +645,7 @@ suite('Sort JSON', () => {
         ].join('\n');
         
         testSort(content, expected, formattingOptions);
-    })
+    });
 
     test('sorting a simple JSONC document where the outer container is an array', () => {
         var content = [
@@ -677,7 +677,7 @@ suite('Sort JSON', () => {
         ].join('\n');
         
         testSort(content, expected, formattingOptions);
-    })
+    });
 
     test('sorting a complicated JSONC object 3', () => {
         var content = [
@@ -973,7 +973,7 @@ suite('Sort JSON', () => {
         ].join('\n');
         
         testSort(content, expected, formattingOptions);
-    })
+    });
 
     test('sorting a complicated JSONC object 4', () => {
         var content = [
@@ -1172,7 +1172,7 @@ suite('Sort JSON', () => {
         ].join('\n');
         
         testSort(content, expected, formattingOptions);
-    })
+    });
 
     test('sorting a complicated JSONC object 5', () => {
         var content = [
@@ -1371,5 +1371,5 @@ suite('Sort JSON', () => {
         ].join('\n');
         
         testSort(content, expected, formattingOptions);
-    })
+    });
 });

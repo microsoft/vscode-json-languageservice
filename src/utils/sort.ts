@@ -357,7 +357,7 @@ function sortJsoncDocument(jsonDocument : TextDocument, propertyTree: PropertyTr
                 const edit : TextDocumentContentChangeEvent = {
                     range: Range.create(Position.create(lineWhereToAddComma, indexWhereToAddComma), Position.create(lineWhereToAddComma, indexWhereToAddComma)),
                     text: ','
-                }
+                };
                 TextDocument.update(jsonDocumentToReplace, [edit], 1);
             } else if (propertyTree.lastProperty === false && i === propertyTreeArray.length - 1) {
                 const commaIndex = propertyTree.commaIndex!;
@@ -366,14 +366,14 @@ function sortJsoncDocument(jsonDocument : TextDocument, propertyTree: PropertyTr
                 const edit : TextDocumentContentChangeEvent = {
                     range: Range.create(Position.create(lineWhereToRemoveComma, commaIndex), Position.create(lineWhereToRemoveComma, commaIndex + 1)),
                     text: ''
-                }
+                };
                 TextDocument.update(jsonDocumentToReplace, [edit], 1);
             }
             const length = propertyTree.endLineNumber! - propertyTree.beginningLineNumber! + 1;
             const edit : TextDocumentContentChangeEvent = {
                 range: Range.create(Position.create(beginningLineNumber, 0), Position.create(beginningLineNumber + length, 0)),
                 text: jsonDocumentToReplace.getText()
-            }
+            };
             TextDocument.update(sortedJsonDocument, [edit], 1);
             updateSortingQueue(queueToSort, propertyTree, beginningLineNumber);
             beginningLineNumber = beginningLineNumber + length;
