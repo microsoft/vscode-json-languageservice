@@ -36,7 +36,7 @@ export function convertSimple2RegExpPattern(pattern: string): string {
 }
 
 export function repeat(value: string, count: number) {
-	var s = '';
+	let s = '';
 	while (count > 0) {
 		if ((count & 1) === 1) {
 			s += value;
