@@ -4,18 +4,15 @@
 *--------------------------------------------------------------------------------------------*/
 
 // import { TextEdit} from 'vscode-languageserver-textdocument';
-import { createScanner, SyntaxKind, JSONScanner } from 'jsonc-parser';
-import { TextDocument, TextEdit, FormattingOptions, Position, Range, TextDocumentContentChangeEvent } from '../jsonLanguageTypes';
+import { createScanner, SyntaxKind, JSONScanner, FormattingOptions as JPFormattingOptions } from 'jsonc-parser';
+import { TextDocument, TextEdit, FormattingOptions, Position, Range, TextDocumentContentChangeEvent, SortOptions } from '../jsonLanguageTypes';
 import { format } from './format';
 import { PropertyTree, Container} from './propertyTree';
 
-export function sort(documentToSort: TextDocument, formattingOptions: FormattingOptions): TextEdit[] {
-    const options = { 
-        tabSize: formattingOptions.tabSize ? formattingOptions.tabSize : 4,
-        insertFinalNewline: formattingOptions.insertFinalNewline ? formattingOptions.insertFinalNewline : false,
-        insertSpaces: formattingOptions.insertFinalNewline ? formattingOptions.insertFinalNewline : true, 
+export function sort(documentToSort: TextDocument, formattingOptions: SortOptions): TextEdit[] {
+    const options : FormattingOptions = { 
+		...formattingOptions,
         keepLines: false, // keepLines must be false so that the properties are on separate lines for the sorting
-        eol: '\n'
     };
     const formattedJsonString: string = TextDocument.applyEdits(documentToSort, format(documentToSort, options, undefined));
     const formattedJsonDocument = TextDocument.create('test://test.json', 'json', 0, formattedJsonString);
