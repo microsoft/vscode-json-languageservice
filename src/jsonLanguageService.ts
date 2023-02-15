@@ -24,7 +24,7 @@ import {
 	FoldingRange, JSONSchema, SelectionRange, FoldingRangesContext, DocumentSymbolsContext, ColorInformationContext as DocumentColorsContext,
 	TextDocument,
 	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink, MatchingSchema, JSONLanguageStatus
+	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink, MatchingSchema, JSONLanguageStatus, SortOptions
 } from './jsonLanguageTypes';
 import { findLinks } from './services/jsonLinks';
 import { DocumentLink } from 'vscode-languageserver-types';
@@ -55,7 +55,7 @@ export interface LanguageService {
 	findDefinition(document: TextDocument, position: Position, doc: JSONDocument): Thenable<DefinitionLink[]>;
 	findLinks(document: TextDocument, doc: JSONDocument): Thenable<DocumentLink[]>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
-	sort(document: TextDocument, options: FormattingOptions): TextEdit[];
+	sort(document: TextDocument, options: SortOptions): TextEdit[];
 }
 
 

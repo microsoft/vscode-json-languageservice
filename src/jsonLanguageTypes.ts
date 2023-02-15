@@ -368,3 +368,7 @@ export interface FormattingOptions extends LSPFormattingOptions {
 	insertFinalNewline?: boolean;
 	keepLines?: boolean;	
 }
+
+export interface SortOptions extends LSPFormattingOptions {
+	insertFinalNewline?: boolean;
+}
