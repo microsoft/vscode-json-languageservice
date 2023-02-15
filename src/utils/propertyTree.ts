@@ -4,7 +4,7 @@
 *--------------------------------------------------------------------------------------------*/
 
 export enum Container {
-    Object, 
+    Object,
     Array
 }
 
@@ -12,20 +12,20 @@ export class PropertyTree {
     propertyName: string;
     beginningLineNumber: number | undefined;
     endLineNumber: number | undefined;
-    parent : PropertyTree | undefined;
-    commaIndex  : number | undefined;
-    commaLine : number | undefined;
-    lineWhereToAddComma : number | undefined;
-    indexWhereToAddComa : number | undefined;
-    type : Container | undefined;
+    parent: PropertyTree | undefined;
+    commaIndex: number | undefined;
+    commaLine: number | undefined;
+    lineWhereToAddComma: number | undefined;
+    indexWhereToAddComa: number | undefined;
+    type: Container | undefined;
     childrenProperties: PropertyTree[];
-    lastProperty : boolean;
-    noKeyName : boolean;
+    lastProperty: boolean;
+    noKeyName: boolean;
 
     constructor(
-        propertyName?: string, 
+        propertyName?: string,
         beginningLineNumber?: number
-        ) {
+    ) {
 
         this.propertyName = propertyName ?? '';
         this.beginningLineNumber = beginningLineNumber;
@@ -34,18 +34,18 @@ export class PropertyTree {
         this.noKeyName = false;
     }
 
-    addChildProperty(childProperty : PropertyTree) : PropertyTree {
+    addChildProperty(childProperty: PropertyTree): PropertyTree {
 
         childProperty.parent = this;
-        if(this.childrenProperties.length > 0) {
+        if (this.childrenProperties.length > 0) {
 
             let insertionIndex = 0;
-            if(childProperty.noKeyName) {
+            if (childProperty.noKeyName) {
                 insertionIndex = this.childrenProperties.length;
             } else {
                 insertionIndex = binarySearchOnPropertyArray(this.childrenProperties, childProperty, compareProperties);
             }
-            if(insertionIndex < 0) {
+            if (insertionIndex < 0) {
                 insertionIndex = (insertionIndex * -1) - 1;
             }
             this.childrenProperties.splice(insertionIndex, 0, childProperty);
@@ -56,20 +56,20 @@ export class PropertyTree {
     }
 }
 
-function compareProperties(propertyTree1 : PropertyTree, propertyTree2 : PropertyTree) {
-    if ( propertyTree1.propertyName < propertyTree2.propertyName){
-      return -1;
-    } else if ( propertyTree1.propertyName > propertyTree2.propertyName ){
-      return 1;
+function compareProperties(propertyTree1: PropertyTree, propertyTree2: PropertyTree) {
+    if (propertyTree1.propertyName < propertyTree2.propertyName) {
+        return -1;
+    } else if (propertyTree1.propertyName > propertyTree2.propertyName) {
+        return 1;
     }
     return 0;
 }
 
-function binarySearchOnPropertyArray(propertyTreeArray : PropertyTree[], propertyTree : PropertyTree, compare_fn : (p1 : PropertyTree, p2: PropertyTree) => number) {
+function binarySearchOnPropertyArray(propertyTreeArray: PropertyTree[], propertyTree: PropertyTree, compare_fn: (p1: PropertyTree, p2: PropertyTree) => number) {
     if (propertyTree.propertyName < propertyTreeArray[0].propertyName) {
         return 0;
     }
-    if (propertyTree.propertyName > propertyTreeArray[propertyTreeArray.length-1].propertyName) {
+    if (propertyTree.propertyName > propertyTreeArray[propertyTreeArray.length - 1].propertyName) {
         return propertyTreeArray.length;
     }
     let m = 0;
@@ -79,7 +79,7 @@ function binarySearchOnPropertyArray(propertyTreeArray : PropertyTree[], propert
         let cmp = compare_fn(propertyTree, propertyTreeArray[k]);
         if (cmp > 0) {
             m = k + 1;
-        } else if(cmp < 0) {
+        } else if (cmp < 0) {
             n = k - 1;
         } else {
             return k;

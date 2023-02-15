@@ -15,11 +15,11 @@ suite('Sort JSON', () => {
     }
 
     test('sorting a simple JSONC object with numeric values', () => {
-        var content = [
+        const content = [
             '{"b" : 1, "a" : 2}'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{\n  "a": 2,\n  "b": 1\n}'
         ].join('\n');
 
@@ -27,13 +27,13 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a simple JSONC object with an array spanning several lines', () => {
-        var content = [
+        const content = [
             '{"array":["volleyball",',
             '      "drawing",',
             '  "hiking"]}'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{',
             '  "array": [',
             '    "volleyball",',
@@ -48,7 +48,7 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a JSONC object with nested objects', () => {
-        var content = [
+        const content = [
             '{"name": "Brigitte","age" : 30,',
             '"hobbies" : ["volleyball","drawing","hiking"],',
             '"friends" : {',
@@ -58,7 +58,7 @@ suite('Sort JSON', () => {
             '"reading books"], "age" : 32}}}'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{',
             '  "age": 30,',
             '  "friends": {',
@@ -90,7 +90,7 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a JSONC object with line comments', () => {
-        var content = [
+        const content = [
             '{ // this is a comment',
             '"boolean" : true,',
             '"array" : [',
@@ -100,7 +100,7 @@ suite('Sort JSON', () => {
 
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{ // this is a comment',
             '  "array": [',
             '    // this is a second comment',
@@ -115,7 +115,7 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a JSONC object with an object nested inside of an array value', () => {
-        var content = [
+        const content = [
             '{',
             '"boolean" : true,',
             '"array" : [',
@@ -123,7 +123,7 @@ suite('Sort JSON', () => {
             '}'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{',
             '  "array": [',
             '    "element1",',
@@ -140,7 +140,7 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a JSONC object with comments appearing before and after the main JSON object', () => {
-        var content = [
+        const content = [
             '// comment appearing before',
             '',
             '{',
@@ -152,7 +152,7 @@ suite('Sort JSON', () => {
             'lines */'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '// comment appearing before',
             '{',
             '  "array": [',
@@ -172,7 +172,7 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a JSONC object with new lines appearing before and after the main JSON object', () => {
-        var content = [
+        const content = [
             '',
             '',
             '{',
@@ -184,7 +184,7 @@ suite('Sort JSON', () => {
             ''
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{',
             '  "array": [',
             '    "element1",',
@@ -201,7 +201,7 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a JSONC object with a block comment appearing on the same line as a comma but not ending on that line', () => {
-        var content = [
+        const content = [
             '{',
             '"boolean" : true, /* this is block comment starting on',
             'the line where the comma is but ending on another line */',
@@ -209,7 +209,7 @@ suite('Sort JSON', () => {
             '}',
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{',
             '  "array": [],',
             '  "boolean": true /* this is block comment starting on',
@@ -221,14 +221,14 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a JSONC object with a block comment starting at the end of a property and such that a new property starts on the end of that block comment', () => {
-        var content = [
+        const content = [
             '{',
             '"boolean" : true, /* this is block comment starting on',
             'the line where the comma is but ending on another line */ "array" : []',
             '}',
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{',
             '  "array": [],',
             '  "boolean": true /* this is block comment starting on',
@@ -240,7 +240,7 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a JSONC object with comments between properties', () => {
-        var content = [
+        const content = [
             '// comment appearing before',
             '',
             '{',
@@ -254,7 +254,7 @@ suite('Sort JSON', () => {
             '}'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '// comment appearing before',
             '{',
             '  /* a third comment',
@@ -271,7 +271,7 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a JSONC object with comments appearing between a value and the comma', () => {
-        var content = [
+        const content = [
             '{',
             '"boolean" : true // some comment',
             ',',
@@ -280,7 +280,7 @@ suite('Sort JSON', () => {
             '}'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{',
             '  "array": [],',
             '  "boolean": true // some comment',
@@ -293,7 +293,7 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a JSONC object with block comments on the same line as the arrays', () => {
-        var content = [
+        const content = [
             '/* multi-line comment',
             '..',
             '*/',
@@ -318,7 +318,7 @@ suite('Sort JSON', () => {
             '}'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '/* multi-line comment',
             '..',
             '*/',
@@ -347,10 +347,10 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a JSONC object where the colon is not on the same line as the key or the value', () => {
-        var content = [
+        const content = [
             '{',
             '"boolean"',
-            ':', 
+            ':',
             'true // some comment',
             ',',
             '"array"',
@@ -359,7 +359,7 @@ suite('Sort JSON', () => {
             '}'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{',
             '  "array": [],',
             '  "boolean": true // some comment',
@@ -372,7 +372,7 @@ suite('Sort JSON', () => {
     });
 
     test('sorting a complicated JSONC object 1', () => {
-        var content = [
+        const content = [
             '// Comment ouside the main JSON object',
             '',
             '{',
@@ -409,7 +409,7 @@ suite('Sort JSON', () => {
             '*/'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '// Comment ouside the main JSON object',
             '{',
             '  "a": "some other value" /* a block comment which starts on the same line as key a',
@@ -442,13 +442,13 @@ suite('Sort JSON', () => {
             '...',
             '*/'
         ].join('\n');
-        
+
         testSort(content, expected, formattingOptions);
     });
 
     test('sorting a complicated JSONC object 2', () => {
-        var content = [
-            '/*', 
+        const content = [
+            '/*',
             '',
             'adding some comment before the actual JSON file',
             '',
@@ -509,8 +509,8 @@ suite('Sort JSON', () => {
             '}',
         ].join('\n');
 
-        var expected = [
-            '/*', 
+        const expected = [
+            '/*',
             '',
             'adding some comment before the actual JSON file',
             '',
@@ -570,12 +570,12 @@ suite('Sort JSON', () => {
             '  "webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/"',
             '}',
         ].join('\n');
-        
+
         testSort(content, expected, formattingOptions);
     });
 
     test('sorting a deeply nested JSONC object', () => {
-        var content = [
+        const content = [
             '{',
             '    "a" : {',
             '        "y" : {},',
@@ -610,7 +610,7 @@ suite('Sort JSON', () => {
             '}'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{',
             '  "a": {',
             '    "a": {},',
@@ -643,12 +643,12 @@ suite('Sort JSON', () => {
             '  ]',
             '}'
         ].join('\n');
-        
+
         testSort(content, expected, formattingOptions);
     });
 
     test('sorting a simple JSONC document where the outer container is an array', () => {
-        var content = [
+        const content = [
             '[',
             '    {',
             '        "hi": 1',
@@ -663,7 +663,7 @@ suite('Sort JSON', () => {
             ']'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '[',
             '  {',
             '    "hi": 1',
@@ -675,12 +675,12 @@ suite('Sort JSON', () => {
             '  }',
             ']'
         ].join('\n');
-        
+
         testSort(content, expected, formattingOptions);
     });
 
     test('sorting a complicated JSONC object 3', () => {
-        var content = [
+        const content = [
             '{',
             '    "type": "array",',
             '    "items": {',
@@ -826,7 +826,7 @@ suite('Sort JSON', () => {
             '}',
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{',
             '  "items": {',
             '    /* multi-line comment',
@@ -971,12 +971,12 @@ suite('Sort JSON', () => {
             '  "type": "array"',
             '}',
         ].join('\n');
-        
+
         testSort(content, expected, formattingOptions);
     });
 
     test('sorting a complicated JSONC object 4', () => {
-        var content = [
+        const content = [
             '/** multi-line or block comment',
             '        ...',
             '        ...',
@@ -1074,7 +1074,7 @@ suite('Sort JSON', () => {
             '*/',
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '/** multi-line or block comment',
             '        ...',
             '        ...',
@@ -1113,7 +1113,7 @@ suite('Sort JSON', () => {
             '        ],',
             '        "owner": "typescript",',
             '        "pattern": {',
-            '          "file": 1,',            
+            '          "file": 1,',
             '          "location": 2, /** multi-line or block comment',
             '                    ...',
             '                    ...',
@@ -1126,7 +1126,7 @@ suite('Sort JSON', () => {
             '      "type": "npm" /** multi-line or block comment',
             '            ...',
             '            ...',
-            '            */',            
+            '            */',
             '    },',
             '    { /** multi-line or block comment',
             '        ...',
@@ -1170,12 +1170,12 @@ suite('Sort JSON', () => {
             '...',
             '*/',
         ].join('\n');
-        
+
         testSort(content, expected, formattingOptions);
     });
 
     test('sorting a complicated JSONC object 5', () => {
-        var content = [
+        const content = [
             '{ /** multi-line or block comment',
             '...',
             '...',
@@ -1273,7 +1273,7 @@ suite('Sort JSON', () => {
             '*/'
         ].join('\n');
 
-        var expected = [
+        const expected = [
             '{ /** multi-line or block comment',
             '...',
             '...',
@@ -1369,7 +1369,7 @@ suite('Sort JSON', () => {
             '...',
             '*/'
         ].join('\n');
-        
+
         testSort(content, expected, formattingOptions);
     });
 });
