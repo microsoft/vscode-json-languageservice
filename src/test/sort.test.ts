@@ -1,5 +1,5 @@
 
-import { getLanguageService, ClientCapabilities, TextDocument, FormattingOptions } from '../jsonLanguageService';
+import { getLanguageService, ClientCapabilities, TextDocument, SortOptions } from '../jsonLanguageService';
 import * as assert from 'assert';
 
 suite('Sort JSON', () => {
@@ -7,7 +7,7 @@ suite('Sort JSON', () => {
     const ls = getLanguageService({ clientCapabilities: ClientCapabilities.LATEST });
     let formattingOptions = { tabSize: 2, insertSpaces: true, keepLines: false, eol: '\n', insertFinalNewline: false };
 
-    function testSort(unsorted: string, expected: string, options: FormattingOptions) {
+    function testSort(unsorted: string, expected: string, options: SortOptions) {
         let document = TextDocument.create('test://test.json', 'json', 0, unsorted);
         const edits = ls.sort(document, options);
         const sorted = TextDocument.applyEdits(document, edits);

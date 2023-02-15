@@ -1,3 +1,8 @@
+5.3.0 / 2023-02-15
+================
+ * new API `LanguageService.sort` for sorting all properties in a JSON document
+ * new API `SortOptions`
+
 5.2.0 / 2023-02-02
 ================
  * Added `SchemaConfiguration.folderUri` for folder-specific schema associations
