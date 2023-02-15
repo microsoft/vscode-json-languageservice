@@ -42,7 +42,7 @@ export class JSONHover {
 
 		const hoverRange = Range.create(document.positionAt(hoverRangeNode.offset), document.positionAt(hoverRangeNode.offset + hoverRangeNode.length));
 
-		var createHover = (contents: MarkedString[]) => {
+		const createHover = (contents: MarkedString[]) => {
 			const result: Hover = {
 				contents: contents,
 				range: hoverRange

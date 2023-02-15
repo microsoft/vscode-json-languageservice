@@ -740,7 +740,7 @@ export class JSONCompletion {
 	}
 
 	private getInsertTextForValue(value: any, separatorAfter: string): string {
-		var text = JSON.stringify(value, null, '\t');
+		const text = JSON.stringify(value, null, '\t');
 		if (text === '{}') {
 			return '{$1}' + separatorAfter;
 		} else if (text === '[]') {
@@ -865,7 +865,7 @@ export class JSONCompletion {
 				nValueProposals += propertySchema.examples.length;
 			}
 			if (nValueProposals === 0) {
-				var type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
+				let type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
 				if (!type) {
 					if (propertySchema.properties) {
 						type = 'object';
@@ -905,8 +905,8 @@ export class JSONCompletion {
 	}
 
 	private getCurrentWord(document: TextDocument, offset: number) {
-		var i = offset - 1;
-		var text = document.getText();
+		let i = offset - 1;
+		const text = document.getText();
 		while (i >= 0 && ' \t\n\r\v":{[,]}'.indexOf(text.charAt(i)) === -1) {
 			i--;
 		}
