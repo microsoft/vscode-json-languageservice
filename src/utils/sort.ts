@@ -28,12 +28,6 @@ export function sort(documentToSort: TextDocument, formattingOptions: Formatting
 
 function findJsoncPropertyTree(formattedDocument : TextDocument) {
 
-    const numberOfLines = formattedDocument.lineCount;
-    const lengthsOfLinesOfArray : number[] = [];
-    for(let i = 0; i < numberOfLines; i++) {
-        const lineLength = formattedDocument.getText(Range.create(Position.create(i, 0), Position.create(i + 1, 0))).length;
-        lengthsOfLinesOfArray.push(lineLength);
-    }
     const formattedString = formattedDocument.getText();
     const scanner : JSONScanner = createScanner(formattedString, false);
     
@@ -121,7 +115,8 @@ function findJsoncPropertyTree(formattedDocument : TextDocument) {
         // Update the number of characters on all the previous lines each time the new token is on a different line to the previous token
         if(scanner.getTokenStartLine() !== lastTokenLine) {
             for(let i = lastTokenLine; i < scanner.getTokenStartLine(); i++) {
-                numberOfCharactersOnPreviousLines = numberOfCharactersOnPreviousLines + lengthsOfLinesOfArray[i];
+                const lengthOfLine = formattedDocument.getText(Range.create(Position.create(i, 0), Position.create(i + 1, 0))).length;
+                numberOfCharactersOnPreviousLines = numberOfCharactersOnPreviousLines + lengthOfLine;
             }
             lastTokenLine = scanner.getTokenStartLine();
         }
