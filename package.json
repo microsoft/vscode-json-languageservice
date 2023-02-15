@@ -17,18 +17,18 @@
   "devDependencies": {
     "@types/mocha": "^10.0.1",
     "@types/node": "16.x",
-    "@typescript-eslint/eslint-plugin": "^5.48.2",
-    "@typescript-eslint/parser": "^5.48.2",
-    "eslint": "^8.32.0",
+    "@typescript-eslint/eslint-plugin": "^5.52.0",
+    "@typescript-eslint/parser": "^5.52.0",
+    "eslint": "^8.34.0",
     "json-schema-test-suite": "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git#69acf52990b004240839ae19b4bec8fb01d50876",
     "mocha": "^10.2.0",
-    "rimraf": "^4.1.1",
-    "typescript": "^4.9.4"
+    "rimraf": "^4.1.2",
+    "typescript": "^4.9.5"
   },
   "dependencies": {
     "jsonc-parser": "^3.2.0",
     "vscode-languageserver-textdocument": "^1.0.8",
-    "vscode-languageserver-types": "^3.17.2",
+    "vscode-languageserver-types": "^3.17.3",
     "vscode-uri": "^3.0.7",
     "@vscode/l10n": "^0.0.11"
   },
