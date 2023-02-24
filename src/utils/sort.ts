@@ -16,6 +16,7 @@ export function sort(documentToSort: TextDocument, formattingOptions: SortOption
     };
     const formattedJsonString: string = TextDocument.applyEdits(documentToSort, format(documentToSort, options, undefined));
     const formattedJsonDocument = TextDocument.create('test://test.json', 'json', 0, formattedJsonString);
+    console.log('formattedJSONDocument: ', formattedJsonDocument.getText());
     const jsonPropertyTree: PropertyTree = findJsoncPropertyTree(formattedJsonDocument);
     const sortedJsonDocument = sortJsoncDocument(formattedJsonDocument, jsonPropertyTree);
     const edits: TextEdit[] = format(sortedJsonDocument, options, undefined);
@@ -157,6 +158,7 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
                     childProperty.noKeyName = true;
                     lastProperty = currentProperty;
                     currentProperty = currentTree!.addChildProperty(childProperty);
+                    currentTree = currentProperty;
                 }
 
                 currentContainerStack.push(Container.Array);

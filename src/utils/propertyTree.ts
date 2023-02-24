@@ -57,9 +57,11 @@ export class PropertyTree {
 }
 
 function compareProperties(propertyTree1: PropertyTree, propertyTree2: PropertyTree) {
-    if (propertyTree1.propertyName < propertyTree2.propertyName) {
+    const propertyName1 = propertyTree1.propertyName.toLowerCase();
+    const propertyName2 = propertyTree2.propertyName.toLowerCase();
+    if (propertyName1 < propertyName2) {
         return -1;
-    } else if (propertyTree1.propertyName > propertyTree2.propertyName) {
+    } else if (propertyName1 > propertyName2) {
         return 1;
     }
     return 0;
