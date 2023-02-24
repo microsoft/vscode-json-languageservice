@@ -16,7 +16,6 @@ export function sort(documentToSort: TextDocument, formattingOptions: SortOption
     };
     const formattedJsonString: string = TextDocument.applyEdits(documentToSort, format(documentToSort, options, undefined));
     const formattedJsonDocument = TextDocument.create('test://test.json', 'json', 0, formattedJsonString);
-    console.log('formattedJSONDocument: ', formattedJsonDocument.getText());
     const jsonPropertyTree: PropertyTree = findJsoncPropertyTree(formattedJsonDocument);
     const sortedJsonDocument = sortJsoncDocument(formattedJsonDocument, jsonPropertyTree);
     const edits: TextEdit[] = format(sortedJsonDocument, options, undefined);
@@ -68,14 +67,6 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
     let updateBeginningLineNumber: boolean = false;
 
     while ((token = scanner.scan()) !== SyntaxKind.EOF) {
-
-        // if (token !== SyntaxKind.LineBreakTrivia
-        //    && token !== SyntaxKind.Trivia) {
-        //    console.log('\n');
-        //    console.log('token: ', token);
-        //    console.log('token value : ', scanner.getTokenValue());
-        //    console.log('token start line : ', scanner.getTokenStartLine());
-        // }
 
         // In the case when a block comment has been encountered that starts on the same line as the comma ending a property, update the end line of that
         // property so that it covers the block comment. For example, if we have: 
@@ -359,7 +350,6 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
 
 function sortJsoncDocument(jsonDocument: TextDocument, propertyTree: PropertyTree) {
 
-    console.log('sorting the JSONC document');
     if (propertyTree.childrenProperties.length === 0) {
         return jsonDocument;
     }
@@ -371,15 +361,12 @@ function sortJsoncDocument(jsonDocument: TextDocument, propertyTree: PropertyTre
     while (queueToSort.length > 0) {
 
         const dataToSort = queueToSort.shift();
-        console.log('dataToSort: ', dataToSort);
         const propertyTreeArray: PropertyTree[] = dataToSort!.propertyTreeArray;
         let beginningLineNumber = dataToSort!.beginningLineNumber;
 
         for (let i = 0; i < propertyTreeArray.length; i++) {
 
             const propertyTree = propertyTreeArray[i];
-            console.log('propertyTree.propertyName : ', propertyTree.propertyName);
-            console.log('propertyTree.beginningLineNumber : ', propertyTree.beginningLineNumber);
             const range: Range = Range.create(Position.create(propertyTree.beginningLineNumber!, 0), Position.create(propertyTree.endLineNumber! + 1, 0));
             const jsonContentToReplace = jsonDocument.getText(range);
             const jsonDocumentToReplace = TextDocument.create('test://test.json', 'json', 0, jsonContentToReplace);
@@ -402,16 +389,12 @@ function sortJsoncDocument(jsonDocument: TextDocument, propertyTree: PropertyTre
                 };
                 TextDocument.update(jsonDocumentToReplace, [edit], 1);
             }
-            console.log('jsonDocumentToReplace.getText() : ', jsonDocumentToReplace.getText());
-            console.log('beginningLineNumber : ', beginningLineNumber);
             const length = propertyTree.endLineNumber! - propertyTree.beginningLineNumber! + 1;
-            console.log('length : ', length);
             const edit: TextDocumentContentChangeEvent = {
                 range: Range.create(Position.create(beginningLineNumber, 0), Position.create(beginningLineNumber + length, 0)),
                 text: jsonDocumentToReplace.getText()
             };
             TextDocument.update(sortedJsonDocument, [edit], 1);
-            console.log('sortedJSONDocument : ', sortedJsonDocument);
             updateSortingQueue(queueToSort, propertyTree, beginningLineNumber);
             beginningLineNumber = beginningLineNumber + length;
         }
@@ -420,11 +403,9 @@ function sortJsoncDocument(jsonDocument: TextDocument, propertyTree: PropertyTre
 }
 
 function updateSortingQueue(queue: any[], propertyTree: PropertyTree, beginningLineNumber: number) {
-    console.log('Inside of updateSortingQueue');
     if (propertyTree.childrenProperties.length === 0) {
         return;
     }
-    console.log('propertyTree.beginningLineNumber ', propertyTree.beginningLineNumber);
     if (propertyTree.type === Container.Object) {
         let minimumBeginningLineNumber = Infinity;
         for (const childProperty of propertyTree.childrenProperties) {
@@ -444,8 +425,6 @@ function updateSortingQueue(queue: any[], propertyTree: PropertyTree, beginningL
 
 function updateSortingQueueForArrayProperties(queue: any[], propertyTree: PropertyTree, beginningLineNumber: number) {
     for (const subObject of propertyTree.childrenProperties) {
-        console.log('subObject : ', subObject);
-
         // If the child property of the array is an object, then you can sort the properties within this object
         if (subObject.type === Container.Object) {
             let minimumBeginningLineNumber = Infinity;
@@ -455,17 +434,11 @@ function updateSortingQueueForArrayProperties(queue: any[], propertyTree: Proper
                 }
             }
             const diff = minimumBeginningLineNumber - subObject.beginningLineNumber!;
-            console.log('diff : ', diff);
-            console.log('beginningLineNumber : ', beginningLineNumber);
-            console.log('propertyTree.beginningLineNumber! : ', propertyTree.beginningLineNumber!);
-            console.log('subObject.beginningLineNumber! : ', subObject.beginningLineNumber!);
-            console.log(beginningLineNumber + subObject.beginningLineNumber! - propertyTree.beginningLineNumber! + diff);
             queue.push(new SortingRange(beginningLineNumber + subObject.beginningLineNumber! - propertyTree.beginningLineNumber! + diff, subObject.childrenProperties));
         }
         // If the child property of the array is an array, then you need to recurse on the children properties, until you find an object to sort
         if (subObject.type === Container.Array) {
-            const modifiedBeginningLineNumber = beginningLineNumber + subObject.beginningLineNumber! - propertyTree.beginningLineNumber!; //  subObject.beginningLineNumber! - propertyTree.beginningLineNumber!;
-            updateSortingQueueForArrayProperties(queue, subObject, modifiedBeginningLineNumber);
+            updateSortingQueueForArrayProperties(queue, subObject, beginningLineNumber + subObject.beginningLineNumber! - propertyTree.beginningLineNumber!);
         }
     }
 }
