@@ -26,9 +26,7 @@
 			"runtimeArgs": [],
 			"env": {},
 			"sourceMaps": true,
-			"outFiles": [
-				"${workspaceRoot}/lib/umd/**/*.js"
-			],
+			"outFiles": [ "${workspaceRoot}/lib/umd/**/*.js" ],
 			"preLaunchTask": "npm: watch"
 		},
 		{
