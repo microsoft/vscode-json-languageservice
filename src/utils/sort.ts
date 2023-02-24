@@ -132,10 +132,6 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
                     lastProperty = currentProperty;
                     currentProperty = currentTree!.addChildProperty(childProperty);
                 }
-
-                // console.log('currentProperty: ', currentProperty);
-                // console.log('currentTree: ', currentTree);
-
                 break;
             }
 
@@ -168,10 +164,6 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
                 currentProperty!.type = Container.Array;
                 beginningLineNumber = scanner.getTokenStartLine();
                 beginningLineNumber++;
-
-                // console.log('currentProperty: ', currentProperty);
-                // console.log('currentTree: ', currentTree);
-
                 break;
             }
 
@@ -199,10 +191,6 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
                 currentTree = currentProperty;
                 beginningLineNumber = scanner.getTokenStartLine();
                 beginningLineNumber++;
-
-                // console.log('currentProperty: ', currentProperty);
-                // console.log('currentTree: ', currentTree);
-
                 break;
             }
 
@@ -227,10 +215,6 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
 
                 rootTree.endLineNumber = endLineNumber;
                 beginningLineNumber = endLineNumber + 1;
-
-                // console.log('currentProperty: ', currentProperty);
-                // console.log('currentTree: ', currentTree);
-
                 break;
             }
             case SyntaxKind.CloseBraceToken: {
@@ -255,10 +239,6 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
 
                 rootTree.endLineNumber = scanner.getTokenStartLine();
                 beginningLineNumber = endLineNumber + 1;
-
-                // console.log('currentProperty: ', currentProperty);
-                // console.log('currentTree: ', currentTree);
-
                 break;
             }
 
@@ -288,10 +268,6 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
                 }
 
                 beginningLineNumber = endLineNumber + 1;
-
-                // console.log('currentProperty: ', currentProperty);
-                // console.log('currentTree: ', currentTree);
-
                 break;
             }
 
@@ -325,9 +301,6 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
                     && lineOfLastNonTriviaNonCommentToken === scanner.getTokenStartLine()) {
                     updateBeginningLineNumber = true;
                 }
-
-                // console.log('currentProperty: ', currentProperty);
-                // console.log('currentTree: ', currentTree);
 
                 break;
             }
@@ -442,6 +415,7 @@ function updateSortingQueueForArrayProperties(queue: any[], propertyTree: Proper
         }
     }
 }
+
 class SortingRange {
     beginningLineNumber: number;
     propertyTreeArray: PropertyTree[];
