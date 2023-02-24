@@ -1,3 +1,7 @@
+5.3.1 / 2023-02-24
+================
+ * Fixing bugs in the sort feature
+
 5.3.0 / 2023-02-15
 ================
  * new API `LanguageService.sort` for sorting all properties in a JSON document
