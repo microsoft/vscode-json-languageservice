@@ -35,9 +35,7 @@
 			"request": "attach",
 			"port": 6004,
 			"sourceMaps": true,
-			"outFiles": [
-				"${workspaceRoot}/server/out/**/*.js"
-			]
+			"outFiles": [ "${workspaceRoot}/server/out/**/*.js" ]
 		}
 	]
 }
