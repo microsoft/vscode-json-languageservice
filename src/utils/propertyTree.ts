@@ -57,19 +57,24 @@ export class PropertyTree {
 }
 
 function compareProperties(propertyTree1: PropertyTree, propertyTree2: PropertyTree) {
-    if (propertyTree1.propertyName < propertyTree2.propertyName) {
+    const propertyName1 = propertyTree1.propertyName.toLowerCase();
+    const propertyName2 = propertyTree2.propertyName.toLowerCase();
+    if (propertyName1 < propertyName2) {
         return -1;
-    } else if (propertyTree1.propertyName > propertyTree2.propertyName) {
+    } else if (propertyName1 > propertyName2) {
         return 1;
     }
     return 0;
 }
 
 function binarySearchOnPropertyArray(propertyTreeArray: PropertyTree[], propertyTree: PropertyTree, compare_fn: (p1: PropertyTree, p2: PropertyTree) => number) {
-    if (propertyTree.propertyName < propertyTreeArray[0].propertyName) {
+    const propertyName = propertyTree.propertyName.toLowerCase();
+    const firstPropertyInArrayName = propertyTreeArray[0].propertyName.toLowerCase();
+    const lastPropertyInArrayName = propertyTreeArray[propertyTreeArray.length - 1].propertyName.toLowerCase();
+    if (propertyName < firstPropertyInArrayName) {
         return 0;
     }
-    if (propertyTree.propertyName > propertyTreeArray[propertyTreeArray.length - 1].propertyName) {
+    if (propertyName > lastPropertyInArrayName) {
         return propertyTreeArray.length;
     }
     let m = 0;

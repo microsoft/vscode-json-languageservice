@@ -1372,4 +1372,67 @@ suite('Sort JSON', () => {
 
         testSort(content, expected, formattingOptions);
     });
+
+    test('sorting a complicated JSONC object 6', () => {
+        const content = [
+            '{',
+            '    "tsImportSorter.configuration.groupRules": [',
+            '        [{ "builtin": true }, "^[@][^/]", {}],',
+            '        [',
+            '            "^@(/|$)",',
+            '            "^apis?(/|$)",',
+            '            "^assets(/|$)",',
+            '            "^components?(/|$)",',
+            '            "^pages?(/|$)",',
+            '            "^slices?(/|$)",',
+            '            "^store(/|$)",',
+            '            "^typings?(/|$)",',
+            '            "^utils(/|$)"',
+            '        ],',
+            '        { "flags": "named", "regex": "^[.]" },',
+            '        [{ "flags": "scripts" }, { "flags": "scripts", "regex": "[.]((css)|(less)|(scss))$" }]',
+            '    ]',
+            '}',
+        ].join('\n');
+
+        const expected = [
+            '{',
+            '  "tsImportSorter.configuration.groupRules": [',
+            '    [',
+            '      {',
+            '        "builtin": true',
+            '      },',
+            '      "^[@][^/]",',
+            '      {}',
+            '    ],',
+            '    [',
+            '      "^@(/|$)",',
+            '      "^apis?(/|$)",',
+            '      "^assets(/|$)",',
+            '      "^components?(/|$)",',
+            '      "^pages?(/|$)",',
+            '      "^slices?(/|$)",',
+            '      "^store(/|$)",',
+            '      "^typings?(/|$)",',
+            '      "^utils(/|$)"',
+            '    ],',
+            '    {',
+            '      "flags": "named",',
+            '      "regex": "^[.]"',
+            '    },',
+            '    [',
+            '      {',
+            '        "flags": "scripts"',
+            '      },',
+            '      {',
+            '        "flags": "scripts",',
+            '        "regex": "[.]((css)|(less)|(scss))$"',
+            '      }',
+            '    ]',
+            '  ]',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
 });

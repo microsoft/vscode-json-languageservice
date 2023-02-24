@@ -157,6 +157,7 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
                     childProperty.noKeyName = true;
                     lastProperty = currentProperty;
                     currentProperty = currentTree!.addChildProperty(childProperty);
+                    currentTree = currentProperty;
                 }
 
                 currentContainerStack.push(Container.Array);
@@ -391,7 +392,14 @@ function updateSortingQueue(queue: any[], propertyTree: PropertyTree, beginningL
         queue.push(new SortingRange(beginningLineNumber, propertyTree.childrenProperties));
 
     } else if (propertyTree.type === Container.Array) {
-        for (const subObject of propertyTree.childrenProperties) {
+        updateSortingQueueForArrayProperties(queue, propertyTree, beginningLineNumber);
+    }
+}
+
+function updateSortingQueueForArrayProperties(queue: any[], propertyTree: PropertyTree, beginningLineNumber: number) {
+    for (const subObject of propertyTree.childrenProperties) {
+        // If the child property of the array is an object, then you can sort the properties within this object
+        if (subObject.type === Container.Object) {
             let minimumBeginningLineNumber = Infinity;
             for (const childProperty of subObject.childrenProperties) {
                 if (childProperty.beginningLineNumber! < minimumBeginningLineNumber) {
@@ -400,6 +408,10 @@ function updateSortingQueue(queue: any[], propertyTree: PropertyTree, beginningL
             }
             const diff = minimumBeginningLineNumber - subObject.beginningLineNumber!;
             queue.push(new SortingRange(beginningLineNumber + subObject.beginningLineNumber! - propertyTree.beginningLineNumber! + diff, subObject.childrenProperties));
+        }
+        // If the child property of the array is an array, then you need to recurse on the children properties, until you find an object to sort
+        if (subObject.type === Container.Array) {
+            updateSortingQueueForArrayProperties(queue, subObject, beginningLineNumber + subObject.beginningLineNumber! - propertyTree.beginningLineNumber!);
         }
     }
 }
