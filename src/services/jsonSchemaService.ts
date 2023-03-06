@@ -100,8 +100,12 @@ class FilePatternAssociation {
 					});
 				}
 			};
-			if (folderUri && !folderUri.endsWith('/')) {
-				this.folderUri = folderUri + '/';
+			if (folderUri) {
+				folderUri = normalizeResourceForMatching(folderUri);
+				if (!folderUri.endsWith('/')) {
+					folderUri = folderUri + '/';
+				}
+				this.folderUri = folderUri;
 			}
 		} catch (e) {
 			this.globWrappers.length = 0;

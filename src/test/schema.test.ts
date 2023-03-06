@@ -1231,6 +1231,28 @@ suite('JSON Schema', () => {
 		assertMatchingSchemas(ls, positives, negatives);
 	});
 
+	test('Schema matching with encoding in folder URI', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo.json'], folderUri: 'file:///C%3A/parent/folder1/', schema: { type: 'object', required: ['foo'] } }] });
+
+		const positives = ['file:///C%3A/parent/folder1/foo.json', 'file:///C:/parent/folder1/foo.json', 'file:///c:/parent/folder1/foo.json'];
+		const negatives = ['file:///d:/parent/folder1/foo.json'];
+
+		assertMatchingSchemas(ls, positives, negatives);
+	});
+
+	test('Schema matching with encoding in folder URI 2', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo.json'], folderUri: 'file:///C:/parent/folder1/', schema: { type: 'object', required: ['foo'] } }] });
+
+		const positives = ['file:///C%3A/parent/folder1/foo.json', 'file:///C:/parent/folder1/foo.json', 'file:///c:/parent/folder1/foo.json'];
+		const negatives = ['file:///d:/parent/folder1/foo.json'];
+
+		assertMatchingSchemas(ls, positives, negatives);
+	});
+
 
 	test('Resolving circular $refs', async function () {
 
