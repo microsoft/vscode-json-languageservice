@@ -28,6 +28,7 @@ import {
 } from './jsonLanguageTypes';
 import { findLinks } from './services/jsonLinks';
 import { DocumentLink } from 'vscode-languageserver-types';
+import { ValidationResult } from './parser/jsonParser';
 
 export type JSONDocument = {
 	root: ASTNode | undefined;
@@ -35,11 +36,11 @@ export type JSONDocument = {
 };
 export * from './jsonLanguageTypes';
 
-export { ValidationResult }from './parser/jsonParser';
+export { ValidationResult };
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;
-	doValidation(document: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): Thenable<Diagnostic[]>;
+	doValidation(document: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema, validationResult?: ValidationResult): Thenable<Diagnostic[]>;
 	parseJSONDocument(document: TextDocument): JSONDocument;
 	newJSONDocument(rootNode: ASTNode, syntaxDiagnostics?: Diagnostic[]): JSONDocument;
 	resetSchema(uri: string): boolean;
