@@ -35,6 +35,8 @@ export type JSONDocument = {
 };
 export * from './jsonLanguageTypes';
 
+export { ValidationResult }from './parser/jsonParser';
+
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;
 	doValidation(document: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): Thenable<Diagnostic[]>;

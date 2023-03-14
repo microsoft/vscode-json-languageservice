@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { JSONSchemaService, ResolvedSchema, UnresolvedSchema } from './jsonSchemaService';
-import { JSONDocument } from '../parser/jsonParser';
+import { JSONDocument, ValidationResult } from '../parser/jsonParser';
 
 import { TextDocument, ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range, JSONLanguageStatus } from '../jsonLanguageTypes';
 import * as l10n from '@vscode/l10n';
@@ -32,7 +32,7 @@ export class JSONValidation {
 		}
 	}
 
-	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): Thenable<Diagnostic[]> {
+	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema, validationResult?: ValidationResult): Thenable<Diagnostic[]> {
 		if (!this.validationEnabled) {
 			return this.promise.resolve([]);
 		}
@@ -73,7 +73,7 @@ export class JSONValidation {
 					for (const warning of schema.warnings) {
 						addSchemaProblem(warning, ErrorCode.SchemaUnsupportedFeature);
 					}
-					const semanticErrors = jsonDocument.validate(textDocument, schema.schema, schemaValidation, documentSettings?.schemaDraft);
+					const semanticErrors = jsonDocument.validate(textDocument, schema.schema, schemaValidation, documentSettings?.schemaDraft, validationResult);
 					if (semanticErrors) {
 						semanticErrors.forEach(addProblem); 
 					}
