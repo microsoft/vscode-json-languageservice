@@ -247,6 +247,17 @@ export class ValidationResult {
 		this.enumValues = undefined;
 	}
 
+	addProblem(p: IProblem) {
+		this.problems.push(p);
+	}
+
+	addPropertyNotAllowed(propertyName: string, propertyNode: PropertyASTNode, defaultErrorMessage?: string) {
+		this.problems.push({
+			location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
+			message: defaultErrorMessage ?? l10n.t('Property {0} is not allowed.', propertyName)
+		});
+	}
+
 	public hasProblems(): boolean {
 		return !!this.problems.length;
 	}
@@ -347,9 +358,11 @@ export class JSONDocument {
 		}
 	}
 
-	public validate(textDocument: TextDocument, schema: JSONSchema | undefined, severity: DiagnosticSeverity = DiagnosticSeverity.Warning, schemaDraft?: SchemaDraft): Diagnostic[] | undefined {
+	public validate(textDocument: TextDocument, schema: JSONSchema | undefined, severity: DiagnosticSeverity = DiagnosticSeverity.Warning, schemaDraft?: SchemaDraft, validationResult?: ValidationResult): Diagnostic[] | undefined {
 		if (this.root && schema) {
-			const validationResult = new ValidationResult();
+			if (!validationResult) {
+				validationResult = new ValidationResult();
+			}
 			validate(this.root, schema, validationResult, NoOpSchemaCollector.instance, new EvaluationContext(schemaDraft ?? getSchemaDraft(schema)));
 			return validationResult.problems.map(p => {
 				const range = Range.create(textDocument.positionAt(p.location.offset), textDocument.positionAt(p.location.offset + p.location.length));
@@ -904,10 +917,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 					if (isBoolean(propertySchema)) {
 						if (!propertySchema) {
 							const propertyNode = <PropertyASTNode>child.parent;
-							validationResult.problems.push({
-								location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-								message: schema.errorMessage || l10n.t('Property {0} is not allowed.', propertyName)
-							});
+							validationResult.addPropertyNotAllowed(propertyName, propertyNode, schema.errorMessage);
 						} else {
 							validationResult.propertiesMatches++;
 							validationResult.propertiesValueMatches++;
@@ -936,10 +946,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 								if (isBoolean(propertySchema)) {
 									if (!propertySchema) {
 										const propertyNode = <PropertyASTNode>child.parent;
-										validationResult.problems.push({
-											location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-											message: schema.errorMessage || l10n.t('Property {0} is not allowed.', propertyName)
-										});
+										validationResult.addPropertyNotAllowed(propertyName, propertyNode, schema.errorMessage);
 									} else {
 										validationResult.propertiesMatches++;
 										validationResult.propertiesValueMatches++;
@@ -966,11 +973,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				if (child) {
 					if (additionalProperties === false) {
 						const propertyNode = <PropertyASTNode>child.parent;
-
-						validationResult.problems.push({
-							location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-							message: schema.errorMessage || l10n.t('Property {0} is not allowed.', propertyName)
-						});
+						validationResult.addPropertyNotAllowed(propertyName, propertyNode, schema.errorMessage);
 					} else if (additionalProperties !== true) {
 						const propertyValidationResult = new ValidationResult();
 						validate(child, additionalProperties, propertyValidationResult, matchingSchemas, context);
@@ -989,11 +992,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 					if (child) {
 						if (unevaluatedProperties === false) {
 							const propertyNode = <PropertyASTNode>child.parent;
-
-							validationResult.problems.push({
-								location: { offset: propertyNode.keyNode.offset, length: propertyNode.keyNode.length },
-								message: schema.errorMessage || l10n.t('Property {0} is not allowed.', propertyName)
-							});
+							validationResult.addPropertyNotAllowed(propertyName, propertyNode, schema.errorMessage);
 						} else if (unevaluatedProperties !== true) {
 							const propertyValidationResult = new ValidationResult();
 							validate(child, unevaluatedProperties, propertyValidationResult, matchingSchemas, context);
