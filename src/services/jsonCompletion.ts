@@ -113,6 +113,8 @@ export class JSONCompletion {
 					}
 					if (!existing.detail) {
 						existing.detail = suggestion.detail;
+						existing.labelDetails ??= {};
+						existing.labelDetails.description = suggestion.detail;
 					}
 				}
 			},
@@ -736,7 +738,7 @@ export class JSONCompletion {
 	}
 
 	private getInsertTextForPlainText(text: string): string {
-		return text.replace(/[\\\$\}]/g, '\\$&');   // escape $, \ and } 
+		return text.replace(/[\\\$\}]/g, '\\$&');   // escape $, \ and }
 	}
 
 	private getInsertTextForValue(value: any, separatorAfter: string): string {
