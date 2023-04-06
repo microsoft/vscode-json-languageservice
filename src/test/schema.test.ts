@@ -1037,6 +1037,53 @@ suite('JSON Schema', () => {
 
 	});
 
+	test('Clear specific Schema',async function(){
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		const id1 = 'http://myschemastore/test1';
+		const schema1: JSONSchema = {
+			type: 'object',
+			properties: {
+				child: {
+					type: 'number'
+				}
+			}
+		};
+
+		const id2 = 'http://myschemastore/test2';
+		const schema2: JSONSchema = {
+			type: 'object',
+			properties: {
+				child: {
+					type: 'string'
+				}
+			}
+		};
+
+		const id3 = 'http://myschemastore/test3';
+		const schema3: JSONSchema = {
+			type: 'object',
+			properties: {
+				child: {
+					type: 'boolean'
+				}
+			}
+		};
+
+		service.registerExternalSchema({ uri: id1, schema: schema1,fileMatch:['*.json'] });
+		service.registerExternalSchema({ uri: id2, schema: schema2,fileMatch:['*.json'] });
+		service.registerExternalSchema({ uri: id3, schema: schema3,fileMatch:['*.json'] });
+
+		let resolvedSchema = await service.getSchemaForResource('main.json');
+		assert.deepStrictEqual(resolvedSchema?.errors, []);
+		assert.strictEqual(3, resolvedSchema?.schema.allOf?.length);
+		service.clearExternalSchema(id1);
+		
+		resolvedSchema = await service.getSchemaForResource('main.json');
+		assert.deepStrictEqual(resolvedSchema?.errors, []);
+		assert.strictEqual(2, resolvedSchema?.schema.allOf?.length);
+
+	});
+
 	test('Schema contributions', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 
@@ -1973,6 +2020,64 @@ suite('JSON Schema', () => {
 			const info = ls.getLanguageStatus(textDoc, jsonDoc);
 			assert.deepStrictEqual(info.schemas, ['foo://bar/folder/schema3.json']);
 		}
+
+	});
+
+	test('Validation on Multiple Schemas',async function(){
+			const id1 = 'http://myschemastore/test1';
+			const schema1: JSONSchema = {
+				type: 'object',
+				properties: {
+					foo: {
+						type: 'number'
+					}
+				},
+				required:['foo']
+			};
+	
+			const id2 = 'http://myschemastore/test2';
+			const schema2: JSONSchema = {
+				type: 'object',
+				properties: {
+					bar: {
+						type: 'number'
+					}
+				},
+				required:['bar']
+			};
+	
+			const id3 = 'http://myschemastore/test3';
+			const schema3: JSONSchema = {
+				type: 'object',
+				properties: {
+					foobar: {
+						type: 'number'
+					}
+				},
+				required:['foobar']
+			};
+
+			const testDoc = toDocument(JSON.stringify({}),{},'main.json');
+
+			const ls = getLanguageService({ workspaceContext });
+			ls.registerExternalSchema({ uri: id1, schema: schema1,fileMatch:['*.json'] });
+			ls.registerExternalSchema({ uri: id2, schema: schema2,fileMatch:['*.json'] });
+			ls.registerExternalSchema({ uri: id3, schema: schema3,fileMatch:['*.json'] });
+			
+			let validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
+			assert.deepStrictEqual(validation.length, 3);
+			assert.deepStrictEqual(validation.map(v => v.message), ['Missing property "foo".','Missing property "bar".','Missing property "foobar".']);
+			
+			ls.clearExternalSchema(id1);
+			validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
+			assert.deepStrictEqual(validation.length, 2);
+			assert.deepStrictEqual(validation.map(v => v.message), ['Missing property "bar".','Missing property "foobar".']);
+			
+			ls.clearExternalSchema(id2);
+			ls.clearExternalSchema(id3);
+			validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
+			assert.deepStrictEqual(validation.length, 0);
+			assert.deepStrictEqual(validation.map(v => v.message), []);
 
 	});
 
