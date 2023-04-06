@@ -80,7 +80,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		},
 		resetSchema: (uri: string) => jsonSchemaService.onResourceChange(uri),
 		registerExternalSchema: jsonSchemaService.registerExternalSchema.bind(jsonSchemaService),
-    	clearExternalSchema: jsonSchemaService.clearExternalSchema.bind(jsonSchemaService),
+    		clearExternalSchema: jsonSchemaService.clearExternalSchema.bind(jsonSchemaService),
 		doValidation: jsonValidation.doValidation.bind(jsonValidation),
 		getLanguageStatus: jsonValidation.getLanguageStatus.bind(jsonValidation),
 		parseJSONDocument: (document: TextDocument) => parseJSON(document, { collectComments: true }),
