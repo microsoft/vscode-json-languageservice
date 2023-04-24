@@ -27,6 +27,7 @@ export class JSONCompletion {
 
 	private supportsMarkdown: boolean | undefined;
 	private supportsCommitCharacters: boolean | undefined;
+	private labelDetailsSupport: boolean | undefined;
 
 	constructor(
 		private schemaService: SchemaService.IJSONSchemaService,
@@ -113,6 +114,9 @@ export class JSONCompletion {
 					}
 					if (!existing.detail) {
 						existing.detail = suggestion.detail;
+					}
+					if (!existing.labelDetails) {
+						existing.labelDetails = suggestion.labelDetails;
 					}
 				}
 			},
@@ -560,13 +564,18 @@ export class JSONCompletion {
 				value = [value];
 				type = 'array';
 			}
-			collector.add({
+			const completionItem : CompletionItem = {
 				kind: this.getSuggestionKind(type),
 				label: this.getLabelForValue(value),
 				insertText: this.getInsertTextForValue(value, separatorAfter),
-				insertTextFormat: InsertTextFormat.Snippet,
-				detail: l10n.t('Default value')
-			});
+				insertTextFormat: InsertTextFormat.Snippet
+			};
+			if (this.doesSupportsLabelDetails()) {
+				completionItem.labelDetails = { detail: l10n.t('Default value')};
+			} else {
+				completionItem.detail = l10n.t('Default value');
+			}
+			collector.add(completionItem);
 			hasProposals = true;
 		}
 		if (Array.isArray(schema.examples)) {
@@ -985,18 +994,22 @@ export class JSONCompletion {
 
 	private doesSupportMarkdown() {
 		if (!isDefined(this.supportsMarkdown)) {
-			const completion = this.clientCapabilities.textDocument && this.clientCapabilities.textDocument.completion;
-			this.supportsMarkdown = completion && completion.completionItem && Array.isArray(completion.completionItem.documentationFormat) && completion.completionItem.documentationFormat.indexOf(MarkupKind.Markdown) !== -1;
+			const documentationFormat = this.clientCapabilities.textDocument?.completion?.completionItem?.documentationFormat;
+			this.supportsMarkdown = Array.isArray(documentationFormat) && documentationFormat.indexOf(MarkupKind.Markdown) !== -1;
 		}
 		return this.supportsMarkdown;
 	}
 
 	private doesSupportsCommitCharacters() {
 		if (!isDefined(this.supportsCommitCharacters)) {
-			const completion = this.clientCapabilities.textDocument && this.clientCapabilities.textDocument.completion;
-			this.supportsCommitCharacters = completion && completion.completionItem && !!completion.completionItem.commitCharactersSupport;
-		}
+			this.labelDetailsSupport = this.clientCapabilities.textDocument?.completion?.completionItem?.commitCharactersSupport;		}
 		return this.supportsCommitCharacters;
+	}
+	private doesSupportsLabelDetails() {
+		if (!isDefined(this.labelDetailsSupport)) {
+			this.labelDetailsSupport = this.clientCapabilities.textDocument?.completion?.completionItem?.labelDetailsSupport;
+		}
+		return this.labelDetailsSupport;
 	}
 
 }
