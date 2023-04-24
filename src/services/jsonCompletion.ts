@@ -444,13 +444,25 @@ export class JSONCompletion {
 			for (const s of matchingSchemas) {
 				if (s.node === node && !s.inverted && s.schema) {
 					if (node.type === 'array' && s.schema.items) {
+						const arrayValues: any[] = Parser.getNodeValue(node);
+						const self = this;
+						const filteringCollector: CompletionsCollector = {
+							...collector,
+							add(suggestion) {
+								const value = self.getValueFromLabel(suggestion.label);
+								if (s.schema.uniqueItems === true && arrayValues.includes(value)) {
+									return;
+								}
+								collector.add(suggestion);
+							},
+						};
 						if (Array.isArray(s.schema.items)) {
 							const index = this.findItemAtOffset(node, document, offset);
 							if (index < s.schema.items.length) {
-								this.addSchemaValueCompletions(s.schema.items[index], separatorAfter, collector, types);
+								this.addSchemaValueCompletions(s.schema.items[index], separatorAfter, filteringCollector, types);
 							}
 						} else {
-							this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types);
+							this.addSchemaValueCompletions(s.schema.items, separatorAfter, filteringCollector, types);
 						}
 					}
 					if (parentKey !== undefined) {
@@ -722,6 +734,10 @@ export class JSONCompletion {
 		return JSON.stringify(value);
 	}
 
+	private getValueFromLabel(value: any): string {
+		return JSON.parse(value);
+	}
+
 	private getFilterTextForValue(value: any): string {
 		return JSON.stringify(value);
 	}
@@ -736,7 +752,7 @@ export class JSONCompletion {
 	}
 
 	private getInsertTextForPlainText(text: string): string {
-		return text.replace(/[\\\$\}]/g, '\\$&');   // escape $, \ and } 
+		return text.replace(/[\\\$\}]/g, '\\$&');   // escape $, \ and }
 	}
 
 	private getInsertTextForValue(value: any, separatorAfter: string): string {

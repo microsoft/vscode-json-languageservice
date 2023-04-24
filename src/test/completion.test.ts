@@ -456,6 +456,28 @@ suite('JSON Completion', () => {
 		});
 	});
 
+	test('Complete array value with schema (uniqueItems)', async function () {
+
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'c': {
+					type: 'array',
+					uniqueItems: true,
+					items: {
+						type: 'number',
+						enum: [1, 2],
+					}
+				}
+			}
+		};
+		await testCompletionsFor('{ "c": [ 1, | ] }', schema, {
+			items: [
+				{ label: '2', resultText: '{ "c": [ 1, 2 ] }' }
+			]
+		});
+	});
+
 	test('Complete array value with schema 2', async function () {
 
 		const schema: JSONSchema = {
