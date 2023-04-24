@@ -301,7 +301,13 @@ export interface ClientCapabilities {
 				/**
 				 * The client supports commit characters on a completion item.
 				 */
-				commitCharactersSupport?: boolean
+				commitCharactersSupport?: boolean;
+				
+				/**
+				 * The client has support for completion item label
+				 * details (see also `CompletionItemLabelDetails`).
+				 */
+				labelDetailsSupport?: boolean;
 			};
 
 		};
@@ -324,7 +330,8 @@ export namespace ClientCapabilities {
 			completion: {
 				completionItem: {
 					documentationFormat: [MarkupKind.Markdown, MarkupKind.PlainText],
-					commitCharactersSupport: true
+					commitCharactersSupport: true,
+					labelDetailsSupport: true
 				}
 			}
 		}

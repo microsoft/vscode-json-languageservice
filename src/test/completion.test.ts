@@ -7,12 +7,14 @@ import * as assert from 'assert';
 
 import { getLanguageService, JSONSchema, TextDocument, ClientCapabilities, CompletionList, CompletionItemKind, Position, MarkupContent, TextEdit } from '../jsonLanguageService';
 import { repeat } from '../utils/strings';
+import { CompletionItemLabelDetails } from 'vscode-languageserver-types';
 
 const applyEdits = TextDocument.applyEdits;
 
 interface ItemDescription {
 	label: string;
 	detail?: string;
+	labelDetails?: CompletionItemLabelDetails;
 	documentation?: string | MarkupContent;
 	kind?: CompletionItemKind;
 	resultText?: string;
@@ -32,6 +34,9 @@ const assertCompletion = function (completions: CompletionList, expected: ItemDe
 	const match = matches[0];
 	if (expected.detail !== undefined) {
 		assert.equal(match.detail, expected.detail);
+	}
+	if (expected.labelDetails !== undefined) {
+		assert.deepEqual(match.labelDetails, expected.labelDetails);
 	}
 	if (expected.documentation !== undefined) {
 		assert.deepEqual(match.documentation, expected.documentation);
@@ -954,8 +959,8 @@ suite('JSON Completion', () => {
 
 		await testCompletionsFor('{ "prop": | }', schema, {
 			items: [
-				{ label: '"green"', resultText: '{ "prop": "green" }', detail: undefined },
-				{ label: '"red"', resultText: '{ "prop": "red" }', detail: 'Default value' },
+				{ label: '"green"', resultText: '{ "prop": "green" }', labelDetails: undefined },
+				{ label: '"red"', resultText: '{ "prop": "red" }', labelDetails: { detail: 'Default value' } },
 			],
 			count: 2
 		});
