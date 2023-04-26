@@ -982,7 +982,7 @@ suite('JSON Completion', () => {
 		await testCompletionsFor('{ "prop": | }', schema, {
 			items: [
 				{ label: '"green"', resultText: '{ "prop": "green" }', labelDetails: undefined },
-				{ label: '"red"', resultText: '{ "prop": "red" }', labelDetails: { detail: 'Default value' } },
+				{ label: '"red"', resultText: '{ "prop": "red" }', labelDetails: { description: 'Default value' } },
 			],
 			count: 2
 		});
