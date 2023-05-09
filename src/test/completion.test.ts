@@ -471,14 +471,39 @@ suite('JSON Completion', () => {
 					uniqueItems: true,
 					items: {
 						type: 'number',
-						enum: [1, 2],
+						enum: [1, 2, "hello", "world"],
 					}
 				}
 			}
 		};
-		await testCompletionsFor('{ "c": [ 1, | ] }', schema, {
+		await testCompletionsFor('{ "c": [ 1, "hello", | ] }', schema, {
 			items: [
-				{ label: '2', resultText: '{ "c": [ 1, 2 ] }' }
+				{ label: '2', resultText: '{ "c": [ 1, "hello", 2 ] }' },
+				{ label: '"world"', resultText: '{ "c": [ 1, "hello", "world" ] }' },
+				{ notAvailable: true, label: '1' },
+				{ notAvailable: true, label: "hello" }
+			]
+		});
+	});
+	test('Complete array value with schema (uniqueItems) 2', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'c': {
+					type: 'array',
+					uniqueItems: true,
+					items: {
+						default: 1,
+						defaultSnippets: [{ body: "world" }, { body: "hello" }]
+					}
+				}
+			}
+		};
+		await testCompletionsFor('{ "c": [ 1, "hello", | ] }', schema, {
+			items: [
+				{ label: '"world"', resultText: '{ "c": [ 1, "hello", "world" ] }' },
+				{ notAvailable: true, label: '1' },
+				{ notAvailable: true, label: "hello" }
 			]
 		});
 	});
