@@ -494,7 +494,7 @@ suite('JSON Completion', () => {
 					uniqueItems: true,
 					items: {
 						default: 1,
-						defaultSnippets: [{ body: "world" }, { body: "hello" }]
+						defaultSnippets: [{ body: "world" }, { label: "new item", "description": "", body: "hello" }]
 					}
 				}
 			}
