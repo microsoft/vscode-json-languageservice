@@ -14,8 +14,10 @@ export interface JSONWorkerContribution {
 export type Segment = string | number;
 export type JSONPath = Segment[];
 
+export type JSONCompletionItem = CompletionItem & { insertText: string };
+
 export interface CompletionsCollector {
-	add(suggestion: CompletionItem): void;
+	add(suggestion: JSONCompletionItem & { insertText: string}): void;
 	error(message: string): void;
 	setAsIncomplete(): void;
 	getNumberOfProposals(): number;
