@@ -1245,7 +1245,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 		if (!key) {
 			if (scanner.getToken() === Json.SyntaxKind.Unknown) {
 				// give a more helpful error message
-				_error(l10n.t('Property keys must be doublequoted'), ErrorCode.Undefined);
+				_error(l10n.t('Property keys must be doublequoted'), ErrorCode.PropertyKeysMustBeDoublequoted);
 				const keyNode = new StringASTNodeImpl(node, scanner.getTokenOffset(), scanner.getTokenLength());
 				keyNode.value = scanner.getTokenValue();
 				key = keyNode;
