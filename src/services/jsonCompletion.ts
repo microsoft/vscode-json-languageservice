@@ -87,26 +87,17 @@ export class JSONCompletion {
 
 		const proposed = new Map<string, CompletionItem>();
 		let insertPrevEdit: { nodeAfter: ASTNode, char: string } | undefined;
-		const currentPropKey = node?.type === 'property' ? node.keyNode : undefined;
-		if (currentPropKey && offset > currentPropKey.offset + currentPropKey.length) {
-			if (this.insertColonAfterProperty(document, currentPropKey)) {
+		const prevNodeForComma = this.getPreviousNode(node, document, offset);
+		if (prevNodeForComma) {
+			const prevNodeEnd = prevNodeForComma.offset + prevNodeForComma.length;
+			if (prevNodeEnd < offset && this.evaluateSeparatorAfter(document, prevNodeEnd, offset) === ',') {
 				insertPrevEdit = {
-					nodeAfter: currentPropKey,
-					char: ':',
+					nodeAfter: prevNodeForComma,
+					char: ',',
 				};
 			}
-		} else {
-			const prevNodeForComma = this.getPreviousNode(node, document, offset);
-			if (prevNodeForComma) {
-				const prevNodeEnd = prevNodeForComma.offset + prevNodeForComma.length;
-				if (prevNodeEnd < offset && this.evaluateSeparatorAfter(document, prevNodeEnd, offset) === ',') {
-					insertPrevEdit = {
-						nodeAfter: prevNodeForComma,
-						char: ',',
-					};
-				}
-			}
 		}
+
 		const collector: CompletionsCollector = {
 			add: (suggestion: CompletionItem) => {
 				let label = suggestion.label;
@@ -962,13 +953,6 @@ export class JSONCompletion {
 			default:
 				return ',';
 		}
-	}
-
-	private insertColonAfterProperty(document: TextDocument, node: StringASTNode) {
-		const scanner = Json.createScanner(document.getText(), true);
-		scanner.setPosition(node.offset + node.length);
-		const token = scanner.scan();
-		return token !== Json.SyntaxKind.ColonToken;
 	}
 
 	private findItemAtOffset(node: ArrayASTNode, document: TextDocument, offset: number) {

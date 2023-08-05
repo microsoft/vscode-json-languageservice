@@ -589,7 +589,7 @@ suite('JSON Completion', () => {
 		});
 	});
 
-	test('Insert comma or colon before', async function () {
+	test('Insert comma before', async function () {
 
 		const schema: JSONSchema = {
 			type: 'object',
@@ -606,7 +606,7 @@ suite('JSON Completion', () => {
 				c: {}
 			}
 		};
-		// isnert comma
+		// insert comma
 		await testCompletionsFor('{ "a": [] | }', schema, {
 			count: 2,
 			items: [
@@ -625,11 +625,11 @@ suite('JSON Completion', () => {
 				{ label: 'c', resultText: '{ "a": [], "c" }' },
 			]
 		});
-		// check only colon
+		// probably only colon should be inserted
 		await testCompletionsFor('{ "c": "" "a": | }', schema, {
 			count: 1,
 			items: [
-				{ label: '[]', resultText: '{ "c": "" "a": [$1] }' },
+				{ label: '[]', resultText: '{ "c": "", "a": [$1] }' },
 			]
 		});
 
@@ -647,26 +647,17 @@ suite('JSON Completion', () => {
 			]
 		});
 
-		// insert colon
 
-		// maybe insert comma as well?
 		await testCompletionsFor('{ "c": "" "a" | }', schema, {
 			count: 1,
 			items: [
-				{ label: '[]', resultText: '{ "c": "" "a": [$1] }' },
+				{ label: '[]', resultText: '{ "c": "", "a" [$1] }' },
 			]
 		});
 		await testCompletionsFor('{ "c": "", "a" | }', schema, {
 			count: 1,
 			items: [
-				{ label: '[]', resultText: '{ "c": "", "a": [$1] }' },
-			]
-		});
-		// but it doesn't insert when in string node
-		await testCompletionsFor('{ "a": "", "b" t| }', schema, {
-			count: 2,
-			items: [
-				{ label: 'true', resultText: '{ "a": "", "b": true }' },
+				{ label: '[]', resultText: '{ "c": "", "a" [$1] }' },
 			]
 		});
 	});
