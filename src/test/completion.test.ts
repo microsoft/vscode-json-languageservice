@@ -1078,7 +1078,9 @@ suite('JSON Completion', () => {
 		});
 		await testCompletionsFor('{ "$schema": | }', schema, {
 			items: [
-				{ label: '"http://myschemastore/test1"', resultText: '{ "$schema": "http://myschemastore/test1" }' }
+				{ label: '"http://myschemastore/test1"', resultText: '{ "$schema": "http://myschemastore/test1" }' },
+				{ label: '"http://json-schema.org/draft-04/schema#"', resultText: '{ "$schema": "http://json-schema.org/draft-04/schema#" }' },
+				{ label: '"http://json-schema.org/draft-07/schema#"', resultText: '{ "$schema": "http://json-schema.org/draft-07/schema#" }' }
 			]
 		});
 		await testCompletionsFor('{ "$schema": "|', schema, {
