@@ -733,13 +733,18 @@ export class JSONCompletion {
 
 	private addDollarSchemaCompletions(separatorAfter: string, collector: CompletionsCollector): void {
 		const schemaIds = this.schemaService.getRegisteredSchemaIds(schema => schema === 'http' || schema === 'https');
-		schemaIds.forEach(schemaId => collector.add({
-			kind: CompletionItemKind.Module,
-			label: this.getLabelForValue(schemaId),
-			filterText: this.getFilterTextForValue(schemaId),
-			insertText: this.getInsertTextForValue(schemaId, separatorAfter),
-			insertTextFormat: InsertTextFormat.Snippet, documentation: ''
-		}));
+		schemaIds.forEach(schemaId => {
+			if (schemaId.startsWith('http://json-schema.org/draft-')) {
+				schemaId = schemaId + '#';
+			}
+			collector.add({
+				kind: CompletionItemKind.Module,
+				label: this.getLabelForValue(schemaId),
+				filterText: this.getFilterTextForValue(schemaId),
+				insertText: this.getInsertTextForValue(schemaId, separatorAfter),
+				insertTextFormat: InsertTextFormat.Snippet, documentation: ''
+			});
+		});
 	}
 
 	private getLabelForValue(value: any): string {
