@@ -22,6 +22,11 @@ export interface IJSONSchemaService {
 	registerExternalSchema(config: SchemaConfiguration): ISchemaHandle;
 
 	/**
+	 * Clear a secific schema
+	 */
+	clearExternalSchema(uri:string): void;
+
+	/**
 	 * Clears all cached schema files
 	 */
 	clearExternalSchemas(): void;
@@ -360,6 +365,18 @@ export class JSONSchemaService implements IJSONSchemaService {
 		}
 		return config.schema ? this.addSchemaHandle(id, config.schema) : this.getOrAddSchemaHandle(id);
 	}
+
+	public clearExternalSchema(uri: string): void {
+		const normalizedUri = normalizeId(uri);
+		if (this.schemasById[normalizedUri] && this.registeredSchemasIds[normalizedUri]) {
+			delete this.schemasById[normalizedUri];
+			delete this.registeredSchemasIds[normalizedUri];
+			this.filePatternAssociations = this.filePatternAssociations.filter(
+		  		(association) => !association.getURIs().includes(normalizedUri)
+			);
+			this.cachedSchemaForResource = undefined;
+		}
+	  }
 
 	public clearExternalSchemas(): void {
 		this.schemasById = {};

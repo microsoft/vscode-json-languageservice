@@ -10,7 +10,7 @@ import { JSONValidation } from './services/jsonValidation';
 import { JSONDocumentSymbols } from './services/jsonDocumentSymbols';
 import { parse as parseJSON, newJSONDocument } from './parser/jsonParser';
 import { schemaContributions } from './services/configuration';
-import { JSONSchemaService } from './services/jsonSchemaService';
+import { ISchemaHandle, JSONSchemaService } from './services/jsonSchemaService';
 import { getFoldingRanges } from './services/jsonFolding';
 import { getSelectionRanges } from './services/jsonSelectionRanges';
 import { sort } from './utils/sort';
@@ -24,7 +24,7 @@ import {
 	FoldingRange, JSONSchema, SelectionRange, FoldingRangesContext, DocumentSymbolsContext, ColorInformationContext as DocumentColorsContext,
 	TextDocument,
 	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
-	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink, MatchingSchema, JSONLanguageStatus, SortOptions
+	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink, MatchingSchema, JSONLanguageStatus, SortOptions, SchemaConfiguration
 } from './jsonLanguageTypes';
 import { findLinks } from './services/jsonLinks';
 import { DocumentLink } from 'vscode-languageserver-types';
@@ -41,6 +41,8 @@ export interface LanguageService {
 	parseJSONDocument(document: TextDocument): JSONDocument;
 	newJSONDocument(rootNode: ASTNode, syntaxDiagnostics?: Diagnostic[]): JSONDocument;
 	resetSchema(uri: string): boolean;
+	registerExternalSchema(config: SchemaConfiguration): ISchemaHandle;
+	clearExternalSchema(uri:string): void;
 	getMatchingSchemas(document: TextDocument, jsonDocument: JSONDocument, schema?: JSONSchema): Thenable<MatchingSchema[]>;
 	getLanguageStatus(document: TextDocument, jsonDocument: JSONDocument): JSONLanguageStatus;
 	doResolve(item: CompletionItem): Thenable<CompletionItem>;
@@ -77,6 +79,8 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 			jsonValidation.configure(settings);
 		},
 		resetSchema: (uri: string) => jsonSchemaService.onResourceChange(uri),
+		registerExternalSchema: jsonSchemaService.registerExternalSchema.bind(jsonSchemaService),
+    		clearExternalSchema: jsonSchemaService.clearExternalSchema.bind(jsonSchemaService),
 		doValidation: jsonValidation.doValidation.bind(jsonValidation),
 		getLanguageStatus: jsonValidation.getLanguageStatus.bind(jsonValidation),
 		parseJSONDocument: (document: TextDocument) => parseJSON(document, { collectComments: true }),
