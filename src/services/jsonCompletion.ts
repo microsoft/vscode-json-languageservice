@@ -225,6 +225,9 @@ export class JSONCompletion {
 	private getPropertyCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: ASTNode, addValue: boolean, separatorAfter: string, collector: CompletionsCollector): void {
 		const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset);
 		matchingSchemas.forEach((s) => {
+			if (s.schema.doNotSuggest) {
+				return;
+      }
 			if (s.node === node && !s.inverted) {
 				const schemaProperties = s.schema.properties;
 				if (schemaProperties) {
@@ -543,6 +546,9 @@ export class JSONCompletion {
 
 	private addSchemaValueCompletions(schema: JSONSchemaRef, separatorAfter: string, collector: CompletionsCollector, types: { [type: string]: boolean }): void {
 		if (typeof schema === 'object') {
+			if (schema.doNotSuggest) {
+				return;
+			}
 			this.addEnumValueCompletions(schema, separatorAfter, collector);
 			this.addDefaultValueCompletions(schema, separatorAfter, collector);
 			this.collectTypes(schema, types);
