@@ -8,11 +8,11 @@
   "author": "Microsoft Corporation",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Microsoft/vscode-json-languageservice"
+    "url": "https://github.com/bytemain/vscode-json-languageservice"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Microsoft/vscode-json-languageservice"
+    "url": "https://github.com/bytemain/vscode-json-languageservice"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.2",
