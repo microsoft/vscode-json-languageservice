@@ -85,6 +85,7 @@ export interface JSONSchema {
 	suggestSortText?: string;  // VSCode extension
 	allowComments?: boolean; // VSCode extension
 	allowTrailingCommas?: boolean; // VSCode extension
+	version?: string; // VSCode extension
 }
 
 export interface JSONSchemaMap {

@@ -10,7 +10,7 @@ import { promises as fs } from 'fs';
 import * as url from 'url';
 import * as path from 'path';
 import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema, LanguageService } from '../jsonLanguageService';
-import { DiagnosticSeverity, SchemaConfiguration } from '../jsonLanguageTypes';
+import { ASTNode, DiagnosticSeverity, SchemaConfiguration } from '../jsonLanguageTypes';
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig, uri = 'foo://bar/file.json'): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
 
@@ -1921,6 +1921,31 @@ suite('JSON Schema', () => {
 			const semanticErrors = await ls.doValidation(textDoc, jsonDoc, {}, schema);
 			assert.strictEqual(semanticErrors!.length, 0);
 		}
+	});
+
+	test('schema with version', async function () {
+		const ls = getLanguageService({});
+
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				bar: {
+					const: 3,
+					version: '1.0.0'
+				}
+			}
+		};
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ bar: 2 }));
+
+		const versions = [] as [string, ASTNode][];
+		class NewValidation extends Parser.ValidationResult {
+			tryAddVersionProblem(version: string, node: ASTNode): void {
+				versions.push([version, node]);
+			}
+		}
+		const validateResult = new NewValidation();
+		await ls.doValidation(textDoc, jsonDoc, {}, schema, validateResult);
+		assert.strictEqual(versions.length, 1);
 	});
 
 	test('getLanguageStatus', async function () {
