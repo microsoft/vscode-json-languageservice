@@ -1976,4 +1976,29 @@ suite('JSON Schema', () => {
 
 	});
 
+	test('access json-schema.org with https', async function () {
+		const httpUrl = "http://json-schema.org/schema";
+		const httpsUrl = "https://json-schema.org/schema";
+
+		const schemas: { [uri: string]: JSONSchema } = {
+			[httpsUrl]: {
+				type: 'object',
+				properties: {
+					bar: {
+						const: 3
+					}
+				}
+			}
+		};
+		const accesses: string[] = [];
+		const schemaRequestService = newMockRequestService(schemas, accesses);
+
+		const ls = getLanguageService({ workspaceContext, schemaRequestService });
+
+		const testDoc = toDocument(JSON.stringify({ $schema: httpUrl, bar: 2 }));
+		let validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
+		assert.deepStrictEqual(validation.map(v => v.message), ['Value must be 3.']);
+		assert.deepStrictEqual([httpsUrl], accesses); 
+	});
+
 });

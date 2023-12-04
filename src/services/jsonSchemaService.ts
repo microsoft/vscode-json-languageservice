@@ -390,6 +390,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const errorMessage = l10n.t('Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
 			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [errorMessage]));
 		}
+		if (url.startsWith('http://json-schema.org/')) {
+			url = 'https' + url.substring(4); // always access json-schema.org with https. See https://github.com/microsoft/vscode/issues/195189
+		}
 		return this.requestService(url).then(
 			content => {
 				if (!content) {

@@ -7,7 +7,7 @@ import * as Parser from '../parser/jsonParser';
 import * as Json from 'jsonc-parser';
 import * as SchemaService from './jsonSchemaService';
 import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
-import { JSONWorkerContribution, CompletionsCollector } from '../jsonContributions';
+import { JSONWorkerContribution, CompletionsCollector, JSONCompletionItem } from '../jsonContributions';
 import { stringifyObject } from '../utils/json';
 import { endsWith, extendedRegExp } from '../utils/strings';
 import { isDefined } from '../utils/objects';
@@ -27,6 +27,7 @@ export class JSONCompletion {
 
 	private supportsMarkdown: boolean | undefined;
 	private supportsCommitCharacters: boolean | undefined;
+	private labelDetailsSupport: boolean | undefined;
 
 	constructor(
 		private schemaService: SchemaService.IJSONSchemaService,
@@ -87,7 +88,7 @@ export class JSONCompletion {
 
 		const proposed = new Map<string, CompletionItem>();
 		const collector: CompletionsCollector = {
-			add: (suggestion: CompletionItem) => {
+			add: (suggestion: JSONCompletionItem) => {
 				let label = suggestion.label;
 				const existing = proposed.get(label);
 				if (!existing) {
@@ -98,9 +99,7 @@ export class JSONCompletion {
 							label = shortendedLabel;
 						}
 					}
-					if (overwriteRange && suggestion.insertText !== undefined) {
-						suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
-					}
+					suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
 					if (supportsCommitCharacters) {
 						suggestion.commitCharacters = suggestion.kind === CompletionItemKind.Property ? propertyCommitCharacters : valueCommitCharacters;
 					}
@@ -113,6 +112,9 @@ export class JSONCompletion {
 					}
 					if (!existing.detail) {
 						existing.detail = suggestion.detail;
+					}
+					if (!existing.labelDetails) {
+						existing.labelDetails = suggestion.labelDetails;
 					}
 				}
 			},
@@ -229,7 +231,7 @@ export class JSONCompletion {
 					Object.keys(schemaProperties).forEach((key: string) => {
 						const propertySchema = schemaProperties[key];
 						if (typeof propertySchema === 'object' && !propertySchema.deprecationMessage && !propertySchema.doNotSuggest) {
-							const proposal: CompletionItem = {
+							const proposal: JSONCompletionItem = {
 								kind: CompletionItemKind.Property,
 								label: key,
 								insertText: this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter),
@@ -253,7 +255,7 @@ export class JSONCompletion {
 				const schemaPropertyNames = s.schema.propertyNames;
 				if (typeof schemaPropertyNames === 'object' && !schemaPropertyNames.deprecationMessage && !schemaPropertyNames.doNotSuggest) {
 					const propertyNameCompletionItem = (name: string, enumDescription: string | MarkupContent | undefined = undefined) => {
-						const proposal: CompletionItem = {
+						const proposal: JSONCompletionItem = {
 							kind: CompletionItemKind.Property,
 							label: name,
 							insertText: this.getInsertTextForProperty(name, undefined, addValue, separatorAfter),
@@ -444,13 +446,30 @@ export class JSONCompletion {
 			for (const s of matchingSchemas) {
 				if (s.node === node && !s.inverted && s.schema) {
 					if (node.type === 'array' && s.schema.items) {
+						let c = collector;
+						if (s.schema.uniqueItems) {
+							const existingValues = new Set<any>();
+							node.children.forEach(n => {
+								if (n.type !== 'array' && n.type !== 'object') {
+									existingValues.add(this.getLabelForValue(Parser.getNodeValue(n)));
+								}
+							});
+							c = {
+								...collector,
+								add(suggestion: JSONCompletionItem) {
+									if (!existingValues.has(suggestion.label)) {
+										collector.add(suggestion);
+									}
+								}
+							};
+						}
 						if (Array.isArray(s.schema.items)) {
 							const index = this.findItemAtOffset(node, document, offset);
 							if (index < s.schema.items.length) {
-								this.addSchemaValueCompletions(s.schema.items[index], separatorAfter, collector, types);
+								this.addSchemaValueCompletions(s.schema.items[index], separatorAfter, c, types);
 							}
 						} else {
-							this.addSchemaValueCompletions(s.schema.items, separatorAfter, collector, types);
+							this.addSchemaValueCompletions(s.schema.items, separatorAfter, c, types);
 						}
 					}
 					if (parentKey !== undefined) {
@@ -548,13 +567,18 @@ export class JSONCompletion {
 				value = [value];
 				type = 'array';
 			}
-			collector.add({
+			const completionItem: JSONCompletionItem = {
 				kind: this.getSuggestionKind(type),
 				label: this.getLabelForValue(value),
 				insertText: this.getInsertTextForValue(value, separatorAfter),
-				insertTextFormat: InsertTextFormat.Snippet,
-				detail: l10n.t('Default value')
-			});
+				insertTextFormat: InsertTextFormat.Snippet
+			};
+			if (this.doesSupportsLabelDetails()) {
+				completionItem.labelDetails = { description: l10n.t('Default value') };
+			} else {
+				completionItem.detail = l10n.t('Default value');
+			}
+			collector.add(completionItem);
 			hasProposals = true;
 		}
 		if (Array.isArray(schema.examples)) {
@@ -709,17 +733,26 @@ export class JSONCompletion {
 
 	private addDollarSchemaCompletions(separatorAfter: string, collector: CompletionsCollector): void {
 		const schemaIds = this.schemaService.getRegisteredSchemaIds(schema => schema === 'http' || schema === 'https');
-		schemaIds.forEach(schemaId => collector.add({
-			kind: CompletionItemKind.Module,
-			label: this.getLabelForValue(schemaId),
-			filterText: this.getFilterTextForValue(schemaId),
-			insertText: this.getInsertTextForValue(schemaId, separatorAfter),
-			insertTextFormat: InsertTextFormat.Snippet, documentation: ''
-		}));
+		schemaIds.forEach(schemaId => {
+			if (schemaId.startsWith('http://json-schema.org/draft-')) {
+				schemaId = schemaId + '#';
+			}
+			collector.add({
+				kind: CompletionItemKind.Module,
+				label: this.getLabelForValue(schemaId),
+				filterText: this.getFilterTextForValue(schemaId),
+				insertText: this.getInsertTextForValue(schemaId, separatorAfter),
+				insertTextFormat: InsertTextFormat.Snippet, documentation: ''
+			});
+		});
 	}
 
 	private getLabelForValue(value: any): string {
 		return JSON.stringify(value);
+	}
+
+	private getValueFromLabel(value: any): string {
+		return JSON.parse(value);
 	}
 
 	private getFilterTextForValue(value: any): string {
@@ -736,7 +769,7 @@ export class JSONCompletion {
 	}
 
 	private getInsertTextForPlainText(text: string): string {
-		return text.replace(/[\\\$\}]/g, '\\$&');   // escape $, \ and } 
+		return text.replace(/[\\\$\}]/g, '\\$&');   // escape $, \ and }
 	}
 
 	private getInsertTextForValue(value: any, separatorAfter: string): string {
@@ -969,18 +1002,23 @@ export class JSONCompletion {
 
 	private doesSupportMarkdown() {
 		if (!isDefined(this.supportsMarkdown)) {
-			const completion = this.clientCapabilities.textDocument && this.clientCapabilities.textDocument.completion;
-			this.supportsMarkdown = completion && completion.completionItem && Array.isArray(completion.completionItem.documentationFormat) && completion.completionItem.documentationFormat.indexOf(MarkupKind.Markdown) !== -1;
+			const documentationFormat = this.clientCapabilities.textDocument?.completion?.completionItem?.documentationFormat;
+			this.supportsMarkdown = Array.isArray(documentationFormat) && documentationFormat.indexOf(MarkupKind.Markdown) !== -1;
 		}
 		return this.supportsMarkdown;
 	}
 
 	private doesSupportsCommitCharacters() {
 		if (!isDefined(this.supportsCommitCharacters)) {
-			const completion = this.clientCapabilities.textDocument && this.clientCapabilities.textDocument.completion;
-			this.supportsCommitCharacters = completion && completion.completionItem && !!completion.completionItem.commitCharactersSupport;
+			this.labelDetailsSupport = this.clientCapabilities.textDocument?.completion?.completionItem?.commitCharactersSupport;
 		}
 		return this.supportsCommitCharacters;
+	}
+	private doesSupportsLabelDetails() {
+		if (!isDefined(this.labelDetailsSupport)) {
+			this.labelDetailsSupport = this.clientCapabilities.textDocument?.completion?.completionItem?.labelDetailsSupport;
+		}
+		return this.labelDetailsSupport;
 	}
 
 }

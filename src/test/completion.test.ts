@@ -7,12 +7,14 @@ import * as assert from 'assert';
 
 import { getLanguageService, JSONSchema, TextDocument, ClientCapabilities, CompletionList, CompletionItemKind, Position, MarkupContent, TextEdit } from '../jsonLanguageService';
 import { repeat } from '../utils/strings';
+import { CompletionItemLabelDetails } from 'vscode-languageserver-types';
 
 const applyEdits = TextDocument.applyEdits;
 
 interface ItemDescription {
 	label: string;
 	detail?: string;
+	labelDetails?: CompletionItemLabelDetails;
 	documentation?: string | MarkupContent;
 	kind?: CompletionItemKind;
 	resultText?: string;
@@ -32,6 +34,9 @@ const assertCompletion = function (completions: CompletionList, expected: ItemDe
 	const match = matches[0];
 	if (expected.detail !== undefined) {
 		assert.equal(match.detail, expected.detail);
+	}
+	if (expected.labelDetails !== undefined) {
+		assert.deepEqual(match.labelDetails, expected.labelDetails);
 	}
 	if (expected.documentation !== undefined) {
 		assert.deepEqual(match.documentation, expected.documentation);
@@ -452,6 +457,53 @@ suite('JSON Completion', () => {
 			items: [
 				{ label: '1', resultText: '{ "c": [ 1, 1] }' },
 				{ label: '2', resultText: '{ "c": [ 2, 1] }' }
+			]
+		});
+	});
+
+	test('Complete array value with schema (uniqueItems)', async function () {
+
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'c': {
+					type: 'array',
+					uniqueItems: true,
+					items: {
+						type: 'number',
+						enum: [1, 2, "hello", "world"],
+					}
+				}
+			}
+		};
+		await testCompletionsFor('{ "c": [ 1, "hello", | ] }', schema, {
+			items: [
+				{ label: '2', resultText: '{ "c": [ 1, "hello", 2 ] }' },
+				{ label: '"world"', resultText: '{ "c": [ 1, "hello", "world" ] }' },
+				{ notAvailable: true, label: '1' },
+				{ notAvailable: true, label: "hello" }
+			]
+		});
+	});
+	test('Complete array value with schema (uniqueItems) 2', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'c': {
+					type: 'array',
+					uniqueItems: true,
+					items: {
+						default: 1,
+						defaultSnippets: [{ body: "world" }, { label: "new item", "description": "", body: "hello" }]
+					}
+				}
+			}
+		};
+		await testCompletionsFor('{ "c": [ 1, "hello", | ] }', schema, {
+			items: [
+				{ label: '"world"', resultText: '{ "c": [ 1, "hello", "world" ] }' },
+				{ notAvailable: true, label: '1' },
+				{ notAvailable: true, label: "hello" }
 			]
 		});
 	});
@@ -954,8 +1006,8 @@ suite('JSON Completion', () => {
 
 		await testCompletionsFor('{ "prop": | }', schema, {
 			items: [
-				{ label: '"green"', resultText: '{ "prop": "green" }', detail: undefined },
-				{ label: '"red"', resultText: '{ "prop": "red" }', detail: 'Default value' },
+				{ label: '"green"', resultText: '{ "prop": "green" }', labelDetails: undefined },
+				{ label: '"red"', resultText: '{ "prop": "red" }', labelDetails: { description: 'Default value' } },
 			],
 			count: 2
 		});
@@ -1026,7 +1078,9 @@ suite('JSON Completion', () => {
 		});
 		await testCompletionsFor('{ "$schema": | }', schema, {
 			items: [
-				{ label: '"http://myschemastore/test1"', resultText: '{ "$schema": "http://myschemastore/test1" }' }
+				{ label: '"http://myschemastore/test1"', resultText: '{ "$schema": "http://myschemastore/test1" }' },
+				{ label: '"http://json-schema.org/draft-04/schema#"', resultText: '{ "$schema": "http://json-schema.org/draft-04/schema#" }' },
+				{ label: '"http://json-schema.org/draft-07/schema#"', resultText: '{ "$schema": "http://json-schema.org/draft-07/schema#" }' }
 			]
 		});
 		await testCompletionsFor('{ "$schema": "|', schema, {

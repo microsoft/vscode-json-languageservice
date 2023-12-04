@@ -60,6 +60,7 @@ export enum ErrorCode {
 	TrailingComma = 0x207,
 	DuplicateKey = 0x208,
 	CommentNotPermitted = 0x209,
+	PropertyKeysMustBeDoublequoted = 0x210,
 	SchemaResolveError = 0x300,
 	SchemaUnsupportedFeature = 0x301
 }
@@ -158,12 +159,12 @@ export interface DocumentLanguageSettings {
 	trailingCommas?: SeverityLevel;
 
 	/**
-	 * The severity of problems from schema validation. If set to 'ignore', schema validation will be skipped. If not set, 'warning' is used. 
+	 * The severity of problems from schema validation. If set to 'ignore', schema validation will be skipped. If not set, 'warning' is used.
 	 */
 	schemaValidation?: SeverityLevel;
 
 	/**
-	 * The severity of problems that occurred when resolving and loading schemas. If set to 'ignore', schema resolving problems are not reported. If not set, 'warning' is used. 
+	 * The severity of problems that occurred when resolving and loading schemas. If set to 'ignore', schema resolving problems are not reported. If not set, 'warning' is used.
 	 */
 	schemaRequest?: SeverityLevel;
 
@@ -201,7 +202,7 @@ export interface WorkspaceContextService {
 	resolveRelativePath(relativePath: string, resource: string): string;
 }
 /**
- * The schema request service is used to fetch schemas. If successful, returns a resolved promise with the content of the schema. 
+ * The schema request service is used to fetch schemas. If successful, returns a resolved promise with the content of the schema.
  * In case of an error, returns a rejected promise with a displayable error string.
  */
 export interface SchemaRequestService {
@@ -301,7 +302,13 @@ export interface ClientCapabilities {
 				/**
 				 * The client supports commit characters on a completion item.
 				 */
-				commitCharactersSupport?: boolean
+				commitCharactersSupport?: boolean;
+
+				/**
+				 * The client has support for completion item label
+				 * details (see also `CompletionItemLabelDetails`).
+				 */
+				labelDetailsSupport?: boolean;
 			};
 
 		};
@@ -324,7 +331,8 @@ export namespace ClientCapabilities {
 			completion: {
 				completionItem: {
 					documentationFormat: [MarkupKind.Markdown, MarkupKind.PlainText],
-					commitCharactersSupport: true
+					commitCharactersSupport: true,
+					labelDetailsSupport: true
 				}
 			}
 		}
@@ -366,7 +374,7 @@ export interface ColorInformationContext {
 
 export interface FormattingOptions extends LSPFormattingOptions {
 	insertFinalNewline?: boolean;
-	keepLines?: boolean;	
+	keepLines?: boolean;
 }
 
 export interface SortOptions extends LSPFormattingOptions {
