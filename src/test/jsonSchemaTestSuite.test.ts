@@ -38,7 +38,7 @@ async function assertSchemaValidation(input: any, schema: any, valid: boolean, d
 	const schemaClone = JSON.parse(JSON.stringify(schema));
 
 	assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
-	const semanticErrors = await ls.doValidation(textDoc, jsonDoc, { schemaDraft: schemaIds[draft] }, schemaClone);
+	const semanticErrors = await ls.doValidation(textDoc, jsonDoc, { schemaDraft: schemaIds[draft] }, Parser.asSchema(schemaClone));
 	if (valid && semanticErrors.length > 0) {
 		assert.deepStrictEqual([], semanticErrors, `\n${fileName}\n${description}: No error expected: ${JSON.stringify(input)} against ${JSON.stringify(schema)}`);
 	} else if (!valid && semanticErrors.length === 0) {
@@ -122,15 +122,6 @@ const skippedTests = new Set([
 	"draft4/refRemote.json/root ref in remote ref/string is valid",
 	"draft4/refRemote.json/root ref in remote ref/null is valid",
 	"draft4/refRemote.json/Location-independent identifier in remote ref/integer is valid",
-	"draft6/boolean_schema.json/boolean schema 'false'/number is invalid",
-	"draft6/boolean_schema.json/boolean schema 'false'/string is invalid",
-	"draft6/boolean_schema.json/boolean schema 'false'/boolean true is invalid",
-	"draft6/boolean_schema.json/boolean schema 'false'/boolean false is invalid",
-	"draft6/boolean_schema.json/boolean schema 'false'/null is invalid",
-	"draft6/boolean_schema.json/boolean schema 'false'/object is invalid",
-	"draft6/boolean_schema.json/boolean schema 'false'/empty object is invalid",
-	"draft6/boolean_schema.json/boolean schema 'false'/array is invalid",
-	"draft6/boolean_schema.json/boolean schema 'false'/empty array is invalid",
 	"draft6/definitions.json/validate definition against metaschema/valid definition schema",
 	"draft6/id.json/id inside an enum is not a real identifier/exact match to enum, and type matches",
 	"draft6/id.json/id inside an enum is not a real identifier/match $ref to id",
@@ -155,15 +146,6 @@ const skippedTests = new Set([
 	"draft6/refRemote.json/remote ref with ref to definitions/valid",
 	"draft6/refRemote.json/Location-independent identifier in remote ref/integer is valid",
 	"draft6/unknownKeyword.json/$id inside an unknown keyword is not a real identifier/type matches second anyOf, which has a real schema in it",
-	"draft7/boolean_schema.json/boolean schema 'false'/number is invalid",
-	"draft7/boolean_schema.json/boolean schema 'false'/string is invalid",
-	"draft7/boolean_schema.json/boolean schema 'false'/boolean true is invalid",
-	"draft7/boolean_schema.json/boolean schema 'false'/boolean false is invalid",
-	"draft7/boolean_schema.json/boolean schema 'false'/null is invalid",
-	"draft7/boolean_schema.json/boolean schema 'false'/object is invalid",
-	"draft7/boolean_schema.json/boolean schema 'false'/empty object is invalid",
-	"draft7/boolean_schema.json/boolean schema 'false'/array is invalid",
-	"draft7/boolean_schema.json/boolean schema 'false'/empty array is invalid",
 	"draft7/id.json/id inside an enum is not a real identifier/exact match to enum, and type matches",
 	"draft7/id.json/id inside an enum is not a real identifier/match $ref to id",
 	"draft7/patternProperties.json/multiple simultaneous patternProperties are validated/an invalid due to the other is invalid",
@@ -190,15 +172,7 @@ const skippedTests = new Set([
 	"draft2019-09/anchor.json/Location-independent identifier with absolute URI/match",
 	"draft2019-09/anchor.json/Location-independent identifier with base URI change in subschema/match",
 	"draft2019-09/anchor.json/same $anchor with different base uri/$ref should resolve to /$defs/A/allOf/1",
-	"draft2019-09/boolean_schema.json/boolean schema 'false'/number is invalid",
-	"draft2019-09/boolean_schema.json/boolean schema 'false'/string is invalid",
-	"draft2019-09/boolean_schema.json/boolean schema 'false'/boolean true is invalid",
-	"draft2019-09/boolean_schema.json/boolean schema 'false'/boolean false is invalid",
-	"draft2019-09/boolean_schema.json/boolean schema 'false'/null is invalid",
-	"draft2019-09/boolean_schema.json/boolean schema 'false'/object is invalid",
-	"draft2019-09/boolean_schema.json/boolean schema 'false'/empty object is invalid",
-	"draft2019-09/boolean_schema.json/boolean schema 'false'/array is invalid",
-	"draft2019-09/boolean_schema.json/boolean schema 'false'/empty array is invalid",
+
 	"draft2019-09/defs.json/validate definition against metaschema/valid definition schema",
 	"draft2019-09/dependentSchemas.json/boolean subschemas/object with property having schema false is invalid",
 	"draft2019-09/dependentSchemas.json/boolean subschemas/object with both properties is invalid",
@@ -262,15 +236,6 @@ const skippedTests = new Set([
 	"draft2020-12/anchor.json/Location-independent identifier with absolute URI/match",
 	"draft2020-12/anchor.json/Location-independent identifier with base URI change in subschema/match",
 	"draft2020-12/anchor.json/same $anchor with different base uri/$ref should resolve to /$defs/A/allOf/1",
-	"draft2020-12/boolean_schema.json/boolean schema 'false'/number is invalid",
-	"draft2020-12/boolean_schema.json/boolean schema 'false'/string is invalid",
-	"draft2020-12/boolean_schema.json/boolean schema 'false'/boolean true is invalid",
-	"draft2020-12/boolean_schema.json/boolean schema 'false'/boolean false is invalid",
-	"draft2020-12/boolean_schema.json/boolean schema 'false'/null is invalid",
-	"draft2020-12/boolean_schema.json/boolean schema 'false'/object is invalid",
-	"draft2020-12/boolean_schema.json/boolean schema 'false'/empty object is invalid",
-	"draft2020-12/boolean_schema.json/boolean schema 'false'/array is invalid",
-	"draft2020-12/boolean_schema.json/boolean schema 'false'/empty array is invalid",
 	"draft2020-12/defs.json/validate definition against metaschema/valid definition schema",
 	"draft2020-12/dependentSchemas.json/boolean subschemas/object with property having schema false is invalid",
 	"draft2020-12/dependentSchemas.json/boolean subschemas/object with both properties is invalid",
