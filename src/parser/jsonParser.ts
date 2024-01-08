@@ -171,7 +171,7 @@ export enum EnumMatch {
 	Key, Enum
 }
 
-const schemaDraftFromId : { [id:string]: SchemaDraft } = {
+const schemaDraftFromId: { [id: string]: SchemaDraft } = {
 	'http://json-schema.org/draft-03/schema#': SchemaDraft.v3,
 	'http://json-schema.org/draft-04/schema#': SchemaDraft.v4,
 	'http://json-schema.org/draft-06/schema#': SchemaDraft.v6,
@@ -370,13 +370,13 @@ export class JSONDocument {
 		return [];
 	}
 }
- function getSchemaDraft(schema: JSONSchema, fallBack = SchemaDraft.v2020_12 ) {
+function getSchemaDraft(schema: JSONSchema, fallBack = SchemaDraft.v2020_12) {
 	let schemaId = schema.$schema;
 	if (schemaId) {
 		return schemaDraftFromId[schemaId] ?? fallBack;
 	}
 	return fallBack;
- }
+}
 
 function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector, context: IEvaluationContext): void {
 
@@ -855,10 +855,18 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 		if (schema.uniqueItems === true) {
 			const values = getNodeValue(node);
-			const duplicates = values.some((value: any, index: number) => {
-				return index !== values.lastIndexOf(value);
-			});
-			if (duplicates) {
+			function hasDuplicates() {
+				for (let i = 0; i < values.length - 1; i++) {
+					const value = values[i];
+					for (let j = i + 1; j < values.length; j++) {
+						if (equals(value, values[j])) {
+							return true;
+						}
+					}
+				}
+				return false;
+			}
+			if (hasDuplicates()) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
 					message: l10n.t('Array has duplicate items.')
