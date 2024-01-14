@@ -5,7 +5,15 @@
 
 import * as assert from 'assert';
 
-import { getLanguageService, Range, TextDocument, ClientCapabilities } from '../jsonLanguageService';
+import {
+	ClientCapabilities,
+	DocumentLink,
+	getLanguageService,
+	JSONSchema,
+	Range,
+	TextDocument,
+} from '../jsonLanguageService';
+import { resolve as resolvePath } from 'path';
 
 suite('JSON Find Links', () => {
 	const testFindLinksFor = function (value: string, expected: {offset: number, length: number, target: number} | null): PromiseLike<void> {
@@ -25,6 +33,20 @@ suite('JSON Find Links', () => {
 			}
 		});
 	};
+
+	let requestService = function (uri: string): Promise<string> {
+		return Promise.reject<string>('Resource not found');
+	};
+
+	function testFindLinksWithSchema(document: TextDocument, schema: JSONSchema): PromiseLike<DocumentLink[]> {
+		const schemaUri = "http://myschemastore/test1";
+
+		const ls = getLanguageService({ clientCapabilities: ClientCapabilities.LATEST });
+		ls.configure({ schemas: [{ fileMatch: ["*.json"], uri: schemaUri, schema }] });
+		const jsonDoc = ls.parseJSONDocument(document);
+
+		return ls.findLinks(document, jsonDoc);
+	}
 
 	test('FindDefinition invalid ref', async function () {
 		await testFindLinksFor('{}', null);
@@ -52,4 +74,38 @@ suite('JSON Find Links', () => {
 		await testFindLinksFor(doc('#/ '), {target: 81, offset: 102, length: 3});
 		await testFindLinksFor(doc('#/m~0n'), {target: 90, offset: 102, length: 6});
 	});
+
+	test('URI reference link', async function () {
+		const relativePath = './src/test/fixtures/uri-reference.txt';
+		const content = `{"stringProp": "string-value", "uriProp": "${relativePath}", "uriPropNotFound": "./does/not/exist.txt"}`;
+		const document = TextDocument.create('test://test.json', 'json', 0, content);
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'stringProp': {
+					type: 'string',
+				},
+				'uriProp': {
+					type: 'string',
+					format: 'uri-reference'
+				},
+				'uriPropNotFound': {
+					type: 'string',
+					format: 'uri-reference'
+				}
+			}
+		};
+		await testFindLinksWithSchema(document, schema).then((links) => {
+			assert.notDeepEqual(links, []);
+
+			const absPath = resolvePath(relativePath);
+			assert.equal(links[0].target, `file://${absPath}`);
+
+			const startOffset = content.indexOf(relativePath);
+			const endOffset = startOffset + relativePath.length;
+			const range = Range.create(document.positionAt(startOffset), document.positionAt(endOffset));
+			assert.deepEqual(links[0].range, range);
+		});
+	});
+
 });

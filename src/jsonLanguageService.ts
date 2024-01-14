@@ -26,7 +26,7 @@ import {
 	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
 	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink, MatchingSchema, JSONLanguageStatus, SortOptions
 } from './jsonLanguageTypes';
-import { findLinks } from './services/jsonLinks';
+import { JSONLinks } from './services/jsonLinks';
 import { DocumentLink } from 'vscode-languageserver-types';
 
 export type JSONDocument = {
@@ -67,6 +67,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 
 	const jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise, params.clientCapabilities);
 	const jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
+	const jsonLinks = new JSONLinks(jsonSchemaService);
 	const jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
 	const jsonValidation = new JSONValidation(jsonSchemaService, promise);
 
@@ -92,7 +93,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		getFoldingRanges,
 		getSelectionRanges,
 		findDefinition: () => Promise.resolve([]),
-		findLinks,
+		findLinks: jsonLinks.findLinks.bind(jsonLinks),
 		format: (document: TextDocument, range: Range, options: FormattingOptions) => format(document, options, range),
 		sort: (document: TextDocument, options: FormattingOptions) => sort(document, options)
 	};
