@@ -34,10 +34,6 @@ suite('JSON Find Links', () => {
 		});
 	};
 
-	let requestService = function (uri: string): Promise<string> {
-		return Promise.reject<string>('Resource not found');
-	};
-
 	function testFindLinksWithSchema(document: TextDocument, schema: JSONSchema): PromiseLike<DocumentLink[]> {
 		const schemaUri = "http://myschemastore/test1";
 
