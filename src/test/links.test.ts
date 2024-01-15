@@ -13,7 +13,8 @@ import {
 	Range,
 	TextDocument,
 } from '../jsonLanguageService';
-import { resolve as resolvePath } from 'path';
+import * as path from 'path';
+import { URI } from 'vscode-uri';
 
 suite('JSON Find Links', () => {
 	const testFindLinksFor = function (value: string, expected: {offset: number, length: number, target: number} | null): PromiseLike<void> {
@@ -72,9 +73,13 @@ suite('JSON Find Links', () => {
 	});
 
 	test('URI reference link', async function () {
-		const relativePath = './src/test/fixtures/uri-reference.txt';
-		const content = `{"stringProp": "string-value", "uriProp": "${relativePath}", "uriPropNotFound": "./does/not/exist.txt"}`;
-		const document = TextDocument.create('test://test.json', 'json', 0, content);
+		// This test file runs in `./lib/umd/test`, but the fixtures are in `./src`.
+		const refRelPath = '../../../src/test/fixtures/uri-reference.txt';
+		const refAbsPath = path.join(__dirname, refRelPath);
+		const docAbsPath = path.join(__dirname, 'test.json');
+
+		const content = `{"stringProp": "string-value", "uriProp": "${refRelPath}", "uriPropNotFound": "./does/not/exist.txt"}`;
+		const document = TextDocument.create(URI.file(docAbsPath).toString(), 'json', 0, content);
 		const schema: JSONSchema = {
 			type: 'object',
 			properties: {
@@ -94,11 +99,10 @@ suite('JSON Find Links', () => {
 		await testFindLinksWithSchema(document, schema).then((links) => {
 			assert.notDeepEqual(links, []);
 
-			const absPath = resolvePath(relativePath);
-			assert.equal(links[0].target, `file://${absPath}`);
+			assert.equal(links[0].target, URI.file(refAbsPath).toString());
 
-			const startOffset = content.indexOf(relativePath);
-			const endOffset = startOffset + relativePath.length;
+			const startOffset = content.indexOf(refRelPath);
+			const endOffset = startOffset + refRelPath.length;
 			const range = Range.create(document.positionAt(startOffset), document.positionAt(endOffset));
 			assert.deepEqual(links[0].range, range);
 		});

@@ -9,7 +9,7 @@ import { JSONDocument } from '../parser/jsonParser';
 import { IJSONSchemaService } from './jsonSchemaService';
 import { URI } from 'vscode-uri';
 import { existsSync as fileExistsSync } from 'fs';
-import { resolve as resolvePath } from 'path';
+import * as path from 'path';
 
 export class JSONLinks {
 	private schemaService: IJSONSchemaService;
@@ -48,13 +48,14 @@ export function findLinks(document: TextDocument, doc: JSONDocument, schemaServi
 					matchingSchemas.forEach((s) => {
 						if (s.node === pathNode && !s.inverted && s.schema) {
 							if (s.schema.format === 'uri-reference') {
-								const path = resolvePath(pathNode.value);
-								const uri = URI.file(path);
-								if (fileExistsSync(path)) {
-									pathLinks.push({
-										target: uri.toString(),
-										range: createRange(document, pathNode)
-									});
+								const pathURI = resolveURIRef(pathNode.value, document);
+								if (pathURI) {
+									if (fileExistsSync(pathURI.fsPath)) {
+										pathLinks.push({
+											target: pathURI.toString(),
+											range: createRange(document, pathNode)
+										});
+									}
 								}
 							}
 						}
@@ -127,4 +128,26 @@ function parseJSONPointer(path: string): string[] | null {
 
 function unescape(str: string): string {
 	return str.replace(/~1/g, '/').replace(/~0/g, '~');
+}
+
+function resolveURIRef(ref: string, document: TextDocument): URI | null {
+	if (ref.indexOf('://') > 0) {
+		// Already a fully qualified URI.
+		// The language service should already create a document link
+		// for these, so no need to created a duplicate.
+		return null;
+	}
+
+	if (ref.startsWith('/')) {
+		// Already an absolute path, no need to resolve.
+		return URI.file(ref);
+	}
+
+	// Resolve ref relative to the document.
+	const docURI = URI.parse(document.uri);
+	const docDir = path.dirname(docURI.path);
+	const refPath = path.join(docDir, ref);
+	return docURI.with({
+		path: refPath
+	});
 }
