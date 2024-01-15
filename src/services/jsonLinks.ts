@@ -41,26 +41,28 @@ export function findLinks(document: TextDocument, doc: JSONDocument, schemaServi
 		}
 		if (node.type === "property" && node.valueNode?.type === 'string' && schemaService) {
 			const pathNode = node.valueNode;
-			const pathLinks: DocumentLink[] = [];
 			const promise = schemaService.getSchemaForResource(document.uri, doc).then((schema) => {
-				if (schema) {
-					const matchingSchemas = doc.getMatchingSchemas(schema.schema, pathNode.offset);
-					matchingSchemas.forEach((s) => {
-						if (s.node === pathNode && !s.inverted && s.schema) {
-							if (s.schema.format === 'uri-reference') {
-								const pathURI = resolveURIRef(pathNode.value, document);
-								if (pathURI) {
-									if (fileExistsSync(pathURI.fsPath)) {
-										pathLinks.push({
-											target: pathURI.toString(),
-											range: createRange(document, pathNode)
-										});
-									}
-								}
-							}
-						}
-					});
+				const pathLinks: DocumentLink[] = [];
+				if (!schema) {
+					return pathLinks;
 				}
+				doc.getMatchingSchemas(schema.schema, pathNode.offset).forEach((s) => {
+					if (s.node !== pathNode || s.inverted || !s.schema) {
+						return;
+					}
+					if (s.schema.format !== 'uri-reference') {
+						return;
+					}
+					const pathURI = resolveURIRef(pathNode.value, document);
+					if (pathURI) {
+						if (fileExistsSync(pathURI.fsPath)) {
+							pathLinks.push({
+								target: pathURI.toString(),
+								range: createRange(document, pathNode)
+							});
+						}
+					}
+				});
 				return pathLinks;
 			});
 			promises.push(promise);
