@@ -48,19 +48,20 @@ export function findLinks(document: TextDocument, doc: JSONDocument, schemaServi
 				}
 				doc.getMatchingSchemas(schema.schema, pathNode.offset).forEach((s) => {
 					if (s.node !== pathNode || s.inverted || !s.schema) {
-						return;
+						return; // Not an _exact_ schema match.
 					}
 					if (s.schema.format !== 'uri-reference') {
-						return;
+						return; // Not a uri-ref.
 					}
 					const pathURI = resolveURIRef(pathNode.value, document);
-					if (pathURI) {
-						if (fileExistsSync(pathURI.fsPath)) {
-							pathLinks.push({
-								target: pathURI.toString(),
-								range: createRange(document, pathNode)
-							});
-						}
+					if (!pathURI) {
+						return; // Unable to resolve ref.
+					}
+					if (fileExistsSync(pathURI.fsPath)) {
+						pathLinks.push({
+							target: pathURI.toString(),
+							range: createRange(document, pathNode)
+						});
 					}
 				});
 				return pathLinks;
