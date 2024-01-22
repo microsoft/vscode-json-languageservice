@@ -1,6 +1,6 @@
 {
   "name": "vscode-json-languageservice",
-  "version": "5.3.8",
+  "version": "5.3.9",
   "description": "Language service for JSON",
   "main": "./lib/umd/jsonLanguageService.js",
   "typings": "./lib/umd/jsonLanguageService",
@@ -15,22 +15,22 @@
     "url": "https://github.com/Microsoft/vscode-json-languageservice"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.2",
+    "@types/mocha": "^10.0.6",
     "@types/node": "16.x",
-    "@typescript-eslint/eslint-plugin": "^6.7.4",
-    "@typescript-eslint/parser": "^6.7.4",
-    "eslint": "^8.51.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "@typescript-eslint/parser": "^6.19.1",
+    "eslint": "^8.56.0",
     "json-schema-test-suite": "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git#69acf52990b004240839ae19b4bec8fb01d50876",
     "mocha": "^10.2.0",
     "rimraf": "^5.0.5",
-    "typescript": "^5.2.2"
+    "typescript": "^5.3.3"
   },
   "dependencies": {
-    "jsonc-parser": "^3.2.0",
+    "jsonc-parser": "^3.2.1",
     "vscode-languageserver-textdocument": "^1.0.11",
     "vscode-languageserver-types": "^3.17.5",
     "vscode-uri": "^3.0.8",
-    "@vscode/l10n": "^0.0.16"
+    "@vscode/l10n": "^0.0.18"
   },
   "scripts": {
     "prepack": "npm run clean && npm run compile-esm && npm run test && npm run remove-sourcemap-refs",
