@@ -4,26 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DocumentLink } from 'vscode-languageserver-types';
-import { TextDocument, ASTNode, PropertyASTNode, Range, Thenable } from '../jsonLanguageTypes';
+import { TextDocument, ASTNode, PropertyASTNode, Range, Thenable, FileSystemProvider, FileType, FileStat } from '../jsonLanguageTypes';
 import { JSONDocument } from '../parser/jsonParser';
 import { IJSONSchemaService } from './jsonSchemaService';
-import { URI } from 'vscode-uri';
-import { existsSync as fileExistsSync } from 'fs';
-import * as path from 'path';
+import { URI, Utils } from 'vscode-uri';
 
 export class JSONLinks {
 	private schemaService: IJSONSchemaService;
+	private fileSystemProvider: FileSystemProvider | undefined;
 
-	constructor(schemaService: IJSONSchemaService) {
+	constructor(schemaService: IJSONSchemaService, fileSystemProvider?: FileSystemProvider) {
 		this.schemaService = schemaService;
+		this.fileSystemProvider = fileSystemProvider;
 	}
 
 	public findLinks(document: TextDocument, doc: JSONDocument): Thenable<DocumentLink[]> {
-		return findLinks(document, doc, this.schemaService);
+		return findLinks(document, doc, this.schemaService, this.fileSystemProvider);
 	}
 }
 
-export function findLinks(document: TextDocument, doc: JSONDocument, schemaService?: IJSONSchemaService): Thenable<DocumentLink[]> {
+export function findLinks(document: TextDocument, doc: JSONDocument, schemaService?: IJSONSchemaService, fileSystemProvider?: FileSystemProvider): Thenable<DocumentLink[]> {
 	const promises: Thenable<DocumentLink[]>[] = [];
 
 	const refLinks: DocumentLink[] = [];
@@ -39,32 +39,43 @@ export function findLinks(document: TextDocument, doc: JSONDocument, schemaServi
 				});
 			}
 		}
-		if (node.type === "property" && node.valueNode?.type === 'string' && schemaService) {
+		if (node.type === "property" && node.valueNode?.type === 'string' && schemaService && fileSystemProvider) {
 			const pathNode = node.valueNode;
 			const promise = schemaService.getSchemaForResource(document.uri, doc).then((schema) => {
 				const pathLinks: DocumentLink[] = [];
 				if (!schema) {
 					return pathLinks;
 				}
-				doc.getMatchingSchemas(schema.schema, pathNode.offset).forEach((s) => {
+
+				const matchingSchemas = doc.getMatchingSchemas(schema.schema, pathNode.offset);
+
+				let resolvedRef = '';
+				for (const s of matchingSchemas) {
 					if (s.node !== pathNode || s.inverted || !s.schema) {
-						return; // Not an _exact_ schema match.
+						continue; // Not an _exact_ schema match.
 					}
 					if (s.schema.format !== 'uri-reference') {
-						return; // Not a uri-ref.
+						continue; // Not a uri-ref.
 					}
 					const pathURI = resolveURIRef(pathNode.value, document);
-					if (!pathURI) {
-						return; // Unable to resolve ref.
+					if (pathURI.scheme === 'file') {
+						resolvedRef = pathURI.toString();
 					}
-					if (fileExistsSync(pathURI.fsPath)) {
-						pathLinks.push({
-							target: pathURI.toString(),
-							range: createRange(document, pathNode)
-						});
-					}
-				});
-				return pathLinks;
+				}
+
+				if (resolvedRef) {
+					return fileSystemProvider.stat(resolvedRef).then((fs) => {
+						if (fileExists(fs)) {
+							pathLinks.push({
+								target: resolvedRef,
+								range: createRange(document, pathNode)
+							});
+						}
+						return pathLinks;
+					});
+				} else {
+					return pathLinks;
+				}
 			});
 			promises.push(promise);
 		}
@@ -75,6 +86,13 @@ export function findLinks(document: TextDocument, doc: JSONDocument, schemaServi
 	return Promise.all(promises).then(values => {
 		return values.flat();
 	});
+}
+
+function fileExists(stat: FileStat): boolean {
+	if (stat.type === FileType.Unknown && stat.size === -1) {
+		return false;
+	}
+	return true;
 }
 
 function createRange(document: TextDocument, node: ASTNode): Range {
@@ -133,12 +151,10 @@ function unescape(str: string): string {
 	return str.replace(/~1/g, '/').replace(/~0/g, '~');
 }
 
-function resolveURIRef(ref: string, document: TextDocument): URI | null {
+function resolveURIRef(ref: string, document: TextDocument): URI {
 	if (ref.indexOf('://') > 0) {
 		// Already a fully qualified URI.
-		// The language service should already create a document link
-		// for these, so no need to created a duplicate.
-		return null;
+		return URI.parse(ref);
 	}
 
 	if (ref.startsWith('/')) {
@@ -148,9 +164,5 @@ function resolveURIRef(ref: string, document: TextDocument): URI | null {
 
 	// Resolve ref relative to the document.
 	const docURI = URI.parse(document.uri);
-	const docDir = path.dirname(docURI.path);
-	const refPath = path.join(docDir, ref);
-	return docURI.with({
-		path: refPath
-	});
+	return Utils.joinPath(Utils.dirname(docURI), ref);
 }

@@ -67,7 +67,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 
 	const jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise, params.clientCapabilities);
 	const jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
-	const jsonLinks = new JSONLinks(jsonSchemaService);
+	const jsonLinks = new JSONLinks(jsonSchemaService, params.fileSystemProvider);
 	const jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
 	const jsonValidation = new JSONValidation(jsonSchemaService, promise);
 

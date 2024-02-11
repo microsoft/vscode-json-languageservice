@@ -13,6 +13,7 @@ import {
 	Range,
 	TextDocument,
 } from '../jsonLanguageService';
+import { getFsProvider } from './testUtil/fsProvider';
 import * as path from 'path';
 import { URI } from 'vscode-uri';
 
@@ -38,7 +39,10 @@ suite('JSON Find Links', () => {
 	function testFindLinksWithSchema(document: TextDocument, schema: JSONSchema): PromiseLike<DocumentLink[]> {
 		const schemaUri = "http://myschemastore/test1";
 
-		const ls = getLanguageService({ clientCapabilities: ClientCapabilities.LATEST });
+		const ls = getLanguageService({
+			clientCapabilities: ClientCapabilities.LATEST,
+			fileSystemProvider: getFsProvider(),
+		});
 		ls.configure({ schemas: [{ fileMatch: ["*.json"], uri: schemaUri, schema }] });
 		const jsonDoc = ls.parseJSONDocument(document);
 
