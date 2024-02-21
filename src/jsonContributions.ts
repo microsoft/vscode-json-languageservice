@@ -5,7 +5,7 @@
 import { Thenable, MarkedString, CompletionItem, ASTNode } from './jsonLanguageService';
 
 export interface JSONWorkerContribution {
-	getInfoContribution(uri: string, location: JSONPath, node: ASTNode): Thenable<MarkedString[]>;
+	getInfoContribution(uri: string, location: JSONPath, node: ASTNode): undefined | Thenable<MarkedString[]>;
 	collectPropertyCompletions(uri: string, location: JSONPath, currentWord: string, addValue: boolean, isLast: boolean, result: CompletionsCollector): Thenable<any>;
 	collectValueCompletions(uri: string, location: JSONPath, propertyKey: string, result: CompletionsCollector): Thenable<any>;
 	collectDefaultCompletions(uri: string, result: CompletionsCollector): Thenable<any>;
