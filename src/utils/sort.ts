@@ -222,16 +222,17 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
                 endLineNumber = scanner.getTokenStartLine();
                 currentContainerStack.pop();
 
-                // If we are not inside of an empty object and current property end line number has not yet been defined, define it
-                if (lastNonTriviaNonCommentToken !== SyntaxKind.OpenBraceToken
-                    && currentProperty!.endLineNumber === undefined) {
-
-                    currentProperty!.endLineNumber = endLineNumber - 1;
-                    // The current property is also the last property
-                    currentProperty!.lastProperty = true;
-                    // The last property of an object is associated with the line and index of where to add the comma, in case after sorting, it is no longer the last property
-                    currentProperty!.lineWhereToAddComma = lineOfLastNonTriviaNonCommentToken;
-                    currentProperty!.indexWhereToAddComa = endIndexOfLastNonTriviaNonCommentToken;
+                // If we are not inside of an empty object
+                if (lastNonTriviaNonCommentToken !== SyntaxKind.OpenBraceToken) {
+                    // If current property end line number has not yet been defined, define it
+                    if (currentProperty!.endLineNumber === undefined) {
+                        currentProperty!.endLineNumber = endLineNumber - 1;
+                        // The current property is also the last property
+                        currentProperty!.lastProperty = true;
+                        // The last property of an object is associated with the line and index of where to add the comma, in case after sorting, it is no longer the last property
+                        currentProperty!.lineWhereToAddComma = lineOfLastNonTriviaNonCommentToken;
+                        currentProperty!.indexWhereToAddComa = endIndexOfLastNonTriviaNonCommentToken;
+                    }
                     lastProperty = currentProperty;
                     currentProperty = currentProperty ? currentProperty.parent : undefined;
                     currentTree = currentProperty;
