@@ -53,7 +53,7 @@ suite('Sort JSON', () => {
             '"hobbies" : ["volleyball","drawing","hiking"],',
             '"friends" : {',
             '"Marc" : {"hobbies" : ["kayaking", "mountaineering"],',
-            '"age" : 35},',
+            '"age" : 35,},',
             '"Leila" : {"hobbies" : ["watching movies",',
             '"reading books"], "age" : 32}}}'
         ].join('\n');
