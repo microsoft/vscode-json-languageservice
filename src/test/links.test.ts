@@ -5,7 +5,17 @@
 
 import * as assert from 'assert';
 
-import { getLanguageService, Range, TextDocument, ClientCapabilities } from '../jsonLanguageService';
+import {
+	ClientCapabilities,
+	DocumentLink,
+	getLanguageService,
+	JSONSchema,
+	Range,
+	TextDocument,
+} from '../jsonLanguageService';
+import { getFsProvider } from './testUtil/fsProvider';
+import * as path from 'path';
+import { URI } from 'vscode-uri';
 
 suite('JSON Find Links', () => {
 	const testFindLinksFor = function (value: string, expected: {offset: number, length: number, target: number} | null): PromiseLike<void> {
@@ -25,6 +35,19 @@ suite('JSON Find Links', () => {
 			}
 		});
 	};
+
+	function testFindLinksWithSchema(document: TextDocument, schema: JSONSchema): PromiseLike<DocumentLink[]> {
+		const schemaUri = "http://myschemastore/test1";
+
+		const ls = getLanguageService({
+			clientCapabilities: ClientCapabilities.LATEST,
+			fileSystemProvider: getFsProvider(),
+		});
+		ls.configure({ schemas: [{ fileMatch: ["*.json"], uri: schemaUri, schema }] });
+		const jsonDoc = ls.parseJSONDocument(document);
+
+		return ls.findLinks(document, jsonDoc);
+	}
 
 	test('FindDefinition invalid ref', async function () {
 		await testFindLinksFor('{}', null);
@@ -52,4 +75,41 @@ suite('JSON Find Links', () => {
 		await testFindLinksFor(doc('#/ '), {target: 81, offset: 102, length: 3});
 		await testFindLinksFor(doc('#/m~0n'), {target: 90, offset: 102, length: 6});
 	});
+
+	test('URI reference link', async function () {
+		// This test file runs in `./lib/umd/test`, but the fixtures are in `./src`.
+		const refRelPath = '../../../src/test/fixtures/uri-reference.txt';
+		const refAbsPath = path.join(__dirname, refRelPath);
+		const docAbsPath = path.join(__dirname, 'test.json');
+
+		const content = `{"stringProp": "string-value", "uriProp": "${refRelPath}", "uriPropNotFound": "./does/not/exist.txt"}`;
+		const document = TextDocument.create(URI.file(docAbsPath).toString(), 'json', 0, content);
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'stringProp': {
+					type: 'string',
+				},
+				'uriProp': {
+					type: 'string',
+					format: 'uri-reference'
+				},
+				'uriPropNotFound': {
+					type: 'string',
+					format: 'uri-reference'
+				}
+			}
+		};
+		await testFindLinksWithSchema(document, schema).then((links) => {
+			assert.notDeepEqual(links, []);
+
+			assert.equal(links[0].target, URI.file(refAbsPath).toString());
+
+			const startOffset = content.indexOf(refRelPath);
+			const endOffset = startOffset + refRelPath.length;
+			const range = Range.create(document.positionAt(startOffset), document.positionAt(endOffset));
+			assert.deepEqual(links[0].range, range);
+		});
+	});
+
 });

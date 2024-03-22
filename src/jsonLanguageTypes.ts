@@ -252,6 +252,49 @@ export interface Thenable<R> {
 	then<TResult>(onfulfilled?: (value: R) => TResult | Thenable<TResult>, onrejected?: (reason: any) => void): Thenable<TResult>;
 }
 
+export enum FileType {
+	/**
+	 * The file type is unknown.
+	 */
+	Unknown = 0,
+	/**
+	 * A regular file.
+	 */
+	File = 1,
+	/**
+	 * A directory.
+	 */
+	Directory = 2,
+	/**
+	 * A symbolic link to a file.
+	 */
+	SymbolicLink = 64
+}
+
+export interface FileStat {
+	/**
+	 * The type of the file, e.g. is a regular file, a directory, or symbolic link
+	 * to a file.
+	 */
+	type: FileType;
+	/**
+	 * The creation timestamp in milliseconds elapsed since January 1, 1970 00:00:00 UTC.
+	 */
+	ctime: number;
+	/**
+	 * The modification timestamp in milliseconds elapsed since January 1, 1970 00:00:00 UTC.
+	 */
+	mtime: number;
+	/**
+	 * The size in bytes.
+	 */
+	size: number;
+}
+
+export interface FileSystemProvider {
+	stat(uri: DocumentUri): Promise<FileStat>;
+}
+
 export interface LanguageServiceParams {
 	/**
 	 * The schema request service is used to fetch schemas from a URI. The provider returns the schema file content, or,
@@ -270,6 +313,10 @@ export interface LanguageServiceParams {
 	 * A promise constructor. If not set, the ES5 Promise will be used.
 	 */
 	promiseConstructor?: PromiseConstructor;
+	/**
+	 * Abstract file system access away from the service.
+	 */
+	fileSystemProvider?: FileSystemProvider;
 	/**
 	 * Describes the LSP capabilities the client supports.
 	 */
