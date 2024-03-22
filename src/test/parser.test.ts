@@ -2389,6 +2389,16 @@ suite('JSON Parser', () => {
 			assert.strictEqual(semanticErrors!.length, 1);
 		}
 
+		schema = {
+			deprecated: true,
+			type: 'object'
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{"prop": 42}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+
 	});
 
 	test('Strings with spaces', function () {
