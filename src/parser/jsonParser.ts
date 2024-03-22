@@ -578,10 +578,12 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		}
 
 		let deprecationMessage = schema.deprecationMessage;
-		if ((deprecationMessage || schema.deprecated) && node.parent) {
+		if (deprecationMessage || schema.deprecated) {
 			deprecationMessage = deprecationMessage || l10n.t('Value is deprecated');
+			let targetNode = node.parent?.type === 'property' ? node.parent : node;
+
 			validationResult.problems.push({
-				location: { offset: node.parent.offset, length: node.parent.length },
+				location: { offset: targetNode.offset, length: targetNode.length },
 				severity: DiagnosticSeverity.Warning,
 				message: deprecationMessage,
 				code: ErrorCode.Deprecated
