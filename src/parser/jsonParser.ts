@@ -810,13 +810,13 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			if (isNumber(schema.minContains) && containsCount < schema.minContains) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: l10n.t('Array has too few items that match the contains contraint. Expected {0} or more.', schema.minContains)
+					message: schema.errorMessage || l10n.t('Array has too few items that match the contains contraint. Expected {0} or more.', schema.minContains)
 				});
 			}
 			if (isNumber(schema.maxContains) && containsCount > schema.maxContains) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
-					message: l10n.t('Array has too many items that match the contains contraint. Expected {0} or less.', schema.maxContains)
+					message: schema.errorMessage || l10n.t('Array has too many items that match the contains contraint. Expected {0} or less.', schema.maxContains)
 				});
 			}
 		}
