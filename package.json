@@ -1,6 +1,6 @@
 {
   "name": "vscode-json-languageservice",
-  "version": "5.3.10",
+  "version": "5.3.11",
   "description": "Language service for JSON",
   "main": "./lib/umd/jsonLanguageService.js",
   "typings": "./lib/umd/jsonLanguageService",
@@ -17,13 +17,13 @@
   "devDependencies": {
     "@types/mocha": "^10.0.6",
     "@types/node": "16.x",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^7.7.0",
+    "@typescript-eslint/parser": "^7.7.0",
     "eslint": "^8.57.0",
     "json-schema-test-suite": "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git#69acf52990b004240839ae19b4bec8fb01d50876",
-    "mocha": "^10.3.0",
+    "mocha": "^10.4.0",
     "rimraf": "^5.0.5",
-    "typescript": "^5.3.3"
+    "typescript": "^5.4.5"
   },
   "dependencies": {
     "jsonc-parser": "^3.2.1",
