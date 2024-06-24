@@ -1,3 +1,8 @@
+5.4.0 / 2023-04-10
+================
+ * Added `FileType`, `FileStat`, and `FileSystemProvider` types to abstract file system access.
+ * Updated findLinks to recognize `uri-reference` schema values.
+
 5.3.1 / 2023-02-24
 ================
  * Fixing bugs in the sort feature
