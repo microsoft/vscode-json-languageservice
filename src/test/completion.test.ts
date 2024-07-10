@@ -730,6 +730,151 @@ suite('JSON Completion', () => {
 		});
 	});
 
+	test('Complete with anyOf over $refs', async function () {
+
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'inner': {
+					type : 'array',
+					items : {
+						anyOf : [ {
+							$ref : '#/$defs/TypeDef1'
+							}, {
+							$ref : '#/$defs/TypeDef2'
+							}, {
+							$ref : '#/$defs/TypeDef3'
+							}, {
+							$ref : '#/$defs/TypeDef4'
+							}
+						]
+					},
+				}
+			},
+			required : [ "inner" ],
+			additionalProperties : false,
+			$defs : {
+				TypeDef1 : {
+					type : "object",
+					properties : {
+						a : {
+							type: 'string',
+							description: 'A'
+						},
+						"@type" : {
+							const : "TypeDef1"
+						}
+					},
+					required : [ "@type" ],
+					additionalProperties : false,
+					description : "TypeDef1 Desc."
+				},
+				TypeDef2 : {
+					type : "object",
+					properties : {
+						b : {
+							type: 'string',
+							description: 'B'
+						},
+						"@type" : {
+							const : "TypeDef2"
+						}
+					},
+					required : [ "@type" ],
+					additionalProperties : false,
+					description : "TypeDef2 Desc."
+				},
+				TypeDef3 : {
+					type : "object",
+					properties : {
+						c : {
+							type: 'string',
+							description: 'C'
+						},
+						"@type" : {
+							const : "TypeDef3"
+						}
+					},
+					required : [ "@type", "c" ],
+					additionalProperties : false
+				},
+				TypeDef4 : {
+					type : "object",
+					properties : {
+						d : {
+							type: 'boolean',
+							description: 'D'
+						},
+						"@type" : {
+							const : "TypeDef4"
+						}
+					},
+					required : [ "@type", "d" ],
+					additionalProperties : false
+				}
+			}
+		};
+		await testCompletionsFor('{|}', schema, {
+			count: 1,
+			items: [
+				{ label: 'inner', resultText: '{"inner": [$1]}' }
+			]
+		});
+		await testCompletionsFor('{ "inner": [{|}]}', schema, {
+			count: 5,
+			items: [
+				{ label: '@type' },
+				{ label: 'a', documentation: 'A' },
+				{ label: 'b', documentation: 'B' },
+				{ label: 'c', documentation: 'C' },
+				{ label: 'd', documentation: 'D' }
+			]
+		});
+		await testCompletionsFor('{ "inner": [{ "@type":|}]}', schema, {
+			count: 4,
+			items: [
+				{ label: '"TypeDef1"', resultText: '{ "inner": [{ "@type":"TypeDef1"}]}' },
+				{ label: '"TypeDef2"', resultText: '{ "inner": [{ "@type":"TypeDef2"}]}' },
+				{ label: '"TypeDef3"', resultText: '{ "inner": [{ "@type":"TypeDef3"}]}' },
+				{ label: '"TypeDef4"', resultText: '{ "inner": [{ "@type":"TypeDef4"}]}' }
+			]
+		});
+		await testCompletionsFor('{ "inner": [{ "@type":"Type|', schema, {
+			count: 4,
+			items: [
+				{ label: '"TypeDef1"', resultText: '{ "inner": [{ "@type":"TypeDef1"' },
+				{ label: '"TypeDef2"', resultText: '{ "inner": [{ "@type":"TypeDef2"' },
+				{ label: '"TypeDef3"', resultText: '{ "inner": [{ "@type":"TypeDef3"' },
+				{ label: '"TypeDef4"', resultText: '{ "inner": [{ "@type":"TypeDef4"' }
+			]
+		});
+		await testCompletionsFor('{ "inner": [{ "@type":"TypeDef1|', schema, {
+			count: 4,
+			items: [
+				{ label: '"TypeDef1"', resultText: '{ "inner": [{ "@type":"TypeDef1"' },
+				{ label: '"TypeDef2"', resultText: '{ "inner": [{ "@type":"TypeDef2"' },
+				{ label: '"TypeDef3"', resultText: '{ "inner": [{ "@type":"TypeDef3"' },
+				{ label: '"TypeDef4"', resultText: '{ "inner": [{ "@type":"TypeDef4"' }
+			]
+		});
+		await testCompletionsFor('{ "inner": [{ "@type":"|}]}', schema, {
+			count: 4,
+			items: [
+				{ label: '"TypeDef1"', resultText: '{ "inner": [{ "@type":"TypeDef1"}]}' },
+				{ label: '"TypeDef2"', resultText: '{ "inner": [{ "@type":"TypeDef2"}]}' },
+				{ label: '"TypeDef3"', resultText: '{ "inner": [{ "@type":"TypeDef3"}]}' },
+				{ label: '"TypeDef4"', resultText: '{ "inner": [{ "@type":"TypeDef4"}]}' }
+			]
+		});
+		await testCompletionsFor('{ "inner": [{ "@type":"TypeDef1", |}]}', schema, {
+			count: 1,
+			items: [
+				{ label: 'a', documentation: 'A' }
+			]
+		});
+	});
+
+
 	test('Complete with oneOf', async function () {
 
 		const schema: JSONSchema = {
