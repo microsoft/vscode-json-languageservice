@@ -1347,10 +1347,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 
 		const node = new StringASTNodeImpl(parent, scanner.getTokenOffset());
 		node.value = scanner.getTokenValue();
-		if (scanner.getTokenError() === Json.ScanError.UnexpectedEndOfString &&
-			parent?.type === 'property' && (parent?.keyNode?.value === '@type' || parent?.keyNode?.value === 'type')) {
-			return undefined;
-		}
+		
 		return _finalize(node, true);
 	}
 

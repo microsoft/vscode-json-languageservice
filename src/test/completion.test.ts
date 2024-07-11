@@ -849,6 +849,12 @@ suite('JSON Completion', () => {
 			]
 		});
 		await testCompletionsFor('{ "inner": [{ "@type":"TypeDef1|', schema, {
+			count: 1,
+			items: [
+				{ label: '"TypeDef1"', resultText: '{ "inner": [{ "@type":"TypeDef1"' }
+			]
+		});
+		await testCompletionsFor('{ "inner": [{ "@type":"|}]}', schema, {
 			count: 4,
 			items: [
 				{ label: '"TypeDef1"', resultText: '{ "inner": [{ "@type":"TypeDef1"' },
@@ -857,13 +863,25 @@ suite('JSON Completion', () => {
 				{ label: '"TypeDef4"', resultText: '{ "inner": [{ "@type":"TypeDef4"' }
 			]
 		});
-		await testCompletionsFor('{ "inner": [{ "@type":"|}]}', schema, {
+		await testCompletionsFor('{ "inner": [{ "@type":"|"}]}', schema, {
 			count: 4,
 			items: [
 				{ label: '"TypeDef1"', resultText: '{ "inner": [{ "@type":"TypeDef1"}]}' },
 				{ label: '"TypeDef2"', resultText: '{ "inner": [{ "@type":"TypeDef2"}]}' },
 				{ label: '"TypeDef3"', resultText: '{ "inner": [{ "@type":"TypeDef3"}]}' },
 				{ label: '"TypeDef4"', resultText: '{ "inner": [{ "@type":"TypeDef4"}]}' }
+			]
+		});
+		await testCompletionsFor('{ "inner": [{ "@type":"TypeDef1|" }]}', schema, {
+			count: 1,
+			items: [
+				{ label: '"TypeDef1"' }
+			]
+		});
+		await testCompletionsFor('{ "inner": [{ "@type":"TypeDef3|" }]}', schema, {
+			count: 1,
+			items: [
+				{ label: '"TypeDef3"' }
 			]
 		});
 		await testCompletionsFor('{ "inner": [{ "@type":"TypeDef1", |}]}', schema, {
