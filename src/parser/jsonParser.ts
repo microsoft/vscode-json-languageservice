@@ -380,8 +380,6 @@ function getSchemaDraft(schema: JSONSchema, fallBack = SchemaDraft.v2020_12) {
 
 function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector, context: IEvaluationContext): void {
 
-    // TODO: can we use a node property to skip validation for certain nodes
-
 	if (!n || !matchingSchemas.include(n)) {
 		return;
 	}
