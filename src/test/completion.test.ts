@@ -872,6 +872,12 @@ suite('JSON Completion', () => {
 				{ label: '"TypeDef4"', resultText: '{ "inner": [{ "@type":"TypeDef4"}]}' }
 			]
 		});
+		await testCompletionsFor('{ "inner": [{ "@type":"|", d:"1"}]}', schema, {
+			count: 1,
+			items: [
+				{ label: '"TypeDef4"', resultText: '{ "inner": [{ "@type":"TypeDef4", d:"1"}]}' }
+			]
+		});
 		await testCompletionsFor('{ "inner": [{ "@type":"TypeDef1|" }]}', schema, {
 			count: 1,
 			items: [
