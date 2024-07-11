@@ -1349,7 +1349,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 
 		const node = new StringASTNodeImpl(parent, scanner.getTokenOffset());
 		node.value = scanner.getTokenValue();
-		
+
 		return _finalize(node, true);
 	}
 
