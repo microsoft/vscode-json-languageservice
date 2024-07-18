@@ -794,10 +794,9 @@ suite('JSON Completion', () => {
 			]
 		});
 		await testCompletionsFor('{ "@type":"TypeDef1|', schema, {
-			count: 2,
+			count: 1,
 			items: [
-				{ label: '"TypeDef1"', resultText: '{ "@type":"TypeDef1"' },
-				{ label: '"TypeDef2"', resultText: '{ "@type":"TypeDef2"' }
+				{ label: '"TypeDef1"', resultText: '{ "@type":"TypeDef1"' }
 			]
 		});
 		await testCompletionsFor('{ "@type":"|}', schema, {
@@ -1522,10 +1521,9 @@ suite('JSON Completion', () => {
 			]
 		});
 		await testCompletionsFor('{ "type": "foo|"', schema, {
-			count: 2,
+			count: 1,
 			items: [
-				{ label: '"foo"' },
-				{ label: '"bar"' }
+				{ label: '"foo"' }
 			]
 		});
 	});

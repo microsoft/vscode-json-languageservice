@@ -887,8 +887,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			unprocessedProperties.add(key);
 		}
 
-		// Only check required properties if node already has more than one property defined or if the existing property is the "type" 
-		if (!(node.children?.length === 1 && (seenKeys["@type"] || seenKeys["type"])) && Array.isArray(schema.required)) {
+		if (Array.isArray(schema.required)) {
 			for (const propertyName of schema.required) {
 				if (!seenKeys[propertyName]) {
 					const keyNode = node.parent && node.parent.type === 'property' && node.parent.keyNode;
