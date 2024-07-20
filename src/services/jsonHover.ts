@@ -53,7 +53,7 @@ export class JSONHover {
 		const location = Parser.getNodePath(node);
 		for (let i = this.contributions.length - 1; i >= 0; i--) {
 			const contribution = this.contributions[i];
-			const promise = contribution.getInfoContribution(document.uri, location);
+			const promise = contribution.getInfoContribution(document.uri, location, node);
 			if (promise) {
 				return promise.then(htmlContent => createHover(htmlContent));
 			}
