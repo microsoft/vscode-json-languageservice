@@ -1435,4 +1435,52 @@ suite('Sort JSON', () => {
 
         testSort(content, expected, formattingOptions);
     });
+
+    test('sorting a JSON object with mixed case keys', () => {
+        const content = [
+            '{',
+            '  "tEst": "tEst",',
+            '  "tesT": "tesT",',
+            '  "teSt": "teSt",',
+            '  "Test": "Test",',
+            '  "test": "test"',
+            '}'
+        ].join('\n');
+
+        const expected = [
+            '{',
+            '  "Test": "Test",',
+            '  "tEst": "tEst",',
+            '  "teSt": "teSt",',
+            '  "tesT": "tesT",',
+            '  "test": "test"',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
+
+    test('sorting an already sorted JSON object with mixed case keys', () => {
+        const content = [
+            '{',
+            '  "Test": "Test",',
+            '  "tEst": "tEst",',
+            '  "teSt": "teSt",',
+            '  "tesT": "tesT",',
+            '  "test": "test"',
+            '}'
+        ].join('\n');
+
+        const expected = [
+            '{',
+            '  "Test": "Test",',
+            '  "tEst": "tEst",',
+            '  "teSt": "teSt",',
+            '  "tesT": "tesT",',
+            '  "test": "test"',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
 });
