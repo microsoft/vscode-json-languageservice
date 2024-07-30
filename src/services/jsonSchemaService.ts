@@ -8,7 +8,7 @@ import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
 import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings';
 import * as Parser from '../parser/jsonParser';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument, SchemaConfiguration } from '../jsonLanguageTypes';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration } from '../jsonLanguageTypes';
 
 import * as l10n from '@vscode/l10n';
 import { createRegex } from '../utils/glob';
@@ -34,7 +34,7 @@ export interface IJSONSchemaService {
 	/**
 	 * Looks up the appropriate schema for the given URI
 	 */
-	getSchemaForResource(resource: string, document?: Parser.JSONDocument): Thenable<ResolvedSchema | undefined>;
+	getSchemaForResource(resource: string, document?: Parser.JSONDocument): PromiseLike<ResolvedSchema | undefined>;
 
 	/**
 	 * Returns all registered schema ids
@@ -62,12 +62,12 @@ export interface ISchemaHandle {
 	/**
 	 * The schema from the file, with potential $ref references
 	 */
-	getUnresolvedSchema(): Thenable<UnresolvedSchema>;
+	getUnresolvedSchema(): PromiseLike<UnresolvedSchema>;
 
 	/**
 	 * The schema from the file, with references resolved
 	 */
-	getResolvedSchema(): Thenable<ResolvedSchema>;
+	getResolvedSchema(): PromiseLike<ResolvedSchema>;
 }
 
 const BANG = '!';
@@ -138,8 +138,8 @@ class SchemaHandle implements ISchemaHandle {
 	public readonly uri: string;
 	public readonly dependencies: SchemaDependencies;
 	public anchors: Map<string, JSONSchema> | undefined;
-	private resolvedSchema: Thenable<ResolvedSchema> | undefined;
-	private unresolvedSchema: Thenable<UnresolvedSchema> | undefined;
+	private resolvedSchema: PromiseLike<ResolvedSchema> | undefined;
+	private unresolvedSchema: PromiseLike<UnresolvedSchema> | undefined;
 	private readonly service: JSONSchemaService;
 
 	constructor(service: JSONSchemaService, uri: string, unresolvedSchemaContent?: JSONSchema) {
@@ -152,14 +152,14 @@ class SchemaHandle implements ISchemaHandle {
 		}
 	}
 
-	public getUnresolvedSchema(): Thenable<UnresolvedSchema> {
+	public getUnresolvedSchema(): PromiseLike<UnresolvedSchema> {
 		if (!this.unresolvedSchema) {
 			this.unresolvedSchema = this.service.loadSchema(this.uri);
 		}
 		return this.unresolvedSchema;
 	}
 
-	public getResolvedSchema(): Thenable<ResolvedSchema> {
+	public getResolvedSchema(): PromiseLike<ResolvedSchema> {
 		if (!this.resolvedSchema) {
 			this.resolvedSchema = this.getUnresolvedSchema().then(unresolved => {
 				return this.service.resolveSchemaContent(unresolved, this);
@@ -256,7 +256,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 	private requestService: SchemaRequestService | undefined;
 	private promiseConstructor: PromiseConstructor;
 
-	private cachedSchemaForResource: { resource: string; resolvedSchema: Thenable<ResolvedSchema | undefined> } | undefined;
+	private cachedSchemaForResource: { resource: string; resolvedSchema: PromiseLike<ResolvedSchema | undefined> } | undefined;
 
 	constructor(requestService?: SchemaRequestService, contextService?: WorkspaceContextService, promiseConstructor?: PromiseConstructor) {
 		this.contextService = contextService;
@@ -376,7 +376,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		}
 	}
 
-	public getResolvedSchema(schemaId: string): Thenable<ResolvedSchema | undefined> {
+	public getResolvedSchema(schemaId: string): PromiseLike<ResolvedSchema | undefined> {
 		const id = normalizeId(schemaId);
 		const schemaHandle = this.schemasById[id];
 		if (schemaHandle) {
@@ -385,7 +385,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return this.promise.resolve(undefined);
 	}
 
-	public loadSchema(url: string): Thenable<UnresolvedSchema> {
+	public loadSchema(url: string): PromiseLike<UnresolvedSchema> {
 		if (!this.requestService) {
 			const errorMessage = l10n.t('Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
 			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [errorMessage]));
@@ -428,7 +428,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		);
 	}
 
-	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, handle: SchemaHandle): Thenable<ResolvedSchema> {
+	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, handle: SchemaHandle): PromiseLike<ResolvedSchema> {
 
 		const resolveErrors: string[] = schemaToResolve.errors.slice(0);
 		const schema = schemaToResolve.schema;
@@ -489,7 +489,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		};
 
-		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle): Thenable<any> => {
+		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle): PromiseLike<any> => {
 			if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/\/.*/.test(uri)) {
 				uri = contextService.resolveRelativePath(uri, parentHandle.uri);
 			}
@@ -506,8 +506,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 			});
 		};
 
-		const resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentHandle: SchemaHandle): Thenable<any> => {
-			const openPromises: Thenable<any>[] = [];
+		const resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentHandle: SchemaHandle): PromiseLike<any> => {
+			const openPromises: PromiseLike<any>[] = [];
 
 			this.traverseNodes(node, next => {
 				const seenRefs = new Set<string>();
@@ -674,7 +674,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return this.getAssociatedSchemas(resource);
 	}
 
-	public getSchemaForResource(resource: string, document?: Parser.JSONDocument): Thenable<ResolvedSchema | undefined> {
+	public getSchemaForResource(resource: string, document?: Parser.JSONDocument): PromiseLike<ResolvedSchema | undefined> {
 		if (document) {
 			// first use $schema if present
 			let schemeId = this.getSchemaFromProperty(resource, document);
@@ -704,7 +704,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		}
 	}
 
-	public getMatchingSchemas(document: TextDocument, jsonDocument: Parser.JSONDocument, schema?: JSONSchema): Thenable<MatchingSchema[]> {
+	public getMatchingSchemas(document: TextDocument, jsonDocument: Parser.JSONDocument, schema?: JSONSchema): PromiseLike<MatchingSchema[]> {
 		if (schema) {
 			const id = schema.id || ('schemaservice://untitled/matchingSchemas/' + idCounter++);
 			const handle = this.addSchemaHandle(id, schema);

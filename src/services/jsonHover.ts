@@ -6,7 +6,7 @@
 import * as Parser from '../parser/jsonParser';
 import * as SchemaService from './jsonSchemaService';
 import { JSONWorkerContribution } from '../jsonContributions';
-import { TextDocument, PromiseConstructor, Thenable, Position, Range, Hover, MarkedString } from '../jsonLanguageTypes';
+import { TextDocument, PromiseConstructor, Position, Range, Hover, MarkedString } from '../jsonLanguageTypes';
 
 export class JSONHover {
 
@@ -20,7 +20,7 @@ export class JSONHover {
 		this.promise = promiseConstructor || Promise;
 	}
 
-	public doHover(document: TextDocument, position: Position, doc: Parser.JSONDocument): Thenable<Hover | null> {
+	public doHover(document: TextDocument, position: Position, doc: Parser.JSONDocument): PromiseLike<Hover | null> {
 
 		const offset = document.offsetAt(position);
 		let node = doc.getNodeFromOffset(offset);

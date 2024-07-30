@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 
-import { Hover, Position, MarkedString, TextDocument, getLanguageService, JSONSchema, JSONWorkerContribution, LanguageServiceParams } from '../jsonLanguageService';
+import { Hover, Position, MarkedString, TextDocument, getLanguageService, JSONSchema, LanguageServiceParams } from '../jsonLanguageService';
 
 suite('JSON Hover', () => {
 

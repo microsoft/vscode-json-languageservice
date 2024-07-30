@@ -1,6 +1,6 @@
 
 
-import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema } from '../jsonLanguageService';
+import { getLanguageService, TextDocument } from '../jsonLanguageService';
 
 async function main() {
     const jsonContentUri = 'foo://server/example.data.json';
@@ -58,4 +58,3 @@ async function main() {
 
 }
 main();
-

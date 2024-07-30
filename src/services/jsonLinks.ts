@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DocumentLink } from 'vscode-languageserver-types';
-import { TextDocument, ASTNode, PropertyASTNode, Range, Thenable } from '../jsonLanguageTypes';
+import { TextDocument, ASTNode, PropertyASTNode, Range } from '../jsonLanguageTypes';
 import { JSONDocument } from '../parser/jsonParser';
 
-export function findLinks(document: TextDocument, doc: JSONDocument): Thenable<DocumentLink[]> {
+export function findLinks(document: TextDocument, doc: JSONDocument): PromiseLike<DocumentLink[]> {
 	const links: DocumentLink[] = [];
 	doc.visit(node => {
 		if (node.type === "property" && node.keyNode.value === "$ref" && node.valueNode?.type === 'string') {

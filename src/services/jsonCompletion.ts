@@ -12,7 +12,7 @@ import { stringifyObject } from '../utils/json';
 import { endsWith, extendedRegExp } from '../utils/strings';
 import { isDefined } from '../utils/objects';
 import {
-	PromiseConstructor, Thenable,
+	PromiseConstructor,
 	ASTNode, ObjectASTNode, ArrayASTNode, PropertyASTNode, ClientCapabilities,
 	TextDocument,
 	CompletionItem, CompletionItemKind, CompletionList, Position, Range, TextEdit, InsertTextFormat, MarkupContent, MarkupKind
@@ -36,7 +36,7 @@ export class JSONCompletion {
 		private clientCapabilities: ClientCapabilities = {}) {
 	}
 
-	public doResolve(item: CompletionItem): Thenable<CompletionItem> {
+	public doResolve(item: CompletionItem): PromiseLike<CompletionItem> {
 		for (let i = this.contributions.length - 1; i >= 0; i--) {
 			const resolveCompletion = this.contributions[i].resolveCompletion;
 			if (resolveCompletion) {
@@ -49,7 +49,7 @@ export class JSONCompletion {
 		return this.promiseConstructor.resolve(item);
 	}
 
-	public doComplete(document: TextDocument, position: Position, doc: Parser.JSONDocument): Thenable<CompletionList> {
+	public doComplete(document: TextDocument, position: Position, doc: Parser.JSONDocument): PromiseLike<CompletionList> {
 
 		const result: CompletionList = {
 			items: [],
@@ -130,7 +130,7 @@ export class JSONCompletion {
 		};
 
 		return this.schemaService.getSchemaForResource(document.uri, doc).then((schema) => {
-			const collectionPromises: Thenable<any>[] = [];
+			const collectionPromises: PromiseLike<any>[] = [];
 
 			let addValue = true;
 			let currentKey = '';
@@ -512,7 +512,7 @@ export class JSONCompletion {
 
 	}
 
-	private getContributedValueCompletions(doc: Parser.JSONDocument, node: ASTNode | undefined, offset: number, document: TextDocument, collector: CompletionsCollector, collectionPromises: Thenable<any>[]) {
+	private getContributedValueCompletions(doc: Parser.JSONDocument, node: ASTNode | undefined, offset: number, document: TextDocument, collector: CompletionsCollector, collectionPromises: PromiseLike<any>[]) {
 		if (!node) {
 			this.contributions.forEach((contribution) => {
 				const collectPromise = contribution.collectDefaultCompletions(document.uri, collector);
