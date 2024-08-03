@@ -203,7 +203,7 @@ suite('JSON Document Symbols', () => {
 	});
 
 	test('Hierarchical Outline - Array', function () {
-		const content = '{ "key1": [ { "key2": true }, { "k1": [] } ]';
+		const content = '{ "key1": [ { "key2": true }, { "k1": [] } ]}';
 
 		const expected: ExpectedDocumentSymbol[] = [
 			{
