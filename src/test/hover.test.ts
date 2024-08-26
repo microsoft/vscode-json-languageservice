@@ -9,7 +9,7 @@ import { Hover, Position, MarkedString, TextDocument, getLanguageService, JSONSc
 
 suite('JSON Hover', () => {
 
-	function testComputeInfo(value: string, schema: JSONSchema, position: Position, serviceParams?: LanguageServiceParams): PromiseLike<Hover> {
+	async function testComputeInfo(value: string, schema: JSONSchema, position: Position, serviceParams?: LanguageServiceParams): Promise<Hover> {
 		const uri = 'test://test.json';
 		const schemaUri = "http://myschemastore/test1";
 
@@ -22,7 +22,9 @@ suite('JSON Hover', () => {
 
 		const document = TextDocument.create(uri, 'json', 0, value);
 		const jsonDoc = service.parseJSONDocument(document);
-		return service.doHover(document, position, jsonDoc);
+		const hover = await service.doHover(document, position, jsonDoc);
+		assert(hover, 'expected hover to be returned');
+		return hover;
 	}
 
 	let requestService = function (uri: string): Promise<string> {
