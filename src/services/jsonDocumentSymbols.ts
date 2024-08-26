@@ -9,7 +9,7 @@ import { colorFromHex } from '../utils/colors';
 import * as l10n from '@vscode/l10n';
 
 import {
-	TextDocument, Thenable, ColorInformation, ColorPresentation, Color, ASTNode, PropertyASTNode, DocumentSymbolsContext, Range, TextEdit,
+	TextDocument, ColorInformation, ColorPresentation, Color, ASTNode, PropertyASTNode, DocumentSymbolsContext, Range, TextEdit,
 	SymbolInformation, SymbolKind, DocumentSymbol, Location
 } from "../jsonLanguageTypes";
 
@@ -236,7 +236,7 @@ export class JSONDocumentSymbols {
 		return undefined;
 	}
 
-	public findDocumentColors(document: TextDocument, doc: Parser.JSONDocument, context?: DocumentSymbolsContext): Thenable<ColorInformation[]> {
+	public findDocumentColors(document: TextDocument, doc: Parser.JSONDocument, context?: DocumentSymbolsContext): PromiseLike<ColorInformation[]> {
 		return this.schemaService.getSchemaForResource(document.uri, doc).then(schema => {
 			const result: ColorInformation[] = [];
 			if (schema) {

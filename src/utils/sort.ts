@@ -3,8 +3,7 @@
 *  Licensed under the MIT License. See License.txt in the project root for license information.
 *--------------------------------------------------------------------------------------------*/
 
-// import { TextEdit} from 'vscode-languageserver-textdocument';
-import { createScanner, SyntaxKind, JSONScanner, FormattingOptions as JPFormattingOptions } from 'jsonc-parser';
+import { createScanner, SyntaxKind, JSONScanner } from 'jsonc-parser';
 import { TextDocument, TextEdit, FormattingOptions, Position, Range, TextDocumentContentChangeEvent, SortOptions } from '../jsonLanguageTypes';
 import { format } from './format';
 import { PropertyTree, Container } from './propertyTree';

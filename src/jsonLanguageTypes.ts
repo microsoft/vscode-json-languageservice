@@ -206,7 +206,7 @@ export interface WorkspaceContextService {
  * In case of an error, returns a rejected promise with a displayable error string.
  */
 export interface SchemaRequestService {
-	(uri: string): Thenable<string>;
+	(uri: string): PromiseLike<string>;
 }
 
 export interface PromiseConstructor {
@@ -216,7 +216,7 @@ export interface PromiseConstructor {
 	 * a resolve callback used resolve the promise with a value or the result of another promise,
 	 * and a reject callback used to reject the promise with a provided reason or error.
 	 */
-	new <T>(executor: (resolve: (value?: T | Thenable<T | undefined>) => void, reject: (reason?: any) => void) => void): Thenable<T | undefined>;
+	new <T>(executor: (resolve: (value?: T | PromiseLike<T | undefined>) => void, reject: (reason?: any) => void) => void): PromiseLike<T | undefined>;
 
 	/**
 	 * Creates a Promise that is resolved with an array of results when all of the provided Promises
@@ -224,33 +224,29 @@ export interface PromiseConstructor {
 	 * @param values An array of Promises.
 	 * @returns A new Promise.
 	 */
-	all<T>(values: Array<T | Thenable<T>>): Thenable<T[]>;
+	all<T>(values: Array<T | PromiseLike<T>>): PromiseLike<T[]>;
 	/**
 	 * Creates a new rejected promise for the provided reason.
 	 * @param reason The reason the promise was rejected.
 	 * @returns A new rejected Promise.
 	 */
-	reject<T>(reason: any): Thenable<T>;
+	reject<T>(reason: any): PromiseLike<T>;
 
 	/**
 		 * Creates a new resolved promise for the provided value.
 		 * @param value A promise.
 		 * @returns A promise whose internal state matches the provided promise.
 		 */
-	resolve<T>(value: T | Thenable<T>): Thenable<T>;
+	resolve<T>(value: T | PromiseLike<T>): PromiseLike<T>;
 
 }
 
-export interface Thenable<R> {
-	/**
-	* Attaches callbacks for the resolution and/or rejection of the Promise.
-	* @param onfulfilled The callback to execute when the Promise is resolved.
-	* @param onrejected The callback to execute when the Promise is rejected.
-	* @returns A Promise for the completion of which ever callback is executed.
-	*/
-	then<TResult>(onfulfilled?: (value: R) => TResult | Thenable<TResult>, onrejected?: (reason: any) => TResult | Thenable<TResult>): Thenable<TResult>;
-	then<TResult>(onfulfilled?: (value: R) => TResult | Thenable<TResult>, onrejected?: (reason: any) => void): Thenable<TResult>;
-}
+/**
+ * A deprecated alias of {@link PromiseLike}
+ * 
+ * @deprecated
+ */
+export interface Thenable<R> extends PromiseLike<R> {}
 
 export interface LanguageServiceParams {
 	/**

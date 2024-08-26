@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { JSONSchemaService, ResolvedSchema, UnresolvedSchema } from './jsonSchemaService';
+import { JSONSchemaService, ResolvedSchema } from './jsonSchemaService';
 import { JSONDocument } from '../parser/jsonParser';
 
-import { TextDocument, ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range, JSONLanguageStatus } from '../jsonLanguageTypes';
+import { TextDocument, ErrorCode, PromiseConstructor, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range, JSONLanguageStatus } from '../jsonLanguageTypes';
 import * as l10n from '@vscode/l10n';
 import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
 import { isBoolean } from '../utils/objects';
@@ -32,7 +32,7 @@ export class JSONValidation {
 		}
 	}
 
-	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): Thenable<Diagnostic[]> {
+	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): PromiseLike<Diagnostic[]> {
 		if (!this.validationEnabled) {
 			return this.promise.resolve([]);
 		}

@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as JsonSchema from '../jsonSchema';
 
 import {
-	Thenable, getLanguageService,
+	getLanguageService,
 	ClientCapabilities, DocumentSymbolsContext,
 	TextDocument, Color, SymbolInformation, SymbolKind, Range, Position, TextEdit, DocumentSymbol
 } from "../jsonLanguageService";
@@ -37,7 +37,7 @@ suite('JSON Document Symbols', () => {
 		return ls.findDocumentSymbols2(document, jsonDoc, context);
 	}
 
-	function assertColors(value: string, schema: JsonSchema.JSONSchema, expectedOffsets: number[], expectedColors: Color[]): Thenable<any> {
+	function assertColors(value: string, schema: JsonSchema.JSONSchema, expectedOffsets: number[], expectedColors: Color[]): PromiseLike<any> {
 		const uri = 'test://test.json';
 		const schemaUri = "http://myschemastore/test1";
 

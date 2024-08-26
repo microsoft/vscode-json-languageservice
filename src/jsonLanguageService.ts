@@ -17,7 +17,6 @@ import { sort } from './utils/sort';
 import { format } from './utils/format';
 
 import {
-	Thenable,
 	ASTNode,
 	Color, ColorInformation, ColorPresentation,
 	LanguageServiceParams, LanguageSettings, DocumentLanguageSettings,
@@ -37,23 +36,23 @@ export * from './jsonLanguageTypes';
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;
-	doValidation(document: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): Thenable<Diagnostic[]>;
+	doValidation(document: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): PromiseLike<Diagnostic[]>;
 	parseJSONDocument(document: TextDocument): JSONDocument;
 	newJSONDocument(rootNode: ASTNode, syntaxDiagnostics?: Diagnostic[]): JSONDocument;
 	resetSchema(uri: string): boolean;
-	getMatchingSchemas(document: TextDocument, jsonDocument: JSONDocument, schema?: JSONSchema): Thenable<MatchingSchema[]>;
+	getMatchingSchemas(document: TextDocument, jsonDocument: JSONDocument, schema?: JSONSchema): PromiseLike<MatchingSchema[]>;
 	getLanguageStatus(document: TextDocument, jsonDocument: JSONDocument): JSONLanguageStatus;
-	doResolve(item: CompletionItem): Thenable<CompletionItem>;
-	doComplete(document: TextDocument, position: Position, doc: JSONDocument): Thenable<CompletionList | null>;
+	doResolve(item: CompletionItem): PromiseLike<CompletionItem>;
+	doComplete(document: TextDocument, position: Position, doc: JSONDocument): PromiseLike<CompletionList | null>;
 	findDocumentSymbols(document: TextDocument, doc: JSONDocument, context?: DocumentSymbolsContext): SymbolInformation[];
 	findDocumentSymbols2(document: TextDocument, doc: JSONDocument, context?: DocumentSymbolsContext): DocumentSymbol[];
-	findDocumentColors(document: TextDocument, doc: JSONDocument, context?: DocumentColorsContext): Thenable<ColorInformation[]>;
+	findDocumentColors(document: TextDocument, doc: JSONDocument, context?: DocumentColorsContext): PromiseLike<ColorInformation[]>;
 	getColorPresentations(document: TextDocument, doc: JSONDocument, color: Color, range: Range): ColorPresentation[];
-	doHover(document: TextDocument, position: Position, doc: JSONDocument): Thenable<Hover | null>;
+	doHover(document: TextDocument, position: Position, doc: JSONDocument): PromiseLike<Hover | null>;
 	getFoldingRanges(document: TextDocument, context?: FoldingRangesContext): FoldingRange[];
 	getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[];
-	findDefinition(document: TextDocument, position: Position, doc: JSONDocument): Thenable<DefinitionLink[]>;
-	findLinks(document: TextDocument, doc: JSONDocument): Thenable<DocumentLink[]>;
+	findDefinition(document: TextDocument, position: Position, doc: JSONDocument): PromiseLike<DefinitionLink[]>;
+	findLinks(document: TextDocument, doc: JSONDocument): PromiseLike<DocumentLink[]>;
 	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
 	sort(document: TextDocument, options: SortOptions): TextEdit[];
 }
