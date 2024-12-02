@@ -240,7 +240,7 @@ export class JSONCompletion {
 								documentation: this.fromMarkup(propertySchema.markdownDescription) || propertySchema.description || ''
 							};
 							if (propertySchema.completionDetail !== undefined) {
-								proposal.detail = propertySchema.completionDetail
+								proposal.detail = propertySchema.completionDetail;
 							}
 							if (propertySchema.suggestSortText !== undefined) {
 								proposal.sortText = propertySchema.suggestSortText;
@@ -267,7 +267,7 @@ export class JSONCompletion {
 							documentation: enumDescription || this.fromMarkup(schemaPropertyNames.markdownDescription) || schemaPropertyNames.description || ''
 						};
 						if (schemaPropertyNames.completionDetail !== undefined) {
-							proposal.detail = schemaPropertyNames.completionDetail
+							proposal.detail = schemaPropertyNames.completionDetail;
 						}
 						if (schemaPropertyNames.suggestSortText !== undefined) {
 							proposal.sortText = schemaPropertyNames.suggestSortText;
