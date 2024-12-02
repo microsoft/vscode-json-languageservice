@@ -1998,7 +1998,60 @@ suite('JSON Schema', () => {
 		const testDoc = toDocument(JSON.stringify({ $schema: httpUrl, bar: 2 }));
 		let validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
 		assert.deepStrictEqual(validation.map(v => v.message), ['Value must be 3.']);
-		assert.deepStrictEqual([httpsUrl], accesses); 
+		assert.deepStrictEqual([httpsUrl], accesses);
 	});
+
+	test('combined schemas and URIs without host', async function () {
+		const schemas: SchemaConfiguration[] = [{
+			uri: 'myproto:///schema.json',
+			fileMatch: ['foo.json'],
+		},
+		{
+			uri: 'https://myschemastore/schema2.json',
+			fileMatch: ['foo.json'],
+		}
+		];
+		const schemaContents: { [uri: string]: JSONSchema } = {
+			['myproto:/schema.json']: {
+				type: 'object',
+				properties: {
+					bar: {
+						type: 'string'
+					}
+				}
+			},
+			['https://myschemastore/schema2.json']: {
+				type: 'object',
+				properties: {
+					foo: {
+						type: 'string'
+					}
+				}
+			}
+		};
+
+		const accesses: string[] = [];
+
+
+		const schemaRequestService: SchemaRequestService = async (uri: string) => {
+			if (uri === `https://myschemastore/schema2.json` || uri === `myproto:/schema.json`) {
+				return '{}';
+			}
+			throw new Error('Unknown schema ' + uri);
+		};
+
+
+		const ls = getLanguageService({ workspaceContext, schemaRequestService });
+		ls.configure({ schemas });
+
+		{
+			const { textDoc, jsonDoc } = toDocument('{ }', undefined, 'foo://bar/folder/foo.json');
+			const res = await ls.doValidation(textDoc, jsonDoc);
+			console.log(res);	
+		}
+
+	});
+
+
 
 });
