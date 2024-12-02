@@ -42,8 +42,8 @@ extends:
 
         tag: ${{ parameters.quality }}
         preReleaseTag: next
-        preReleaseTagAddToLatest: true
         publishPackage: ${{ parameters.publishPackage }}
+        publishRequiresApproval: false
 
         testPlatforms:
           - name: Linux
