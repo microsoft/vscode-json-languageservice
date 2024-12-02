@@ -9,6 +9,6 @@ src/
 test/
 .gitignore
 .travis.yml
-.eslintrc.json
+eslint.config.mjs
 gulpfile.js
 .mocharc.json
