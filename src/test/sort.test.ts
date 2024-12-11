@@ -1449,11 +1449,11 @@ suite('Sort JSON', () => {
 
         const expected = [
             '{',
-            '  "Test": "Test",',
-            '  "tEst": "tEst",',
-            '  "teSt": "teSt",',
+            '  "test": "test",',
             '  "tesT": "tesT",',
-            '  "test": "test"',
+            '  "teSt": "teSt",',
+            '  "tEst": "tEst",',
+            '  "Test": "Test"',
             '}'
         ].join('\n');
 
@@ -1463,21 +1463,41 @@ suite('Sort JSON', () => {
     test('sorting an already sorted JSON object with mixed case keys', () => {
         const content = [
             '{',
-            '  "Test": "Test",',
-            '  "tEst": "tEst",',
-            '  "teSt": "teSt",',
+            '  "test": "test",',
             '  "tesT": "tesT",',
-            '  "test": "test"',
+            '  "teSt": "teSt",',
+            '  "tEst": "tEst",',
+            '  "Test": "Test"',
             '}'
         ].join('\n');
 
         const expected = [
             '{',
-            '  "Test": "Test",',
-            '  "tEst": "tEst",',
-            '  "teSt": "teSt",',
+            '  "test": "test",',
             '  "tesT": "tesT",',
-            '  "test": "test"',
+            '  "teSt": "teSt",',
+            '  "tEst": "tEst",',
+            '  "Test": "Test"',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
+
+    test('sorting symbols before letters', () => {
+        const content = [
+            '{',
+            '  "Test": "Test",',
+            '  "test": "test",',
+            '  "[test]: "test',
+            '}'
+        ].join('\n');
+
+        const expected = [
+            '{',
+            '  "[test]: "test,',
+            '  "test": "test",',
+            '  "Test": "Test"',
             '}'
         ].join('\n');
 
