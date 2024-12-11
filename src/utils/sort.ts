@@ -376,40 +376,7 @@ function sortJsoncDocument(jsonDocument: TextDocument, propertyTree: PropertyTre
 }
 
 function sortProperties(properties: PropertyTree[]): void {
-    properties.sort((property1, property2) => {
-        const propertyName1 = property1.propertyName;
-        const propertyName2 = property2.propertyName;
-        let i = 0;
-        while (i < propertyName1.length && i < propertyName2.length) {
-            const chr1 = propertyName1[i];
-            const ch2 = propertyName2[i];
-            // If both characters are symbols, sort them normally
-            if (!/[a-zA-Z]/.test(chr1) && !/[a-zA-Z]/.test(ch2)) {
-                if (chr1 < ch2) return -1;
-                if (chr1 > ch2) return 1;
-            }
-            // If one is a symbol and the other is a letter, the symbol comes first
-            if (!/[a-zA-Z]/.test(chr1)) {
-                return -1;
-            }
-            if (!/[a-zA-Z]/.test(ch2)) {
-                return 1;
-            }
-            // If both are letters, lowercase comes before uppercase
-            if (chr1 === chr1.toLowerCase() && ch2 === ch2.toUpperCase()) {
-                return -1;
-            }
-            if (chr1 === chr1.toUpperCase() && ch2 === ch2.toLowerCase()) {
-                return 1;
-            }
-            // If both are letters and of the same case, compare them alphabetically
-            if (chr1 < ch2) { return -1 };
-            if (chr1 > ch2) { return 1 };
-            i++;
-        }
-        // If one string is shorter, the shorter string is considered lower
-        return propertyName1.length - propertyName2.length;
-    });
+    properties.sort((a, b) => a.propertyName.localeCompare(b.propertyName));
 }
 
 function updateSortingQueue(queue: any[], propertyTree: PropertyTree, beginningLineNumber: number) {
