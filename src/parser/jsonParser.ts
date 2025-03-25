@@ -308,8 +308,8 @@ export class ValidationResult {
 
 }
 
-export function newJSONDocument(root: ASTNode, diagnostics: Diagnostic[] = []) {
-	return new JSONDocument(root, diagnostics, []);
+export function newJSONDocument(root: ASTNode | undefined, diagnostics: Diagnostic[] = [], comments: Range[] = []) {
+	return new JSONDocument(root, diagnostics, comments);
 }
 
 export function getNodeValue(node: ASTNode): any {
