@@ -700,6 +700,8 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 					location: { offset: node.offset, length: node.length },
 					message: l10n.t('Invalid schema pattern "{0}".', schema.pattern)
 				});
+
+				return;
 			}
 
 			if (!(regex?.test(node.value))) {
