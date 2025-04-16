@@ -614,6 +614,18 @@ suite('JSON Parser', () => {
 			properties: {
 				"one": {
 					type: 'string',
+					pattern: 'invalid pattern',
+				}
+			}
+		});
+
+		assert.strictEqual(semanticErrors!.length, 1);
+
+		semanticErrors = validate2(jsonDoc, textDoc, {
+			type: 'object',
+			properties: {
+				"one": {
+					type: 'string',
 					pattern: '(^\\d+(\\-\\d+)?$)|(.+)',
 				}
 			}
