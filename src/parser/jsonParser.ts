@@ -695,6 +695,13 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 		if (isString(schema.pattern)) {
 			const regex = extendedRegExp(schema.pattern);
+			if(regex === undefined) {
+				validationResult.problems.push({
+					location: { offset: node.offset, length: node.length },
+					message: l10n.t('Invalid schema pattern "{0}".', schema.pattern)
+				});
+			}
+
 			if (!(regex?.test(node.value))) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
