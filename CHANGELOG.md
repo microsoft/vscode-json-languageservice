@@ -1,3 +1,7 @@
+5.5.0 / 2025-03-25
+================
+ * `newJSONDocument` API now also accepts undefined as ASTRoots an optionally comment ranges.
+
 5.3.1 / 2023-02-24
 ================
  * Fixing bugs in the sort feature
@@ -18,12 +22,12 @@
 
 5.1.0 / 2022-07-11
 ================
-* new API option `FormattingOptions.keepLines` to indicate the formatter should keep the initial line positions 
+* new API option `FormattingOptions.keepLines` to indicate the formatter should keep the initial line positions
 
 5.0.0 / 2022-05-17
 ================
  * Update to `vscode-languageserver-types@3.17`
- * Add more schema support 
+ * Add more schema support
    * Schema 2019-09: unevaluatedProperties, unevaluatedItems, minContains, maxContains, deprecated, dependentRequired, dependentSchemas, $defs, $anchor
    * Schema 2020-12: prefixItem
 
@@ -35,7 +39,7 @@
 4.1.6 / 2021-07-16
 ================
  * Replace minimatch with glob-to-regexp
- 
+
 4.1.0 / 2021-04-24
 ================
  * `SchemaConfiguration.fileMatch` now supports glob patterns (e.g. /foo/**/bar.json')
@@ -56,11 +60,11 @@
 3.9.0 / 2020-09-28
 =================
  * new API `DocumentLanguageSettings.schemaValidation`. The severity of problems from schema validation. If set to 'ignore', schema validation will be skipped. If not set, 'warning' is used.
- * new API `DocumentLanguageSettings.schemaRequest`. The severity of problems that occurred while resolving and loading schemas. If set to 'ignore', schema resolving problems are not reported. If not set, 'warning' is used. 
+ * new API `DocumentLanguageSettings.schemaRequest`. The severity of problems that occurred while resolving and loading schemas. If set to 'ignore', schema resolving problems are not reported. If not set, 'warning' is used.
 
 3.8.0 / 2020-08-02
 =================
- * new API `LanguageService.getMatchingSchemas`. Matches a document against its schema and list all AST nodes along with the matching sub schemas. 
+ * new API `LanguageService.getMatchingSchemas`. Matches a document against its schema and list all AST nodes along with the matching sub schemas.
 
 3.7.0 / 2020-06-04
 ==================
@@ -136,12 +140,12 @@
 .
 2.0.19 / 2017-09-21
 ===================
-  * New API `LanguageService.getColorPresentations` returning presentations for a given color. 
+  * New API `LanguageService.getColorPresentations` returning presentations for a given color.
   * New API type `ColorPresentation` added.
-  
+
 2.0.15 / 2017-08-28
 ===================
-  * New API `LanguageService.findDocumentColors` returning the location and value of all colors in a document. 
+  * New API `LanguageService.findDocumentColors` returning the location and value of all colors in a document.
   * New API types `ColorInformation` and `Color` added.
   * Deprecated `LanguageService.findColorSymbols`. Use `LanguageService.findDocumentColors` instead.
 
