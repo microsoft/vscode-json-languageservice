@@ -614,12 +614,12 @@ suite('JSON Parser', () => {
 			properties: {
 				"one": {
 					type: 'string',
-					pattern: 'invalid pattern',
+					pattern: '*+ (invalid pattern)',
 				}
 			}
 		});
 
-		assert.strictEqual(semanticErrors!.length, 1);
+		assert.strictEqual(semanticErrors!.length, 0);
 
 		semanticErrors = validate2(jsonDoc, textDoc, {
 			type: 'object',
