@@ -11,8 +11,7 @@ export const schemaContributions: ISchemaContributions = {
 	schemaAssociations: [],
 	schemas: {
 		// bundle the schema-schema to include (localized) descriptions
-		'http://json-schema.org/draft-04/schema#': {
-			'$schema': 'http://json-schema.org/draft-04/schema#',
+		'https://json-schema.org/draft-04/schema': {
 			'definitions': {
 				'schemaArray': {
 					'type': 'array',
@@ -294,7 +293,7 @@ export const schemaContributions: ISchemaContributions = {
 			},
 			'default': {}
 		},
-		'http://json-schema.org/draft-07/schema#': {
+		'https://json-schema.org/draft-07/schema': {
 			'definitions': {
 				'schemaArray': {
 					'type': 'array',

@@ -7,8 +7,8 @@ import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
 import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings';
-import * as Parser from '../parser/jsonParser';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration } from '../jsonLanguageTypes';
+import { asSchema, getSchemaDraftFromId, JSONDocument, normalizeId } from '../parser/jsonParser';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft } from '../jsonLanguageTypes';
 
 import * as l10n from '@vscode/l10n';
 import { createRegex } from '../utils/glob';
@@ -34,7 +34,7 @@ export interface IJSONSchemaService {
 	/**
 	 * Looks up the appropriate schema for the given URI
 	 */
-	getSchemaForResource(resource: string, document?: Parser.JSONDocument): PromiseLike<ResolvedSchema | undefined>;
+	getSchemaForResource(resource: string, document?: JSONDocument): PromiseLike<ResolvedSchema | undefined>;
 
 	/**
 	 * Returns all registered schema ids
@@ -193,9 +193,9 @@ export class ResolvedSchema {
 	public readonly schema: JSONSchema;
 	public readonly errors: string[];
 	public readonly warnings: string[];
-	public readonly schemaDraft: string | undefined;
+	public readonly schemaDraft: SchemaDraft | undefined;
 
-	constructor(schema: JSONSchema, errors: string[] = [], warnings: string[] = [], schemaDraft: string | undefined) {
+	constructor(schema: JSONSchema, errors: string[] = [], warnings: string[] = [], schemaDraft: SchemaDraft | undefined) {
 		this.schema = schema;
 		this.errors = errors;
 		this.warnings = warnings;
@@ -205,7 +205,7 @@ export class ResolvedSchema {
 	public getSection(path: string[]): JSONSchema | undefined {
 		const schemaRef = this.getSectionRecursive(path, this.schema);
 		if (schemaRef) {
-			return Parser.asSchema(schemaRef);
+			return asSchema(schemaRef);
 		}
 		return undefined;
 	}
@@ -390,9 +390,6 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const errorMessage = l10n.t('Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
 			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [errorMessage]));
 		}
-		if (url.startsWith('http://json-schema.org/')) {
-			url = 'https' + url.substring(4); // always access json-schema.org with https. See https://github.com/microsoft/vscode/issues/195189
-		}
 		return this.requestService(url).then(
 			content => {
 				if (!content) {
@@ -433,8 +430,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const resolveErrors: string[] = schemaToResolve.errors.slice(0);
 		const schema = schemaToResolve.schema;
 
-		let schemaDraft = schema.$schema ? normalizeId(schema.$schema) : undefined;
-		if (schemaDraft === 'http://json-schema.org/draft-03/schema') {
+		const schemaDraft = schema.$schema ? getSchemaDraftFromId(schema.$schema) : undefined;
+		if (schemaDraft === SchemaDraft.v3) {
 			return this.promise.resolve(new ResolvedSchema({}, [l10n.t("Draft-03 schemas are not supported.")], [], schemaDraft));
 		}
 
@@ -634,7 +631,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		}
 	};
 
-	private getSchemaFromProperty(resource: string, document: Parser.JSONDocument): string | undefined {
+	private getSchemaFromProperty(resource: string, document: JSONDocument): string | undefined {
 		if (document.root?.type === 'object') {
 			for (const p of document.root.properties) {
 				if (p.keyNode.value === '$schema' && p.valueNode?.type === 'string') {
@@ -666,7 +663,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return schemas;
 	}
 
-	public getSchemaURIsForResource(resource: string, document?: Parser.JSONDocument): string[] {
+	public getSchemaURIsForResource(resource: string, document?: JSONDocument): string[] {
 		let schemeId = document && this.getSchemaFromProperty(resource, document);
 		if (schemeId) {
 			return [schemeId];
@@ -674,7 +671,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return this.getAssociatedSchemas(resource);
 	}
 
-	public getSchemaForResource(resource: string, document?: Parser.JSONDocument): PromiseLike<ResolvedSchema | undefined> {
+	public getSchemaForResource(resource: string, document?: JSONDocument): PromiseLike<ResolvedSchema | undefined> {
 		if (document) {
 			// first use $schema if present
 			let schemeId = this.getSchemaFromProperty(resource, document);
@@ -704,7 +701,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		}
 	}
 
-	public getMatchingSchemas(document: TextDocument, jsonDocument: Parser.JSONDocument, schema?: JSONSchema): PromiseLike<MatchingSchema[]> {
+	public getMatchingSchemas(document: TextDocument, jsonDocument: JSONDocument, schema?: JSONSchema): PromiseLike<MatchingSchema[]> {
 		if (schema) {
 			const id = schema.id || ('schemaservice://untitled/matchingSchemas/' + idCounter++);
 			const handle = this.addSchemaHandle(id, schema);
@@ -723,16 +720,6 @@ export class JSONSchemaService implements IJSONSchemaService {
 }
 
 let idCounter = 0;
-
-function normalizeId(id: string): string {
-	// remove trailing '#', normalize drive capitalization
-	try {
-		return URI.parse(id).toString(true);
-	} catch (e) {
-		return id;
-	}
-
-}
 
 function normalizeResourceForMatching(resource: string): string {
 	// remove queries and fragments, normalize drive capitalization

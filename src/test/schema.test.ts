@@ -1831,7 +1831,7 @@ suite('JSON Schema', () => {
 
 	test('schema resolving severity', async function () {
 		const schema: JSONSchema = {
-			$schema: 'http://json-schema.org/draft-03/schema',
+			$schema: 'http://json-schema.org/draft-03/schema#',
 			type: 'string'
 		};
 
