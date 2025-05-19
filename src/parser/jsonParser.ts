@@ -718,7 +718,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 		if (isString(schema.pattern)) {
 			const regex = extendedRegExp(schema.pattern);
-			if (!(regex?.test(node.value))) {
+			if (regex && !(regex.test(node.value))) {
 				validationResult.problems.push({
 					location: { offset: node.offset, length: node.length },
 					message: schema.patternErrorMessage || schema.errorMessage || l10n.t('String does not match the pattern of "{0}".', schema.pattern)
