@@ -740,7 +740,7 @@ export class JSONCompletion {
 	private addDollarSchemaCompletions(separatorAfter: string, collector: CompletionsCollector): void {
 		const schemaIds = this.schemaService.getRegisteredSchemaIds(schema => schema === 'http' || schema === 'https');
 		schemaIds.forEach(schemaId => {
-			if (schemaId.startsWith('http://json-schema.org/draft-')) {
+			if (schemaId.startsWith('https://json-schema.org/draft-')) {
 				schemaId = schemaId + '#';
 			}
 			collector.add({

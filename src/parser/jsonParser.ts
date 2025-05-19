@@ -8,6 +8,7 @@ import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import { isNumber, equals, isBoolean, isString, isDefined, isObject } from '../utils/objects';
 import { extendedRegExp, stringLength } from '../utils/strings';
 import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range, SchemaDraft } from '../jsonLanguageTypes';
+import { URI } from 'vscode-uri';
 
 import * as l10n from '@vscode/l10n';
 
@@ -171,11 +172,33 @@ export enum EnumMatch {
 	Key, Enum
 }
 
+const httpPrefix = `http://json-schema.org/`;
+const httpsPrefix = `https://json-schema.org/`;
+
+export function normalizeId(id: string): string {
+	// use the https prefix for the old json-schema.org meta schemas
+	// See https://github.com/microsoft/vscode/issues/195189
+	if (id.startsWith(httpPrefix)) {
+		id = httpsPrefix + id.substring(httpPrefix.length);
+	}
+	// remove trailing '#', normalize drive capitalization
+	try {
+		return URI.parse(id).toString(true);
+	} catch (e) {
+		return id;
+	}
+
+}
+
+export function getSchemaDraftFromId(schemaId: string): SchemaDraft | undefined {
+	return schemaDraftFromId[normalizeId(schemaId)] ?? undefined;
+}
+
 const schemaDraftFromId: { [id: string]: SchemaDraft } = {
-	'http://json-schema.org/draft-03/schema#': SchemaDraft.v3,
-	'http://json-schema.org/draft-04/schema#': SchemaDraft.v4,
-	'http://json-schema.org/draft-06/schema#': SchemaDraft.v6,
-	'http://json-schema.org/draft-07/schema#': SchemaDraft.v7,
+	'https://json-schema.org/draft-03/schema': SchemaDraft.v3,
+	'https://json-schema.org/draft-04/schema': SchemaDraft.v4,
+	'https://json-schema.org/draft-06/schema': SchemaDraft.v6,
+	'https://json-schema.org/draft-07/schema': SchemaDraft.v7,
 	'https://json-schema.org/draft/2019-09/schema': SchemaDraft.v2019_09,
 	'https://json-schema.org/draft/2020-12/schema': SchemaDraft.v2020_12
 };
@@ -378,7 +401,7 @@ export class JSONDocument {
 function getSchemaDraft(schema: JSONSchema, fallBack = SchemaDraft.v2020_12) {
 	let schemaId = schema.$schema;
 	if (schemaId) {
-		return schemaDraftFromId[schemaId] ?? fallBack;
+		return getSchemaDraftFromId(schemaId) ?? fallBack;
 	}
 	return fallBack;
 }
