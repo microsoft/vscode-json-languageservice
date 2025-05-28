@@ -79,6 +79,8 @@ export interface JSONSchema {
 	patternErrorMessage?: string; // VSCode extension
 	deprecationMessage?: string; // VSCode extension
 	enumDescriptions?: string[]; // VSCode extension
+	enumSortTexts?: string[]; // VSCode extension
+	enumDetails?: string[]; // VSCode extension
 	markdownEnumDescriptions?: string[]; // VSCode extension
 	markdownDescription?: string; // VSCode extension
 	doNotSuggest?: boolean; // VSCode extension
