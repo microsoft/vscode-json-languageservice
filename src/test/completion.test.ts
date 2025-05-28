@@ -326,6 +326,13 @@ suite('JSON Completion', () => {
 						{ propertyNames: { const: 'a', deprecationMessage: 'Deprecated' } },
 						{ propertyNames: { const: 'b' } }
 					]
+				},
+				enumSortTexts: {
+					type: 'object',
+					propertyNames: {
+						enum: ['a', 'b'],
+						enumSortTexts: ['2', '1'],
+					},
 				}
 			}
 		};
@@ -366,6 +373,12 @@ suite('JSON Completion', () => {
 			items: [
 				{ label: 'a', notAvailable: true },
 				{ label: 'b', documentation: '' },
+			]
+		});
+		await testCompletionsFor('{"enumSortTexts":{|}}', schema, {
+			items: [
+				{ label: 'a', sortText: "2" },
+				{ label: 'b', sortText: "1" },
 			]
 		});
 	});
@@ -1279,6 +1292,12 @@ suite('JSON Completion', () => {
 					markdownDescription: '*prop5*',
 					enum: ['e1', 'e2', 'e3'],
 				},
+				'prop6': {
+					enum: ['e1', 'e2', 'e3'],
+					markdownEnumDescriptions: ['*E1*', '*E2*', '*E3*'],
+					enumDetails: [ 'D1', 'D2', 'D3' ],
+					enumSortTexts: ['s1', 's2', 's3']
+				},
 			}
 		};
 
@@ -1310,6 +1329,12 @@ suite('JSON Completion', () => {
 			items: [
 				{ label: '"e1"', documentation: { kind: 'markdown', value: '*prop5*' } },
 				{ label: '"e2"', documentation: { kind: 'markdown', value: '*prop5*' } }
+			]
+		});
+		await testCompletionsFor('{ "prop6": |', schema, {
+			items: [
+				{ label: '"e1"', documentation: { kind: 'markdown', value: '*E1*' }, detail: 'D1', sortText: 's1' },
+				{ label: '"e2"', documentation: { kind: 'markdown', value: '*E2*' }, detail: 'D2', sortText: 's2' }
 			]
 		});
 

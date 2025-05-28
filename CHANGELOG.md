@@ -1,3 +1,7 @@
+5.6.0 / 2025-05-28
+================
+ * added `Schema.enumSortTexts`and  `Schema.enumDetails` to control the sort order and presentation of suggestions for enaums
+
 5.5.0 / 2025-03-25
 ================
  * `newJSONDocument` API now also accepts undefined as ASTRoots an optionally comment ranges.
