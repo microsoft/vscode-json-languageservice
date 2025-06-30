@@ -28,7 +28,7 @@ suite('JSON Formatter', () => {
 		}
 
 		const document = TextDocument.create(uri, 'json', 0, unformatted);
-		const edits = ls.format(document, range!, { tabSize: 2, insertSpaces: insertSpaces });
+		const edits = ls.format(document, range, { tabSize: 2, insertSpaces: insertSpaces });
 		const formatted = applyEdits(document, edits);
 		assert.equal(formatted, expected);
 	}
