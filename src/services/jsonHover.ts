@@ -60,61 +60,64 @@ export class JSONHover {
 		}
 
 		return this.schemaService.getSchemaForResource(document.uri, doc).then((schema) => {
-			if (schema && node) {
-				const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset);
+			if (!schema) {
+				return null
+			}
 
-				let title: string | undefined = undefined;
-				let markdownDescription: string | undefined = undefined;
-				let markdownEnumValueDescription: string | undefined = undefined, enumValue: string | undefined = undefined;
-				matchingSchemas.every((s) => {
-					if (s.node === node && !s.inverted && s.schema) {
-						title = title || s.schema.title;
-						markdownDescription = markdownDescription || s.schema.markdownDescription || toMarkdown(s.schema.description);
-						if (s.schema.enum) {
-							const idx = s.schema.enum.indexOf(Parser.getNodeValue(node));
-							if (s.schema.markdownEnumDescriptions) {
-								markdownEnumValueDescription = s.schema.markdownEnumDescriptions[idx];
-							} else if (s.schema.enumDescriptions) {
-								markdownEnumValueDescription = toMarkdown(s.schema.enumDescriptions[idx]);
-							}
-							if (markdownEnumValueDescription) {
-								enumValue = s.schema.enum[idx];
-								if (typeof enumValue !== 'string') {
-									enumValue = JSON.stringify(enumValue);
-								}
-							}
+			let title: string | undefined = undefined;
+			let markdownDescription: string | undefined = undefined;
+			let markdownEnumValueDescription: string | undefined = undefined, enumValue: string | undefined = undefined;
+
+			const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset).filter((s) => s.node === node && !s.inverted).map((s) => s.schema);
+			for (const schema of matchingSchemas) {
+				title = title || schema.title;
+				markdownDescription = markdownDescription || schema.markdownDescription || toMarkdown(schema.description);
+				if (schema.enum) {
+					const idx = schema.enum.indexOf(Parser.getNodeValue(node));
+					if (schema.markdownEnumDescriptions) {
+						markdownEnumValueDescription = schema.markdownEnumDescriptions[idx];
+					} else if (schema.enumDescriptions) {
+						markdownEnumValueDescription = toMarkdown(schema.enumDescriptions[idx]);
+					}
+					if (markdownEnumValueDescription) {
+						enumValue = schema.enum[idx];
+						if (typeof enumValue !== 'string') {
+							enumValue = JSON.stringify(enumValue);
 						}
 					}
-					return true;
-				});
-				let result = '';
-				if (title) {
-					result = toMarkdown(title);
 				}
-				if (markdownDescription) {
-					if (result.length > 0) {
-						result += "\n\n";
-					}
-					result += markdownDescription;
-				}
-				if (markdownEnumValueDescription) {
-					if (result.length > 0) {
-						result += "\n\n";
-					}
-					result += `\`${toMarkdownCodeBlock(enumValue!)}\`: ${markdownEnumValueDescription}`;
-				}
-				return createHover([result]);
 			}
-			return null;
+
+			let result = '';
+			if (title) {
+				result = toMarkdown(title);
+			}
+			if (markdownDescription) {
+				if (result.length > 0) {
+					result += "\n\n";
+				}
+				result += markdownDescription;
+			}
+			if (markdownEnumValueDescription) {
+				if (result.length > 0) {
+					result += "\n\n";
+				}
+				result += `\`${toMarkdownCodeBlock(enumValue!)}\`: ${markdownEnumValueDescription}`;
+			}
+			return createHover([result]);
 		});
 	}
 }
+
 function toMarkdown(plain: string): string;
 function toMarkdown(plain: string | undefined): string | undefined;
 function toMarkdown(plain: string | undefined): string | undefined {
 	if (plain) {
-		const res = plain.replace(/([^\n\r])(\r?\n)([^\n\r])/gm, '$1\n\n$3'); // single new lines to \n\n (Markdown paragraph)
-		return res.replace(/[\\`*_{}[\]()#+\-.!]/g, "\\$&"); // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
+		return plain
+			.replace(/[\\`*_{}[\]()#+\-.!]/g, '\\$&') // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
+			.replace(/([ \t]+)/g, (_match, g1) => '&nbsp;'.repeat(g1.length)) // escape spaces tabs
+			.replace(/\>/gm, '\\>') // escape angle brackets
+			.replace(/(\r\n|\r|\n)/gm, '\\\n'); // escape new lines
 	}
 	return undefined;
 }
