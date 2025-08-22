@@ -114,10 +114,10 @@ function toMarkdown(plain: string | undefined): string | undefined;
 function toMarkdown(plain: string | undefined): string | undefined {
 	if (plain) {
 		return plain
-			.replace(/[\\`*_{}[\]()#+\-.!]/g, '\\$&') // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
+			.trim()
+			.replace(/[\\`*_{}[\]()<>#+\-.!]/g, '\\$&') // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
 			.replace(/([ \t]+)/g, (_match, g1) => '&nbsp;'.repeat(g1.length)) // escape spaces tabs
-			.replace(/\>/gm, '\\>') // escape angle brackets
-			.replace(/(\r\n|\r|\n)/gm, '\\\n'); // escape new lines
+			.replace(/\n/g, '\\\n'); // escape new lines
 	}
 	return undefined;
 }
