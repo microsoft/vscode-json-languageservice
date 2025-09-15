@@ -289,6 +289,11 @@ export class JSONCompletion {
 							propertyNameCompletionItem(schemaPropertyNames.enum[i], enumDescription, enumDetails, enumSortText);
 						}
 					}
+					if (schemaPropertyNames.examples) {
+						for (let i = 0; i < schemaPropertyNames.examples.length; i++) {
+							propertyNameCompletionItem(schemaPropertyNames.examples[i], undefined, undefined, undefined);
+						}
+					}
 					if (schemaPropertyNames.const) {
 						propertyNameCompletionItem(schemaPropertyNames.const, undefined, schemaPropertyNames.completionDetail, schemaPropertyNames.suggestSortText);
 					}
