@@ -53,7 +53,7 @@ suite('JSON Hover', () => {
 			}
 		};
 		await testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('a very special object')]);
+			assert.deepEqual(result.contents, [MarkedString.fromPlainText('a&nbsp;very&nbsp;special&nbsp;object')]);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
 			assert.deepEqual(result.contents, [MarkedString.fromPlainText('A')]);
@@ -89,13 +89,13 @@ suite('JSON Hover', () => {
 			}]
 		};
 		await testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('a very special object')]);
+			assert.deepEqual(result.contents, [MarkedString.fromPlainText('a&nbsp;very&nbsp;special&nbsp;object')]);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
 			assert.deepEqual(result.contents, [MarkedString.fromPlainText('A')]);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 10 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('B\n\nIt\'s B')]);
+			assert.deepEqual(result.contents, [MarkedString.fromPlainText('B\n\nIt\'s&nbsp;B')]);
 		});
 	});
 
@@ -154,10 +154,10 @@ suite('JSON Hover', () => {
 		};
 
 		await testComputeInfo('{ "prop1": "e1', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, ['line1\n\nline2\n\nline3\n\n\nline4\n']);
+			assert.deepEqual(result.contents, ['line1\\\nline2\\\n\\\nline3\\\n\\\n\\\nline4']);
 		});
 		await testComputeInfo('{ "prop2": "e1', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, ['line1\n\nline2\r\n\r\nline3']);
+			assert.deepEqual(result.contents, ['line1\r\\\nline2\r\\\n\r\\\nline3']);
 		});
 	});
 
