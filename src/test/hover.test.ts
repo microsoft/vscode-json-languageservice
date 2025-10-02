@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 
-import { Hover, Position, MarkedString, TextDocument, getLanguageService, JSONSchema, LanguageServiceParams } from '../jsonLanguageService';
+import { Hover, Position, TextDocument, getLanguageService, JSONSchema, LanguageServiceParams } from '../jsonLanguageService';
 
 suite('JSON Hover', () => {
 
@@ -33,7 +33,7 @@ suite('JSON Hover', () => {
 
 	test('Simple schema', async function () {
 
-		const content = '{"a": 42, "b": "hello", "c": false}';
+		const content = '{"a": 42, "b": "hello", "c": false, "complex-description": false}';
 		const schema: JSONSchema = {
 			type: 'object',
 			description: 'a very special object',
@@ -49,20 +49,27 @@ suite('JSON Hover', () => {
 				'c': {
 					type: 'boolean',
 					description: 'C'
-				}
+				},
+				'complex-description': {
+					type: 'boolean',
+					description: 'For example:\n\n<script>\n  alert(1)\n</script>\n\n    Test [1]'
+				},
 			}
 		};
 		await testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('a&nbsp;very&nbsp;special&nbsp;object')]);
+			assert.deepEqual(result.contents, ['a&nbsp;very&nbsp;special&nbsp;object']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('A')]);
+			assert.deepEqual(result.contents, ['A']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 32 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('C')]);
+			assert.deepEqual(result.contents, ['C']);
+		});
+		await testComputeInfo(content, schema, { line: 0, character: 37 }).then((result) => {
+			assert.deepEqual(result.contents, ['For&nbsp;example:\\\n\\\n\\<script\\>\\\n&nbsp;&nbsp;alert\\(1\\)\\\n\\</script\\>\\\n\\\n&nbsp;&nbsp;&nbsp;&nbsp;Test&nbsp;\\[1\\]']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 7 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('A')]);
+			assert.deepEqual(result.contents, ['A']);
 		});
 	});
 
@@ -89,13 +96,13 @@ suite('JSON Hover', () => {
 			}]
 		};
 		await testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('a&nbsp;very&nbsp;special&nbsp;object')]);
+			assert.deepEqual(result.contents, ['a&nbsp;very&nbsp;special&nbsp;object']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('A')]);
+			assert.deepEqual(result.contents, ['A']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 10 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('B\n\nIt\'s&nbsp;B')]);
+			assert.deepEqual(result.contents, ['B\n\nIt\'s&nbsp;B']);
 		});
 	});
 
