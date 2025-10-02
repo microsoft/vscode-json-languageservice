@@ -755,6 +755,103 @@ suite('JSON Completion', () => {
 		});
 	});
 
+	test('Complete with anyOf over $refs', async function () {
+
+		const schema: JSONSchema = {
+			anyOf : [ {
+				$ref : '#/$defs/TypeDef1'
+				}, {
+				$ref : '#/$defs/TypeDef2'
+				}
+			],
+			$defs : {
+				TypeDef1 : {
+					type : "object",
+					properties : {
+						a : {
+							type: 'string',
+							description: 'A'
+						},
+						"@type" : {
+							const : "TypeDef1"
+						}
+					},
+					required : [ "@type" ],
+					additionalProperties : false,
+				},
+				TypeDef2 : {
+					type : "object",
+					properties : {
+						b : {
+							type: 'string',
+							description: 'B'
+						},
+						"@type" : {
+							const : "TypeDef2"
+						}
+					},
+					required : [ "@type", "b" ],
+					additionalProperties : false,
+					description : "TypeDef2 Desc."
+				}
+			}
+		};
+		await testCompletionsFor('{|}', schema, {
+			count: 3,
+			items: [
+				{ label: '@type' },
+				{ label: 'a', documentation: 'A' },
+				{ label: 'b', documentation: 'B' }
+			]
+		});
+		await testCompletionsFor('{ "@type":|}', schema, {
+			count: 2,
+			items: [
+				{ label: '"TypeDef1"', resultText: '{ "@type":"TypeDef1"}' },
+				{ label: '"TypeDef2"', resultText: '{ "@type":"TypeDef2"}' }
+			]
+		});
+		await testCompletionsFor('{ "@type":"Type|', schema, {
+			count: 2,
+			items: [
+				{ label: '"TypeDef1"', resultText: '{ "@type":"TypeDef1"' },
+				{ label: '"TypeDef2"', resultText: '{ "@type":"TypeDef2"' }
+			]
+		});
+		await testCompletionsFor('{ "@type":"TypeDef1|', schema, {
+			count: 1,
+			items: [
+				{ label: '"TypeDef1"', resultText: '{ "@type":"TypeDef1"' }
+			]
+		});
+		await testCompletionsFor('{ "@type":"|}', schema, {
+			count: 2,
+			items: [
+				{ label: '"TypeDef1"', resultText: '{ "@type":"TypeDef1"' },
+				{ label: '"TypeDef2"', resultText: '{ "@type":"TypeDef2"' }
+			]
+		});
+		await testCompletionsFor('{ "@type":"|"}', schema, {
+			count: 2,
+			items: [
+				{ label: '"TypeDef1"', resultText: '{ "@type":"TypeDef1"}' },
+				{ label: '"TypeDef2"', resultText: '{ "@type":"TypeDef2"}' }
+			]
+		});
+		await testCompletionsFor('{ "@type":"|", b:"1"}', schema, {
+			count: 1,
+			items: [
+				{ label: '"TypeDef2"', resultText: '{ "@type":"TypeDef2", b:"1"}' }
+			]
+		});
+		await testCompletionsFor('{ "@type":"TypeDef1", |}', schema, {
+			count: 1,
+			items: [
+				{ label: 'a', documentation: 'A' }
+			]
+		});
+	});
+
 	test('Complete with oneOf', async function () {
 
 		const schema: JSONSchema = {
@@ -1446,23 +1543,24 @@ suite('JSON Completion', () => {
 				}
 			}]
 		};
-
 		await testCompletionsFor('{ "type": |', schema, {
+			count: 2,
 			items: [
 				{ label: '"foo"' },
 				{ label: '"bar"' }
 			]
 		});
 		await testCompletionsFor('{ "type": "f|', schema, {
+			count: 2,
 			items: [
 				{ label: '"foo"' },
 				{ label: '"bar"' }
 			]
 		});
 		await testCompletionsFor('{ "type": "foo|"', schema, {
+			count: 1,
 			items: [
-				{ label: '"foo"' },
-				{ label: '"bar"' }
+				{ label: '"foo"' }
 			]
 		});
 	});
