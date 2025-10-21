@@ -46,7 +46,7 @@ const assertCompletion = function (completions: CompletionList, expected: ItemDe
 	}
 	if (expected.resultText !== undefined && match.textEdit !== undefined) {
 		const edit = TextEdit.is(match.textEdit) ? match.textEdit : TextEdit.replace(match.textEdit.replace, match.textEdit.newText);
-		assert.equal(applyEdits(document, [edit]), expected.resultText);
+		assert.equal(applyEdits(document, [edit, ...match.additionalTextEdits ?? []]), expected.resultText);
 	}
 	if (expected.sortText !== undefined) {
 		assert.equal(match.sortText, expected.sortText);
@@ -203,7 +203,7 @@ suite('JSON Completion', () => {
 		await testCompletionsFor('{ "b": 1 "a|}', schema, {
 			count: 2,
 			items: [
-				{ label: 'a', documentation: 'A', resultText: '{ "b": 1 "a": ${1:0}' }
+				{ label: 'a', documentation: 'A', resultText: '{ "b": 1, "a": ${1:0}' }
 			]
 		});
 		await testCompletionsFor('{ "|}', schema, {
@@ -234,7 +234,7 @@ suite('JSON Completion', () => {
 		});
 		await testCompletionsFor('{ "a": 1 "b|"}', schema, {
 			items: [
-				{ label: 'b', documentation: 'B', resultText: '{ "a": 1 "b": "$1"}' },
+				{ label: 'b', documentation: 'B', resultText: '{ "a": 1, "b": "$1"}' },
 			]
 		});
 		await testCompletionsFor('{ "c|"\n"b": "v"}', schema, {
@@ -662,6 +662,79 @@ suite('JSON Completion', () => {
 			items: [
 				{ label: 'a', documentation: 'A' },
 				{ label: 'b', documentation: 'B' }
+			]
+		});
+	});
+
+	test('Insert comma before', async function () {
+
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'a': {
+					type: 'array',
+					items: {
+						type: 'boolean',
+					},
+				},
+				'b': {
+					type: 'boolean',
+				},
+				c: {}
+			}
+		};
+		// insert comma
+		await testCompletionsFor('{ "a": [] | }', schema, {
+			count: 2,
+			items: [
+				{ label: 'c', resultText: '{ "a": [], "c" }' },
+			]
+		});
+		await testCompletionsFor('{ "a": [] "|" }', schema, {
+			count: 2,
+			items: [
+				{ label: 'c', resultText: '{ "a": [], "c" }' },
+			]
+		});
+		await testCompletionsFor('{ "a": [] |"c" }', schema, {
+			count: 2,
+			items: [
+				{ label: 'c', resultText: '{ "a": [], "c" }' },
+			]
+		});
+		// probably only colon should be inserted
+		await testCompletionsFor('{ "c": "" "a": | }', schema, {
+			count: 1,
+			items: [
+				{ label: '[]', resultText: '{ "c": "", "a": [$1] }' },
+			]
+		});
+
+		// array
+		await testCompletionsFor('{ "a": [ false t| ] }', schema, {
+			count: 2,
+			items: [
+				{ label: 'true', resultText: '{ "a": [ false, true ] }' },
+			]
+		});
+		await testCompletionsFor('{ "a": [ false |true ] }', schema, {
+			count: 2,
+			items: [
+				{ label: 'true', resultText: '{ "a": [ false, true ] }' },
+			]
+		});
+
+
+		await testCompletionsFor('{ "c": "" "a" | }', schema, {
+			count: 1,
+			items: [
+				{ label: '[]', resultText: '{ "c": "", "a" [$1] }' },
+			]
+		});
+		await testCompletionsFor('{ "c": "", "a" | }', schema, {
+			count: 1,
+			items: [
+				{ label: '[]', resultText: '{ "c": "", "a" [$1] }' },
 			]
 		});
 	});
