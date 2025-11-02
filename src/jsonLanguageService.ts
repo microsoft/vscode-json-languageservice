@@ -53,7 +53,7 @@ export interface LanguageService {
 	getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[];
 	findDefinition(document: TextDocument, position: Position, doc: JSONDocument): PromiseLike<DefinitionLink[]>;
 	findLinks(document: TextDocument, doc: JSONDocument): PromiseLike<DocumentLink[]>;
-	format(document: TextDocument, range: Range, options: FormattingOptions): TextEdit[];
+	format(document: TextDocument, range: Range | undefined, options: FormattingOptions): TextEdit[];
 	sort(document: TextDocument, options: SortOptions): TextEdit[];
 }
 
@@ -92,7 +92,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		getSelectionRanges,
 		findDefinition: () => Promise.resolve([]),
 		findLinks,
-		format: (document: TextDocument, range: Range, options: FormattingOptions) => format(document, options, range),
+		format: (document: TextDocument, range: Range | undefined, options: FormattingOptions) => format(document, options, range),
 		sort: (document: TextDocument, options: FormattingOptions) => sort(document, options)
 	};
 }

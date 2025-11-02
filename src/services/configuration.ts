@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ISchemaContributions } from './jsonSchemaService';
+import draft201909Flat from './schemas/draft-2019-09-flat';
+import draft202012Flat from './schemas/draft-2020-12-flat';
 
 import * as l10n from '@vscode/l10n';
 
@@ -457,7 +459,9 @@ export const schemaContributions: ISchemaContributions = {
 				'not': { '$ref': '#' }
 			},
 			'default': true
-		}
+		},
+		'https://json-schema.org/draft/2020-12/schema': draft202012Flat,
+		'https://json-schema.org/draft/2019-09/schema': draft201909Flat
 	}
 };
 const descriptions: { [prop: string]: string } = {

@@ -333,6 +333,12 @@ suite('JSON Completion', () => {
 						enum: ['a', 'b'],
 						enumSortTexts: ['2', '1'],
 					},
+				},
+				examples: {
+					type: 'object',
+					propertyNames: {
+						examples: ['a', 'b'],
+					},
 				}
 			}
 		};
@@ -379,6 +385,12 @@ suite('JSON Completion', () => {
 			items: [
 				{ label: 'a', sortText: "2" },
 				{ label: 'b', sortText: "1" },
+			]
+		});
+		await testCompletionsFor('{"examples":{|}}', schema, {
+			items: [
+				{ label: 'a' },
+				{ label: 'b' },
 			]
 		});
 	});
