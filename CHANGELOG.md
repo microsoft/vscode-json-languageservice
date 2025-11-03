@@ -1,6 +1,6 @@
 5.6.0 / 2025-05-28
 ================
- * added `Schema.enumSortTexts`and  `Schema.enumDetails` to control the sort order and presentation of suggestions for enaums
+ * added `Schema.enumSortTexts` and `Schema.enumDetails` to control the sort order and presentation of suggestions for enums
 
 5.5.0 / 2025-03-25
 ================
