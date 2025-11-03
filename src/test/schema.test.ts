@@ -2047,11 +2047,51 @@ suite('JSON Schema', () => {
 		{
 			const { textDoc, jsonDoc } = toDocument('{ }', undefined, 'foo://bar/folder/foo.json');
 			const res = await ls.doValidation(textDoc, jsonDoc);
-			console.log(res);	
 		}
 
 	});
 
+	test('validate against draft-2019-09', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2019-09/schema',
+			type: 'object',
+			properties: {
+				name: {
+					type: 'string',
+					minLength: 4,
+				}
+			},
+			required: ['name']
+		};
 
+		const ls = getLanguageService({});
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(schema));
+			assert.deepStrictEqual(jsonDoc.syntaxErrors, []);
+			const resolveError = await ls.doValidation(textDoc, jsonDoc, { schemaRequest: 'error' });
+			assert.deepStrictEqual(resolveError, []);
+		}
+	});
 
+	test('validate against draft-2020-12', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: {
+				name: {
+					type: 'string',
+					minLength: 4,
+				}
+			},
+			required: ['name']
+		};
+
+		const ls = getLanguageService({});
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(schema));
+			assert.deepStrictEqual(jsonDoc.syntaxErrors, []);
+			const resolveError = await ls.doValidation(textDoc, jsonDoc, { schemaRequest: 'error' });
+			assert.deepStrictEqual(resolveError, []);
+		}
+	});
 });
