@@ -530,6 +530,30 @@ export class JSONCompletion {
 				}
 			});
 		} else {
+			if (
+				node.parent?.type === 'array' && node.parent?.parent?.type === 'property' &&
+				(node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')
+			) {
+				const path = Parser.getNodePath(node);
+				const location = path.slice(0, -2);
+				const propertyKey = path[path.length - 2].toString();
+				this.contributions.forEach((contribution) => {
+					const collectPromise = contribution.collectValueCompletions(document.uri, location, propertyKey, collector);
+					if (collectPromise) {
+						collectionPromises.push(collectPromise);
+					}
+				});
+			} else if (node.type === 'array' && node.parent?.type === 'property') {
+				const path = Parser.getNodePath(node);
+				const location = path.slice(0, -1);
+				const propertyKey = path[path.length - 1].toString();
+				this.contributions.forEach((contribution) => {
+					const collectPromise = contribution.collectValueCompletions(document.uri, location, propertyKey, collector);
+					if (collectPromise) {
+						collectionPromises.push(collectPromise);
+					}
+				});
+			}
 			if (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null') {
 				node = node.parent;
 			}
