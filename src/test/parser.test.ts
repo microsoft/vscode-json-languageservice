@@ -2666,5 +2666,742 @@ suite('JSON Parser', () => {
 
 	});
 
+	test('discriminator optimization: object with const property - oneOf', function () {
+		// Test basic discriminator optimization with const values
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'cat' },
+						meow: { type: 'string' }
+					}
+				},
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'dog' },
+						bark: { type: 'string' }
+					}
+				},
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'bird' },
+						chirp: { type: 'string' }
+					}
+				}
+			]
+		};
+
+		// Valid: matches cat schema
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "cat", "meow": "meow"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// Valid: matches dog schema
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "dog", "bark": "woof"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// Invalid: type matches cat but property type is wrong
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "cat", "meow": 123}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+			assert.strictEqual(semanticErrors![0].message, 'Incorrect type. Expected "string".');
+		}
+
+		// Invalid: unknown discriminator value
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "fish", "swim": "yes"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+	});
+
+	test('discriminator optimization: object with const property - anyOf', function () {
+		const schema: JSONSchema = {
+			anyOf: [
+				{
+					type: 'object',
+					properties: {
+						kind: { const: 'circle' },
+						radius: { type: 'number' }
+					}
+				},
+				{
+					type: 'object',
+					properties: {
+						kind: { const: 'square' },
+						side: { type: 'number' }
+					}
+				}
+			]
+		};
+
+		// Valid: circle
+		{
+			const { textDoc, jsonDoc } = toDocument('{"kind": "circle", "radius": 5}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// Valid: square
+		{
+			const { textDoc, jsonDoc } = toDocument('{"kind": "square", "side": 10}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// Invalid: kind matches but property type wrong
+		{
+			const { textDoc, jsonDoc } = toDocument('{"kind": "circle", "radius": "not a number"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+	});
+
+	test('discriminator optimization: no optimization when not all alternatives have const', function () {
+		// Schema where not all alternatives have const discriminator
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'a' },
+						value: { type: 'string' }
+					}
+				},
+				{
+					type: 'object',
+					properties: {
+						type: { type: 'string' }, // Not const, just type
+						value: { type: 'number' }
+					}
+				}
+			]
+		};
+
+		// Should still work but without optimization
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "a", "value": "test"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "b", "value": 42}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+	});
+
+	test('discriminator optimization: empty object', function () {
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'a' }
+					}
+				},
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'b' }
+					}
+				}
+			]
+		};
+
+		// Empty object should not crash
+		{
+			const { textDoc, jsonDoc } = toDocument('{}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			// Should have errors for not matching any oneOf
+			assert.ok(semanticErrors!.length > 0);
+		}
+	});
+
+	test('discriminator optimization: no properties in alternative', function () {
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'a' }
+					}
+				},
+				{
+					type: 'object'
+					// No properties defined
+				}
+			]
+		};
+
+		// Should not crash, optimization should not apply
+		// Since one alternative has no properties, optimization won't be used
+		// This matches multiple schemas (both alternatives), so oneOf fails
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "a"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+			assert.ok(semanticErrors![0].message.includes('multiple schemas'));
+		}
+	});
+
+	test('discriminator optimization: non-string discriminator value', function () {
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'text' },
+						value: { type: 'string' }
+					}
+				},
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'number' },
+						value: { type: 'number' }
+					}
+				}
+			]
+		};
+
+		// Discriminator value is a number, not string - optimization should not apply
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": 123, "value": "test"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.ok(semanticErrors!.length > 0);
+		}
+	});
+
+	test('discriminator optimization: array with const items - prefixItems', function () {
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'cat' },
+						{ type: 'string' }
+					],
+					items: false  // No additional items allowed
+				},
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'dog' },
+						{ type: 'number' }
+					],
+					items: false  // No additional items allowed
+				},
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'bird' },
+						{ type: 'boolean' }
+					],
+					items: false  // No additional items allowed
+				}
+			]
+		};
+
+		// Valid: cat array
+		{
+			const { textDoc, jsonDoc } = toDocument('["cat", "meow"]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// Valid: dog array
+		{
+			const { textDoc, jsonDoc } = toDocument('["dog", 42]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// Invalid: type matches cat but second element wrong type
+		{
+			const { textDoc, jsonDoc } = toDocument('["cat", 123]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			// With optimization, only the "cat" schema is tested
+			// The second item should be a string, but is a number
+			assert.strictEqual(semanticErrors!.length, 1);
+			assert.ok(semanticErrors![0].message.includes('string'));
+		}
+
+		// Invalid: unknown discriminator
+		{
+			const { textDoc, jsonDoc } = toDocument('["fish", "swim"]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			assert.ok(semanticErrors!.length > 0);
+		}
+	});
+
+	test('discriminator optimization: array with const items - items array', function () {
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'array',
+					items: [
+						{ const: 'type1' },
+						{ type: 'string' }
+					]
+				},
+				{
+					type: 'array',
+					items: [
+						{ const: 'type2' },
+						{ type: 'number' }
+					]
+				}
+			]
+		};
+
+		// Valid: type1
+		{
+			const { textDoc, jsonDoc } = toDocument('["type1", "value"]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// Valid: type2
+		{
+			const { textDoc, jsonDoc } = toDocument('["type2", 42]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+	});
+
+	test('discriminator optimization: empty array', function () {
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'a' }
+					]
+				},
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'b' }
+					]
+				}
+			]
+		};
+
+		// Empty array should not crash
+		{
+			const { textDoc, jsonDoc } = toDocument('[]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.ok(semanticErrors!.length > 0);
+		}
+	});
+
+	test('discriminator optimization: array without item schemas', function () {
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'a' }
+					]
+				},
+				{
+					type: 'array'
+					// No items or prefixItems
+				}
+			]
+		};
+
+		// Should not crash
+		// Since one alternative has no item schemas, optimization won't be used
+		// Both alternatives match, so oneOf fails
+		{
+			const { textDoc, jsonDoc } = toDocument('["a"]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+			assert.ok(semanticErrors![0].message.includes('multiple schemas'));
+		}
+	});
+
+	test('discriminator optimization: array with non-string discriminator', function () {
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'type1' },
+						{ type: 'string' }
+					]
+				},
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'type2' },
+						{ type: 'string' }
+					]
+				}
+			]
+		};
+
+		// First element is number, not string - optimization should not apply
+		{
+			const { textDoc, jsonDoc } = toDocument('[123, "value"]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.ok(semanticErrors!.length > 0);
+		}
+	});
+
+	test('discriminator optimization: single alternative', function () {
+		// With only one alternative, no optimization should be attempted
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'only' },
+						value: { type: 'string' }
+					}
+				}
+			]
+		};
+
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "only", "value": "test"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "other", "value": "test"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.ok(semanticErrors!.length > 0);
+		}
+	});
+
+	test('discriminator optimization: multiple const properties but not all alternatives covered', function () {
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'a' },
+						subtype: { const: 'x' },
+						value: { type: 'string' }
+					}
+				},
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'b' },
+						// No subtype const
+						value: { type: 'number' }
+					}
+				}
+			]
+		};
+
+		// Only 'type' covers all alternatives, should use that
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "a", "subtype": "x", "value": "test"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "b", "value": 42}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+	});
+
+	test('discriminator optimization: discriminator matches but validation fails', function () {
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'person' },
+						name: { type: 'string', minLength: 5 },
+						age: { type: 'number', minimum: 18 }
+					},
+					required: ['name', 'age']
+				},
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'company' },
+						name: { type: 'string' },
+						employees: { type: 'number' }
+					}
+				}
+			]
+		};
+
+		// Discriminator matches 'person' but validation fails (name too short)
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "person", "name": "Joe", "age": 25}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+			assert.ok(semanticErrors![0].message.includes('minimum length'));
+		}
+
+		// Discriminator matches 'person' but validation fails (age too low)
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "person", "name": "Alice", "age": 15}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+			assert.ok(semanticErrors![0].message.includes('minimum'));
+		}
+
+		// Discriminator matches 'person' but required property missing
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "person", "name": "Alice"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+			assert.ok(semanticErrors![0].message.includes('Missing property'));
+		}
+
+		// Valid person
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "person", "name": "Alice", "age": 25}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// Valid company
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "company", "name": "ACME", "employees": 100}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+	});
+
+	test('discriminator optimization: complex nested schema', function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				data: {
+					oneOf: [
+						{
+							type: 'object',
+							properties: {
+								kind: { const: 'text' },
+								content: { type: 'string' }
+							}
+						},
+						{
+							type: 'object',
+							properties: {
+								kind: { const: 'number' },
+								content: { type: 'number' }
+							}
+						}
+					]
+				}
+			}
+		};
+
+		// Valid nested with discrimination
+		{
+			const { textDoc, jsonDoc } = toDocument('{"data": {"kind": "text", "content": "hello"}}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// Invalid nested - discriminator matches but type wrong
+		{
+			const { textDoc, jsonDoc } = toDocument('{"data": {"kind": "text", "content": 123}}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+	});
+
+	test('discriminator optimization: array index discriminator at different positions', function () {
+		// Test discriminator at index 1 instead of 0
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'array',
+					prefixItems: [
+						{ type: 'number' },
+						{ const: 'typeA' },
+						{ type: 'string' }
+					],
+					items: false  // No additional items allowed
+				},
+				{
+					type: 'array',
+					prefixItems: [
+						{ type: 'number' },
+						{ const: 'typeB' },
+						{ type: 'boolean' }
+					],
+					items: false  // No additional items allowed
+				}
+			]
+		};
+
+		// Valid: typeA
+		{
+			const { textDoc, jsonDoc } = toDocument('[42, "typeA", "hello"]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// Valid: typeB
+		{
+			const { textDoc, jsonDoc } = toDocument('[42, "typeB", true]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+
+		// Invalid: discriminator matches typeA but third element wrong type
+		{
+			const { textDoc, jsonDoc } = toDocument('[42, "typeA", true]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			// With optimization, typeA schema is correctly selected
+			// The third element should be a string but is boolean
+			assert.strictEqual(semanticErrors!.length, 1);
+			assert.ok(semanticErrors![0].message.includes('string'));
+		}
+	});
+
+	test('discriminator optimization: discriminator value present but no matching alternative', function () {
+		const schema: JSONSchema = {
+			oneOf: [
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'a' },
+						value: { type: 'string' }
+					}
+				},
+				{
+					type: 'object',
+					properties: {
+						type: { const: 'b' },
+						value: { type: 'number' }
+					}
+				}
+			]
+		};
+
+		// Discriminator value 'c' doesn't match any alternative
+		{
+			const { textDoc, jsonDoc } = toDocument('{"type": "c", "value": "test"}');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			// Should fall back to testing all alternatives
+			assert.ok(semanticErrors!.length > 0);
+		}
+	});
+
+	test('self-referencing schema with anyOf and deep nesting (exploding complexity test)', async function () {
+		// Schema with discriminator and self-references
+		const schema: JSONSchema = {
+			"$schema": "http://json-schema.org/draft-07/schema#",
+			"anyOf": [
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"title": "literal",
+							"type": "string",
+							"const": "literal"
+						},
+						"value": {
+							"type": "string"
+						}
+					},
+					"required": ["type"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"title": "group",
+							"type": "string",
+							"const": "group"
+						},
+						"children": {
+							"minItems": 2,
+							"type": "array",
+							"items": {
+								"$ref": "#"
+							}
+						}
+					},
+					"required": ["type", "children"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"title": "sequence",
+							"type": "string",
+							"const": "sequence"
+						},
+						"children": {
+							"minItems": 2,
+							"type": "array",
+							"items": {
+								"$ref": "#"
+							}
+						}
+					},
+					"required": ["type", "children"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"title": "wrapper",
+							"type": "string",
+							"const": "wrapper"
+						},
+						"children": {
+							"type": "array",
+							"items": [
+								{
+									"$ref": "#"
+								}
+							],
+							"minItems": 1,
+							"maxItems": 1
+						}
+					},
+					"required": ["type", "children"],
+					"additionalProperties": false
+				}
+			]
+		};
+
+		// Create a deeply nested JSON (100 levels of "wrapper" operations)
+		let deepJson: any = { "type": "literal", "value": "test" };
+		for (let i = 0; i < 100; i++) {
+			deepJson = { "type": "wrapper", "children": [deepJson] };
+		}
+		const jsonString = JSON.stringify(deepJson);
+
+		const { textDoc, jsonDoc } = toDocument(jsonString);
+
+		const ls = getLanguageService({});
+		ls.configure({ schemas: [{ fileMatch: ["*.json"], uri: "http://myschemastore/explode", schema }] });
+
+		let res = await ls.doValidation(textDoc, jsonDoc, undefined, schema);
+		assert.strictEqual(res.length, 0);
+	});
 
 });
