@@ -74,7 +74,7 @@ suite('JSON Completion', () => {
 		const position = Position.create(0, offset);
 		const jsonDoc = ls.parseJSONDocument(document);
 		return ls.doComplete(document, position, jsonDoc).then(list => {
-			if (expected.count) {
+			if (typeof expected.count === 'number') {
 				assert.equal(list!.items.length, expected.count, value + ' ' + list!.items.map(i => i.label).join(', '));
 			}
 			if (expected.items) {
@@ -1394,6 +1394,59 @@ suite('JSON Completion', () => {
 				{ label: 'prop3' }
 			]
 		});
+	});
+
+	test("DoNotSuggest: should not autocomplete schema with doNotSuggest - property completion", async () => {
+		const schema: JSONSchema = {
+			properties: {
+				prop1: { type: "string" },
+			},
+			doNotSuggest: true,
+		};
+		await testCompletionsFor("{|", schema, { count: 0 });
+	});
+
+	test("DoNotSuggest: should not autocomplete schema with doNotSuggest - value completion", async () => {
+		const schema: JSONSchema = {
+			properties: {
+				prop1: {
+					anyOf: [
+						{
+							type: "string",
+							default: "value_default",
+							doNotSuggest: true,
+						},
+						{
+							type: "object",
+							defaultSnippets: [
+								{
+									label: "snippet",
+									body: {
+										value1: "value_snippet",
+									},
+								},
+							],
+							doNotSuggest: true,
+						},
+					],
+				},
+			},
+		};
+		await testCompletionsFor('{"prop1": |', schema, { count: 0 });
+	});
+
+	test("DoNotSuggest: should autocomplete inside schema in doNotSuggest", async () => {
+		const schema: JSONSchema = {
+			properties: {
+				obj1: {
+					properties: {
+						item1: { type: "string" },
+					},
+				},
+			},
+			doNotSuggest: true,
+		};
+		await testCompletionsFor('{ "obj1": {|', schema, { count: 1, items: [{ label: "item1" }] });
 	});
 
 	test('suggestSortText', async function () {
