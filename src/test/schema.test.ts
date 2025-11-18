@@ -1790,6 +1790,10 @@ suite('JSON Schema', () => {
 				baz: {
 					type: 'boolean',
 					$comment: 'baz',
+				},
+				key: {
+					type: 'string',
+					$comment: 'key',
 				}
 			},
 			properties: {
@@ -1806,6 +1810,9 @@ suite('JSON Schema', () => {
 						}
 					}
 				}
+			},
+			propertyNames: {
+				$ref: "#/definitions/key"
 			}
 		};
 
@@ -1824,6 +1831,7 @@ suite('JSON Schema', () => {
 			assert.fail("No node at offset " + nodeOffset);
 		}
 		assertMatchingSchema(ms, 0, 'schema');
+		assertMatchingSchema(ms, 1, 'key');
 		assertMatchingSchema(ms, 7, 'foo');
 		assertMatchingSchema(ms, 14, 'bar');
 		assertMatchingSchema(ms, 22, 'baz');
