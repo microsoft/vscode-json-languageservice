@@ -485,136 +485,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		const testAlternatives = (alternatives: JSONSchemaRef[], maxOneMatch: boolean) => {
 			const matches = [];
 
-			// Try to detect and apply discriminator optimization dynamically
-			let alternativesToTest = alternatives;
-
-			// Attempt to find a common discriminator property across alternatives
-			const tryDiscriminatorOptimization = () => {
-				if (alternatives.length < 2) {
-					return; // No point optimizing with less than 2 alternatives
-				}
-
-				if (node.type === 'object') {
-					// Early exit: if node has no properties, can't apply optimization
-					if (!node.properties || node.properties.length === 0) {
-						return;
-					}
-
-					// Find properties that have const values in ALL alternatives
-					const propertyConstMap = new Map<string, Map<any, number[]>>();
-
-					for (let i = 0; i < alternatives.length; i++) {
-						const altSchema = asSchema(alternatives[i]);
-						if (!altSchema.properties) {
-							// If any alternative has no properties, we can't use object property discrimination
-							return;
-						}
-						for (const propName in altSchema.properties) {
-							const propSchema = asSchema(altSchema.properties[propName]);
-							if (propSchema.const !== undefined) {
-								if (!propertyConstMap.has(propName)) {
-									propertyConstMap.set(propName, new Map());
-								}
-								const constMap = propertyConstMap.get(propName)!;
-								if (!constMap.has(propSchema.const)) {
-									constMap.set(propSchema.const, []);
-								}
-								constMap.get(propSchema.const)!.push(i);
-							}
-						}
-					}
-
-					// Early exit: if no const properties found, can't apply optimization
-					if (propertyConstMap.size === 0) {
-						return;
-					}
-
-					// Find a property where ALL alternatives have a const value (one per alternative)
-					for (const [propName, constMap] of Array.from(propertyConstMap.entries())) {
-						const coveredAlternatives = new Set<number>();
-						constMap.forEach((indices) => {
-							indices.forEach(idx => coveredAlternatives.add(idx));
-						});
-						// This property is a valid discriminator ONLY if ALL alternatives have a const value for it
-						if (coveredAlternatives.size === alternatives.length) {
-							// Extract the discriminator value from the current node
-							const prop = node.properties.find(p => p.keyNode.value === propName);
-							if (prop?.valueNode?.type === 'string') {
-								const discriminatorValue = prop.valueNode.value;
-								const matchingIndices = constMap.get(discriminatorValue);
-								if (matchingIndices && matchingIndices.length > 0) {
-									alternativesToTest = matchingIndices.map(idx => alternatives[idx]);
-									return;
-								}
-							}
-							// If this property covers all alternatives but we couldn't match,
-							break;
-						}
-					}
-				} else if (node.type === 'array') {
-					// Early exit: if node has no items, can't apply optimization
-					if (!node.items || node.items.length === 0) {
-						return;
-					}
-
-					// Find array item indices that have const values in ALL alternatives
-					const indexConstMap = new Map<number, Map<any, number[]>>();
-
-					for (let i = 0; i < alternatives.length; i++) {
-						const altSchema = asSchema(alternatives[i]);
-						const itemSchemas = altSchema.prefixItems || (Array.isArray(altSchema.items) ? altSchema.items : undefined);
-
-						if (!itemSchemas) {
-							// If any alternative has no item schemas, we can't use array index discrimination
-							return;
-						}
-
-						itemSchemas.forEach((itemSchemaRef, itemIndex) => {
-							const itemSchema = asSchema(itemSchemaRef);
-							if (itemSchema.const !== undefined) {
-								if (!indexConstMap.has(itemIndex)) {
-									indexConstMap.set(itemIndex, new Map());
-								}
-								const constMap = indexConstMap.get(itemIndex)!;
-								if (!constMap.has(itemSchema.const)) {
-									constMap.set(itemSchema.const, []);
-								}
-								constMap.get(itemSchema.const)!.push(i);
-							}
-						});
-					}
-
-					// Early exit: if no const items found, can't apply optimization
-					if (indexConstMap.size === 0) {
-						return;
-					}
-
-					// Find an index where ALL alternatives have a const value (one per alternative)
-					for (const [itemIndex, constMap] of Array.from(indexConstMap.entries())) {
-						const coveredAlternatives = new Set<number>();
-						constMap.forEach((indices) => {
-							indices.forEach(idx => coveredAlternatives.add(idx));
-						});
-						// This index is a valid discriminator ONLY if ALL alternatives have a const value at this index
-						if (coveredAlternatives.size === alternatives.length) {
-							// Extract the discriminator value from the current node
-							const item = node.items[itemIndex];
-							if (item?.type === 'string') {
-								const discriminatorValue = item.value;
-								const matchingIndices = constMap.get(discriminatorValue);
-								if (matchingIndices && matchingIndices.length > 0) {
-									alternativesToTest = matchingIndices.map(idx => alternatives[idx]);
-									return;
-								}
-							}
-							// If this index covers all alternatives but we couldn't match,
-							break;
-						}
-					}
-				}
-			};
-
-			tryDiscriminatorOptimization();
+			const alternativesToTest = _tryDiscriminatorOptimization(alternatives) ?? alternatives;
 
 			// remember the best match that is used for error messages
 			let bestMatch: { schema: JSONSchema; validationResult: ValidationResult; matchingSchemas: ISchemaCollector; } | undefined = undefined;
@@ -751,7 +622,77 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		}
 	}
 
+	function _tryDiscriminatorOptimization(alternatives: JSONSchemaRef[]): JSONSchemaRef[] | undefined {
+		if (alternatives.length < 2) {
+			return undefined;
+		}
 
+		const buildConstMap = (getSchemas: (alt: JSONSchema, idx: number) => [string | number, JSONSchema][] | undefined) => {
+			const constMap = new Map<string | number, Map<any, number[]>>();
+
+			for (let i = 0; i < alternatives.length; i++) {
+				const schemas = getSchemas(asSchema(alternatives[i]), i);
+				if (!schemas) {
+					return undefined; // Early exit if any alternative can't be processed
+				}
+
+				schemas.forEach(([key, schema]) => {
+					if (schema.const !== undefined) {
+						if (!constMap.has(key)) {
+							constMap.set(key, new Map());
+						}
+						const valueMap = constMap.get(key)!;
+						if (!valueMap.has(schema.const)) {
+							valueMap.set(schema.const, []);
+						}
+						valueMap.get(schema.const)!.push(i);
+					}
+				});
+			}
+			return constMap;
+		};
+
+		const findDiscriminator = (constMap: Map<string | number, Map<any, number[]>>, getValue: (key: string | number) => any) => {
+			for (const [key, valueMap] of constMap) {
+				const coveredAlts = new Set<number>();
+				valueMap.forEach(indices => indices.forEach(idx => coveredAlts.add(idx)));
+
+				if (coveredAlts.size === alternatives.length) {
+					const discriminatorValue = getValue(key);
+					const matchingIndices = valueMap.get(discriminatorValue);
+					if (matchingIndices?.length) {
+						return matchingIndices.map(idx => alternatives[idx]);
+					}
+					break; // Found valid discriminator but no match
+				}
+			}
+			return undefined;
+		};
+
+		if (node.type === 'object' && node.properties?.length) {
+			const constMap = buildConstMap((schema) =>
+				schema.properties ? Object.entries(schema.properties).map(([k, v]) => [k, asSchema(v)]) : undefined
+			);
+			if (constMap) {
+				return findDiscriminator(constMap, (propName) => {
+					const prop = node.properties.find(p => p.keyNode.value === propName);
+					return prop?.valueNode?.type === 'string' ? prop.valueNode.value : undefined;
+				});
+			}
+		} else if (node.type === 'array' && node.items?.length) {
+			const constMap = buildConstMap((schema) => {
+				const itemSchemas = schema.prefixItems || (Array.isArray(schema.items) ? schema.items : undefined);
+				return itemSchemas ? itemSchemas.map((item, idx) => [idx, asSchema(item)]) : undefined;
+			});
+			if (constMap) {
+				return findDiscriminator(constMap, (itemIndex) => {
+					const item = node.items[itemIndex as number];
+					return item?.type === 'string' ? item.value : undefined;
+				});
+			}
+		}
+		return undefined;
+	}
 
 	function _validateNumberNode(node: NumberASTNode): void {
 		const val = node.value;
