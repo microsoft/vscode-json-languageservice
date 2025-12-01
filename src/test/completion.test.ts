@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 
-import { getLanguageService, JSONSchema, TextDocument, ClientCapabilities, CompletionList, CompletionItemKind, Position, MarkupContent, TextEdit } from '../jsonLanguageService';
+import { getLanguageService, JSONSchema, TextDocument, ClientCapabilities, CompletionList, CompletionItemKind, Position, MarkupContent, TextEdit, JSONWorkerContribution } from '../jsonLanguageService';
 import { repeat } from '../utils/strings';
 import { CompletionItemLabelDetails } from 'vscode-languageserver-types';
 
@@ -55,11 +55,11 @@ const assertCompletion = function (completions: CompletionList, expected: ItemDe
 
 suite('JSON Completion', () => {
 
-	const testCompletionsFor = function (value: string, schema: JSONSchema | null, expected: { count?: number, items?: ItemDescription[] }, clientCapabilities = ClientCapabilities.LATEST): PromiseLike<void> {
+	const testCompletionsFor = function (value: string, schema: JSONSchema | null, expected: { count?: number, items?: ItemDescription[] }, clientCapabilities = ClientCapabilities.LATEST, contributions?: JSONWorkerContribution[]): PromiseLike<void> {
 		const offset = value.indexOf('|');
 		value = value.substr(0, offset) + value.substr(offset + 1);
 
-		const ls = getLanguageService({ clientCapabilities });
+		const ls = getLanguageService({ clientCapabilities, contributions });
 		if (schema) {
 			ls.configure({
 				schemas: [{
@@ -604,6 +604,45 @@ suite('JSON Completion', () => {
 				{ label: 'foo', notAvailable: true }
 			]
 		});
+	});
+
+	test('Complete array value with contribution', async function () {
+
+		const contribution: JSONWorkerContribution = {
+			async getInfoContribution(uri, location) {
+				return [];
+			},
+			collectPropertyCompletions(uri, location, currentWord, addValue, isLast, result) {
+				return Promise.resolve();
+			},
+			async collectValueCompletions(uri, location, propertyKey, result) {
+				assert.deepEqual(location, ['a']);
+				assert.deepEqual(propertyKey, 'b')
+				result.add({ label: '"x"', insertText: '"x"' });
+				result.add({ label: '"y"', insertText: '"y"' });
+			},
+			collectDefaultCompletions(uri, result) {
+				return Promise.resolve();
+			}
+		};
+		await testCompletionsFor('{ "a": { "b": [ | ] } }', null, {
+			items: [
+				{ label: '"x"', resultText: '{ "a": { "b": [ "x" ] } }' },
+				{ label: '"y"', resultText: '{ "a": { "b": [ "y" ] } }' }
+			]
+		}, ClientCapabilities.LATEST, [contribution]);
+		await testCompletionsFor('{ "a": { "b": [ "z", | ] } }', null, {
+			items: [
+				{ label: '"x"', resultText: '{ "a": { "b": [ "z", "x" ] } }' },
+				{ label: '"y"', resultText: '{ "a": { "b": [ "z", "y" ] } }' }
+			]
+		}, ClientCapabilities.LATEST, [contribution]);
+		await testCompletionsFor('{ "a": { "b": [ "z", "|" ] } }', null, {
+			items: [
+				{ label: '"x"', resultText: '{ "a": { "b": [ "z", "x" ] } }' },
+				{ label: '"y"', resultText: '{ "a": { "b": [ "z", "y" ] } }' }
+			]
+		}, ClientCapabilities.LATEST, [contribution]);
 	});
 
 
