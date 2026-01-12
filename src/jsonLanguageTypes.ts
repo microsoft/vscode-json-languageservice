@@ -61,8 +61,12 @@ export enum ErrorCode {
 	DuplicateKey = 0x208,
 	CommentNotPermitted = 0x209,
 	PropertyKeysMustBeDoublequoted = 0x210,
-	SchemaResolveError = 0x300,
-	SchemaUnsupportedFeature = 0x301
+	SchemaUnsupportedFeature = 0x301,
+	SchemaResolveError = 0x10000,
+}
+
+export function isSchemaResolveError(code: number): boolean {
+	return code >= ErrorCode.SchemaResolveError;
 }
 
 export type ASTNode = ObjectASTNode | PropertyASTNode | ArrayASTNode | StringASTNode | NumberASTNode | BooleanASTNode | NullASTNode;
@@ -203,7 +207,8 @@ export interface WorkspaceContextService {
 }
 /**
  * The schema request service is used to fetch schemas. If successful, returns a resolved promise with the content of the schema.
- * In case of an error, returns a rejected promise with a displayable error string.
+ * In case of an error, returns a rejected promise with an Error object. If the type is of form { message: string, code: number }, the
+ * error code will be used for diagnostics.
  */
 export interface SchemaRequestService {
 	(uri: string): PromiseLike<string>;

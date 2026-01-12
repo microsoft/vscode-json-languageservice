@@ -1,3 +1,7 @@
+5.7.0 / 2026-01-12
+================
+* the error code for `SchemaResolveError` is now 0x10000 plus the error code returned by the request service.
+
 5.6.0 / 2025-05-28
 ================
  * added `Schema.enumSortTexts` and `Schema.enumDetails` to control the sort order and presentation of suggestions for enums

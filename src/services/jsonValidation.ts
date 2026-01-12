@@ -25,7 +25,7 @@ export class JSONValidation {
 		this.validationEnabled = true;
 	}
 
-	public configure(raw: LanguageSettings) {
+	public configure(raw: LanguageSettings | undefined): void {
 		if (raw) {
 			this.validationEnabled = raw.validate !== false;
 			this.commentSeverity = raw.allowComments ? undefined : DiagnosticSeverity.Error;
@@ -68,10 +68,10 @@ export class JSONValidation {
 					}
 				};
 				if (schema.errors.length) {
-					addSchemaProblem(schema.errors[0], ErrorCode.SchemaResolveError);
+					addSchemaProblem(schema.errors[0].message, schema.errors[0].code);
 				} else if (schemaValidation) {
 					for (const warning of schema.warnings) {
-						addSchemaProblem(warning, ErrorCode.SchemaUnsupportedFeature);
+						addSchemaProblem(warning.message, warning.code);
 					}
 					const semanticErrors = jsonDocument.validate(textDocument, schema.schema, schemaValidation, documentSettings?.schemaDraft);
 					if (semanticErrors) {
