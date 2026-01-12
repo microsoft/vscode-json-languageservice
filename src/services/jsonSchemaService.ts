@@ -181,27 +181,27 @@ class SchemaHandle implements ISchemaHandle {
 
 export class UnresolvedSchema {
 	public schema: JSONSchema;
-	public errors: Diagnostic[];
+	public errors: SchemaDiagnostic[];
 
-	constructor(schema: JSONSchema, errors: Diagnostic[] = []) {
+	constructor(schema: JSONSchema, errors: SchemaDiagnostic[] = []) {
 		this.schema = schema;
 		this.errors = errors;
 	}
 }
 
-export type Diagnostic = { message: string; code: ErrorCode }
+export type SchemaDiagnostic = { message: string; code: ErrorCode }
 
-function toDiagnostic(message: string, code: ErrorCode): Diagnostic {
+function toDiagnostic(message: string, code: ErrorCode): SchemaDiagnostic {
 	return { message, code };
 }
 
 export class ResolvedSchema {
 	public readonly schema: JSONSchema;
-	public readonly errors: Diagnostic[];
-	public readonly warnings: Diagnostic[];
+	public readonly errors: SchemaDiagnostic[];
+	public readonly warnings: SchemaDiagnostic[];
 	public readonly schemaDraft: SchemaDraft | undefined;
 
-	constructor(schema: JSONSchema, errors: Diagnostic[] = [], warnings: Diagnostic[] = [], schemaDraft: SchemaDraft | undefined) {
+	constructor(schema: JSONSchema, errors: SchemaDiagnostic[] = [], warnings: SchemaDiagnostic[] = [], schemaDraft: SchemaDraft | undefined) {
 		this.schema = schema;
 		this.errors = errors;
 		this.warnings = warnings;
@@ -442,7 +442,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, handle: SchemaHandle): PromiseLike<ResolvedSchema> {
 
-		const resolveErrors: Diagnostic[] = schemaToResolve.errors.slice(0);
+		const resolveErrors: SchemaDiagnostic[] = schemaToResolve.errors.slice(0);
 		const schema = schemaToResolve.schema;
 
 		const schemaDraft = schema.$schema ? getSchemaDraftFromId(schema.$schema) : undefined;
@@ -575,7 +575,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return result;
 		};
 		return resolveRefs(schema, schema, handle).then(_ => {
-			let resolveWarnings: Diagnostic[] = [];
+			let resolveWarnings: SchemaDiagnostic[] = [];
 			if (usesUnsupportedFeatures.size) {
 				resolveWarnings.push(toDiagnostic(l10n.t('The schema uses meta-schema features ({0}) that are not yet supported by the validator.', Array.from(usesUnsupportedFeatures.keys()).join(', ')), ErrorCode.SchemaUnsupportedFeature));
 			}
