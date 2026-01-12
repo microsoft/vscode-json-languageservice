@@ -8,7 +8,7 @@ import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
 import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings';
 import { asSchema, getSchemaDraftFromId, JSONDocument, normalizeId } from '../parser/jsonParser';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft } from '../jsonLanguageTypes';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode } from '../jsonLanguageTypes';
 
 import * as l10n from '@vscode/l10n';
 import { createRegex } from '../utils/glob';
@@ -181,21 +181,27 @@ class SchemaHandle implements ISchemaHandle {
 
 export class UnresolvedSchema {
 	public schema: JSONSchema;
-	public errors: string[];
+	public errors: SchemaDiagnostic[];
 
-	constructor(schema: JSONSchema, errors: string[] = []) {
+	constructor(schema: JSONSchema, errors: SchemaDiagnostic[] = []) {
 		this.schema = schema;
 		this.errors = errors;
 	}
 }
 
+export type SchemaDiagnostic = { message: string; code: ErrorCode }
+
+function toDiagnostic(message: string, code: ErrorCode): SchemaDiagnostic {
+	return { message, code };
+}
+
 export class ResolvedSchema {
 	public readonly schema: JSONSchema;
-	public readonly errors: string[];
-	public readonly warnings: string[];
+	public readonly errors: SchemaDiagnostic[];
+	public readonly warnings: SchemaDiagnostic[];
 	public readonly schemaDraft: SchemaDraft | undefined;
 
-	constructor(schema: JSONSchema, errors: string[] = [], warnings: string[] = [], schemaDraft: SchemaDraft | undefined) {
+	constructor(schema: JSONSchema, errors: SchemaDiagnostic[] = [], warnings: SchemaDiagnostic[] = [], schemaDraft: SchemaDraft | undefined) {
 		this.schema = schema;
 		this.errors = errors;
 		this.warnings = warnings;
@@ -388,17 +394,17 @@ export class JSONSchemaService implements IJSONSchemaService {
 	public loadSchema(url: string): PromiseLike<UnresolvedSchema> {
 		if (!this.requestService) {
 			const errorMessage = l10n.t('Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
-			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [errorMessage]));
+			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, ErrorCode.SchemaResolveError)]));
 		}
 		return this.requestService(url).then(
 			content => {
 				if (!content) {
 					const errorMessage = l10n.t('Unable to load schema from \'{0}\': No content.', toDisplayString(url));
-					return new UnresolvedSchema(<JSONSchema>{}, [errorMessage]);
+					return new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, ErrorCode.SchemaResolveError)]);
 				}
 				const errors = [];
 				if (content.charCodeAt(0) === 65279) {
-					errors.push(l10n.t('Problem reading content from \'{0}\': UTF-8 with BOM detected, only UTF 8 is allowed.', toDisplayString(url)));
+					errors.push(toDiagnostic(l10n.t('Problem reading content from \'{0}\': UTF-8 with BOM detected, only UTF 8 is allowed.', toDisplayString(url)), ErrorCode.SchemaResolveError));
 					content = content.trimStart();
 				}
 
@@ -406,33 +412,42 @@ export class JSONSchemaService implements IJSONSchemaService {
 				const jsonErrors: Json.ParseError[] = [];
 				schemaContent = Json.parse(content, jsonErrors);
 				if (jsonErrors.length) {
-					errors.push(l10n.t('Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset));
+					errors.push(toDiagnostic(l10n.t('Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset), ErrorCode.SchemaResolveError));
 				}
 				return new UnresolvedSchema(schemaContent, errors);
 			},
 			(error: any) => {
-				let errorMessage = error.toString() as string;
-				const errorSplit = error.toString().split('Error: ');
-				if (errorSplit.length > 1) {
-					// more concise error message, URL and context are attached by caller anyways
-					errorMessage = errorSplit[1];
+				let { message, code } = error;
+				if (typeof message !== 'string') {
+					let errorMessage = error.toString() as string;
+					const errorSplit = error.toString().split('Error: ');
+					if (errorSplit.length > 1) {
+						// more concise error message, URL and context are attached by caller anyways
+						errorMessage = errorSplit[1];
+					}
+					if (Strings.endsWith(errorMessage, '.')) {
+						errorMessage = errorMessage.substr(0, errorMessage.length - 1);
+					}
+					message = errorMessage;
 				}
-				if (Strings.endsWith(errorMessage, '.')) {
-					errorMessage = errorMessage.substr(0, errorMessage.length - 1);
+				let errorCode = ErrorCode.SchemaResolveError;
+				if (typeof code === 'number' && code < 0x10000) {
+					errorCode += code;
 				}
-				return new UnresolvedSchema(<JSONSchema>{}, [l10n.t('Unable to load schema from \'{0}\': {1}.', toDisplayString(url), errorMessage)]);
+				const errorMessage = l10n.t('Unable to load schema from \'{0}\': {1}.', toDisplayString(url), message);	
+				return new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, errorCode)]);
 			}
 		);
 	}
 
 	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, handle: SchemaHandle): PromiseLike<ResolvedSchema> {
 
-		const resolveErrors: string[] = schemaToResolve.errors.slice(0);
+		const resolveErrors: SchemaDiagnostic[] = schemaToResolve.errors.slice(0);
 		const schema = schemaToResolve.schema;
 
 		const schemaDraft = schema.$schema ? getSchemaDraftFromId(schema.$schema) : undefined;
 		if (schemaDraft === SchemaDraft.v3) {
-			return this.promise.resolve(new ResolvedSchema({}, [l10n.t("Draft-03 schemas are not supported.")], [], schemaDraft));
+			return this.promise.resolve(new ResolvedSchema({}, [toDiagnostic(l10n.t("Draft-03 schemas are not supported."), ErrorCode.SchemaUnsupportedFeature)], [], schemaDraft));
 		}
 
 		let usesUnsupportedFeatures = new Set();
@@ -482,7 +497,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 			if (section) {
 				merge(target, section);
 			} else {
-				resolveErrors.push(l10n.t('$ref \'{0}\' in \'{1}\' can not be resolved.', refSegment || '', sourceHandle.uri));
+				const message = l10n.t('$ref \'{0}\' in \'{1}\' can not be resolved.', refSegment || '', sourceHandle.uri)
+				resolveErrors.push(toDiagnostic(message, ErrorCode.SchemaResolveError));
 			}
 		};
 
@@ -496,7 +512,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 				parentHandle.dependencies.add(uri);
 				if (unresolvedSchema.errors.length) {
 					const loc = refSegment ? uri + '#' + refSegment : uri;
-					resolveErrors.push(l10n.t('Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0]));
+					const errorMessage = l10n.t('Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0].message);
+					resolveErrors.push(toDiagnostic(errorMessage, unresolvedSchema.errors[0].code));
 				}
 				mergeRef(node, unresolvedSchema.schema, referencedHandle, refSegment);
 				return resolveRefs(node, unresolvedSchema.schema, referencedHandle);
@@ -543,7 +560,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				const anchor = isString(id) && id.charAt(0) === '#' ? id.substring(1) : next.$anchor;
 				if (anchor) {
 					if (result.has(anchor)) {
-						resolveErrors.push(l10n.t('Duplicate anchor declaration: \'{0}\'', anchor));
+						resolveErrors.push(toDiagnostic(l10n.t('Duplicate anchor declaration: \'{0}\'', anchor), ErrorCode.SchemaResolveError));
 					} else {
 						result.set(anchor, next);
 					}
@@ -558,9 +575,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return result;
 		};
 		return resolveRefs(schema, schema, handle).then(_ => {
-			let resolveWarnings: string[] = [];
+			let resolveWarnings: SchemaDiagnostic[] = [];
 			if (usesUnsupportedFeatures.size) {
-				resolveWarnings.push(l10n.t('The schema uses meta-schema features ({0}) that are not yet supported by the validator.', Array.from(usesUnsupportedFeatures.keys()).join(', ')));
+				resolveWarnings.push(toDiagnostic(l10n.t('The schema uses meta-schema features ({0}) that are not yet supported by the validator.', Array.from(usesUnsupportedFeatures.keys()).join(', ')), ErrorCode.SchemaUnsupportedFeature));
 			}
 			return new ResolvedSchema(schema, resolveErrors, resolveWarnings, schemaDraft);
 		});
