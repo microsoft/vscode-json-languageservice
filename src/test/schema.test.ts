@@ -10,7 +10,7 @@ import { promises as fs } from 'fs';
 import * as url from 'url';
 import * as path from 'path';
 import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema, LanguageService } from '../jsonLanguageService';
-import { DiagnosticSeverity, ErrorCode, SchemaConfiguration } from '../jsonLanguageTypes';
+import { DiagnosticSeverity, ErrorCode, Range, SchemaConfiguration } from '../jsonLanguageTypes';
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig, uri = 'foo://bar/file.json'): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
 
@@ -1079,7 +1079,13 @@ suite('JSON Schema', () => {
 		service.clearExternalSchemas();
 
 		resolvedSchema = await service.getSchemaForResource('main.bar');
-		assert.deepStrictEqual(resolvedSchema?.errors, [{ message: "Problems loading reference 'http://myschemastore/myschemafoo': Unable to load schema from 'http://myschemastore/myschemafoo': Resource not found.", code: ErrorCode.SchemaResolveError }]);
+		const message = "Unable to load schema from 'http://myschemastore/myschemafoo': Resource not found.";
+		assert.deepStrictEqual(resolvedSchema?.errors, [
+			{ 
+				message: message, 
+				code: ErrorCode.SchemaResolveError,
+				relatedInformation: [{ location: { uri: 'http://myschemastore/myschemafoo', range: Range.create(0, 0, 0, 0) }, message: message }]
+			}]);
 
 		service.clearExternalSchemas();
 		service.registerExternalSchema({ uri: id2, schema: schema2 });

@@ -13,6 +13,7 @@ import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Matc
 import * as l10n from '@vscode/l10n';
 import { createRegex } from '../utils/glob';
 import { isObject, isString } from '../utils/objects';
+import { DiagnosticRelatedInformation, Range } from 'vscode-languageserver-types';
 
 export interface IJSONSchemaService {
 
@@ -180,8 +181,8 @@ class SchemaHandle implements ISchemaHandle {
 
 
 export class UnresolvedSchema {
-	public schema: JSONSchema;
-	public errors: SchemaDiagnostic[];
+	public readonly schema: JSONSchema;
+	public readonly errors: SchemaDiagnostic[];
 
 	constructor(schema: JSONSchema, errors: SchemaDiagnostic[] = []) {
 		this.schema = schema;
@@ -189,10 +190,14 @@ export class UnresolvedSchema {
 	}
 }
 
-export type SchemaDiagnostic = { message: string; code: ErrorCode }
+export type SchemaDiagnostic = { readonly message: string; readonly code: ErrorCode; relatedInformation?: DiagnosticRelatedInformation[] }
 
-function toDiagnostic(message: string, code: ErrorCode): SchemaDiagnostic {
-	return { message, code };
+function toDiagnostic(message: string, code: ErrorCode, relatedURL?: string): SchemaDiagnostic {
+	const relatedInformation: DiagnosticRelatedInformation[] | undefined = relatedURL ? [{
+		location: { uri: relatedURL, range: Range.create(0, 0, 0, 0) },
+		message
+	}] : undefined;
+	return { message, code, relatedInformation };
 }
 
 export class ResolvedSchema {
@@ -394,17 +399,17 @@ export class JSONSchemaService implements IJSONSchemaService {
 	public loadSchema(url: string): PromiseLike<UnresolvedSchema> {
 		if (!this.requestService) {
 			const errorMessage = l10n.t('Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
-			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, ErrorCode.SchemaResolveError)]));
+			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, ErrorCode.SchemaResolveError, url)]));
 		}
 		return this.requestService(url).then(
 			content => {
 				if (!content) {
 					const errorMessage = l10n.t('Unable to load schema from \'{0}\': No content.', toDisplayString(url));
-					return new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, ErrorCode.SchemaResolveError)]);
+					return new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, ErrorCode.SchemaResolveError, url)]);
 				}
 				const errors = [];
 				if (content.charCodeAt(0) === 65279) {
-					errors.push(toDiagnostic(l10n.t('Problem reading content from \'{0}\': UTF-8 with BOM detected, only UTF 8 is allowed.', toDisplayString(url)), ErrorCode.SchemaResolveError));
+					errors.push(toDiagnostic(l10n.t('Problem reading content from \'{0}\': UTF-8 with BOM detected, only UTF 8 is allowed.', toDisplayString(url)), ErrorCode.SchemaResolveError, url));
 					content = content.trimStart();
 				}
 
@@ -412,7 +417,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				const jsonErrors: Json.ParseError[] = [];
 				schemaContent = Json.parse(content, jsonErrors);
 				if (jsonErrors.length) {
-					errors.push(toDiagnostic(l10n.t('Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset), ErrorCode.SchemaResolveError));
+					errors.push(toDiagnostic(l10n.t('Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset), ErrorCode.SchemaResolveError, url));
 				}
 				return new UnresolvedSchema(schemaContent, errors);
 			},
@@ -435,7 +440,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 					errorCode += code;
 				}
 				const errorMessage = l10n.t('Unable to load schema from \'{0}\': {1}.', toDisplayString(url), message);	
-				return new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, errorCode)]);
+				return new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, errorCode, url)]);
 			}
 		);
 	}
@@ -511,9 +516,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
 				parentHandle.dependencies.add(uri);
 				if (unresolvedSchema.errors.length) {
+					const error = unresolvedSchema.errors[0];		
 					const loc = refSegment ? uri + '#' + refSegment : uri;
-					const errorMessage = l10n.t('Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0].message);
-					resolveErrors.push(toDiagnostic(errorMessage, unresolvedSchema.errors[0].code));
+					const errorMessage = refSegment? l10n.t('Problems loading reference \'{0}\': {1}', refSegment, error.message) : error.message;
+					resolveErrors.push(toDiagnostic(errorMessage, error.code, uri));
 				}
 				mergeRef(node, unresolvedSchema.schema, referencedHandle, refSegment);
 				return resolveRefs(node, unresolvedSchema.schema, referencedHandle);
