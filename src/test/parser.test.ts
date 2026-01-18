@@ -3404,4 +3404,119 @@ suite('JSON Parser', () => {
 		assert.strictEqual(res.length, 0);
 	});
 
+	test('discriminator optimization with deeply nested self-referencing schema', function () {
+		// Schema representing IExpression type with discriminated unions
+		// This tests performance with deep nesting (50-100 levels)
+		const schema: JSONSchema = {
+			$id: 'https://example.com/expression',
+			oneOf: [
+				{ type: 'string' },
+				{ type: 'number' },
+				{ type: 'boolean' },
+				{ type: 'null' },
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'logical.and' },
+						{ $ref: '#' },
+						{ $ref: '#' }
+					],
+					items: { $ref: '#' },
+					minItems: 3
+				},
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'logical.or' },
+						{ $ref: '#' },
+						{ $ref: '#' }
+					],
+					items: { $ref: '#' },
+					minItems: 3
+				},
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'logical.not' },
+						{ $ref: '#' }
+					],
+					minItems: 2,
+					maxItems: 2
+				},
+				{
+					type: 'array',
+					prefixItems: [
+						{ const: 'compare.eq' },
+						{ $ref: '#' },
+						{ $ref: '#' }
+					],
+					minItems: 3,
+					maxItems: 3
+				}
+			]
+		};
+		{
+			// Simple expression
+			const { textDoc, jsonDoc } = toDocument('["logical.and", true, false]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			// Nested expression (5 levels)
+			const { textDoc, jsonDoc } = toDocument('["logical.or", ["logical.and", true, false], ["logical.not", true]]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			// Build a deeply nested expression (500 levels)
+			let deepExpression = 'true';
+			for (let i = 0; i < 500; i++) {
+				deepExpression = `["logical.not", ${deepExpression}]`;
+			}
+			const { textDoc, jsonDoc } = toDocument(deepExpression);
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			// Build an even deeper nested expression (1000 levels)
+			let veryDeepExpression = '42';
+			for (let i = 0; i < 1000; i++) {
+				if (i % 2 === 0) {
+					veryDeepExpression = `["logical.not", ${veryDeepExpression}]`;
+				} else {
+					veryDeepExpression = `["logical.and", ${veryDeepExpression}, false]`;
+				}
+			}
+			const { textDoc, jsonDoc } = toDocument(veryDeepExpression);
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			assert.strictEqual(semanticErrors!.length, 0);
+		}
+		{
+			// Invalid - unknown operator (should fail quickly with discriminator optimization)
+			const { textDoc, jsonDoc } = toDocument('["unknown.operator", true, false]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			assert.ok(semanticErrors!.length > 0);
+		}
+		{
+			// Invalid - wrong number of arguments for logical.not
+			const { textDoc, jsonDoc } = toDocument('["logical.not", true, false]');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			assert.ok(semanticErrors!.length > 0);
+		}
+		{
+			// Invalid - deeply nested with error (wrong array structure)
+			let deepInvalid = '42';
+			for (let i = 0; i < 200; i++) {
+				deepInvalid = `["logical.not", ${deepInvalid}]`;
+			}
+			// Invalid: logical.and needs at least 2 arguments after the operator, but we provide wrong structure
+			deepInvalid = `["logical.and", ${deepInvalid}]`; // Missing second required argument
+
+			const { textDoc, jsonDoc } = toDocument(deepInvalid);
+			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2020_12);
+			// Should detect the validation error (not enough items)
+			assert.ok(semanticErrors!.length > 0);
+		}
+	});
+
 });
