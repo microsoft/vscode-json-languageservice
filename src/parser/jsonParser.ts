@@ -627,13 +627,16 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			return undefined;
 		}
 
-		const buildConstMap = (getSchemas: (alt: JSONSchema, idx: number) => [string | number, JSONSchema][] | undefined) => {
+		const buildConstMap = (getSchemas: (alt: JSONSchema, idx: number) => [string | number, JSONSchema][] | undefined | null) => {
 			const constMap = new Map<string | number, Map<any, number[]>>();
 
 			for (let i = 0; i < alternatives.length; i++) {
 				const schemas = getSchemas(asSchema(alternatives[i]), i);
-				if (!schemas) {
+				if (schemas === undefined) {
 					return undefined; // Early exit if any alternative can't be processed
+				}
+				if (schemas === null) {
+					continue; // Skip alternatives that don't have schemas
 				}
 
 				schemas.forEach(([key, schema]) => {
@@ -649,21 +652,35 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 					}
 				});
 			}
-			return constMap;
+
+			// Only return the map if we found const values
+			return constMap.size > 0 ? constMap : undefined;
 		};
 
 		const findDiscriminator = (constMap: Map<string | number, Map<any, number[]>>, getValue: (key: string | number) => any) => {
+			// If there are multiple discriminator keys, don't optimize
+			// This avoids issues with anyOf where different alternatives use different discriminator properties
+			if (constMap.size > 1) {
+				return undefined;
+			}
+
 			for (const [key, valueMap] of constMap) {
 				const coveredAlts = new Set<number>();
 				valueMap.forEach(indices => indices.forEach(idx => coveredAlts.add(idx)));
 
-				if (coveredAlts.size === alternatives.length) {
+				// Only optimize if discriminator covers at least 2 alternatives and it's worth it
+				// We don't require ALL alternatives to have discriminators (some might be primitives)
+				if (coveredAlts.size >= 2) {
 					const discriminatorValue = getValue(key);
-					const matchingIndices = valueMap.get(discriminatorValue);
-					if (matchingIndices?.length) {
-						return matchingIndices.map(idx => alternatives[idx]);
+					if (discriminatorValue !== undefined) {
+						const matchingIndices = valueMap.get(discriminatorValue);
+						if (matchingIndices?.length) {
+							return matchingIndices.map(idx => alternatives[idx]);
+						}
+						// Discriminator value doesn't match any alternative with const
+						// Don't optimize - return undefined to test all alternatives
+						break;
 					}
-					break; // Found valid discriminator but no match
 				}
 			}
 			return undefined;
@@ -671,7 +688,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 		if (node.type === 'object' && node.properties?.length) {
 			const constMap = buildConstMap((schema) =>
-				schema.properties ? Object.entries(schema.properties).map(([k, v]) => [k, asSchema(v)]) : undefined
+				schema.properties ? Object.entries(schema.properties).map(([k, v]) => [k, asSchema(v)]) : null
 			);
 			if (constMap) {
 				return findDiscriminator(constMap, (propName) => {
@@ -682,7 +699,12 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		} else if (node.type === 'array' && node.items?.length) {
 			const constMap = buildConstMap((schema) => {
 				const itemSchemas = schema.prefixItems || (Array.isArray(schema.items) ? schema.items : undefined);
-				return itemSchemas ? itemSchemas.map((item, idx) => [idx, asSchema(item)]) : undefined;
+				if (!itemSchemas || itemSchemas.length === 0) {
+					return null;
+				}
+				// Only check index 0 for discriminated unions
+				const firstItem = asSchema(itemSchemas[0]);
+				return firstItem && firstItem.const !== undefined ? [[0, firstItem]] : null;
 			});
 			if (constMap) {
 				return findDiscriminator(constMap, (itemIndex) => {
