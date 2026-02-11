@@ -426,7 +426,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 	const node = n;
 
 	if (schema.$recursiveRef) {
-		const hasRecursiveAnchor = (s: JSONSchema) => s.$recursiveAnchor === 'true' || (s.$recursiveAnchor === true);
+		const hasRecursiveAnchor = (s: JSONSchema) => s.$recursiveAnchor === true;
 		const isSchemaRoot = (s: JSONSchema) => s.$id || s.id || (<any>s)._originalId;
 
 		// Find nearest schema resource root

@@ -3567,7 +3567,7 @@ suite('JSON Parser', () => {
 		const baseSchema: JSONSchema = {
 			$schema: 'https://json-schema.org/draft/2019-09/schema',
 			$id: 'https://example.com/base-tree',
-			$recursiveAnchor: 'true',
+			$recursiveAnchor: true,
 			type: 'object',
 			properties: {
 				value: { type: 'string' },
