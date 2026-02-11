@@ -177,6 +177,12 @@ class SchemaHandle implements ISchemaHandle {
 		this.anchors = undefined;
 		return hasChanges;
 	}
+
+	public setSchemaContent(schemaContent: JSONSchema): void {
+		this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(schemaContent));
+		this.resolvedSchema = undefined;
+		this.anchors = undefined;
+	}
 }
 
 
@@ -503,11 +509,12 @@ export class JSONSchemaService implements IJSONSchemaService {
 			if (!metaschema.$vocabulary || typeof metaschema.$vocabulary !== 'object') {
 				return undefined;
 			}
-			const vocabs = new Set<string>();
+			// Both true and false values indicate the vocabulary is active.
+			// The boolean indicates whether the vocabulary is required (true) or optional (false),
+			// not whether it's in use. All listed vocabularies should be included.
+			const vocabs = new Map<string, boolean>();
 			for (const [uri, required] of Object.entries(metaschema.$vocabulary)) {
-				if (required === true) {
-					vocabs.add(uri);
-				}
+				vocabs.set(uri, required);
 			}
 			return vocabs.size > 0 ? vocabs : undefined;
 		};
@@ -587,13 +594,25 @@ export class JSONSchemaService implements IJSONSchemaService {
 				section = findSchemaById(sourceRoot, sourceHandle, refSegment);
 			}
 			if (section) {
-				// In JSON Schema 2019-09 or greater, $ref creates a new scope when it has sibling keywords.
-				// When the $ref'd schema has unevaluatedProperties/unevaluatedItems, it should not
-				// see properties/items evaluated by sibling keywords.
-				// To achieve this, we wrap the $ref in an allOf when needed.
-				if (needsScopeIsolation(section, target)) {
-					// Extract sibling keywords into a separate schema
-					const reservedKeys = new Set(['$ref', '$defs', 'definitions', '$schema', '$id', 'id']);
+				const reservedKeys = new Set(['$ref', '$defs', 'definitions', '$schema', '$id', 'id']);
+
+				// In JSON Schema draft-04 through draft-07, $ref completely overrides any sibling keywords.
+				// Starting in 2019-09, sibling keywords are processed alongside $ref.
+				// Only strip siblings when schema explicitly declares a pre-2019-09 draft via $schema.
+				const isPreDraft201909 = schemaDraft !== undefined && schemaDraft < SchemaDraft.v2019_09;
+				if (isPreDraft201909) {
+					// Clear all sibling keywords from target - $ref takes precedence
+					for (const key in target) {
+						if (target.hasOwnProperty(key) && !reservedKeys.has(key)) {
+							delete (target as any)[key];
+						}
+					}
+					merge(target, section);
+				} else if (needsScopeIsolation(section, target)) {
+					// In JSON Schema 2019-09 or greater, $ref creates a new scope when it has sibling keywords.
+					// When the $ref'd schema has unevaluatedProperties/unevaluatedItems, it should not
+					// see properties/items evaluated by sibling keywords.
+					// To achieve this, we wrap the $ref in an allOf when needed.
 					const siblingSchema: JSONSchema = {};
 					const refSchema = { ...section };
 
@@ -728,7 +747,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 
 				// Collect anchor from this node
-				const anchor = isString(id) && id.charAt(0) === '#' ? id.substring(1) : node.$anchor;
+				// In draft-04/06/07, anchors are defined via $id/#fragment (e.g., "$id": "#myanchor")
+				// $anchor was introduced in draft-2019-09, so only use it for 2019-09 and later
+				const fragmentAnchor = isString(id) && id.charAt(0) === '#' ? id.substring(1) : undefined;
+				const dollarAnchor = (schemaDraft === undefined || schemaDraft >= SchemaDraft.v2019_09) ? node.$anchor : undefined;
+				const anchor = fragmentAnchor ?? dollarAnchor;
 				if (anchor) {
 					if (result.has(anchor)) {
 						resolveErrors.push(toDiagnostic(l10n.t('Duplicate anchor declaration: \'{0}\'', anchor), ErrorCode.SchemaResolveError));
@@ -771,8 +794,13 @@ export class JSONSchemaService implements IJSONSchemaService {
 				let newBaseUri = currentBaseUri;
 				if (isString(id) && id.charAt(0) !== '#') {
 					const resolvedUri = resolveId(id, currentBaseUri);
-					if (!this.schemasById[resolvedUri]) {
+					const existingHandle = this.schemasById[resolvedUri];
+					if (!existingHandle) {
 						this.addSchemaHandle(resolvedUri, node);
+					} else {
+						// Update existing handle with embedded schema content
+						// This ensures embedded schemas take precedence over external schemas
+						existingHandle.setSchemaContent(node);
 					}
 					newBaseUri = resolvedUri;
 				}
@@ -803,7 +831,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				// Only extract vocabularies if the meta-schema has a $vocabulary property
 				// or if it's draft 2019-09 or later which support vocabularies.
 				const metaschemaDraft = unresolvedMetaschema.schema.$schema ? getSchemaDraftFromId(unresolvedMetaschema.schema.$schema) : undefined;
-				const isDraft2019OrLater = metaschemaDraft === SchemaDraft.v2019_09 || metaschemaDraft === SchemaDraft.v2020_12;
+				const isDraft2019OrLater = metaschemaDraft && metaschemaDraft >= SchemaDraft.v2019_09;
 				const hasVocabulary = unresolvedMetaschema.schema.$vocabulary && typeof unresolvedMetaschema.schema.$vocabulary === 'object';
 
 				if (hasVocabulary || isDraft2019OrLater) {

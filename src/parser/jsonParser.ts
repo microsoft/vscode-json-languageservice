@@ -9,7 +9,7 @@ import { isNumber, equals, isBoolean, isString, isDefined, isObject } from '../u
 import { extendedRegExp, stringLength } from '../utils/strings';
 import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range, SchemaDraft, Vocabularies } from '../jsonLanguageTypes';
 import { URI } from 'vscode-uri';
-import { isKeywordEnabled } from '../services/vocabularies';
+import { isKeywordEnabled, isFormatAssertionEnabled } from '../services/vocabularies';
 
 import * as l10n from '@vscode/l10n';
 
@@ -454,7 +454,16 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 	// Push current schema to stack for $recursiveRef resolution
 	schemaStack.push(schema);
 
-	const enabled = (keyword: string) => isKeywordEnabled(keyword, context.activeVocabularies);
+	const enabled = (keyword: string) => {
+		// Special case for 'dependencies' which is a core keyword in draft-04 through draft-07 but moved to 
+		// dependentSchemas and dependentRequired in later versions.		
+		if (keyword === 'dependencies')
+		{
+			return context.schemaDraft <= SchemaDraft.v7;
+		}
+			
+		return isKeywordEnabled(keyword, context.activeVocabularies);
+	};
 
 	_validateNode();
 
@@ -849,7 +858,8 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			}
 		}
 
-		if (schema.format && enabled('format')) {
+		// Only validate format if format-assertion vocabulary is active (not annotation-only)
+		if (schema.format && enabled('format') && isFormatAssertionEnabled(context.activeVocabularies)) {
 			switch (schema.format) {
 				case 'uri':
 				case 'uri-reference': {
@@ -1044,10 +1054,8 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		if (Array.isArray(schema.required) && enabled('required')) {
 			for (const propertyName of schema.required) {
 				if (!seenKeys[propertyName]) {
-					const keyNode = node.parent && node.parent.type === 'property' && node.parent.keyNode;
-					const location = keyNode ? { offset: keyNode.offset, length: keyNode.length } : { offset: node.offset, length: 1 };
 					validationResult.problems.push({
-						location: location,
+						location: { offset: node.offset, length: 1 },
 						message: l10n.t('Missing property "{0}".', propertyName)
 					});
 				}

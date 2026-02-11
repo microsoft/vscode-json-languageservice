@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/**
+/*
  * Checks if a keyword is enabled based on the active vocabularies.
  * If no vocabulary constraints are present, all keywords are enabled.
  * Core keywords are always enabled regardless of vocabulary settings.
@@ -14,7 +14,7 @@
  */
 export function isKeywordEnabled(
 	keyword: string,
-	activeVocabularies?: Set<string>
+	activeVocabularies?: Map<string, boolean>
 ): boolean {
 	const vocabularyKeywords: { [uri: string]: string[] } = {
 		'https://json-schema.org/draft/2019-09/vocab/core': [
@@ -75,7 +75,6 @@ export function isKeywordEnabled(
 		]
 	};
 
-
 	// If no vocabulary constraints, treat all keywords as enabled
 	if (!activeVocabularies) {
 		return true;
@@ -98,5 +97,46 @@ export function isKeywordEnabled(
 	}
 
 	// Keyword not found in any vocabulary - disable it
+	return false;
+}
+
+/*
+ * Checks if format validation should produce assertion errors.
+ * 
+ * According to JSON Schema 2020-12:
+ * - format-annotation: format is purely informational, no validation errors
+ * - format-assertion: format must be validated and can produce errors
+ * 
+ * For backwards compatibility:
+ * - If no vocabularies are specified, format asserts (pre-2019-09 behavior)
+ * - 2019-09 format vocabulary is annotation-only
+ * - 2020-12 format-assertion vocabulary asserts
+ * - 2020-12 format-annotation vocabulary does not assert
+ * 
+ * @param activeVocabularies Map of active vocabulary URIs to required flag, or undefined if no constraints
+ * @returns true if format validation should produce errors, false if annotation-only
+ */
+export function isFormatAssertionEnabled(activeVocabularies?: Map<string, boolean>): boolean {
+	// If no vocabulary constraints or empty vocabulary map, assert for backward compatibility with older schemas
+	if (!activeVocabularies || activeVocabularies.size === 0) {
+		return true;
+	}
+
+	// 2020-12 format-assertion explicitly enables format validation errors
+	if (activeVocabularies.has('https://json-schema.org/draft/2020-12/vocab/format-assertion')) {
+		return true;
+	}
+
+	// 2019-09 format vocabulary is annotation-only per spec
+	if (activeVocabularies.has('https://json-schema.org/draft/2019-09/vocab/format')) {
+		return false;
+	}
+
+	// 2020-12 format-annotation is annotation-only, no assertion
+	if (activeVocabularies.has('https://json-schema.org/draft/2020-12/vocab/format-annotation')) {
+		return false;
+	}
+
+	// No format vocabulary active - no assertion
 	return false;
 }

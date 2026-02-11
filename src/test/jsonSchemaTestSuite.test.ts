@@ -31,6 +31,62 @@ const workspaceContext = {
 	}
 };
 
+// Draft-06 metaschema for validating schemas against the draft-06 spec
+const draft06MetaSchema = JSON.stringify({
+	"$id": "http://json-schema.org/draft-06/schema#",
+	"$schema": "http://json-schema.org/draft-06/schema#",
+	"title": "Core schema meta-schema",
+	"definitions": {
+		"schemaArray": { "type": "array", "minItems": 1, "items": { "$ref": "#" } },
+		"nonNegativeInteger": { "type": "integer", "minimum": 0 },
+		"nonNegativeIntegerDefault0": { "allOf": [{ "$ref": "#/definitions/nonNegativeInteger" }, { "default": 0 }] },
+		"simpleTypes": { "enum": ["array", "boolean", "integer", "null", "number", "object", "string"] },
+		"stringArray": { "type": "array", "items": { "type": "string" }, "uniqueItems": true, "default": [] }
+	},
+	"type": ["object", "boolean"],
+	"properties": {
+		"$id": { "type": "string", "format": "uri-reference" },
+		"$schema": { "type": "string", "format": "uri" },
+		"$ref": { "type": "string", "format": "uri-reference" },
+		"title": { "type": "string" },
+		"description": { "type": "string" },
+		"default": {},
+		"examples": { "type": "array", "items": {} },
+		"multipleOf": { "type": "number", "exclusiveMinimum": 0 },
+		"maximum": { "type": "number" },
+		"exclusiveMaximum": { "type": "number" },
+		"minimum": { "type": "number" },
+		"exclusiveMinimum": { "type": "number" },
+		"maxLength": { "$ref": "#/definitions/nonNegativeInteger" },
+		"minLength": { "$ref": "#/definitions/nonNegativeIntegerDefault0" },
+		"pattern": { "type": "string", "format": "regex" },
+		"additionalItems": { "$ref": "#" },
+		"items": { "anyOf": [{ "$ref": "#" }, { "$ref": "#/definitions/schemaArray" }], "default": {} },
+		"maxItems": { "$ref": "#/definitions/nonNegativeInteger" },
+		"minItems": { "$ref": "#/definitions/nonNegativeIntegerDefault0" },
+		"uniqueItems": { "type": "boolean", "default": false },
+		"contains": { "$ref": "#" },
+		"maxProperties": { "$ref": "#/definitions/nonNegativeInteger" },
+		"minProperties": { "$ref": "#/definitions/nonNegativeIntegerDefault0" },
+		"required": { "$ref": "#/definitions/stringArray" },
+		"additionalProperties": { "$ref": "#" },
+		"definitions": { "type": "object", "additionalProperties": { "$ref": "#" }, "default": {} },
+		"properties": { "type": "object", "additionalProperties": { "$ref": "#" }, "default": {} },
+		"patternProperties": { "type": "object", "additionalProperties": { "$ref": "#" }, "propertyNames": { "format": "regex" }, "default": {} },
+		"dependencies": { "type": "object", "additionalProperties": { "anyOf": [{ "$ref": "#" }, { "$ref": "#/definitions/stringArray" }] } },
+		"propertyNames": { "$ref": "#" },
+		"const": {},
+		"enum": { "type": "array", "minItems": 1, "uniqueItems": true },
+		"type": { "anyOf": [{ "$ref": "#/definitions/simpleTypes" }, { "type": "array", "items": { "$ref": "#/definitions/simpleTypes" }, "minItems": 1, "uniqueItems": true }] },
+		"format": { "type": "string" },
+		"allOf": { "$ref": "#/definitions/schemaArray" },
+		"anyOf": { "$ref": "#/definitions/schemaArray" },
+		"oneOf": { "$ref": "#/definitions/schemaArray" },
+		"not": { "$ref": "#" }
+	},
+	"default": {}
+});
+
 // Schema request service to load remote schemas from the test suite's remotes directory
 const schemaRequestService = async (uri: string): Promise<string> => {
 	// Handle localhost:1234 URLs by loading from remotes directory
@@ -44,16 +100,35 @@ const schemaRequestService = async (uri: string): Promise<string> => {
 			return `{ "error": "Failed to load remote schema: ${uri}" }`;
 		}
 	}
+	// Handle draft-06 metaschema requests (normalizeId converts http:// to https:// and removes trailing #)
+	if (uri === 'https://json-schema.org/draft-06/schema' || uri === 'http://json-schema.org/draft-06/schema#' || uri === 'http://json-schema.org/draft-06/schema') {
+		return draft06MetaSchema;
+	}
 	// For other URLs, return empty schema
 	return '{}';
 };
 
 const ls = getLanguageService({ workspaceContext, schemaRequestService });
 
+// Map draft folder names to their $schema URIs
+const draftSchemaUris: { [id: string]: string } = {
+	'draft4': 'http://json-schema.org/draft-04/schema#',
+	'draft6': 'http://json-schema.org/draft-06/schema#',
+	'draft7': 'http://json-schema.org/draft-07/schema#',
+	'draft2019-09': 'https://json-schema.org/draft/2019-09/schema',
+	'draft2020-12': 'https://json-schema.org/draft/2020-12/schema'
+};
+
 async function assertSchemaValidation(input: any, schema: any, valid: boolean, description: string, draft: string, fileName: string) {
 	const textDoc = TextDocument.create('foo://bar/file.json', 'json', 0, JSON.stringify(input));
 	const jsonDoc = Parser.parse(textDoc);
 	const schemaClone = JSON.parse(JSON.stringify(schema));
+
+	// Inject $schema if not already present and schema is an object (not boolean), 
+	// so schema resolution knows the draft version
+	if (typeof schemaClone === 'object' && schemaClone !== null && !schemaClone.$schema && draftSchemaUris[draft]) {
+		schemaClone.$schema = draftSchemaUris[draft];
+	}
 
 	assert.strictEqual(jsonDoc.syntaxErrors.length, 0);
 	const semanticErrors = await ls.doValidation(textDoc, jsonDoc, { schemaDraft: schemaIds[draft] }, Parser.asSchema(schemaClone));
@@ -122,52 +197,6 @@ function initializeTests() {
 	});
 }
 const skippedTests = new Set([
-	"draft4/ref.json/ref overrides any sibling keywords/ref valid, maxItems ignored",
-	"draft4/refRemote.json/remote ref/remote ref valid",
-	"draft4/refRemote.json/fragment within remote ref/remote fragment valid",
-	"draft4/refRemote.json/ref within remote ref/ref within ref valid",
-	"draft4/refRemote.json/base URI change/base URI change ref valid",
-	"draft4/refRemote.json/base URI change - change folder/number is valid",
-	"draft4/refRemote.json/base URI change - change folder in subschema/number is valid",
-	"draft4/refRemote.json/root ref in remote ref/string is valid",
-	"draft4/refRemote.json/root ref in remote ref/null is valid",
-
-	"draft6/definitions.json/validate definition against metaschema/valid definition schema",
-	"draft6/definitions.json/validate definition against metaschema/invalid definition schema",
-	"draft6/ref.json/ref overrides any sibling keywords/ref valid, maxItems ignored",
-	"draft6/ref.json/remote ref, containing refs itself/remote ref valid",
-	"draft6/ref.json/remote ref, containing refs itself/remote ref invalid",
-	"draft6/refRemote.json/remote ref/remote ref valid",
-	"draft6/refRemote.json/fragment within remote ref/remote fragment valid",
-	"draft6/refRemote.json/ref within remote ref/ref within ref valid",
-	"draft6/refRemote.json/base URI change/base URI change ref valid",
-	"draft6/refRemote.json/base URI change - change folder/number is valid",
-	"draft6/refRemote.json/base URI change - change folder in subschema/number is valid",
-	"draft6/refRemote.json/root ref in remote ref/string is valid",
-	"draft6/refRemote.json/root ref in remote ref/null is valid",
-	"draft6/refRemote.json/remote ref with ref to definitions/valid",
-
-	"draft7/ref.json/ref overrides any sibling keywords/ref valid, maxItems ignored",
-	"draft7/refRemote.json/remote ref/remote ref valid",
-	"draft7/refRemote.json/fragment within remote ref/remote fragment valid",
-	"draft7/refRemote.json/ref within remote ref/ref within ref valid",
-	"draft7/refRemote.json/base URI change/base URI change ref valid",
-	"draft7/refRemote.json/base URI change - change folder/number is valid",
-	"draft7/refRemote.json/base URI change - change folder in subschema/number is valid",
-	"draft7/refRemote.json/root ref in remote ref/string is valid",
-	"draft7/refRemote.json/root ref in remote ref/null is valid",
-	"draft7/refRemote.json/remote ref with ref to definitions/valid",
-
-	"draft2019-09/refRemote.json/remote ref/remote ref valid",
-	"draft2019-09/refRemote.json/fragment within remote ref/remote fragment valid",
-	"draft2019-09/refRemote.json/ref within remote ref/ref within ref valid",
-	"draft2019-09/refRemote.json/base URI change/base URI change ref valid",
-	"draft2019-09/refRemote.json/base URI change - change folder/number is valid",
-	"draft2019-09/refRemote.json/base URI change - change folder in subschema/number is valid",
-	"draft2019-09/refRemote.json/root ref in remote ref/string is valid",
-	"draft2019-09/refRemote.json/root ref in remote ref/null is valid",
-	"draft2019-09/refRemote.json/remote ref with ref to defs/valid",
-
 	"draft2020-12/dynamicRef.json/A $dynamicRef to a $dynamicAnchor in the same schema resource should behave like a normal $ref to an $anchor/An array of strings is valid",
 	"draft2020-12/dynamicRef.json/A $dynamicRef to an $anchor in the same schema resource should behave like a normal $ref to an $anchor/An array of strings is valid",
 	"draft2020-12/dynamicRef.json/A $ref to a $dynamicAnchor in the same schema resource should behave like a normal $ref to an $anchor/An array of strings is valid",
@@ -184,15 +213,5 @@ const skippedTests = new Set([
 	"draft2020-12/dynamicRef.json/tests for implementation dynamic anchor and reference link/correct extended schema",
 	"draft2020-12/dynamicRef.json/Tests for implementation dynamic anchor and reference link. Reference should be independent of any possible ordering./correct extended schema",
 	"draft2020-12/dynamicRef.json/Tests for implementation dynamic anchor and reference link. Reference should be independent of any possible ordering./correct extended schema",
-
-	"draft2020-12/refRemote.json/remote ref/remote ref valid",
-	"draft2020-12/refRemote.json/fragment within remote ref/remote fragment valid",
-	"draft2020-12/refRemote.json/ref within remote ref/ref within ref valid",
-	"draft2020-12/refRemote.json/base URI change/base URI change ref valid",
-	"draft2020-12/refRemote.json/base URI change - change folder/number is valid",
-	"draft2020-12/refRemote.json/base URI change - change folder in subschema/number is valid",
-	"draft2020-12/refRemote.json/root ref in remote ref/string is valid",
-	"draft2020-12/refRemote.json/root ref in remote ref/null is valid",
-	"draft2020-12/refRemote.json/remote ref with ref to defs/valid",
 ]);
 initializeTests();

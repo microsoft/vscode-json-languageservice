@@ -2460,6 +2460,92 @@ suite('JSON Parser', () => {
 			const semanticErrors = validate2(jsonDoc, textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 0);
 		}
+		{
+			const typeErrorSchema: JSONSchema = {
+				"type": "object",
+				"dependentSchemas": {
+					"foo": {
+						"properties": {
+							"bar": { "type": "string" }
+						}
+					}
+				}
+			};
+			const content = '{"foo": true, "bar": 123}';
+			const { textDoc, jsonDoc } = toDocument(content);
+			const semanticErrors = validate2(jsonDoc, textDoc, typeErrorSchema, SchemaDraft.v2019_09);
+			assert.strictEqual(semanticErrors!.length, 1);
+			// The error should be on the value `123`, not on the key `"bar"`
+			const expectedValueOffset = content.indexOf('123');
+			const actualRange = semanticErrors![0].range;
+			assert.deepEqual(actualRange, toRange(content, expectedValueOffset, 3), 
+				'Type error should be on property value, not key');
+		}
+		{
+			const addlPropsSchema: JSONSchema = {
+				"type": "object",
+				"dependentSchemas": {
+					"foo": {
+						"additionalProperties": false,
+						"properties": {
+							"foo": { "type": "boolean" }
+						}
+					}
+				}
+			};
+			// "bar" is not allowed when foo is present - error should be on "bar" key
+			const content = '{"foo": true, "bar": 123}';
+			const { textDoc, jsonDoc } = toDocument(content);
+			const semanticErrors = validate2(jsonDoc, textDoc, addlPropsSchema, SchemaDraft.v2019_09);
+			assert.strictEqual(semanticErrors!.length, 1);
+			// For additionalProperties, the error should be on the key "bar"
+			const expectedKeyOffset = content.indexOf('"bar"');
+			const actualRange = semanticErrors![0].range;
+			assert.deepEqual(actualRange, toRange(content, expectedKeyOffset, 5), 
+				'additionalProperties error should be on property key');
+		}
+		{
+			const requiredSchema: JSONSchema = {
+				"type": "object",
+				"dependentSchemas": {
+					"foo": {
+						"required": ["missing"]
+					}
+				}
+			};
+			// "missing" is required when "foo" is present, error should be on the object
+			const content = '{"foo": true}';
+			const { textDoc, jsonDoc } = toDocument(content);
+			const semanticErrors = validate2(jsonDoc, textDoc, requiredSchema, SchemaDraft.v2019_09);
+			assert.strictEqual(semanticErrors!.length, 1);
+			// Error should be on the object's opening brace
+			assert.deepEqual(semanticErrors![0].range, toRange(content, 0, 1));
+		}
+		{
+			const nestedSchema: JSONSchema = {
+				"type": "object",
+				"properties": {
+					"outer": {
+						"type": "object",
+						"dependentSchemas": {
+							"foo": {
+								"required": ["missing"]
+							}
+						}
+					}
+				}
+			};
+			// The outer object is a property value, when foo is present, "missing" is required
+			const content = '{"outer": {"foo": true}}';
+			const { textDoc, jsonDoc } = toDocument(content);
+			const semanticErrors = validate2(jsonDoc, textDoc, nestedSchema, SchemaDraft.v2019_09);
+			assert.strictEqual(semanticErrors!.length, 1);
+			// The error should be on the inner object value, not on the "outer" key
+			const innerObjectStart = content.indexOf('{"foo"');
+			const actualRange = semanticErrors![0].range;
+			assert.deepEqual(actualRange, toRange(content, innerObjectStart, 1), 
+				'Required error should be on the object value, not the parent key');
+		}
 	});
 
 	test('type as array', function () {

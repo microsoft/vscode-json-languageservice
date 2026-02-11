@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { isKeywordEnabled } from '../services/vocabularies';
+import { isKeywordEnabled, isFormatAssertionEnabled } from '../services/vocabularies';
 
 suite('Vocabularies', () => {
 
@@ -23,7 +23,7 @@ suite('Vocabularies', () => {
 
 		test('returns true for core keywords regardless of vocabulary settings', function () {
 			// Core keywords should always be enabled, even with empty vocabularies
-			const emptyVocabs = new Set<string>();
+			const emptyVocabs = new Map<string, boolean>();
 			assert.strictEqual(isKeywordEnabled('$id', emptyVocabs), true);
 			assert.strictEqual(isKeywordEnabled('$schema', emptyVocabs), true);
 			assert.strictEqual(isKeywordEnabled('$ref', emptyVocabs), true);
@@ -34,9 +34,9 @@ suite('Vocabularies', () => {
 		});
 
 		test('returns true for validation keywords when validation vocabulary is active (2019-09)', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/core',
-				'https://json-schema.org/draft/2019-09/vocab/validation'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/core', true],
+				['https://json-schema.org/draft/2019-09/vocab/validation', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('type', vocabs), true);
 			assert.strictEqual(isKeywordEnabled('enum', vocabs), true);
@@ -52,8 +52,8 @@ suite('Vocabularies', () => {
 
 		test('returns false for validation keywords when validation vocabulary is NOT active', function () {
 			// Only core vocabulary - validation keywords should be disabled
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/core'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/core', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('type', vocabs), false);
 			assert.strictEqual(isKeywordEnabled('enum', vocabs), false);
@@ -64,9 +64,9 @@ suite('Vocabularies', () => {
 		});
 
 		test('returns true for applicator keywords when applicator vocabulary is active (2019-09)', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/core',
-				'https://json-schema.org/draft/2019-09/vocab/applicator'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/core', true],
+				['https://json-schema.org/draft/2019-09/vocab/applicator', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('properties', vocabs), true);
 			assert.strictEqual(isKeywordEnabled('patternProperties', vocabs), true);
@@ -82,9 +82,9 @@ suite('Vocabularies', () => {
 		});
 
 		test('returns false for applicator keywords when applicator vocabulary is NOT active', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/core',
-				'https://json-schema.org/draft/2019-09/vocab/validation'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/core', true],
+				['https://json-schema.org/draft/2019-09/vocab/validation', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('properties', vocabs), false);
 			assert.strictEqual(isKeywordEnabled('allOf', vocabs), false);
@@ -93,24 +93,24 @@ suite('Vocabularies', () => {
 		});
 
 		test('returns true for format keyword when format vocabulary is active (2019-09)', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/format'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/format', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('format', vocabs), true);
 		});
 
 		test('returns false for format keyword when format vocabulary is NOT active', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/core',
-				'https://json-schema.org/draft/2019-09/vocab/validation'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/core', true],
+				['https://json-schema.org/draft/2019-09/vocab/validation', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('format', vocabs), false);
 		});
 
 		test('returns true for validation keywords when validation vocabulary is active (2020-12)', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2020-12/vocab/core',
-				'https://json-schema.org/draft/2020-12/vocab/validation'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2020-12/vocab/core', true],
+				['https://json-schema.org/draft/2020-12/vocab/validation', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('type', vocabs), true);
 			assert.strictEqual(isKeywordEnabled('enum', vocabs), true);
@@ -119,40 +119,40 @@ suite('Vocabularies', () => {
 		});
 
 		test('returns true for unevaluated keywords when unevaluated vocabulary is active (2020-12)', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2020-12/vocab/core',
-				'https://json-schema.org/draft/2020-12/vocab/unevaluated'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2020-12/vocab/core', true],
+				['https://json-schema.org/draft/2020-12/vocab/unevaluated', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('unevaluatedItems', vocabs), true);
 			assert.strictEqual(isKeywordEnabled('unevaluatedProperties', vocabs), true);
 		});
 
 		test('returns false for unevaluated keywords when unevaluated vocabulary is NOT active', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2020-12/vocab/core',
-				'https://json-schema.org/draft/2020-12/vocab/applicator'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2020-12/vocab/core', true],
+				['https://json-schema.org/draft/2020-12/vocab/applicator', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('unevaluatedItems', vocabs), false);
 			assert.strictEqual(isKeywordEnabled('unevaluatedProperties', vocabs), false);
 		});
 
 		test('returns true for format keyword with format-annotation vocabulary (2020-12)', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2020-12/vocab/format-annotation'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2020-12/vocab/format-annotation', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('format', vocabs), true);
 		});
 
 		test('returns true for format keyword with format-assertion vocabulary (2020-12)', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2020-12/vocab/format-assertion'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2020-12/vocab/format-assertion', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('format', vocabs), true);
 		});
 
 		test('returns false for unknown keywords when vocabularies are restricted', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/core'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/core', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('customKeyword', vocabs), false);
 			assert.strictEqual(isKeywordEnabled('x-extension', vocabs), false);
@@ -160,17 +160,17 @@ suite('Vocabularies', () => {
 
 		test('handles mixed 2019-09 and 2020-12 vocabularies', function () {
 			// This is an unusual case but should work
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/validation',
-				'https://json-schema.org/draft/2020-12/vocab/applicator'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/validation', true],
+				['https://json-schema.org/draft/2020-12/vocab/applicator', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('type', vocabs), true); // from 2019-09 validation
 			assert.strictEqual(isKeywordEnabled('properties', vocabs), true); // from 2020-12 applicator
 		});
 
 		test('meta-data vocabulary keywords', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/meta-data'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/meta-data', true]
 			]);
 			// Meta-data keywords are typically not used in validation, but should be recognized
 			assert.strictEqual(isKeywordEnabled('title', vocabs), true);
@@ -180,8 +180,8 @@ suite('Vocabularies', () => {
 		});
 
 		test('content vocabulary keywords', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/content'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/content', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('contentEncoding', vocabs), true);
 			assert.strictEqual(isKeywordEnabled('contentMediaType', vocabs), true);
@@ -189,45 +189,93 @@ suite('Vocabularies', () => {
 		});
 
 		test('$recursiveRef and $recursiveAnchor are core keywords in 2019-09', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/core'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/core', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('$recursiveRef', vocabs), true);
 			assert.strictEqual(isKeywordEnabled('$recursiveAnchor', vocabs), true);
 		});
 
 		test('$dynamicRef and $dynamicAnchor are core keywords in 2020-12', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2020-12/vocab/core'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2020-12/vocab/core', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('$dynamicRef', vocabs), true);
 			assert.strictEqual(isKeywordEnabled('$dynamicAnchor', vocabs), true);
 		});
 
 		test('prefixItems is an applicator keyword', function () {
-			const vocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/applicator'
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/applicator', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('prefixItems', vocabs), true);
 
-			const vocabs2 = new Set<string>([
-				'https://json-schema.org/draft/2020-12/vocab/applicator'
+			const vocabs2 = new Map<string, boolean>([
+				['https://json-schema.org/draft/2020-12/vocab/applicator', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('prefixItems', vocabs2), true);
 		});
 
 		test('dependentSchemas and dependentRequired are in correct vocabularies', function () {
 			// dependentSchemas is an applicator keyword
-			const applicatorVocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/applicator'
+			const applicatorVocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/applicator', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('dependentSchemas', applicatorVocabs), true);
 
 			// dependentRequired is a validation keyword
-			const validationVocabs = new Set<string>([
-				'https://json-schema.org/draft/2019-09/vocab/validation'
+			const validationVocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/validation', true]
 			]);
 			assert.strictEqual(isKeywordEnabled('dependentRequired', validationVocabs), true);
+		});
+	});
+
+	suite('isFormatAssertionEnabled', () => {
+
+		test('returns true when activeVocabularies is undefined', function () {
+			// For backwards compatibility, format asserts when no vocabularies specified
+			assert.strictEqual(isFormatAssertionEnabled(undefined), true);
+		});
+
+		test('returns true for 2019-09 format vocabulary', function () {
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/format', true]
+			]);
+			// 2019-09 format is annotation-only, does not produce validation errors
+			assert.strictEqual(isFormatAssertionEnabled(vocabs), false);
+		});
+
+		test('returns true for 2020-12 format-assertion vocabulary', function () {
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2020-12/vocab/format-assertion', true]
+			]);
+			assert.strictEqual(isFormatAssertionEnabled(vocabs), true);
+		});
+
+		test('returns false for 2020-12 format-annotation vocabulary', function () {
+			// format-annotation means format is for information only, no validation errors
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2020-12/vocab/format-annotation', true]
+			]);
+			assert.strictEqual(isFormatAssertionEnabled(vocabs), false);
+		});
+
+		test('returns false when no format vocabulary is active', function () {
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2020-12/vocab/core', true],
+				['https://json-schema.org/draft/2020-12/vocab/validation', true]
+			]);
+			assert.strictEqual(isFormatAssertionEnabled(vocabs), false);
+		});
+
+		test('format-assertion takes precedence when both annotation and assertion are active', function () {
+			// If both are active, format-assertion wins
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2020-12/vocab/format-annotation', true],
+				['https://json-schema.org/draft/2020-12/vocab/format-assertion', true]
+			]);
+			assert.strictEqual(isFormatAssertionEnabled(vocabs), true);
 		});
 	});
 });
