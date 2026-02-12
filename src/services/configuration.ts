@@ -486,7 +486,7 @@ const descriptions: { [prop: string]: string } = {
 	maxProperties: l10n.t("The maximum number of properties an object can have. Inclusive."),
 	minProperties: l10n.t("The minimum number of properties an object can have. Inclusive."),
 	required: l10n.t("An array of strings that lists the names of all properties required on this object."),
-	additionalProperties: l10n.t("Either a schema or a boolean. If a schema, used to validate all properties not matched by 'properties', 'propertyNames', or 'patternProperties'. If false, any properties not defined by the adajacent keywords will cause this schema to fail."),
+	additionalProperties: l10n.t("Either a schema or a boolean. If a schema, used to validate all properties not matched by 'properties', 'propertyNames', or 'patternProperties'. If false, any properties not defined by the adjacent keywords will cause this schema to fail."),
 	definitions: l10n.t("Not used for validation. Place subschemas here that you wish to reference inline with $ref."),
 	properties: l10n.t("A map of property names to schemas for each property."),
 	patternProperties: l10n.t("A map of regular expressions on property names to schemas for matching properties."),
