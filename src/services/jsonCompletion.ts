@@ -451,6 +451,10 @@ export class JSONCompletion {
 		if (node && (parentKey !== undefined || node.type === 'array')) {
 			const separatorAfter = this.evaluateSeparatorAfter(document, offsetForSeparator);
 
+			if ((parentKey === "type" || parentKey === "@type") && node.children?.length === 1) {
+				valueNode = undefined;
+			}
+
 			const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset, valueNode);
 			for (const s of matchingSchemas) {
 				if (s.node === node && !s.inverted && s.schema) {
