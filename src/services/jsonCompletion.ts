@@ -15,7 +15,7 @@ import {
 	PromiseConstructor,
 	ASTNode, ObjectASTNode, ArrayASTNode, PropertyASTNode, ClientCapabilities,
 	TextDocument,
-	CompletionItem, CompletionItemKind, CompletionList, Position, Range, TextEdit, InsertTextFormat, MarkupContent, MarkupKind
+	CompletionItem, CompletionItemKind, CompletionList, Position, Range, TextEdit, InsertTextFormat, MarkupContent, MarkupKind, StringASTNode
 } from '../jsonLanguageTypes';
 
 import * as l10n from '@vscode/l10n';
@@ -87,6 +87,18 @@ export class JSONCompletion {
 		const supportsCommitCharacters = false; //this.doesSupportsCommitCharacters(); disabled for now, waiting for new API: https://github.com/microsoft/vscode/issues/42544
 
 		const proposed = new Map<string, CompletionItem>();
+		let insertPrevEdit: { nodeAfter: ASTNode, char: string } | undefined;
+		const prevNodeForComma = this.getPreviousNode(node, document, offset);
+		if (prevNodeForComma) {
+			const prevNodeEnd = prevNodeForComma.offset + prevNodeForComma.length;
+			if (prevNodeEnd < offset && this.evaluateSeparatorAfter(document, prevNodeEnd, offset) === ',') {
+				insertPrevEdit = {
+					nodeAfter: prevNodeForComma,
+					char: ',',
+				};
+			}
+		}
+
 		const collector: CompletionsCollector = {
 			add: (suggestion: JSONCompletionItem) => {
 				let label = suggestion.label;
@@ -104,6 +116,17 @@ export class JSONCompletion {
 						suggestion.commitCharacters = suggestion.kind === CompletionItemKind.Property ? propertyCommitCharacters : valueCommitCharacters;
 					}
 					suggestion.label = label;
+					if (insertPrevEdit) {
+						const { nodeAfter } = insertPrevEdit;
+						const insertPrevPos = document.positionAt(nodeAfter.offset + nodeAfter.length);
+						suggestion.additionalTextEdits = [{
+							range: {
+								start: insertPrevPos,
+								end: insertPrevPos
+							},
+							newText: insertPrevEdit.char,
+						}];
+					}
 					proposed.set(label, suggestion);
 					result.items.push(suggestion);
 				} else {
@@ -957,10 +980,14 @@ export class JSONCompletion {
 		return text.substring(i + 1, offset);
 	}
 
-	private evaluateSeparatorAfter(document: TextDocument, offset: number) {
+	private evaluateSeparatorAfter(document: TextDocument, offset: number, validateOffset?: number) {
 		const scanner = Json.createScanner(document.getText(), true);
 		scanner.setPosition(offset);
 		const token = scanner.scan();
+		// Insert if didn't find comma before requesting offset
+		if (validateOffset && scanner.getPosition() > validateOffset) {
+			return ',';
+		}
 		switch (token) {
 			case Json.SyntaxKind.CommaToken:
 			case Json.SyntaxKind.CloseBraceToken:
@@ -989,6 +1016,39 @@ export class JSONCompletion {
 			}
 		}
 		return 0;
+	}
+
+	/** Find last item after offset */
+	private getPreviousNode(node: ASTNode | undefined , document: TextDocument, offset: number) {
+		switch (node?.type) {
+			case 'string':
+			case 'number':
+			case 'boolean':
+			case 'property':
+			case 'null': {
+				node = node?.parent?.type === 'property' ? node.parent.parent : node?.parent;
+			}
+		}
+		if (!node) {
+			return;
+		}
+		const { children } = node;
+		if (!children) {
+			return;
+		}
+		let foundIndex: number | undefined;
+		for (let i = children.length - 1; i >= 0; i--) {
+			const child = children[i];
+			if (offset > child.offset + child.length) {
+				foundIndex = i;
+				break;
+			} else if (offset >= child.offset) {
+				foundIndex = i - 1;
+				break;
+			}
+		}
+		const previousNode = foundIndex !== undefined ? children[foundIndex] : undefined;
+		return previousNode?.type === 'property' ? previousNode.valueNode : previousNode;
 	}
 
 	private isInComment(document: TextDocument, start: number, offset: number) {
