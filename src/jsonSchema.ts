@@ -64,8 +64,8 @@ export interface JSONSchema {
 	$defs?: { [name: string]: JSONSchema };
 	$anchor?: string;
 	$recursiveRef?: string;
-	$recursiveAnchor?: string;
-	$vocabulary?: any;
+	$recursiveAnchor?: boolean;
+	$vocabulary?: { [uri: string]: boolean };
 
 	// schema 2020-12
 	prefixItems?: JSONSchemaRef[];

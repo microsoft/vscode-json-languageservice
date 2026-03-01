@@ -4,15 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Json from 'jsonc-parser';
-import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
+import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
 import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings';
 import { asSchema, getSchemaDraftFromId, JSONDocument, normalizeId } from '../parser/jsonParser';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode } from '../jsonLanguageTypes';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies } from '../jsonLanguageTypes';
 
 import * as l10n from '@vscode/l10n';
 import { createRegex } from '../utils/glob';
-import { isObject, isString } from '../utils/objects';
+import { isString } from '../utils/objects';
 import { DiagnosticRelatedInformation, Range } from 'vscode-languageserver-types';
 
 export interface IJSONSchemaService {
@@ -177,6 +177,12 @@ class SchemaHandle implements ISchemaHandle {
 		this.anchors = undefined;
 		return hasChanges;
 	}
+
+	public setSchemaContent(schemaContent: JSONSchema): void {
+		this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(schemaContent));
+		this.resolvedSchema = undefined;
+		this.anchors = undefined;
+	}
 }
 
 
@@ -205,12 +211,14 @@ export class ResolvedSchema {
 	public readonly errors: SchemaDiagnostic[];
 	public readonly warnings: SchemaDiagnostic[];
 	public readonly schemaDraft: SchemaDraft | undefined;
+	public readonly activeVocabularies: Vocabularies | undefined;
 
-	constructor(schema: JSONSchema, errors: SchemaDiagnostic[] = [], warnings: SchemaDiagnostic[] = [], schemaDraft: SchemaDraft | undefined) {
+	constructor(schema: JSONSchema, errors: SchemaDiagnostic[] = [], warnings: SchemaDiagnostic[] = [], schemaDraft: SchemaDraft | undefined, activeVocabularies: Vocabularies | undefined) {
 		this.schema = schema;
 		this.errors = errors;
 		this.warnings = warnings;
 		this.schemaDraft = schemaDraft;
+		this.activeVocabularies = activeVocabularies;
 	}
 
 	public getSection(path: string[]): JSONSchema | undefined {
@@ -266,6 +274,45 @@ export class JSONSchemaService implements IJSONSchemaService {
 	private callOnDispose: Function[];
 	private requestService: SchemaRequestService | undefined;
 	private promiseConstructor: PromiseConstructor;
+
+	private static traverseSchemaProperties(node: JSONSchema, callback: (schema: JSONSchema) => void): void {
+		const singleSchemaProps = ['additionalItems', 'additionalProperties', 'not', 'contains',
+			'propertyNames', 'if', 'then', 'else', 'unevaluatedItems', 'unevaluatedProperties', 'items'] as const;
+		const schemaMapProps = ['definitions', '$defs', 'properties', 'patternProperties',
+			'dependencies', 'dependentSchemas'] as const;
+		const schemaArrayProps = ['anyOf', 'allOf', 'oneOf', 'prefixItems'] as const;
+
+		const visitValue = (value: JSONSchemaRef | JSONSchemaRef[]): void => {
+			if (value) {
+				if (Array.isArray(value)) {
+					value.forEach(item => visitValue(item));
+				} else if (typeof value === 'object') {
+					callback(value);
+				}
+			}
+		};
+
+		for (const prop of singleSchemaProps) {
+			const propValue = node[prop];
+			if (propValue) {
+				visitValue(propValue);
+			}
+		}
+
+		for (const prop of schemaMapProps) {
+			const map = node[prop];
+			if (map && typeof map === 'object') {
+				Object.values(map).forEach(visitValue);
+			}
+		}
+
+		for (const prop of schemaArrayProps) {
+			const propValue = node[prop];
+			if (propValue) {
+				visitValue(propValue);
+			}
+		}
+	}
 
 	private cachedSchemaForResource: { resource: string; resolvedSchema: PromiseLike<ResolvedSchema | undefined> } | undefined;
 
@@ -439,7 +486,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				if (typeof code === 'number' && code < 0x10000) {
 					errorCode += code;
 				}
-				const errorMessage = l10n.t('Unable to load schema from \'{0}\': {1}.', toDisplayString(url), message);	
+				const errorMessage = l10n.t('Unable to load schema from \'{0}\': {1}.', toDisplayString(url), message);
 				return new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, errorCode, url)]);
 			}
 		);
@@ -452,10 +499,25 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const schemaDraft = schema.$schema ? getSchemaDraftFromId(schema.$schema) : undefined;
 		if (schemaDraft === SchemaDraft.v3) {
-			return this.promise.resolve(new ResolvedSchema({}, [toDiagnostic(l10n.t("Draft-03 schemas are not supported."), ErrorCode.SchemaUnsupportedFeature)], [], schemaDraft));
+			return this.promise.resolve(new ResolvedSchema({}, [toDiagnostic(l10n.t("Draft-03 schemas are not supported."), ErrorCode.SchemaUnsupportedFeature)], [], schemaDraft, undefined));
 		}
 
 		let usesUnsupportedFeatures = new Set();
+		let activeVocabularies: Vocabularies | undefined = undefined;
+
+		const extractVocabularies = (metaschema: JSONSchema): Vocabularies | undefined => {
+			if (!metaschema.$vocabulary || typeof metaschema.$vocabulary !== 'object') {
+				return undefined;
+			}
+			// Both true and false values indicate the vocabulary is active.
+			// The boolean indicates whether the vocabulary is required (true) or optional (false),
+			// not whether it's in use. All listed vocabularies should be included.
+			const vocabs = new Map<string, boolean>();
+			for (const [uri, required] of Object.entries(metaschema.$vocabulary)) {
+				vocabs.set(uri, required);
+			}
+			return vocabs.size > 0 ? vocabs : undefined;
+		};
 
 		const contextService = this.contextService;
 
@@ -473,6 +535,37 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return current;
 		};
 
+		// Like findSectionByJSONPointer, but also tracks the effective base URI
+		// through any $id encountered along the path. This is needed so that
+		// $ref values merged from the found section can be resolved against the
+		// correct base, not the document root.
+		const findSectionAndBase = (schema: JSONSchema, path: string, baseHandle: SchemaHandle): { section: any; baseHandle: SchemaHandle } => {
+			path = decodeURIComponent(path);
+			let current: any = schema;
+			let currentBaseHandle = baseHandle;
+			if (path[0] === '/') {
+				path = path.substring(1);
+			}
+			path.split('/').some((part) => {
+				part = part.replace(/~1/g, '/').replace(/~0/g, '~');
+				current = current[part];
+				if (!current) {
+					return true;
+				}
+				const id = getSchemaId(current);
+				if (isString(id) && id.charAt(0) !== '#') {
+					let resolvedUri = id;
+					if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(id)) {
+						resolvedUri = contextService.resolveRelativePath(id, currentBaseHandle.uri);
+					}
+					resolvedUri = normalizeId(resolvedUri);
+					currentBaseHandle = this.getOrAddSchemaHandle(resolvedUri);
+				}
+				return false;
+			});
+			return { section: current, baseHandle: currentBaseHandle };
+		};
+
 		const findSchemaById = (schema: JSONSchema, handle: SchemaHandle, id: string) => {
 			if (!handle.anchors) {
 				handle.anchors = collectAnchors(schema);
@@ -480,27 +573,107 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return handle.anchors.get(id);
 		};
 
+		const getSchemaId = (schema: JSONSchema): string | undefined => schema.$id || schema.id;
+
 		const merge = (target: JSONSchema, section: any): void => {
 			for (const key in section) {
-				if (section.hasOwnProperty(key) && key !== 'id' && key !== '$id') {
-					(<any>target)[key] = section[key];
+				if (!section.hasOwnProperty(key) || key === 'id' || key === '$id') {
+					continue;
 				}
+
+				// Deep merge for properties and patternProperties to combine them
+				const shouldDeepMerge = (key === 'properties' || key === 'patternProperties') &&
+					typeof section[key] === 'object' && section[key] !== null &&
+					typeof (<any>target)[key] === 'object' && (<any>target)[key] !== null;
+
+				(<any>target)[key] = shouldDeepMerge
+					? { ...(<any>target)[key], ...section[key] }
+					: section[key];
 			}
+
+			// Preserve $id as a non-enumerable hidden property for $recursiveRef resolution.
+			// This allows $recursiveRef to correctly resolve references within the schema without exposing $id publicly.
+			const id = section.$id || section.id;
+			if (id) {
+				Object.defineProperty(target, '_originalId', {
+					value: id,
+					enumerable: false,
+					writable: true,
+					configurable: true
+				});
+			}
+		};
+
+		// Check if schemas need scope isolation for unevaluated keywords
+		const needsScopeIsolation = (section: JSONSchema, target: JSONSchema): boolean => {
+			const hasUnevaluated = section.unevaluatedProperties !== undefined || section.unevaluatedItems !== undefined;
+			const hasSiblingEvaluation = target.properties !== undefined || target.patternProperties !== undefined ||
+				target.additionalProperties !== undefined || target.allOf !== undefined || target.anyOf !== undefined ||
+				target.oneOf !== undefined || target.if !== undefined;
+			return hasUnevaluated && hasSiblingEvaluation;
 		};
 
 		const mergeRef = (target: JSONSchema, sourceRoot: JSONSchema, sourceHandle: SchemaHandle, refSegment: string | undefined): void => {
 			let section;
+			let sectionBaseHandle = sourceHandle;
 			if (refSegment === undefined || refSegment.length === 0) {
 				section = sourceRoot;
 			} else if (refSegment.charAt(0) === '/') {
 				// A $ref to a JSON Pointer (i.e #/definitions/foo)
-				section = findSectionByJSONPointer(sourceRoot, refSegment);
+				// Track $id base changes along the path so inner $refs resolve correctly.
+				({ section, baseHandle: sectionBaseHandle } = findSectionAndBase(sourceRoot, refSegment, sourceHandle));
 			} else {
 				// A $ref to a sub-schema with an $id (i.e #hello)
 				section = findSchemaById(sourceRoot, sourceHandle, refSegment);
 			}
 			if (section) {
-				merge(target, section);
+				// If the found section contains a $ref that needs to be resolved
+				// relative to a different base (e.g. it's inside a schema with $id),
+				// pre-resolve it now so it carries the correct base URI context.
+				if (section.$ref && sectionBaseHandle !== sourceHandle) {
+					const innerRef = section.$ref;
+					const innerSegments = innerRef.split('#', 2);
+					if (innerSegments[0].length > 0 && contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(innerSegments[0])) {
+						section.$ref = contextService.resolveRelativePath(innerSegments[0], sectionBaseHandle.uri) +
+							(innerSegments[1] !== undefined ? '#' + innerSegments[1] : '');
+					}
+				}
+				const reservedKeys = new Set(['$ref', '$defs', 'definitions', '$schema', '$id', 'id']);
+
+				// In JSON Schema draft-04 through draft-07, $ref completely overrides any sibling keywords.
+				// Starting in 2019-09, sibling keywords are processed alongside $ref.
+				// Only strip siblings when schema explicitly declares a pre-2019-09 draft via $schema.
+				const isPreDraft201909 = schemaDraft !== undefined && schemaDraft < SchemaDraft.v2019_09;
+				if (isPreDraft201909) {
+					// Clear all sibling keywords from target - $ref takes precedence
+					for (const key in target) {
+						if (target.hasOwnProperty(key) && !reservedKeys.has(key)) {
+							delete (target as any)[key];
+						}
+					}
+					merge(target, section);
+				} else if (needsScopeIsolation(section, target)) {
+					// In JSON Schema 2019-09 or greater, $ref creates a new scope when it has sibling keywords.
+					// When the $ref'd schema has unevaluatedProperties/unevaluatedItems, it should not
+					// see properties/items evaluated by sibling keywords.
+					// To achieve this, we wrap the $ref in an allOf when needed.
+					const siblingSchema: JSONSchema = {};
+					const refSchema = { ...section };
+
+					// Move all existing properties from target to siblingSchema
+					for (const key in target) {
+						if (target.hasOwnProperty(key) && !reservedKeys.has(key)) {
+							const k = key as keyof JSONSchema;
+							siblingSchema[k] = target[k] as any;
+							delete target[k];
+						}
+					}
+
+					// Create allOf with the $ref'd schema and sibling schema
+					target.allOf = [refSchema, siblingSchema];
+				} else {
+					merge(target, section);
+				}
 			} else {
 				const message = l10n.t('$ref \'{0}\' in \'{1}\' can not be resolved.', refSegment || '', sourceHandle.uri)
 				resolveErrors.push(toDiagnostic(message, ErrorCode.SchemaResolveError));
@@ -516,9 +689,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
 				parentHandle.dependencies.add(uri);
 				if (unresolvedSchema.errors.length) {
-					const error = unresolvedSchema.errors[0];		
+					const error = unresolvedSchema.errors[0];
 					const loc = refSegment ? uri + '#' + refSegment : uri;
-					const errorMessage = refSegment? l10n.t('Problems loading reference \'{0}\': {1}', refSegment, error.message) : error.message;
+					const errorMessage = refSegment ? l10n.t('Problems loading reference \'{0}\': {1}', refSegment, error.message) : error.message;
 					resolveErrors.push(toDiagnostic(errorMessage, error.code, uri));
 				}
 				mergeRef(node, unresolvedSchema.schema, referencedHandle, refSegment);
@@ -529,129 +702,203 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentHandle: SchemaHandle): PromiseLike<any> => {
 			const openPromises: PromiseLike<any>[] = [];
 
-			this.traverseNodes(node, next => {
+			// Traversal that tracks the current base schema for internal refs.
+			// When we encounter a schema with its own $id, that becomes the new base
+			// for resolving fragment refs (#...) in its descendants
+			const traverseWithBaseTracking = (schema: JSONSchema, currentBase: JSONSchema, currentBaseHandle: SchemaHandle, isRoot: boolean, seen: Set<JSONSchema>) => {
+				if (!schema || typeof schema !== 'object' || seen.has(schema)) {
+					return;
+				}
+				seen.add(schema);
+
+				// Check if this schema has its own $id that creates a new base scope
+				// This needs to be determined before processing refs
+				const id = getSchemaId(schema);
+				let newBase = currentBase;
+				let newBaseHandle = currentBaseHandle;
+				if (!isRoot && isString(id) && id.charAt(0) !== '#') {
+					// This is an embedded schema with its own URI - it becomes the new base
+					newBase = schema;
+					// Get or create a handle for this embedded schema
+					let resolvedUri = id;
+					if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(id)) {
+						resolvedUri = contextService.resolveRelativePath(id, currentBaseHandle.uri);
+					}
+					resolvedUri = normalizeId(resolvedUri);
+					newBaseHandle = this.getOrAddSchemaHandle(resolvedUri);
+					// Ensure the handle has this schema registered
+					if (!this.schemasById[resolvedUri]) {
+						this.addSchemaHandle(resolvedUri, schema);
+					}
+				}
+
+				// Process refs in this schema
 				const seenRefs = new Set<string>();
-				while (next.$ref) {
-					const ref = next.$ref;
+				while (schema.$ref) {
+					const ref = schema.$ref;
 					const segments = ref.split('#', 2);
-					delete next.$ref;
+					delete schema.$ref;
 					if (segments[0].length > 0) {
-						// This is a reference to an external schema
-						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentHandle));
+						// This is a reference to an external schema (like "foo.json" or "foo.json#/bar")
+						// Per JSON Schema spec, $ref is resolved against the current base URI.
+						// If this schema has its own $id (sibling case), the $ref should resolve
+						// against the parent's base, not the sibling $id. Otherwise, use the
+						// nearest ancestor's base (newBaseHandle).
+						const refBase = (newBase === schema) ? currentBaseHandle : newBaseHandle;
+						openPromises.push(resolveExternalLink(schema, segments[0], segments[1], refBase));
 						return;
 					} else {
-						// This is a reference inside the current schema
+						// This is an internal reference (like "#/definitions/foo")
+						// Internal refs are resolved within the current document
+						// If this schema has its own $id, it is a new document, so use newBase
+						// Otherwise, use the parent's base (currentBase)
 						if (!seenRefs.has(ref)) {
-							const id = segments[1];
-							mergeRef(next, parentSchema, parentHandle, id);
+							const refId = segments[1];
+							mergeRef(schema, newBase, newBaseHandle, refId);
 							seenRefs.add(ref);
 						}
 					}
 				}
-				if (next.$recursiveRef) {
-					usesUnsupportedFeatures.add('$recursiveRef');
-				}
-				if (next.$dynamicRef) {
+
+				if (schema.$dynamicRef) {
 					usesUnsupportedFeatures.add('$dynamicRef');
 				}
-			});
+				if (schema.$dynamicAnchor) {
+					usesUnsupportedFeatures.add('$dynamicAnchor');
+				}
+
+				// Continue traversing child schemas with the potentially updated base
+				JSONSchemaService.traverseSchemaProperties(schema, (childSchema) => {
+					traverseWithBaseTracking(childSchema, newBase, newBaseHandle, false, seen);
+				});
+			};
+
+			traverseWithBaseTracking(node, parentSchema, parentHandle, true, new Set<JSONSchema>());
 
 			return this.promise.all(openPromises);
 		};
 
 		const collectAnchors = (root: JSONSchema): Map<string, JSONSchema> => {
 			const result = new Map<string, JSONSchema>();
-			this.traverseNodes(root, next => {
-				const id = next.$id || next.id;
-				const anchor = isString(id) && id.charAt(0) === '#' ? id.substring(1) : next.$anchor;
+			// Traversal that stops at sub-schemas with their own $id
+			// because those create a new URI scope for anchors
+			const traverseForAnchors = (node: JSONSchema, isRoot: boolean): void => {
+				if (!node || typeof node !== 'object') {
+					return;
+				}
+				// If this node has its own $id, and it's not the root, it's a new URI scope
+				const id = getSchemaId(node);
+				if (!isRoot && isString(id) && id.charAt(0) !== '#') {
+					return;
+				}
+
+				// Collect anchor from this node
+				// In draft-04/06/07, anchors are defined via $id/#fragment (e.g., "$id": "#myanchor")
+				// In 2019-09+, $id fragments are no longer anchors; $anchor is used instead
+				const fragmentAnchor = (schemaDraft === undefined || schemaDraft < SchemaDraft.v2019_09) && isString(id) && id.charAt(0) === '#' ? id.substring(1) : undefined;
+				const dollarAnchor = (schemaDraft === undefined || schemaDraft >= SchemaDraft.v2019_09) ? node.$anchor : undefined;
+				const anchor = fragmentAnchor ?? dollarAnchor;
 				if (anchor) {
 					if (result.has(anchor)) {
 						resolveErrors.push(toDiagnostic(l10n.t('Duplicate anchor declaration: \'{0}\'', anchor), ErrorCode.SchemaResolveError));
 					} else {
-						result.set(anchor, next);
+						result.set(anchor, node);
 					}
 				}
-				if (next.$recursiveAnchor) {
-					usesUnsupportedFeatures.add('$recursiveAnchor');
-				}
-				if (next.$dynamicAnchor) {
-					usesUnsupportedFeatures.add('$dynamicAnchor');
-				}
-			});
+
+				// Continue traversing child schemas
+				JSONSchemaService.traverseSchemaProperties(node, (childSchema) => {
+					traverseForAnchors(childSchema, false);
+				});
+			};
+
+			traverseForAnchors(root, true);
+
 			return result;
 		};
-		return resolveRefs(schema, schema, handle).then(_ => {
-			let resolveWarnings: SchemaDiagnostic[] = [];
-			if (usesUnsupportedFeatures.size) {
-				resolveWarnings.push(toDiagnostic(l10n.t('The schema uses meta-schema features ({0}) that are not yet supported by the validator.', Array.from(usesUnsupportedFeatures.keys()).join(', ')), ErrorCode.SchemaUnsupportedFeature));
+
+		// Collect and register embedded schemas with $id so they can be resolved as external refs
+		// This traversal tracks the current base URI so nested $id values are resolved correctly
+		const registerEmbeddedSchemas = (root: JSONSchema, baseUri: string): void => {
+			const seen = new Set<JSONSchema>();
+
+			const resolveId = (id: string, currentBaseUri: string): string => {
+				if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(id)) {
+					return normalizeId(contextService.resolveRelativePath(id, currentBaseUri));
+				}
+				return normalizeId(id);
+			};
+
+			const visit = (node: JSONSchema, currentBaseUri: string): void => {
+				if (!node || typeof node !== 'object' || seen.has(node)) {
+					return;
+				}
+				seen.add(node);
+
+				// Check if this node has its own $id that changes the base URI
+				const id = getSchemaId(node);
+				let newBaseUri = currentBaseUri;
+				if (isString(id) && id.charAt(0) !== '#') {
+					const resolvedUri = resolveId(id, currentBaseUri);
+					const existingHandle = this.schemasById[resolvedUri];
+					if (!existingHandle) {
+						this.addSchemaHandle(resolvedUri, node);
+					} else {
+						// Update existing handle with embedded schema content
+						// This ensures embedded schemas take precedence over external schemas
+						existingHandle.setSchemaContent(node);
+					}
+					newBaseUri = resolvedUri;
+				}
+
+				// Visit child schemas
+				JSONSchemaService.traverseSchemaProperties(node, (childSchema) => {
+					visit(childSchema, newBaseUri);
+				});
+			};
+
+			visit(root, baseUri);
+		};
+
+		// Register embedded schemas before resolving refs
+		registerEmbeddedSchemas(schema, handle.uri);
+
+		// Resolve meta-schema to extract vocabularies if present
+		const resolveMetaschemaVocabularies = (): PromiseLike<void> => {
+			if (!schema.$schema || typeof schema.$schema !== 'string') {
+				return this.promise.resolve(undefined);
 			}
-			return new ResolvedSchema(schema, resolveErrors, resolveWarnings, schemaDraft);
+
+			const metaschemaUri = schema.$schema;
+			const normalizedMetaschemaUri = normalizeId(metaschemaUri);
+			const metaschemaHandle = this.getOrAddSchemaHandle(normalizedMetaschemaUri);
+
+			return metaschemaHandle.getUnresolvedSchema().then(unresolvedMetaschema => {
+				// Only extract vocabularies if the meta-schema has a $vocabulary property
+				// or if it's draft 2019-09 or later which support vocabularies.
+				const metaschemaDraft = unresolvedMetaschema.schema.$schema ? getSchemaDraftFromId(unresolvedMetaschema.schema.$schema) : undefined;
+				const isDraft2019OrLater = metaschemaDraft && metaschemaDraft >= SchemaDraft.v2019_09;
+				const hasVocabulary = unresolvedMetaschema.schema.$vocabulary && typeof unresolvedMetaschema.schema.$vocabulary === 'object';
+
+				if (hasVocabulary || isDraft2019OrLater) {
+					activeVocabularies = extractVocabularies(unresolvedMetaschema.schema);
+				}
+				return undefined;
+			}, () => {
+				// If we can't load the meta-schema, proceed without vocabulary info
+				return undefined;
+			});
+		};
+
+		return resolveMetaschemaVocabularies().then(() => {
+			return resolveRefs(schema, schema, handle).then(_ => {
+				let resolveWarnings: SchemaDiagnostic[] = [];
+				if (usesUnsupportedFeatures.size) {
+					resolveWarnings.push(toDiagnostic(l10n.t('The schema uses meta-schema features ({0}) that are not yet supported by the validator.', Array.from(usesUnsupportedFeatures.keys()).join(', ')), ErrorCode.SchemaUnsupportedFeature));
+				}
+				return new ResolvedSchema(schema, resolveErrors, resolveWarnings, schemaDraft, activeVocabularies);
+			});
 		});
-	}
-
-	private traverseNodes(root: JSONSchema, handle: (node: JSONSchema) => void) {
-		if (!root || typeof root !== 'object') {
-			return Promise.resolve(null);
-		}
-		const seen = new Set<JSONSchema>();
-
-		const collectEntries = (...entries: (JSONSchemaRef | undefined)[]) => {
-			for (const entry of entries) {
-				if (isObject(entry)) {
-					toWalk.push(entry);
-				}
-			}
-		};
-		const collectMapEntries = (...maps: (JSONSchemaMap | undefined)[]) => {
-			for (const map of maps) {
-				if (isObject(map)) {
-					for (const k in map) {
-						const key = k as keyof JSONSchemaMap;
-						const entry = map[key];
-						if (isObject(entry)) {
-							toWalk.push(entry);
-						}
-					}
-				}
-			}
-		};
-		const collectArrayEntries = (...arrays: (JSONSchemaRef[] | undefined)[]) => {
-			for (const array of arrays) {
-				if (Array.isArray(array)) {
-					for (const entry of array) {
-						if (isObject(entry)) {
-							toWalk.push(entry);
-						}
-					}
-				}
-			}
-		};
-		const collectEntryOrArrayEntries = (items: (JSONSchemaRef[] | JSONSchemaRef | undefined)) => {
-			if (Array.isArray(items)) {
-				for (const entry of items) {
-					if (isObject(entry)) {
-						toWalk.push(entry);
-					}
-				}
-			} else if (isObject(items)) {
-				toWalk.push(items);
-			}
-		};
-
-		const toWalk: JSONSchema[] = [root];
-
-		let next = toWalk.pop();
-		while (next) {
-			if (!seen.has(next)) {
-				seen.add(next);
-				handle(next);
-				collectEntries(next.additionalItems, next.additionalProperties, next.not, next.contains, next.propertyNames, next.if, next.then, next.else, next.unevaluatedItems, next.unevaluatedProperties);
-				collectMapEntries(next.definitions, next.$defs, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies, next.dependentSchemas);
-				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, next.prefixItems);
-				collectEntryOrArrayEntries(next.items);
-			}
-			next = toWalk.pop();
-		}
 	};
 
 	private getSchemaFromProperty(resource: string, document: JSONDocument): string | undefined {
