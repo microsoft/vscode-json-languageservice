@@ -216,11 +216,12 @@ export interface ISchemaCollector {
 
 export interface IEvaluationContext {
 	readonly schemaDraft: SchemaDraft;
+	readonly explicitSchemaDraft?: SchemaDraft;
 	readonly activeVocabularies?: Vocabularies;
 }
 
 class EvaluationContext implements IEvaluationContext {
-	constructor(public readonly schemaDraft: SchemaDraft, public readonly activeVocabularies?: Vocabularies) {
+	constructor(public readonly schemaDraft: SchemaDraft, public readonly activeVocabularies?: Vocabularies, public readonly explicitSchemaDraft?: SchemaDraft) {
 	}
 }
 
@@ -382,7 +383,8 @@ export class JSONDocument {
 	public validate(textDocument: TextDocument, schema: JSONSchema | undefined, severity: DiagnosticSeverity = DiagnosticSeverity.Warning, schemaDraft?: SchemaDraft, activeVocabularies?: Vocabularies): Diagnostic[] | undefined {
 		if (this.root && schema) {
 			const validationResult = new ValidationResult();
-			const context = new EvaluationContext(schemaDraft ?? getSchemaDraft(schema), activeVocabularies);
+			const { explicitDraft, effectiveDraft } = resolveDrafts(schema, schemaDraft);
+			const context = new EvaluationContext(effectiveDraft, activeVocabularies, explicitDraft);
 			const schemaStack: JSONSchema[] = [];
 			const schemaRoots: JSONSchema[] = [schema];
 			validate(this.root, schema, validationResult, NoOpSchemaCollector.instance, context, schemaStack, schemaRoots);
@@ -397,8 +399,8 @@ export class JSONDocument {
 	public getMatchingSchemas(schema: JSONSchema, focusOffset: number = -1, exclude?: ASTNode, activeVocabularies?: Vocabularies): IApplicableSchema[] {
 		if (this.root && schema) {
 			const matchingSchemas = new SchemaCollector(focusOffset, exclude);
-			const schemaDraft = getSchemaDraft(schema);
-			const context = new EvaluationContext(schemaDraft, activeVocabularies);
+			const { explicitDraft, effectiveDraft } = resolveDrafts(schema);
+			const context = new EvaluationContext(effectiveDraft, activeVocabularies, explicitDraft);
 			const schemaStack: JSONSchema[] = [];
 			const schemaRoots: JSONSchema[] = [schema];
 			validate(this.root, schema, new ValidationResult(), matchingSchemas, context, schemaStack, schemaRoots);
@@ -407,13 +409,28 @@ export class JSONDocument {
 		return [];
 	}
 }
-function getSchemaDraft(schema: JSONSchema, fallBack = SchemaDraft.v2020_12) {
-	let schemaId = schema.$schema;
-	if (schemaId) {
-		return getSchemaDraftFromId(schemaId) ?? fallBack;
-	}
-	return fallBack;
+
+/*
+ * Resolves the schema draft versions for validation.
+ * - explicitDraft: the draft explicitly declared via $schema or passed as an override.
+ *   Undefined when no $schema is present and no override is provided.
+ * - effectiveDraft: the draft used for keyword gating, defaulting to 2020-12.
+ * These are tracked separately so that behaviors like format assertion can
+ * distinguish "explicitly 2020-12" (annotation-only per spec) from
+ * "no $schema, defaulting to 2020-12" (asserts for backward compatibility).
+ */
+function resolveDrafts(schema: JSONSchema, schemaDraftOverride?: SchemaDraft): { explicitDraft: SchemaDraft | undefined; effectiveDraft: SchemaDraft } {
+	const explicitDraft = schemaDraftOverride ?? (schema.$schema ? getSchemaDraftFromId(schema.$schema) : undefined);
+	const effectiveDraft = explicitDraft ?? SchemaDraft.v2020_12;
+	return { explicitDraft, effectiveDraft };
 }
+
+// Keywords introduced in 2019-09 (not available in draft-07 and earlier)
+const keywords201909 = new Set([
+	'dependentRequired', 'dependentSchemas',
+	'unevaluatedProperties', 'unevaluatedItems',
+	'minContains', 'maxContains'
+]);
 
 function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: ValidationResult, matchingSchemas: ISchemaCollector, context: IEvaluationContext, schemaStack: JSONSchema[], schemaRoots: JSONSchema[]): void {
 
@@ -455,14 +472,29 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 	schemaStack.push(schema);
 
 	const enabled = (keyword: string) => {
-		// Special case for 'dependencies' which is a core keyword in draft-04 through draft-07 but moved to 
-		// dependentSchemas and dependentRequired in later versions.		
-		if (keyword === 'dependencies')
-		{
+		// Draft-based keyword gating: keywords only exist in certain drafts.
+		// 'dependencies' was replaced by dependentRequired/dependentSchemas in 2019-09
+		if (keyword === 'dependencies') {
 			return context.schemaDraft <= SchemaDraft.v7;
 		}
-			
-		return isKeywordEnabled(keyword, context.activeVocabularies);
+
+		// Keywords introduced in 2019-09 (not available in draft-07 and earlier)
+		if (keywords201909.has(keyword)) {
+			return context.schemaDraft >= SchemaDraft.v2019_09;
+		}
+
+		// 'prefixItems' was introduced in 2020-12
+		if (keyword === 'prefixItems') {
+			return context.schemaDraft >= SchemaDraft.v2020_12;
+		}
+
+		// Vocabulary-based filtering only applies for 2019-09+ (vocabulary is not a concept in older drafts)
+		if (context.schemaDraft >= SchemaDraft.v2019_09 && context.activeVocabularies) {
+			return isKeywordEnabled(keyword, context.activeVocabularies);
+		}
+
+		// No vocabulary info or pre-2019-09: enable all draft-appropriate keywords
+		return true;
 	};
 
 	_validateNode();
@@ -859,7 +891,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		}
 
 		// Only validate format if format-assertion vocabulary is active (not annotation-only)
-		if (schema.format && enabled('format') && isFormatAssertionEnabled(context.activeVocabularies)) {
+		if (schema.format && enabled('format') && isFormatAssertionEnabled(context.activeVocabularies, context.explicitSchemaDraft)) {
 			switch (schema.format) {
 				case 'uri':
 				case 'uri-reference': {
@@ -1055,7 +1087,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			for (const propertyName of schema.required) {
 				if (!seenKeys[propertyName]) {
 					validationResult.problems.push({
-						location: { offset: node.offset, length: 1 },
+						location: { offset: node.offset, length: node.length },
 						message: l10n.t('Missing property "{0}".', propertyName)
 					});
 				}

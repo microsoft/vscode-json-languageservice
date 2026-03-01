@@ -2698,5 +2698,375 @@ suite('JSON Schema', () => {
 			assert.strictEqual(validation.length, 1, 'Format should be validated when no vocabulary constraints exist');
 			assert.ok(validation[0].message.toLowerCase().includes('e-mail'), 'Error should mention e-mail format');
 		});
+
+		test('format should not validate by default for 2019-09 schemas', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'string',
+				format: 'email'
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'Format should be annotation-only by default in 2019-09');
+		});
+
+		test('format should not validate by default for 2020-12 schemas', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				type: 'string',
+				format: 'email'
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'Format should be annotation-only by default in 2020-12');
+		});
+
+		test('format should validate for draft-07 schemas', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'string',
+				format: 'email'
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'Format should validate for draft-07');
+			assert.ok(validation[0].message.toLowerCase().includes('e-mail'), 'Error should mention e-mail format');
+		});
+	});
+
+	suite('Draft-based keyword gating', () => {
+		test('dependentRequired should not work in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'object',
+				dependentRequired: {
+					bar: ['foo']
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			// { "bar": 1 } without "foo" - dependentRequired should be ignored in draft-07
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'dependentRequired should be ignored in draft-07');
+		});
+
+		test('dependentRequired should work in 2019-09', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				dependentRequired: {
+					bar: ['foo']
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'dependentRequired should work in 2019-09');
+		});
+
+		test('dependentSchemas should not work in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'object',
+				dependentSchemas: {
+					bar: {
+						required: ['foo']
+					}
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'dependentSchemas should be ignored in draft-07');
+		});
+
+		test('dependentSchemas should work in 2019-09', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				dependentSchemas: {
+					bar: {
+						required: ['foo']
+					}
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'dependentSchemas should work in 2019-09');
+		});
+
+		test('dependencies should work in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'object',
+				dependencies: {
+					bar: ['foo']
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'dependencies should work in draft-07');
+		});
+
+		test('dependencies should not work in 2019-09', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				dependencies: {
+					bar: ['foo']
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'dependencies should be ignored in 2019-09');
+		});
+	});
+
+	suite('$id fragment anchors', () => {
+		test('$id fragment should be an anchor in draft-07', async function () {
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService });
+
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				definitions: {
+					foo: {
+						$id: '#foo',
+						type: 'string'
+					}
+				},
+				$ref: '#foo'
+			};
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, '$id fragment should work as anchor in draft-07');
+		});
+
+		test('$id fragment should not be an anchor in 2019-09', async function () {
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService });
+
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				$defs: {
+					foo: {
+						$id: '#foo',
+						type: 'string'
+					}
+				},
+				$ref: '#foo'
+			};
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			// In 2019-09, $id with fragment is not an anchor, so $ref: '#foo' should not resolve.
+			// This should produce a resolve error, not a type validation error.
+			assert.strictEqual(validation.length, 1, 'Should get a resolve error for unresolved $ref');
+			assert.strictEqual(validation[0].code, ErrorCode.SchemaResolveError,
+				'Error should be a schema resolve error, not a type error');
+		});
+	});
+
+	suite('Relative $id references', () => {
+		test('$ref to a relative $id within $defs', async function () {
+			// A $ref targeting a relative $id should resolve against the document base URI
+			const schema: JSONSchema = {
+				$id: 'http://example.com/root.json',
+				$defs: {
+					foo: {
+						$id: 'schemas/foo',
+						type: 'string'
+					}
+				},
+				$ref: 'schemas/foo'
+			};
+
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			// $ref: "schemas/foo" should resolve to http://example.com/schemas/foo
+			// which matches the embedded $id: "schemas/foo" (also resolved to http://example.com/schemas/foo)
+			// The embedded schema requires type: string, so 42 should fail
+			assert.strictEqual(validation.length, 1, '$ref should resolve relative $id');
+			assert.ok(validation[0].message.includes('string'), 'Error should be a type mismatch for string');
+		});
+
+		test('$ref resolves relative to the nearest $id base', async function () {
+			// When a schema has a nested $id, $ref inside it resolves relative to that $id
+			const barSchema: JSONSchema = {
+				$id: 'http://example.com/schemas/bar.json',
+				type: 'number'
+			};
+
+			const schema: JSONSchema = {
+				$id: 'http://example.com/root.json',
+				$defs: {
+					foo: {
+						$id: 'schemas/',
+						$defs: {
+							inner: {
+								// $ref inside a schema with $id: "schemas/" should resolve
+								// relative to http://example.com/schemas/
+								$ref: 'bar.json'
+							}
+						}
+					}
+				},
+				$ref: '#/$defs/foo/$defs/inner'
+			};
+
+			const schemaRequestService = newMockRequestService({
+				'http://example.com/schemas/bar.json': barSchema
+			});
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc, jsonDoc } = toDocument('"hello"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			// bar.json requires number, "hello" is a string, should produce a type error
+			assert.strictEqual(validation.length, 1, '$ref should resolve relative to nearest $id base');
+			assert.ok(validation[0].message.includes('number'), 'Error should be a type mismatch for number');
+		});
+
+		test('$ref to a relative $id with a different path', async function () {
+			// $ref from root referencing an embedded schema with a relative $id
+			const schema: JSONSchema = {
+				$id: 'http://example.com/root.json',
+				$defs: {
+					address: {
+						$id: 'types/address.json',
+						type: 'object',
+						properties: {
+							street: { type: 'string' }
+						},
+						required: ['street']
+					}
+				},
+				type: 'object',
+				properties: {
+					home: { $ref: 'types/address.json' }
+				}
+			};
+
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			// Missing required "street" property
+			const { textDoc, jsonDoc } = toDocument('{ "home": {} }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, '$ref to relative $id should resolve');
+			assert.ok(validation[0].message.includes('street'), 'Error should mention missing "street" property');
+		});
+
+		test('$ref to a relative $id in draft-07 with definitions', async function () {
+			// Draft-07 uses $id (not id) and definitions (not $defs)
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				$id: 'http://example.com/root.json',
+				definitions: {
+					foo: {
+						$id: 'schemas/foo',
+						type: 'string'
+					}
+				},
+				$ref: 'schemas/foo'
+			};
+
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'draft-07: $ref should resolve relative $id');
+			assert.ok(validation[0].message.includes('string'), 'Error should be a type mismatch for string');
+		});
+
+		test('$ref to a relative id in draft-04', async function () {
+			// Draft-04 uses id (not $id) and definitions (not $defs)
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-04/schema#',
+				id: 'http://example.com/root.json',
+				definitions: {
+					foo: {
+						id: 'schemas/foo',
+						type: 'string'
+					}
+				},
+				$ref: 'schemas/foo'
+			};
+
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'draft-04: $ref should resolve relative id');
+			assert.ok(validation[0].message.includes('string'), 'Error should be a type mismatch for string');
+		});
+
+		test('multiple levels of nested $id', async function () {
+			// $id inside $id inside root — each level re-bases the URI
+			const bazSchema: JSONSchema = {
+				$id: 'http://example.com/a/b/baz.json',
+				type: 'boolean'
+			};
+
+			const schema: JSONSchema = {
+				$id: 'http://example.com/root.json',
+				$defs: {
+					level1: {
+						$id: 'a/',
+						$defs: {
+							level2: {
+								$id: 'b/',
+								$defs: {
+									inner: {
+										// Should resolve to http://example.com/a/b/baz.json
+										$ref: 'baz.json'
+									}
+								}
+							}
+						}
+					}
+				},
+				$ref: '#/$defs/level1/$defs/level2/$defs/inner'
+			};
+
+			const schemaRequestService = newMockRequestService({
+				'http://example.com/a/b/baz.json': bazSchema
+			});
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'Nested $id levels should chain correctly');
+			assert.ok(validation[0].message.includes('boolean'), 'Error should be a type mismatch for boolean');
+		});
 	});
 });

@@ -535,6 +535,37 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return current;
 		};
 
+		// Like findSectionByJSONPointer, but also tracks the effective base URI
+		// through any $id encountered along the path. This is needed so that
+		// $ref values merged from the found section can be resolved against the
+		// correct base, not the document root.
+		const findSectionAndBase = (schema: JSONSchema, path: string, baseHandle: SchemaHandle): { section: any; baseHandle: SchemaHandle } => {
+			path = decodeURIComponent(path);
+			let current: any = schema;
+			let currentBaseHandle = baseHandle;
+			if (path[0] === '/') {
+				path = path.substring(1);
+			}
+			path.split('/').some((part) => {
+				part = part.replace(/~1/g, '/').replace(/~0/g, '~');
+				current = current[part];
+				if (!current) {
+					return true;
+				}
+				const id = getSchemaId(current);
+				if (isString(id) && id.charAt(0) !== '#') {
+					let resolvedUri = id;
+					if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(id)) {
+						resolvedUri = contextService.resolveRelativePath(id, currentBaseHandle.uri);
+					}
+					resolvedUri = normalizeId(resolvedUri);
+					currentBaseHandle = this.getOrAddSchemaHandle(resolvedUri);
+				}
+				return false;
+			});
+			return { section: current, baseHandle: currentBaseHandle };
+		};
+
 		const findSchemaById = (schema: JSONSchema, handle: SchemaHandle, id: string) => {
 			if (!handle.anchors) {
 				handle.anchors = collectAnchors(schema);
@@ -584,16 +615,29 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const mergeRef = (target: JSONSchema, sourceRoot: JSONSchema, sourceHandle: SchemaHandle, refSegment: string | undefined): void => {
 			let section;
+			let sectionBaseHandle = sourceHandle;
 			if (refSegment === undefined || refSegment.length === 0) {
 				section = sourceRoot;
 			} else if (refSegment.charAt(0) === '/') {
 				// A $ref to a JSON Pointer (i.e #/definitions/foo)
-				section = findSectionByJSONPointer(sourceRoot, refSegment);
+				// Track $id base changes along the path so inner $refs resolve correctly.
+				({ section, baseHandle: sectionBaseHandle } = findSectionAndBase(sourceRoot, refSegment, sourceHandle));
 			} else {
 				// A $ref to a sub-schema with an $id (i.e #hello)
 				section = findSchemaById(sourceRoot, sourceHandle, refSegment);
 			}
 			if (section) {
+				// If the found section contains a $ref that needs to be resolved
+				// relative to a different base (e.g. it's inside a schema with $id),
+				// pre-resolve it now so it carries the correct base URI context.
+				if (section.$ref && sectionBaseHandle !== sourceHandle) {
+					const innerRef = section.$ref;
+					const innerSegments = innerRef.split('#', 2);
+					if (innerSegments[0].length > 0 && contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(innerSegments[0])) {
+						section.$ref = contextService.resolveRelativePath(innerSegments[0], sectionBaseHandle.uri) +
+							(innerSegments[1] !== undefined ? '#' + innerSegments[1] : '');
+					}
+				}
 				const reservedKeys = new Set(['$ref', '$defs', 'definitions', '$schema', '$id', 'id']);
 
 				// In JSON Schema draft-04 through draft-07, $ref completely overrides any sibling keywords.
@@ -696,10 +740,12 @@ export class JSONSchemaService implements IJSONSchemaService {
 					delete schema.$ref;
 					if (segments[0].length > 0) {
 						// This is a reference to an external schema (like "foo.json" or "foo.json#/bar")
-						// According to JSON Schema spec, $ref is resolved against the parent's base URI,
-						// not against a sibling $id at the same level
-						// So we use currentBaseHandle (parent's), not newBaseHandle (which might include sibling $id)
-						openPromises.push(resolveExternalLink(schema, segments[0], segments[1], currentBaseHandle));
+						// Per JSON Schema spec, $ref is resolved against the current base URI.
+						// If this schema has its own $id (sibling case), the $ref should resolve
+						// against the parent's base, not the sibling $id. Otherwise, use the
+						// nearest ancestor's base (newBaseHandle).
+						const refBase = (newBase === schema) ? currentBaseHandle : newBaseHandle;
+						openPromises.push(resolveExternalLink(schema, segments[0], segments[1], refBase));
 						return;
 					} else {
 						// This is an internal reference (like "#/definitions/foo")
@@ -748,8 +794,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 				// Collect anchor from this node
 				// In draft-04/06/07, anchors are defined via $id/#fragment (e.g., "$id": "#myanchor")
-				// $anchor was introduced in draft-2019-09, so only use it for 2019-09 and later
-				const fragmentAnchor = isString(id) && id.charAt(0) === '#' ? id.substring(1) : undefined;
+				// In 2019-09+, $id fragments are no longer anchors; $anchor is used instead
+				const fragmentAnchor = (schemaDraft === undefined || schemaDraft < SchemaDraft.v2019_09) && isString(id) && id.charAt(0) === '#' ? id.substring(1) : undefined;
 				const dollarAnchor = (schemaDraft === undefined || schemaDraft >= SchemaDraft.v2019_09) ? node.$anchor : undefined;
 				const anchor = fragmentAnchor ?? dollarAnchor;
 				if (anchor) {

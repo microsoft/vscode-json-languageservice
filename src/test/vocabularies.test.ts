@@ -5,6 +5,7 @@
 
 import * as assert from 'assert';
 import { isKeywordEnabled, isFormatAssertionEnabled } from '../services/vocabularies';
+import { SchemaDraft } from '../jsonLanguageTypes';
 
 suite('Vocabularies', () => {
 
@@ -276,6 +277,28 @@ suite('Vocabularies', () => {
 				['https://json-schema.org/draft/2020-12/vocab/format-assertion', true]
 			]);
 			assert.strictEqual(isFormatAssertionEnabled(vocabs), true);
+		});
+
+		test('returns false for 2019-09 draft without vocabulary info', function () {
+			// When schema explicitly declares 2019-09 but meta-schema vocabulary is not available,
+			// format should be annotation-only by default per spec
+			assert.strictEqual(isFormatAssertionEnabled(undefined, SchemaDraft.v2019_09), false);
+		});
+
+		test('returns false for 2020-12 draft without vocabulary info', function () {
+			// When schema explicitly declares 2020-12 but meta-schema vocabulary is not available,
+			// format should be annotation-only by default per spec
+			assert.strictEqual(isFormatAssertionEnabled(undefined, SchemaDraft.v2020_12), false);
+		});
+
+		test('returns true for draft-07 without vocabulary info', function () {
+			// Pre-2019-09 drafts should assert format for backward compatibility
+			assert.strictEqual(isFormatAssertionEnabled(undefined, SchemaDraft.v7), true);
+		});
+
+		test('returns true when no vocabulary and no explicit draft', function () {
+			// Backward compatibility: no $schema means format asserts
+			assert.strictEqual(isFormatAssertionEnabled(undefined, undefined), true);
 		});
 	});
 });
