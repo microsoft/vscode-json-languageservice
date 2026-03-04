@@ -16,7 +16,7 @@
 			"request": "launch",
 			"runtimeArgs": [
 				"--test",
-				"./lib/esm/test/**/*.test.js"
+				"./lib/esm/test/*.test.js"
 			],
 			"cwd": "${workspaceRoot}",
 			"sourceMaps": true,

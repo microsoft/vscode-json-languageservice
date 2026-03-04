@@ -43,7 +43,7 @@
     "remove-sourcemap-refs": "node ./build/remove-sourcemap-refs.js",
     "watch": "tsc -w -p ./src",
     "pretest": "npm run compile",
-    "test": "node --test ./lib/esm/test/**/*.test.js",
+    "test": "node --test ./lib/esm/test/*.test.js",
     "posttest": "npm run lint",
     "coverage": "npx nyc -r lcov npm run test",
     "lint": "eslint src/**/*.ts",
