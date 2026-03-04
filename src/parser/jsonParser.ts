@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Json from 'jsonc-parser';
-import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
-import { isNumber, equals, isBoolean, isString, isDefined, isObject } from '../utils/objects';
-import { extendedRegExp, stringLength } from '../utils/strings';
-import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range, SchemaDraft } from '../jsonLanguageTypes';
+import { JSONSchema, JSONSchemaRef } from '../jsonSchema.js';
+import { isNumber, equals, isBoolean, isString, isDefined, isObject } from '../utils/objects.js';
+import { extendedRegExp, stringLength } from '../utils/strings.js';
+import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range, SchemaDraft } from '../jsonLanguageTypes.js';
 import { URI } from 'vscode-uri';
 
 import * as l10n from '@vscode/l10n';

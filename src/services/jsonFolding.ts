@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createScanner, SyntaxKind, ScanError } from 'jsonc-parser';
-import { TextDocument, FoldingRangeKind, FoldingRange, FoldingRangesContext, Position } from '../jsonLanguageTypes';
+import { TextDocument, FoldingRangeKind, FoldingRange, FoldingRangesContext, Position } from '../jsonLanguageTypes.js';
 
 export function getFoldingRanges(document: TextDocument, context?: FoldingRangesContext): FoldingRange[] {
 	const ranges: FoldingRange[] = [];

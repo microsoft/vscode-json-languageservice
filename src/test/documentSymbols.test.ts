@@ -5,14 +5,14 @@
 
 import * as assert from 'assert';
 import { suite, test } from 'node:test';
-import * as JsonSchema from '../jsonSchema';
+import * as JsonSchema from '../jsonSchema.js';
 
 import {
 	getLanguageService,
 	ClientCapabilities, DocumentSymbolsContext,
 	TextDocument, Color, SymbolInformation, SymbolKind, Range, Position, TextEdit, DocumentSymbol
-} from "../jsonLanguageService";
-import { colorFrom256RGB } from '../utils/colors';
+} from "../jsonLanguageService.js";
+import { colorFrom256RGB } from '../utils/colors.js';
 
 suite('JSON Document Symbols', () => {
 

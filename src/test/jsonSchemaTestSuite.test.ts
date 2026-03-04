@@ -5,13 +5,14 @@
 
 import * as assert from 'assert';
 import { suite, test, after } from 'node:test';
-import * as Parser from '../parser/jsonParser';
+import * as Parser from '../parser/jsonParser.js';
 import * as fs from 'fs';
 import * as url from 'url';
 import * as path from 'path';
-import { getLanguageService, SchemaDraft, TextDocument } from '../jsonLanguageService';
+import { getLanguageService, SchemaDraft, TextDocument } from '../jsonLanguageService.js';
 import { URI } from 'vscode-uri';
 
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const testsPath = path.join(__dirname, "../../../node_modules/json-schema-test-suite/tests");
 
 const drafts = [

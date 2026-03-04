@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ISchemaContributions } from './jsonSchemaService';
-import draft201909Flat from './schemas/draft-2019-09-flat';
-import draft202012Flat from './schemas/draft-2020-12-flat';
+import { ISchemaContributions } from './jsonSchemaService.js';
+import draft201909Flat from './schemas/draft-2019-09-flat.js';
+import draft202012Flat from './schemas/draft-2020-12-flat.js';
 
 import * as l10n from '@vscode/l10n';
 

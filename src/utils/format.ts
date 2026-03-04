@@ -1,5 +1,5 @@
 import { format as formatJSON, Range as JSONCRange } from 'jsonc-parser'; 
-import { TextDocument, Range, TextEdit, FormattingOptions } from '../jsonLanguageTypes';
+import { TextDocument, Range, TextEdit, FormattingOptions } from '../jsonLanguageTypes.js';
 
 export function format(documentToFormat: TextDocument, formattingOptions?: FormattingOptions, formattingRange?: Range | undefined): TextEdit[] {
 	let range: JSONCRange | undefined = undefined;

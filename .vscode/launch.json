@@ -16,11 +16,11 @@
 			"request": "launch",
 			"runtimeArgs": [
 				"--test",
-				"./lib/umd/test/**/*.test.js"
+				"./lib/esm/test/**/*.test.js"
 			],
 			"cwd": "${workspaceRoot}",
 			"sourceMaps": true,
-			"outFiles": [ "${workspaceRoot}/lib/umd/**/*.js" ],
+			"outFiles": [ "${workspaceRoot}/lib/esm/**/*.js" ],
 			"preLaunchTask": "npm: watch"
 		},
 		{

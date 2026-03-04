@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import { suite, test } from 'node:test';
 
-import { getLanguageService, Range, TextDocument, ClientCapabilities } from '../jsonLanguageService';
+import { getLanguageService, Range, TextDocument, ClientCapabilities } from '../jsonLanguageService.js';
 
 suite('JSON Find Links', () => {
 	const testFindLinksFor = function (value: string, expected: {offset: number, length: number, target: number} | null): PromiseLike<void> {
