@@ -1,3 +1,11 @@
+6.0.0-next.1 / 2026-03-04
+================
+* Breaking: the package is now ESM-only (`"type": "module"`) and exposes ESM entry points through `exports`.
+* Breaking: CommonJS/UMD output is no longer produced. Build, test and sample scripts now target `lib/esm`.
+* Updated TypeScript configuration to `NodeNext` module settings for Node ESM compatibility.
+* Removed `tsconfig.esm.json` as a separate build target (the main tsconfig now covers ESM output).
+* Converted build scripts in `build/` to ESM and added `npm run bundle-schemas`.
+
 5.7.0 / 2026-01-12
 ================
 * the error code for `SchemaResolveError` is now 0x10000 plus the error code returned by the request service.
