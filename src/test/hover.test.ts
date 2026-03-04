@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { suite, test } from 'node:test';
 
 import { Hover, Position, TextDocument, getLanguageService, JSONSchema, LanguageServiceParams } from '../jsonLanguageService';
 

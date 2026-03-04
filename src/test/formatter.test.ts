@@ -5,6 +5,7 @@
 
 import { getLanguageService, ClientCapabilities, Range, TextDocument } from '../jsonLanguageService';
 import * as assert from 'assert';
+import { suite, test } from 'node:test';
 
 const applyEdits = TextDocument.applyEdits;
 

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { suite, test } from 'node:test';
 import { getNodePath, getNodeValue, JSONDocument } from '../parser/jsonParser';
 import { TextDocument, Range, ErrorCode, ASTNode, ObjectASTNode, getLanguageService, JSONSchema, SchemaDraft } from '../jsonLanguageService';
 import { DiagnosticSeverity } from 'vscode-languageserver-types';

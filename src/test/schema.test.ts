@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { suite, test } from 'node:test';
 import * as SchemaService from '../services/jsonSchemaService';
 import * as Parser from '../parser/jsonParser';
 import { promises as fs } from 'fs';
