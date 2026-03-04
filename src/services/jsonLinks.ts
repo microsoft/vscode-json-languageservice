@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DocumentLink } from 'vscode-languageserver-types';
-import { TextDocument, ASTNode, PropertyASTNode, Range } from '../jsonLanguageTypes';
-import { JSONDocument } from '../parser/jsonParser';
+import { TextDocument, ASTNode, PropertyASTNode, Range } from '../jsonLanguageTypes.js';
+import { JSONDocument } from '../parser/jsonParser.js';
 
 export function findLinks(document: TextDocument, doc: JSONDocument): PromiseLike<DocumentLink[]> {
 	const links: DocumentLink[] = [];

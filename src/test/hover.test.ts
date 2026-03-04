@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import { suite, test } from 'node:test';
 
-import { Hover, Position, TextDocument, getLanguageService, JSONSchema, LanguageServiceParams } from '../jsonLanguageService';
+import { Hover, Position, TextDocument, getLanguageService, JSONSchema, LanguageServiceParams } from '../jsonLanguageService.js';
 
 suite('JSON Hover', () => {
 
@@ -24,7 +24,7 @@ suite('JSON Hover', () => {
 		const document = TextDocument.create(uri, 'json', 0, value);
 		const jsonDoc = service.parseJSONDocument(document);
 		const hover = await service.doHover(document, position, jsonDoc);
-		assert(hover, 'expected hover to be returned');
+		assert.ok(hover, 'expected hover to be returned');
 		return hover;
 	}
 

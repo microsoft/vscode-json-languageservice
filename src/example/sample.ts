@@ -1,6 +1,6 @@
 
 
-import { getLanguageService, TextDocument } from '../jsonLanguageService';
+import { getLanguageService, TextDocument } from '../jsonLanguageService.js';
 
 async function main() {
     const jsonContentUri = 'foo://server/example.data.json';

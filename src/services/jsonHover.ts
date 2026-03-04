@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as Parser from '../parser/jsonParser';
-import * as SchemaService from './jsonSchemaService';
-import { JSONWorkerContribution } from '../jsonContributions';
-import { TextDocument, PromiseConstructor, Position, Range, Hover, MarkedString } from '../jsonLanguageTypes';
+import * as Parser from '../parser/jsonParser.js';
+import * as SchemaService from './jsonSchemaService.js';
+import { JSONWorkerContribution } from '../jsonContributions.js';
+import { TextDocument, PromiseConstructor, Position, Range, Hover, MarkedString } from '../jsonLanguageTypes.js';
 
 export class JSONHover {
 

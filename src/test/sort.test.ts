@@ -1,5 +1,5 @@
 
-import { getLanguageService, ClientCapabilities, TextDocument, SortOptions } from '../jsonLanguageService';
+import { getLanguageService, ClientCapabilities, TextDocument, SortOptions } from '../jsonLanguageService.js';
 import * as assert from 'assert';
 import { suite, test } from 'node:test';
 

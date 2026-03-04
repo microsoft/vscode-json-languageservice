@@ -3,23 +3,23 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-const fs = require('fs').promises;
-const Bundler = require("@hyperjump/json-schema-bundle");
+import { writeFile } from 'node:fs/promises';
+import Bundler from '@hyperjump/json-schema-bundle';
 
 (async function () {
-	bundle(`https://json-schema.org/draft/2019-09/schema`, 'draft-2019-09', 'https://json-schema.org/draft/2019-09');
-	bundle(`https://json-schema.org/draft/2020-12/schema`, 'draft-2020-12', 'https://json-schema.org/draft/2020-12');
+	bundle('https://json-schema.org/draft/2019-09/schema', 'draft-2019-09', 'https://json-schema.org/draft/2019-09');
+	bundle('https://json-schema.org/draft/2020-12/schema', 'draft-2020-12', 'https://json-schema.org/draft/2020-12');
 }());
 
 async function bundle(uri, filename, derivedURL) {
 	const metaSchema = await Bundler.get(uri);
 	let bundle = await Bundler.bundle(metaSchema);
 	bundle = JSON.parse(JSON.stringify(bundle, null, 2).replace(/"undefined": ""/g, '"$dynamicAnchor": "meta"'));
-	fs.writeFile(`./${filename}.json`, JSON.stringify(bundle, null, 2), 'utf8');
+	await writeFile(`./${filename}.json`, JSON.stringify(bundle, null, 2), 'utf8');
 	bundle = flattenDraftMetaSchema(bundle);
 	const jsified = getCopyright(derivedURL) + 'export default ' + printObject(bundle);
-	fs.writeFile(`./${filename}-flat.json`, JSON.stringify(bundle, null, 2), 'utf8');
-	fs.writeFile(`./src/services/schemas/${filename}-flat.ts`, jsified, 'utf8');
+	await writeFile(`./${filename}-flat.json`, JSON.stringify(bundle, null, 2), 'utf8');
+	await writeFile(`./src/services/schemas/${filename}-flat.ts`, jsified, 'utf8');
 }
 function getCopyright(derivedURL) {
 	return [
@@ -55,7 +55,7 @@ function indent(level) {
 function printObject(obj, indentLevel = 0) {
 	const result = [];
 	if (Array.isArray(obj)) {
-		result.push(`[`);
+		result.push('[');
 		for (const item of obj) {
 			if (typeof item === 'object' && item !== null) {
 				result.push(`${indent(indentLevel + 1)}${printObject(item, indentLevel + 1)},`);
@@ -67,11 +67,11 @@ function printObject(obj, indentLevel = 0) {
 		return result.join('\n');
 	}
 	if (obj === null) {
-		result.push(`null`);
+		result.push('null');
 		return result.join('\n');
 	}
 
-	result.push(`{`);
+	result.push('{');
 	for (const [key, value] of Object.entries(obj)) {
 		if (typeof value === 'object' && value !== null) {
 			result.push(`${indent(indentLevel + 1)}${printKey(key)}: ${printObject(value, indentLevel + 1)},`);
@@ -106,9 +106,9 @@ function replaceDynamicRefs(node, anchorName = DEFAULT_ANCHOR) {
 	visit(node, (n, k) => {
 		const v = n[k];
 		if (k === '$dynamicRef' && v === '#' + anchorName) {
-			n['$ref'] = '#';
-			delete n['$dynamicRef'];
-		};
+			n.$ref = '#';
+			delete n.$dynamicRef;
+		}
 	});
 }
 
@@ -117,9 +117,9 @@ function replaceRecursiveRefs(node, anchorName = DEFAULT_ANCHOR) {
 	visit(node, (n, k) => {
 		const v = n[k];
 		if (k === '$recursiveRef') {
-			n['$ref'] = v;
-			delete n['$recursiveRef'];
-		};
+			n.$ref = v;
+			delete n.$recursiveRef;
+		}
 	});
 }
 
@@ -130,7 +130,7 @@ function replaceOldRefs(node, anchorName = DEFAULT_ANCHOR) {
 		if (k === '$ref' && typeof v === 'string' && v.startsWith(anchorName + '/')) {
 			const segments = v.split('#');
 			if (segments.length === 2) {
-				n['$ref'] = `#${segments[1]}`;
+				n.$ref = `#${segments[1]}`;
 			}
 		}
 	});
@@ -149,7 +149,7 @@ function stripDynamicAnchors(node) {
 function collectVocabularies(schema) {
 	const vocabularies = [];
 	const defs = schema.$defs || {};
-	for (const [key, value] of Object.entries(defs)) {
+	for (const [, value] of Object.entries(defs)) {
 		if (value && typeof value === 'object' && !Array.isArray(value) && value.$id && value.$dynamicAnchor === DEFAULT_ANCHOR && value.properties) {
 			vocabularies.push(value);
 		}

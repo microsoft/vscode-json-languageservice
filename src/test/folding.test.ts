@@ -5,7 +5,7 @@
 
 import { suite, test } from 'node:test';
 import * as assert from 'assert';
-import { TextDocument, getLanguageService } from '../jsonLanguageService';
+import { TextDocument, getLanguageService } from '../jsonLanguageService.js';
 
 interface ExpectedIndentRange {
 	startLine: number;

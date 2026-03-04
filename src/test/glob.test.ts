@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import { suite, test } from 'node:test';
-import { createRegex } from '../utils/glob';
+import { createRegex } from '../utils/glob.js';
 
 
 suite('Glob', () => {
@@ -61,10 +61,10 @@ suite('Glob', () => {
             const regex = createRegex(pattern, { extended: true, globstar: true });
             const result = regex.test(input);
             if (result !== expected) {
-                assert(false, `pattern: ${pattern}, regex: ${regex.source}, input: ${input}, should match ${expected}`);
+                assert.fail(`pattern: ${pattern}, regex: ${regex.source}, input: ${input}, should match ${expected}`);
             }
         } catch (e) {
-            assert(false, `pattern: ${pattern}, input: ${input}, should match ${expected}`);
+            assert.fail(`pattern: ${pattern}, input: ${input}, should match ${expected}`);
         }
     }
 

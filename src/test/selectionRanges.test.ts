@@ -5,7 +5,7 @@
 
 import { suite, test } from 'node:test';
 import * as assert from 'assert';
-import { getLanguageService, TextDocument } from '../jsonLanguageService';
+import { getLanguageService, TextDocument } from '../jsonLanguageService.js';
 import { SelectionRange } from 'vscode-languageserver-types';
 
 function assertRanges(content: string, expected: (number | string)[][]): void {
