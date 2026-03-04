@@ -15,13 +15,11 @@
     "url": "https://github.com/Microsoft/vscode-json-languageservice"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.56.0",
     "eslint": "^9.39.3",
     "json-schema-test-suite": "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git#69acf52990b004240839ae19b4bec8fb01d50876",
-    "mocha": "^11.7.5",
     "rimraf": "^6.1.3",
     "typescript": "^5.9.3"
   },
@@ -40,7 +38,7 @@
     "remove-sourcemap-refs": "node ./build/remove-sourcemap-refs.js",
     "watch": "tsc -w -p ./src",
     "pretest": "npm run compile",
-    "test": "mocha",
+    "test": "node --test ./lib/umd/test/**/*.test.js",
     "posttest": "npm run lint",
     "coverage": "npx nyc -r lcov npm run test",
     "lint": "eslint src/**/*.ts",

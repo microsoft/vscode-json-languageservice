@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { suite, test, after } from 'node:test';
 import * as Parser from '../parser/jsonParser';
 import * as fs from 'fs';
 import * as url from 'url';
@@ -93,7 +94,7 @@ function initializeTests() {
 					}
 				}
 			}
-			suiteTeardown(() => {
+			after(() => {
 				if (collectFailedTests) {
 					fs.writeFileSync('failedTests.txt', failedTests.map(t => JSON.stringify(t)).join(',\n'));
 				}

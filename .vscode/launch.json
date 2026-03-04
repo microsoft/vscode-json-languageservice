@@ -14,17 +14,11 @@
 			"name": "Unit Tests",
 			"type": "node",
 			"request": "launch",
-			"program": "${workspaceRoot}/node_modules/mocha/bin/_mocha",
-			"stopOnEntry": false,
-			"args": [
-				"--timeout",
-				"999999",
-				"--colors"
+			"runtimeArgs": [
+				"--test",
+				"./lib/umd/test/**/*.test.js"
 			],
 			"cwd": "${workspaceRoot}",
-			"runtimeExecutable": null,
-			"runtimeArgs": [],
-			"env": {},
 			"sourceMaps": true,
 			"outFiles": [ "${workspaceRoot}/lib/umd/**/*.js" ],
 			"preLaunchTask": "npm: watch"

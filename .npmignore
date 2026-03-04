@@ -11,4 +11,3 @@ test/
 .travis.yml
 eslint.config.mjs
 gulpfile.js
-.mocharc.json
