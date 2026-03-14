@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { suite, test } from 'node:test';
 
-import { Hover, Position, TextDocument, getLanguageService, JSONSchema, LanguageServiceParams } from '../jsonLanguageService';
+import { Hover, Position, TextDocument, getLanguageService, JSONSchema, LanguageServiceParams } from '../jsonLanguageService.js';
 
 suite('JSON Hover', () => {
 
@@ -23,7 +24,7 @@ suite('JSON Hover', () => {
 		const document = TextDocument.create(uri, 'json', 0, value);
 		const jsonDoc = service.parseJSONDocument(document);
 		const hover = await service.doHover(document, position, jsonDoc);
-		assert(hover, 'expected hover to be returned');
+		assert.ok(hover, 'expected hover to be returned');
 		return hover;
 	}
 
@@ -57,7 +58,7 @@ suite('JSON Hover', () => {
 			}
 		};
 		await testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-			assert.deepEqual(result.contents, ['a&nbsp;very&nbsp;special&nbsp;object']);
+			assert.deepEqual(result.contents, ['a very special object']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
 			assert.deepEqual(result.contents, ['A']);
@@ -66,7 +67,7 @@ suite('JSON Hover', () => {
 			assert.deepEqual(result.contents, ['C']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 37 }).then((result) => {
-			assert.deepEqual(result.contents, ['For&nbsp;example:\\\n\\\n\\<script\\>\\\n&nbsp;&nbsp;alert\\(1\\)\\\n\\</script\\>\\\n\\\n&nbsp;&nbsp;&nbsp;&nbsp;Test&nbsp;\\[1\\]']);
+			assert.deepEqual(result.contents, ['For example:\\\n\\\n\\<script\\>\\\n&nbsp;&nbsp;alert\\(1\\)\\\n\\</script\\>\\\n\\\n&nbsp;&nbsp;&nbsp;&nbsp;Test \\[1\\]']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 7 }).then((result) => {
 			assert.deepEqual(result.contents, ['A']);
@@ -96,13 +97,13 @@ suite('JSON Hover', () => {
 			}]
 		};
 		await testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-			assert.deepEqual(result.contents, ['a&nbsp;very&nbsp;special&nbsp;object']);
+			assert.deepEqual(result.contents, ['a very special object']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
 			assert.deepEqual(result.contents, ['A']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 10 }).then((result) => {
-			assert.deepEqual(result.contents, ['B\n\nIt\'s&nbsp;B']);
+			assert.deepEqual(result.contents, ['B\n\nIt\'s B']);
 		});
 	});
 

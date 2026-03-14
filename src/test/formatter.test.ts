@@ -3,8 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { getLanguageService, ClientCapabilities, Range, TextDocument } from '../jsonLanguageService';
+import { getLanguageService, ClientCapabilities, Range, TextDocument } from '../jsonLanguageService.js';
 import * as assert from 'assert';
+import { suite, test } from 'node:test';
 
 const applyEdits = TextDocument.applyEdits;
 

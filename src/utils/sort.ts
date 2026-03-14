@@ -4,9 +4,9 @@
 *--------------------------------------------------------------------------------------------*/
 
 import { createScanner, SyntaxKind, JSONScanner } from 'jsonc-parser';
-import { TextDocument, TextEdit, FormattingOptions, Position, Range, TextDocumentContentChangeEvent, SortOptions } from '../jsonLanguageTypes';
-import { format } from './format';
-import { PropertyTree, Container } from './propertyTree';
+import { TextDocument, TextEdit, FormattingOptions, Position, Range, TextDocumentContentChangeEvent, SortOptions } from '../jsonLanguageTypes.js';
+import { format } from './format.js';
+import { PropertyTree, Container } from './propertyTree.js';
 
 export function sort(documentToSort: TextDocument, formattingOptions: SortOptions): TextEdit[] {
     const options: FormattingOptions = {

@@ -3,18 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { JSONCompletion } from './services/jsonCompletion';
-import { JSONHover } from './services/jsonHover';
-import { JSONValidation } from './services/jsonValidation';
+import { JSONCompletion } from './services/jsonCompletion.js';
+import { JSONHover } from './services/jsonHover.js';
+import { JSONValidation } from './services/jsonValidation.js';
 
-import { JSONDocumentSymbols } from './services/jsonDocumentSymbols';
-import { parse as parseJSON, newJSONDocument } from './parser/jsonParser';
-import { schemaContributions } from './services/configuration';
-import { JSONSchemaService } from './services/jsonSchemaService';
-import { getFoldingRanges } from './services/jsonFolding';
-import { getSelectionRanges } from './services/jsonSelectionRanges';
-import { sort } from './utils/sort';
-import { format } from './utils/format';
+import { JSONDocumentSymbols } from './services/jsonDocumentSymbols.js';
+import { parse as parseJSON, newJSONDocument } from './parser/jsonParser.js';
+import { schemaContributions } from './services/configuration.js';
+import { JSONSchemaService } from './services/jsonSchemaService.js';
+import { getFoldingRanges } from './services/jsonFolding.js';
+import { getSelectionRanges } from './services/jsonSelectionRanges.js';
+import { sort } from './utils/sort.js';
+import { format } from './utils/format.js';
 
 import {
 	ASTNode,
@@ -24,15 +24,15 @@ import {
 	TextDocument,
 	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
 	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink, MatchingSchema, JSONLanguageStatus, SortOptions
-} from './jsonLanguageTypes';
-import { findLinks } from './services/jsonLinks';
+} from './jsonLanguageTypes.js';
+import { findLinks } from './services/jsonLinks.js';
 import { DocumentLink } from 'vscode-languageserver-types';
 
 export type JSONDocument = {
 	root: ASTNode | undefined;
 	getNodeFromOffset(offset: number, includeRightBound?: boolean): ASTNode | undefined;
 };
-export * from './jsonLanguageTypes';
+export * from './jsonLanguageTypes.js';
 
 export interface LanguageService {
 	configure(settings: LanguageSettings): void;

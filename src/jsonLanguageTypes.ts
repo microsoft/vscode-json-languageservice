@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions';
-import { JSONSchema } from './jsonSchema';
+import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions.js';
+import { JSONSchema } from './jsonSchema.js';
 import {
 	Range, Position, DocumentUri, MarkupContent, MarkupKind,
 	Color, ColorInformation, ColorPresentation,

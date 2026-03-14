@@ -4,15 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Json from 'jsonc-parser';
-import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
+import { JSONSchema, JSONSchemaRef } from '../jsonSchema.js';
 import { URI } from 'vscode-uri';
-import * as Strings from '../utils/strings';
-import { asSchema, getSchemaDraftFromId, JSONDocument, normalizeId } from '../parser/jsonParser';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies } from '../jsonLanguageTypes';
+import * as Strings from '../utils/strings.js';
+import { asSchema, getSchemaDraftFromId, JSONDocument, normalizeId } from '../parser/jsonParser.js';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies } from '../jsonLanguageTypes.js';
 
 import * as l10n from '@vscode/l10n';
-import { createRegex } from '../utils/glob';
-import { isString } from '../utils/objects';
+import { createRegex } from '../utils/glob.js';
+import { isString } from '../utils/objects.js';
 import { DiagnosticRelatedInformation, Range } from 'vscode-languageserver-types';
 
 export interface IJSONSchemaService {

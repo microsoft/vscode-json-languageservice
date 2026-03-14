@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SchemaDraft } from '../jsonLanguageTypes';
+import { SchemaDraft } from '../jsonLanguageTypes.js';
 
 /*
  * Checks if a keyword is enabled based on the active vocabularies.

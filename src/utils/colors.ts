@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Color } from "../jsonLanguageTypes";
+import { Color } from "../jsonLanguageTypes.js";
 
 const Digit0 = 48;
 const Digit9 = 57;

@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { isKeywordEnabled, isFormatAssertionEnabled } from '../services/vocabularies';
-import { SchemaDraft } from '../jsonLanguageTypes';
+import { suite, test } from 'node:test';
+import { isKeywordEnabled, isFormatAssertionEnabled } from '../services/vocabularies.js';
+import { SchemaDraft } from '../jsonLanguageTypes.js';
 
 suite('Vocabularies', () => {
 

@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { suite, test } from 'node:test';
 
-import { getLanguageService, JSONSchema, TextDocument, ClientCapabilities, CompletionList, CompletionItemKind, Position, MarkupContent, TextEdit } from '../jsonLanguageService';
-import { repeat } from '../utils/strings';
+import { getLanguageService, JSONSchema, TextDocument, ClientCapabilities, CompletionList, CompletionItemKind, Position, MarkupContent, TextEdit } from '../jsonLanguageService.js';
+import { repeat } from '../utils/strings.js';
 import { CompletionItemLabelDetails } from 'vscode-languageserver-types';
 
 const applyEdits = TextDocument.applyEdits;

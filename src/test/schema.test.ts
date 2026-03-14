@@ -4,13 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as SchemaService from '../services/jsonSchemaService';
-import * as Parser from '../parser/jsonParser';
+import { suite, test } from 'node:test';
+import * as SchemaService from '../services/jsonSchemaService.js';
+import * as Parser from '../parser/jsonParser.js';
 import { promises as fs } from 'fs';
 import * as url from 'url';
 import * as path from 'path';
-import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema, LanguageService } from '../jsonLanguageService';
-import { DiagnosticSeverity, ErrorCode, Range, SchemaConfiguration } from '../jsonLanguageTypes';
+import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema, LanguageService } from '../jsonLanguageService.js';
+import { DiagnosticSeverity, ErrorCode, Range, SchemaConfiguration } from '../jsonLanguageTypes.js';
+
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig, uri = 'foo://bar/file.json'): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
 

@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as Parser from '../parser/jsonParser';
-import * as SchemaService from './jsonSchemaService';
-import { JSONWorkerContribution } from '../jsonContributions';
-import { TextDocument, PromiseConstructor, Position, Range, Hover, MarkedString } from '../jsonLanguageTypes';
+import * as Parser from '../parser/jsonParser.js';
+import * as SchemaService from './jsonSchemaService.js';
+import { JSONWorkerContribution } from '../jsonContributions.js';
+import { TextDocument, PromiseConstructor, Position, Range, Hover, MarkedString } from '../jsonLanguageTypes.js';
 
 export class JSONHover {
 
@@ -116,7 +116,9 @@ function toMarkdown(plain: string | undefined): string | undefined {
 		return plain
 			.trim()
 			.replace(/[\\`*_{}[\]()<>#+\-.!]/g, '\\$&') // escape markdown syntax tokens: http://daringfireball.net/projects/markdown/syntax#backslash
-			.replace(/([ \t]+)/g, (_match, g1) => '&nbsp;'.repeat(g1.length)) // escape spaces tabs
+			.replace(/(^ +)/mg, (_match, g1) => '&nbsp;'.repeat(g1.length)) // escape leading spaces on each line
+			.replace(/( {2,})/g, (_match, g1) => ' ' + '&nbsp;'.repeat(g1.length - 1)) // escape consecutive spaces
+			.replace(/(\t+)/g, (_match, g1) => '&nbsp;'.repeat(g1.length * 4)) // escape tabs
 			.replace(/\n/g, '\\\n'); // escape new lines
 	}
 	return undefined;

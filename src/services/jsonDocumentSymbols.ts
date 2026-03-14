@@ -3,17 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as Parser from '../parser/jsonParser';
-import * as Strings from '../utils/strings';
-import { colorFromHex } from '../utils/colors';
+import * as Parser from '../parser/jsonParser.js';
+import * as Strings from '../utils/strings.js';
+import { colorFromHex } from '../utils/colors.js';
 import * as l10n from '@vscode/l10n';
 
 import {
 	TextDocument, ColorInformation, ColorPresentation, Color, ASTNode, PropertyASTNode, DocumentSymbolsContext, Range, TextEdit,
 	SymbolInformation, SymbolKind, DocumentSymbol, Location
-} from "../jsonLanguageTypes";
+} from "../jsonLanguageTypes.js";
 
-import { IJSONSchemaService } from "./jsonSchemaService";
+import { IJSONSchemaService } from "./jsonSchemaService.js";
 
 export class JSONDocumentSymbols {
 
