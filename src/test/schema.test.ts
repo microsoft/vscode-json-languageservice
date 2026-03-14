@@ -2961,6 +2961,82 @@ suite('JSON Schema', () => {
 		});
 	});
 
+	suite('$ref sibling scope isolation', () => {
+		test('referenced additionalProperties should not see sibling properties', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				$ref: '#/$defs/base',
+				properties: {
+					foo: {
+						type: 'string'
+					}
+				},
+				$defs: {
+					base: {
+						type: 'object',
+						additionalProperties: false
+					}
+				}
+			};
+
+			const ls = getLanguageService({});
+			const { textDoc, jsonDoc } = toDocument('{ "foo": "ok" }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.strictEqual(validation.length, 1);
+			assert.ok(validation[0].message.includes('Property foo is not allowed.'));
+		});
+
+		test('referenced additionalItems should not pair with sibling tuple items', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				$ref: '#/$defs/base',
+				items: [
+					{
+						type: 'string'
+					}
+				],
+				$defs: {
+					base: {
+						type: 'array',
+						additionalItems: false
+					}
+				}
+			};
+
+			const ls = getLanguageService({});
+			const { textDoc, jsonDoc } = toDocument('["x", "y"]');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.strictEqual(validation.length, 0);
+		});
+
+		test('referenced unevaluatedItems should not see sibling tuple items', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				$ref: '#/$defs/base',
+				items: [
+					{
+						type: 'string'
+					}
+				],
+				$defs: {
+					base: {
+						type: 'array',
+						unevaluatedItems: false
+					}
+				}
+			};
+
+			const ls = getLanguageService({});
+			const { textDoc, jsonDoc } = toDocument('["x"]');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.strictEqual(validation.length, 1);
+			assert.ok(validation[0].message.includes('Item does not match any validation rule from the array.'));
+		});
+	});
+
 	suite('$id fragment anchors', () => {
 		test('$id fragment should be an anchor in draft-07', async function () {
 			const schemaRequestService = newMockRequestService();

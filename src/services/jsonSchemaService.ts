@@ -604,13 +604,82 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		};
 
-		// Check if schemas need scope isolation for unevaluated keywords
-		const needsScopeIsolation = (section: JSONSchema, target: JSONSchema): boolean => {
-			const hasUnevaluated = section.unevaluatedProperties !== undefined || section.unevaluatedItems !== undefined;
-			const hasSiblingEvaluation = target.properties !== undefined || target.patternProperties !== undefined ||
-				target.additionalProperties !== undefined || target.allOf !== undefined || target.anyOf !== undefined ||
-				target.oneOf !== undefined || target.if !== undefined;
-			return hasUnevaluated && hasSiblingEvaluation;
+		type SchemaKeyword = keyof JSONSchema;
+
+		const hasKeyword = (schema: JSONSchema, keyword: SchemaKeyword): boolean => schema[keyword] !== undefined;
+		const hasAnyKeyword = (schema: JSONSchema, keywords: readonly SchemaKeyword[]): boolean =>
+			keywords.some(keyword => hasKeyword(schema, keyword));
+
+		const objectPropertyKeywords: readonly SchemaKeyword[] = ['properties', 'patternProperties'];
+		const objectEvaluatorKeywords: readonly SchemaKeyword[] = [
+			...objectPropertyKeywords,
+			'additionalProperties',
+			'dependentSchemas',
+			'allOf',
+			'anyOf',
+			'oneOf',
+			'if',
+			'then',
+			'else'
+		];
+		const arrayEvaluatorKeywords: readonly SchemaKeyword[] = [
+			'items',
+			'additionalItems',
+			'prefixItems',
+			'allOf',
+			'anyOf',
+			'oneOf',
+			'if',
+			'then',
+			'else'
+		];
+		const containsBoundKeywords: readonly SchemaKeyword[] = ['minContains', 'maxContains'];
+		const conditionalBranchKeywords: readonly SchemaKeyword[] = ['then', 'else'];
+		const uses2020_12ArrayAnnotations = schemaDraft === undefined || schemaDraft >= SchemaDraft.v2020_12;
+
+		// Some keywords only make sense relative to adjacent keywords in the same schema object.
+		// If they live behind $ref, sibling keywords on the referencing schema must not be
+		// flattened into the same scope.
+		const needsScopeIsolation = (referencedSchema: JSONSchema, referencingSchema: JSONSchema): boolean => {
+			const hasSiblingObjectProperties = hasAnyKeyword(referencingSchema, objectPropertyKeywords);
+			if (hasKeyword(referencedSchema, 'additionalProperties') && hasSiblingObjectProperties) {
+				return true;
+			}
+
+			if (hasKeyword(referencedSchema, 'additionalItems') && Array.isArray(referencingSchema.items)) {
+				return true;
+			}
+
+			const hasSiblingObjectEvaluators = hasAnyKeyword(referencingSchema, objectEvaluatorKeywords);
+			if (hasKeyword(referencedSchema, 'unevaluatedProperties') && hasSiblingObjectEvaluators) {
+				return true;
+			}
+
+			const hasSiblingArrayEvaluators = hasAnyKeyword(referencingSchema, arrayEvaluatorKeywords) ||
+				(uses2020_12ArrayAnnotations && hasKeyword(referencingSchema, 'contains'));
+			if (hasKeyword(referencedSchema, 'unevaluatedItems') && hasSiblingArrayEvaluators) {
+				return true;
+			}
+
+			if (hasKeyword(referencedSchema, 'contains') && hasAnyKeyword(referencingSchema, containsBoundKeywords)) {
+				return true;
+			}
+
+			if (hasAnyKeyword(referencedSchema, containsBoundKeywords) && hasKeyword(referencingSchema, 'contains')) {
+				return true;
+			}
+
+			if (hasKeyword(referencedSchema, 'if') && hasAnyKeyword(referencingSchema, conditionalBranchKeywords)) {
+				return true;
+			}
+
+			if (hasAnyKeyword(referencedSchema, conditionalBranchKeywords) && hasKeyword(referencingSchema, 'if')) {
+				return true;
+			}
+
+			return uses2020_12ArrayAnnotations &&
+				hasKeyword(referencedSchema, 'items') &&
+				hasKeyword(referencingSchema, 'prefixItems');
 		};
 
 		const mergeRef = (target: JSONSchema, sourceRoot: JSONSchema, sourceHandle: SchemaHandle, refSegment: string | undefined): void => {
@@ -653,9 +722,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 					}
 					merge(target, section);
 				} else if (needsScopeIsolation(section, target)) {
-					// In JSON Schema 2019-09 or greater, $ref creates a new scope when it has sibling keywords.
-					// When the $ref'd schema has unevaluatedProperties/unevaluatedItems, it should not
-					// see properties/items evaluated by sibling keywords.
+					// In JSON Schema 2019-09 or greater, $ref creates a new scope when sibling
+					// keywords would otherwise change the meaning of same-object-dependent keywords
+					// from the referenced schema.
 					// To achieve this, we wrap the $ref in an allOf when needed.
 					const siblingSchema: JSONSchema = {};
 					const refSchema = { ...section };
