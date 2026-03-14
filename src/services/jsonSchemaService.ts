@@ -780,12 +780,17 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const collectAnchors = (root: JSONSchema): Map<string, JSONSchema> => {
 			const result = new Map<string, JSONSchema>();
+			const seen = new Set<JSONSchema>();
+			// Use the schema's own $schema to determine draft, so that an external
+			// schema referenced from a doesn't inherit the parent's anchor rules.
+			const draft = root.$schema ? getSchemaDraftFromId(root.$schema) : schemaDraft;
 			// Traversal that stops at sub-schemas with their own $id
 			// because those create a new URI scope for anchors
 			const traverseForAnchors = (node: JSONSchema, isRoot: boolean): void => {
-				if (!node || typeof node !== 'object') {
+				if (!node || typeof node !== 'object' || seen.has(node)) {
 					return;
 				}
+				seen.add(node);
 				// If this node has its own $id, and it's not the root, it's a new URI scope
 				const id = getSchemaId(node);
 				if (!isRoot && isString(id) && id.charAt(0) !== '#') {
@@ -795,8 +800,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 				// Collect anchor from this node
 				// In draft-04/06/07, anchors are defined via $id/#fragment (e.g., "$id": "#myanchor")
 				// In 2019-09+, $id fragments are no longer anchors; $anchor is used instead
-				const fragmentAnchor = (schemaDraft === undefined || schemaDraft < SchemaDraft.v2019_09) && isString(id) && id.charAt(0) === '#' ? id.substring(1) : undefined;
-				const dollarAnchor = (schemaDraft === undefined || schemaDraft >= SchemaDraft.v2019_09) ? node.$anchor : undefined;
+				const fragmentAnchor = (draft === undefined || draft < SchemaDraft.v2019_09) && isString(id) && id.charAt(0) === '#' ? id.substring(1) : undefined;
+				const dollarAnchor = (draft === undefined || draft >= SchemaDraft.v2019_09) ? node.$anchor : undefined;
 				const anchor = fragmentAnchor ?? dollarAnchor;
 				if (anchor) {
 					if (result.has(anchor)) {
@@ -862,6 +867,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		// Register embedded schemas before resolving refs
 		registerEmbeddedSchemas(schema, handle.uri);
+
+		// Collect anchors eagerly before $ref resolution mutates the schema.
+		// resolveRefs merges referenced nodes (including $anchor) into $ref targets,
+		// so a lazy collectAnchors call could see duplicates from merged copies.
+		handle.anchors = collectAnchors(schema);
 
 		// Resolve meta-schema to extract vocabularies if present
 		const resolveMetaschemaVocabularies = (): PromiseLike<void> => {

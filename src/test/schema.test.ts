@@ -499,6 +499,82 @@ suite('JSON Schema', () => {
 		});
 	});
 
+	test('No duplicate anchor error when same definition is referenced by anchor and JSON pointer', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+
+		// The JSON pointer ref (#/$defs/foo) is listed before the anchor ref (#foo).
+		// traverseSchemaProperties visits $defs before properties, and properties
+		// in insertion order, so the JSON pointer ref is resolved first. Its merge
+		// copies $anchor into properties.a. When the anchor ref then triggers
+		// collectAnchors, the traversal must not count the merged copy as a duplicate.
+		service.setSchemaContributions({
+			schemas: {
+				"https://example.com/schemas/test": {
+					"$schema": "https://json-schema.org/draft/2019-09/schema",
+					"$id": "https://example.com/schemas/test",
+					"type": "object",
+					"properties": {
+						"a": { "$ref": "#/$defs/foo" },
+						"b": { "$ref": "#foo" }
+					},
+					"$defs": {
+						"foo": {
+							"$anchor": "foo",
+							"type": "string"
+						}
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://example.com/schemas/test');
+		assert.strictEqual(fs?.errors.length, 0, 'Should not report duplicate anchor errors');
+		assert.deepStrictEqual(fs?.schema.properties?.a, {
+			type: 'string',
+			$anchor: "foo"
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.b, {
+			type: 'string',
+			$anchor: "foo"
+		});
+	});
+
+	test('$anchor in draft-07 schema referenced via $ref from 2019-09 schema should not resolve', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService({
+			"https://example.com/schemas/draft07": {
+				"$schema": "http://json-schema.org/draft-07/schema#",
+				"$id": "https://example.com/schemas/draft07",
+				"type": "object",
+				"$defs": {
+					"": {
+						"$anchor": "foo",
+						"type": "number"
+					}
+				},
+				"properties": {
+					"subject": { "$ref": "#foo" }
+				}
+			} as any
+		}), workspaceContext);
+
+		service.setSchemaContributions({
+			schemas: {
+				"https://example.com/schemas/main": {
+					"$schema": "https://json-schema.org/draft/2019-09/schema",
+					"$id": "https://example.com/schemas/main",
+					"$ref": "https://example.com/schemas/draft07"
+				}
+			}
+		});
+
+		// The draft-07 schema uses $anchor which is not valid in draft-07.
+		// Even though the parent schema is 2019-09, the external schema's
+		// own $schema (draft-07) should govern anchor interpretation.
+		const fs = await service.getResolvedSchema('https://example.com/schemas/main');
+		assert.ok(fs?.errors.length! > 0, '$ref to $anchor should fail in draft-07 schema even when referenced from 2019-09');
+		assert.ok(fs?.errors[0].message.includes('foo'), 'Error should mention the unresolvable anchor');
+	});
+
 	test('Resolving $refs to external $ids', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({
@@ -1542,6 +1618,42 @@ suite('JSON Schema', () => {
 			type: 'object'
 		});
 
+	});
+
+	test('$refs in $ref - circular with $anchor', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main": {
+					"$schema": "https://json-schema.org/draft/2020-12/schema",
+					type: 'object',
+					properties: {
+						tree: {
+							"$ref": "#/definitions/node"
+						}
+					},
+					definitions: {
+						node: {
+							"$anchor": "treeNode",
+							type: 'object',
+							properties: {
+								value: { type: 'string' },
+								children: {
+									type: 'array',
+									items: { "$ref": "#/definitions/node" }
+								}
+							}
+						}
+					}
+				}
+			}
+		});
+
+		// Should resolve without stack overflow despite circular $ref in a schema with $anchor
+		const fs = await service.getResolvedSchema('https://myschemastore/main');
+		const tree = fs?.schema.properties?.['tree'];
+		assert.ok(tree && typeof tree === 'object');
+		assert.strictEqual(tree.type, 'object');
 	});
 
 	test('$refs in $ref - circular 2', async function () {
@@ -3070,6 +3182,287 @@ suite('JSON Schema', () => {
 			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
 			assert.strictEqual(validation.length, 1, 'Nested $id levels should chain correctly');
 			assert.ok(validation[0].message.includes('boolean'), 'Error should be a type mismatch for boolean');
+		});
+	});
+
+	suite('Embedded $id in $defs', () => {
+		test('$ref to absolute $id in $defs resolves locally without external fetch', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			const accesses: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				accesses.push(uri);
+				throw new Error(`Unexpected external fetch: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument('{ "subject": "foo" }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.ok(!accesses.some(u => u.includes('example.com/embedded')), 'Embedded schema should not be fetched externally');
+			assert.strictEqual(validation.length, 0, '"foo" is a valid string, no errors expected');
+		});
+
+		test('$ref to absolute $id in $defs loaded via $schema reference resolves locally', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			// Track ALL fetch attempts, including failures
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('example.com/example.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument(
+				'{ "$schema": "https://example.com/example.json", "subject": "foo" }',
+				undefined,
+				'https://example.com/test.json'
+			);
+			const validation = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.ok(!allFetches.some(u => u.includes('example.com/embedded')), 'Embedded schema should not be fetched externally');
+			const embeddedErrors = validation.filter(v => v.message.includes('example.com/embedded'));
+			assert.strictEqual(embeddedErrors.length, 0, 'Should have no errors related to the embedded schema');
+		});
+
+		test('$ref to absolute $id in $defs reports type mismatch for invalid value', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('example.com/example.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument(
+				'{ "$schema": "https://example.com/example.json", "subject": 42 }',
+				undefined,
+				'https://example.com/test.json'
+			);
+			const validation = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.ok(!allFetches.some(u => u.includes('example.com/embedded')), 'Embedded schema should not be fetched externally');
+			assert.ok(validation.some(v => v.message.includes('string')), 'Expected type mismatch error for non-string value');
+		});
+
+		test('$ref to absolute $id in $defs with relative $schema from file URI resolves locally', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('my-schema.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument(
+				'{ "$schema": "./my-schema.json", "subject": "foo" }',
+				undefined,
+				'file:///c%3A/Users/test/Desktop/test.json'
+			);
+			const validation = await ls.doValidation(textDoc, jsonDoc);
+
+			const embeddedFetches = allFetches.filter(u => u.includes('example.com/embedded'));
+			assert.strictEqual(embeddedFetches.length, 0, `Embedded schema should not be fetched externally, but was fetched: ${embeddedFetches.join(', ')}`);
+
+			const embeddedErrors = validation.filter(v => v.message.includes('example.com/embedded'));
+			assert.strictEqual(embeddedErrors.length, 0, `Should have no errors for embedded schema, but got: ${embeddedErrors.map(v => v.message).join('; ')}`);
+		});
+
+		test('$ref to absolute $id in $defs via $schema does not attempt external fetch', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			// Track ALL fetch attempts, including ones that fail
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('example.com/example.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument(
+				'{ "$schema": "https://example.com/example.json", "subject": "foo" }',
+				undefined,
+				'https://example.com/test.json'
+			);
+			const validation = await ls.doValidation(textDoc, jsonDoc);
+
+			const embeddedFetches = allFetches.filter(u => u.includes('example.com/embedded'));
+			assert.strictEqual(embeddedFetches.length, 0, `Embedded schema should not be fetched externally, but was fetched: ${embeddedFetches.join(', ')}`);
+
+			const embeddedErrors = validation.filter(v => v.message.includes('example.com/embedded'));
+			assert.strictEqual(embeddedErrors.length, 0, `Should have no errors for embedded schema, but got: ${embeddedErrors.map(v => v.message).join('; ')}`);
+
+			assert.strictEqual(validation.filter(v => v.message.includes('Incorrect type')).length, 0, '"foo" is a valid string');
+		});
+
+		test('$ref to absolute $id in $defs resolves locally after configure() call', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('my-schema.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			// Simulate VS Code calling configure() before validation
+			ls.configure({ allowComments: false, schemas: [] });
+
+			const { textDoc, jsonDoc } = toDocument(
+				'{ "$schema": "./my-schema.json", "subject": "foo" }',
+				undefined,
+				'file:///c%3A/Users/test/Desktop/test.json'
+			);
+			const validation = await ls.doValidation(textDoc, jsonDoc);
+
+			const embeddedFetches = allFetches.filter(u => u.includes('example.com/embedded'));
+			assert.strictEqual(embeddedFetches.length, 0, `Embedded schema should not be fetched externally, but was fetched: ${embeddedFetches.join(', ')}`);
+
+			const embeddedErrors = validation.filter(v => v.message.includes('example.com/embedded'));
+			assert.strictEqual(embeddedErrors.length, 0, `Should have no errors for embedded schema, but got: ${embeddedErrors.map(v => v.message).join('; ')}`);
+		});
+
+		test('$ref to absolute $id in $defs resolves correctly across multiple validations', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('my-schema.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			// First validation
+			const { textDoc: textDoc1, jsonDoc: jsonDoc1 } = toDocument(
+				'{ "$schema": "./my-schema.json", "subject": "foo" }',
+				undefined,
+				'file:///c%3A/Users/test/Desktop/test.json'
+			);
+			await ls.doValidation(textDoc1, jsonDoc1);
+
+			// Simulate settings change (wipes all cached schemas)
+			ls.configure({ allowComments: false, schemas: [] });
+			allFetches.length = 0;
+
+			// Second validation after configure
+			const { textDoc: textDoc2, jsonDoc: jsonDoc2 } = toDocument(
+				'{ "$schema": "./my-schema.json", "subject": "foo" }',
+				undefined,
+				'file:///c%3A/Users/test/Desktop/test.json'
+			);
+			const validation = await ls.doValidation(textDoc2, jsonDoc2);
+
+			const embeddedFetches = allFetches.filter(u => u.includes('example.com/embedded'));
+			assert.strictEqual(embeddedFetches.length, 0, `Embedded schema should not be fetched after reconfigure, but was fetched: ${embeddedFetches.join(', ')}`);
+
+			const embeddedErrors = validation.filter(v => v.message.includes('example.com/embedded'));
+			assert.strictEqual(embeddedErrors.length, 0, `Should have no errors for embedded schema after reconfigure, but got: ${embeddedErrors.map(v => v.message).join('; ')}`);
 		});
 	});
 });
