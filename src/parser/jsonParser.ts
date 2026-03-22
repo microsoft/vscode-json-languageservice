@@ -646,6 +646,17 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 							valueMap.set(schema.const, []);
 						}
 						valueMap.get(schema.const)!.push(i);
+					} else if (schema.enum && Array.isArray(schema.enum)) {
+						for (const enumValue of schema.enum) {
+							if (!constMap.has(key)) {
+								constMap.set(key, new Map());
+							}
+							const valueMap = constMap.get(key)!;
+							if (!valueMap.has(enumValue)) {
+								valueMap.set(enumValue, []);
+							}
+							valueMap.get(enumValue)!.push(i);
+						}
 					}
 				});
 			}
