@@ -3,6 +3,9 @@
   "version": "6.0.0-next.1",
   "description": "Language service for JSON",
   "type": "module",
+  "bin": {
+    "jref-language-server": "./lib/esm/jrefLanguageServer.js"
+  },
   "types": "./lib/esm/jsonLanguageService.d.ts",
   "exports": {
     ".": {
@@ -29,11 +32,13 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@vscode/l10n": "^0.0.18",
     "jsonc-parser": "4.0.0-next.1",
+    "jsonpointer": "^5.0.1",
+    "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-languageserver-types": "^3.17.5",
-    "vscode-uri": "^3.1.0",
-    "@vscode/l10n": "^0.0.18"
+    "vscode-uri": "^3.1.0"
   },
   "scripts": {
     "prepack": "npm run clean && npm run compile && npm run test && npm run remove-sourcemap-refs",
@@ -43,6 +48,7 @@
     "remove-sourcemap-refs": "node ./build/remove-sourcemap-refs.js",
     "watch": "tsc -w -p ./src",
     "pretest": "npm run compile",
+    "jref:server": "npm run compile && node ./lib/esm/jrefLanguageServer.js --stdio",
     "test": "node --test ./lib/esm/test/*.test.js",
     "posttest": "npm run lint",
     "coverage": "npx nyc -r lcov npm run test",

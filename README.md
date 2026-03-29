@@ -38,6 +38,25 @@ See [sample.ts](./src/example/sample.ts) for an example on how to use the JSON l
 
 To run the sample use `yarn sample`
 
+## JRef qualification server
+
+This repository now also includes a small JSON Reference language server for `.jref` files in
+[src/jrefLanguageServer.ts](./src/jrefLanguageServer.ts). The server is intentionally narrow in
+scope for the GSoC qualification task:
+
+- validates `.jref` files as strict JSON
+- exposes document links for `$ref` string values
+- resolves go-to-definition targets for workspace-relative JSON References
+- supports JSON Pointer fragments such as `address.jref#/city`
+
+Install dependencies and start the server with:
+
+    npm install
+    npm run jref:server
+
+The server speaks LSP over stdio, so it can be launched from a VSCode extension, `vscode-languageclient`,
+or any other LSP-compatible editor client.
+
 ## Development
 
     git clone https://github.com/microsoft/vscode-json-languageservice
