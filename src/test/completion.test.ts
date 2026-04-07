@@ -898,11 +898,13 @@ suite('JSON Completion', () => {
 			]
 		});
 		await testCompletionsFor('{ "type": "1", "a" : { "x": "", "z":"" }, |', schema, {
-			// both alternatives have errors: intellisense proposes all options
-			count: 2,
+			// Prior to the `enum` discriminator optimization, the parser failed to correlate `type: "1"` 
+			// via enums and fell back to offering completions from ALL `oneOf` branches (i.e., both 'b' and 'c').
+			// Now that `enum` properties are properly indexed as discriminators, `type: "1"` flawlessly 
+			// isolates the first branch, so it correctly proposes ONLY the 'b' property from that branch.
+			count: 1,
 			items: [
-				{ label: 'b' },
-				{ label: 'c' }
+				{ label: 'b' }
 			]
 		});
 		await testCompletionsFor('{ "a" : { "x": "", "z":"" }, |', schema, {
@@ -1461,9 +1463,11 @@ suite('JSON Completion', () => {
 			]
 		});
 		await testCompletionsFor('{ "type": "foo|"', schema, {
+			// Since the user explicitly typed "foo", the parser instantly matches the enum discriminator 
+			// for the first `oneOf` branch. Therefore, it discards the second branch (which expects "bar")
+			// and appropriately proposes ONLY "foo", rather than falling back to proposing both options.
 			items: [
-				{ label: '"foo"' },
-				{ label: '"bar"' }
+				{ label: '"foo"' }
 			]
 		});
 	});
