@@ -3610,6 +3610,40 @@ suite('JSON Parser', () => {
 		assert.strictEqual(res.length, 0);
 	});
 
+	test('Validation should not take exponential time for recursive schemas with enum discriminators', async function() {
+		const schema: JSONSchema = {
+			$id: "http://example.com/schema",
+			definitions: {
+				rule: {
+					anyOf: [
+						{ type: "object", properties: { type: { enum: ["A"] }, content: { $ref: "#/definitions/rule" } } },
+						{ type: "object", properties: { type: { enum: ["B"] }, content: { $ref: "#/definitions/rule" } } },
+						{ type: "object", properties: { type: { enum: ["C"] }, content: { $ref: "#/definitions/rule" } } }
+					]
+				}
+			},
+			$ref: "#/definitions/rule"
+		};
+
+		// {"content": {"content": {"content": ... }}}
+		let nested = '{"type": "A"}';
+		for (let i = 0; i < 14; i++) {
+			nested = `{"type": "A", "content": ${nested}}`;
+		}
+
+		const { textDoc, jsonDoc } = toDocument(nested);
+		const ls = getLanguageService({});
+		ls.configure({ schemas: [{ fileMatch: ["*.json"], uri: "http://example.com/schema", schema }] });
+
+		const startTime = Date.now();
+		await ls.doValidation(textDoc, jsonDoc, undefined, schema);
+		const endTime = Date.now();
+
+		// Validation should finish well under 10ms. Before the `enum` optimization,
+		// this produced 4.7 million branch iterations and took nearly 5,000ms.
+		assert.ok(endTime - startTime < 100, "Validation took too long! Exponential scaling detected.");
+	});
+
 	test('$recursiveRef without $recursiveAnchor works like $ref', function () {
 		// $recursiveRef without $recursiveAnchor should behave like a regular $ref
 		const schema: JSONSchema = {
