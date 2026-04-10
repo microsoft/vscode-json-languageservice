@@ -15,6 +15,9 @@ import { createRegex } from '../utils/glob.js';
 import { isString } from '../utils/objects.js';
 import { DiagnosticRelatedInformation, Range } from 'vscode-languageserver-types';
 
+const hasSchemePattern = /^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.source;
+const hasSchemeRegex = new RegExp(hasSchemePattern);
+
 export interface IJSONSchemaService {
 
 	/**
@@ -555,7 +558,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				const id = getSchemaId(current);
 				if (isString(id) && id.charAt(0) !== '#') {
 					let resolvedUri = id;
-					if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(id)) {
+					if (contextService && !hasSchemeRegex.test(id)) {
 						resolvedUri = contextService.resolveRelativePath(id, currentBaseHandle.uri);
 					}
 					resolvedUri = normalizeId(resolvedUri);
@@ -702,7 +705,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				if (section.$ref && sectionBaseHandle !== sourceHandle) {
 					const innerRef = section.$ref;
 					const innerSegments = innerRef.split('#', 2);
-					if (innerSegments[0].length > 0 && contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(innerSegments[0])) {
+					if (innerSegments[0].length > 0 && contextService && !hasSchemeRegex.test(innerSegments[0])) {
 						section.$ref = contextService.resolveRelativePath(innerSegments[0], sectionBaseHandle.uri) +
 							(innerSegments[1] !== undefined ? '#' + innerSegments[1] : '');
 					}
@@ -750,7 +753,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		};
 
 		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle): PromiseLike<any> => {
-			if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(uri)) {
+			if (contextService && !hasSchemeRegex.test(uri)) {
 				uri = contextService.resolveRelativePath(uri, parentHandle.uri);
 			}
 			uri = normalizeId(uri);
@@ -790,7 +793,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 					newBase = schema;
 					// Get or create a handle for this embedded schema
 					let resolvedUri = id;
-					if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(id)) {
+					if (contextService && !hasSchemeRegex.test(id)) {
 						resolvedUri = contextService.resolveRelativePath(id, currentBaseHandle.uri);
 					}
 					resolvedUri = normalizeId(resolvedUri);
@@ -897,7 +900,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const seen = new Set<JSONSchema>();
 
 			const resolveId = (id: string, currentBaseUri: string): string => {
-				if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(id)) {
+				if (contextService && !hasSchemeRegex.test(id)) {
 					return normalizeId(contextService.resolveRelativePath(id, currentBaseUri));
 				}
 				return normalizeId(id);
@@ -948,7 +951,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 				return this.promise.resolve(undefined);
 			}
 
-			const metaschemaUri = schema.$schema;
+			let metaschemaUri = schema.$schema;
+			if (contextService && !hasSchemeRegex.test(metaschemaUri)) {
+				metaschemaUri = contextService.resolveRelativePath(metaschemaUri, handle.uri);
+			}
 			const normalizedMetaschemaUri = normalizeId(metaschemaUri);
 			const metaschemaHandle = this.getOrAddSchemaHandle(normalizedMetaschemaUri);
 

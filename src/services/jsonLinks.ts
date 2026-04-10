@@ -32,10 +32,41 @@ function createRange(document: TextDocument, node: ASTNode): Range {
 
 function findTargetNode(doc: JSONDocument, path: string): ASTNode | null {
 	const tokens = parseJSONPointer(path);
-	if (!tokens) {
+	if (tokens) {
+		return findNode(tokens, doc.root);
+	}
+
+	if (path.charAt(0) === '#') {
+		// Plain-name fragment: anchor reference (e.g. #foo)
+		const anchor = path.substring(1);
+		if (anchor.length > 0) {
+			return findAnchorNode(doc, anchor);
+		}
 		return null;
 	}
-	return findNode(tokens, doc.root);
+
+	// Check for references to embedded schemas by $id (e.g. "https://example.com/embedded")
+	const hashIndex = path.indexOf('#');
+	const uri = hashIndex >= 0 ? path.substring(0, hashIndex) : path;
+	const fragment = hashIndex >= 0 ? path.substring(hashIndex + 1) : undefined;
+
+	if (uri.length > 0) {
+		const embeddedNode = findEmbeddedSchemaNode(doc, uri);
+		if (embeddedNode) {
+			if (!fragment || fragment.length === 0) {
+				return embeddedNode;
+			}
+			if (fragment.charAt(0) === '/') {
+				// JSON Pointer within the embedded schema
+				const pointerTokens = fragment.substring(1).split(/\//).map(unescape);
+				return findNode(pointerTokens, embeddedNode);
+			}
+			// Anchor within the embedded schema
+			return findAnchorInSubtree(embeddedNode, fragment);
+		}
+	}
+
+	return null;
 }
 
 function findNode(pointer: string[], node: ASTNode | null | undefined): ASTNode | null {
@@ -64,6 +95,73 @@ function findNode(pointer: string[], node: ASTNode | null | undefined): ASTNode 
 		}
 	}
 	return null;
+}
+
+function findAnchorNode(doc: JSONDocument, anchor: string): ASTNode | null {
+	return findAnchorInSubtree(doc.root, anchor);
+}
+
+function findAnchorInSubtree(root: ASTNode | null | undefined, anchor: string): ASTNode | null {
+	if (!root) {
+		return null;
+	}
+	let result: ASTNode | null = null;
+	const visit = (node: ASTNode): boolean => {
+		if (node.type === 'object') {
+			for (const prop of node.properties) {
+				// $anchor: "foo" (2019-09+)
+				if (prop.keyNode.value === '$anchor' && prop.valueNode?.type === 'string' && prop.valueNode.value === anchor) {
+					result = node;
+					return false;
+				}
+				// $id: "#foo" (draft-06/07 legacy anchors)
+				if (prop.keyNode.value === '$id' && prop.valueNode?.type === 'string' && prop.valueNode.value === '#' + anchor) {
+					result = node;
+					return false;
+				}
+			}
+		}
+		const children = node.children;
+		if (children) {
+			for (const child of children) {
+				if (!visit(child)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	};
+	visit(root);
+	return result;
+}
+
+function findEmbeddedSchemaNode(doc: JSONDocument, uri: string): ASTNode | null {
+	if (!doc.root) {
+		return null;
+	}
+	let result: ASTNode | null = null;
+	const visit = (node: ASTNode, isRoot: boolean): boolean => {
+		if (node.type === 'object' && !isRoot) {
+			for (const prop of node.properties) {
+				if ((prop.keyNode.value === '$id' || prop.keyNode.value === 'id') &&
+					prop.valueNode?.type === 'string' && prop.valueNode.value === uri) {
+					result = node;
+					return false;
+				}
+			}
+		}
+		const children = node.children;
+		if (children) {
+			for (const child of children) {
+				if (!visit(child, false)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	};
+	visit(doc.root, true);
+	return result;
 }
 
 function parseJSONPointer(path: string): string[] | null {
