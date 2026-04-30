@@ -2736,13 +2736,13 @@ suite('JSON Schema', () => {
 			assert.ok(validation[0].message.toLowerCase().includes('e-mail'), 'Error should mention e-mail format');
 		});
 
-		test('2019-09 format vocabulary should be annotation-only (no errors)', async function () {
+		test('2019-09 optional format vocabulary should be annotation-only (no errors)', async function () {
 			const metaschema: JSONSchema = {
 				$id: 'http://test/metaschema-2019-format',
 				$vocabulary: {
 					'https://json-schema.org/draft/2019-09/vocab/core': true,
 					'https://json-schema.org/draft/2019-09/vocab/validation': true,
-					'https://json-schema.org/draft/2019-09/vocab/format': true
+					'https://json-schema.org/draft/2019-09/vocab/format': false
 				},
 				type: 'object'
 			};
@@ -2762,10 +2762,10 @@ suite('JSON Schema', () => {
 
 			const ls = getLanguageService({ schemaRequestService });
 
-			// Invalid email format - should not produce error because 2019-09 format is annotation-only
+			// Invalid email format - should not produce error because optional 2019-09 format is annotation-only
 			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
 			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
-			assert.strictEqual(validation.length, 0, '2019-09 format vocabulary should be annotation-only');
+			assert.strictEqual(validation.length, 0, 'Optional 2019-09 format vocabulary should be annotation-only');
 		});
 
 		test('no format vocabulary should not produce format errors', async function () {
@@ -2963,10 +2963,8 @@ suite('JSON Schema', () => {
 			assert.ok(fooErrors.length > 0, '"false" subschema should still produce an error with relative dialect URI');
 		});
 
-		test('vocabulary-format-enable: 2019-09 format vocab is annotation-only even when explicitly included', async function () {
+		test('vocabulary-format-enable: 2019-09 required format vocab produces validation errors', async function () {
 			// Custom dialect that includes the 2019-09 format vocabulary
-			// Per spec, 2019-09 format vocab is always annotation-only
-			// (Unlike 2020-12 which has separate format-annotation and format-assertion vocabs)
 			const dialect: JSONSchema = {
 				$schema: 'https://json-schema.org/draft/2019-09/schema',
 				$id: 'http://test/custom-dialect-with-format',
@@ -3002,11 +3000,11 @@ suite('JSON Schema', () => {
 
 			const ls = getLanguageService({ schemaRequestService });
 
-			// 2019-09 format vocab is annotation-only, so "not-a-date" should not produce a format error
+			// Required 2019-09 format vocab enables format assertion for supported formats.
 			const { textDoc, jsonDoc } = toDocument('{ "subject": "not-a-date" }');
 			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
 			const formatErrors = validation.filter(v => v.message.includes('date') || v.message.includes('RFC3339'));
-			assert.strictEqual(formatErrors.length, 0, '2019-09 format vocab is annotation-only; format should not produce errors');
+			assert.strictEqual(formatErrors.length, 1, 'Required 2019-09 format vocab should produce format errors');
 		});
 	});
 

@@ -240,11 +240,17 @@ suite('Vocabularies', () => {
 			assert.strictEqual(isFormatAssertionEnabled(undefined), true);
 		});
 
-		test('returns true for 2019-09 format vocabulary', function () {
+		test('returns true for required 2019-09 format vocabulary', function () {
 			const vocabs = new Map<string, boolean>([
 				['https://json-schema.org/draft/2019-09/vocab/format', true]
 			]);
-			// 2019-09 format is annotation-only, does not produce validation errors
+			assert.strictEqual(isFormatAssertionEnabled(vocabs), true);
+		});
+
+		test('returns false for optional 2019-09 format vocabulary', function () {
+			const vocabs = new Map<string, boolean>([
+				['https://json-schema.org/draft/2019-09/vocab/format', false]
+			]);
 			assert.strictEqual(isFormatAssertionEnabled(vocabs), false);
 		});
 

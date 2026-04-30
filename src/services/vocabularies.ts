@@ -111,7 +111,7 @@ export function isKeywordEnabled(
  * 
  * For backwards compatibility:
  * - If no vocabularies are specified and no explicit 2019-09+ draft, format asserts
- * - 2019-09 format vocabulary is annotation-only
+ * - 2019-09 format vocabulary asserts when required, annotation-only when optional
  * - 2020-12 format-assertion vocabulary asserts
  * - 2020-12 format-annotation vocabulary does not assert
  * 
@@ -127,9 +127,11 @@ export function isFormatAssertionEnabled(activeVocabularies?: Map<string, boolea
 			return true;
 		}
 
-		// 2019-09 format vocabulary is annotation-only per spec
-		if (activeVocabularies.has('https://json-schema.org/draft/2019-09/vocab/format')) {
-			return false;
+		// 2019-09 uses the format vocabulary value to control assertions:
+		// true enables assertion, false leaves format as annotation-only.
+		const format201909 = activeVocabularies.get('https://json-schema.org/draft/2019-09/vocab/format');
+		if (format201909 !== undefined) {
+			return format201909;
 		}
 
 		// 2020-12 format-annotation is annotation-only, no assertion
