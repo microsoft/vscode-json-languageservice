@@ -138,6 +138,17 @@ export interface LanguageSettings {
 	 * A list of known schemas and/or associations of schemas to file names.
 	 */
 	schemas?: SchemaConfiguration[];
+
+	/**
+	 * Settings for hover information.
+	 */
+	hover?: {
+		/**
+		 * If set to true, the default value defined in the schema will be shown in hover information.
+		 * Defaults to false.
+		 */
+		showDefaultValue?: boolean;
+	};
 }
 
 export type SeverityLevel = 'error' | 'warning' | 'ignore';
