@@ -6,11 +6,11 @@
 import * as assert from 'assert';
 import { suite, test } from 'node:test';
 
-import { Hover, Position, TextDocument, getLanguageService, JSONSchema, LanguageServiceParams } from '../jsonLanguageService.js';
+import { Hover, Position, TextDocument, getLanguageService, JSONSchema, LanguageServiceParams, LanguageSettings } from '../jsonLanguageService.js';
 
 suite('JSON Hover', () => {
 
-	async function testComputeInfo(value: string, schema: JSONSchema, position: Position, serviceParams?: LanguageServiceParams): Promise<Hover> {
+	async function testComputeInfo(value: string, schema: JSONSchema, position: Position, languageSettings?: Omit<LanguageSettings, 'schemas'>, serviceParams?: LanguageServiceParams): Promise<Hover> {
 		const uri = 'test://test.json';
 		const schemaUri = "http://myschemastore/test1";
 
@@ -18,7 +18,7 @@ suite('JSON Hover', () => {
 			serviceParams = { schemaRequestService: requestService };
 		}
 		const service = getLanguageService(serviceParams);
-		service.configure({ schemas: [{ fileMatch: ["*.json"], uri: schemaUri, schema }] });
+		service.configure({ schemas: [{ fileMatch: ["*.json"], uri: schemaUri, schema }], ...languageSettings });
 
 
 		const document = TextDocument.create(uri, 'json', 0, value);
@@ -169,6 +169,61 @@ suite('JSON Hover', () => {
 		});
 	});
 
+	test('Default value', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'prop1': {
+					type: 'string',
+					description: 'A string property',
+					default: 'myDefault'
+				},
+				'prop2': {
+					type: 'number',
+					default: 42
+				},
+				'prop3': {
+					type: 'object',
+					default: { key: 'value' }
+				},
+				'prop4': {
+					type: 'string',
+					description: 'A string property without default'
+				}
+			}
+		};
+
+		// showDefaultValue not configured (defaults to false) - default value should NOT appear
+		await testComputeInfo('{ "prop1": "val" }', schema, { line: 0, character: 12 }).then(result => {
+			assert.deepEqual(result.contents, ['A string property']);
+		});
+
+		// showDefaultValue: false - default value should NOT appear
+		await testComputeInfo('{ "prop1": "val" }', schema, { line: 0, character: 12 }, { hover: { showDefaultValue: false } }).then(result => {
+			assert.deepEqual(result.contents, ['A string property']);
+		});
+
+		// showDefaultValue: true - default value should appear
+		await testComputeInfo('{ "prop1": "val" }', schema, { line: 0, character: 12 }, { hover: { showDefaultValue: true } }).then(result => {
+			assert.deepEqual(result.contents, ['A string property\n\n---\n\nDefault value: `"myDefault"`']);
+		});
+
+		// showDefaultValue: true, numeric default
+		await testComputeInfo('{ "prop2": 1 }', schema, { line: 0, character: 11 }, { hover: { showDefaultValue: true } }).then(result => {
+			assert.deepEqual(result.contents, ['\n\n---\n\nDefault value: `42`']);
+		});
+
+		// showDefaultValue: true, object default
+		await testComputeInfo('{ "prop3": {} }', schema, { line: 0, character: 11 }, { hover: { showDefaultValue: true } }).then(result => {
+			assert.deepEqual(result.contents, ['\n\n---\n\nDefault value: `{"key":"value"}`']);
+		});
+
+		// showDefaultValue: true, but schema has no default - default value should NOT appear
+		await testComputeInfo('{ "prop4": "val" }', schema, { line: 0, character: 12 }, { hover: { showDefaultValue: true } }).then(result => {
+			assert.deepEqual(result.contents, ['A string property without default']);
+		});
+	});
+
 	test('Contribution descriptions', async function () {
 		const serviceParams: LanguageServiceParams = {
 			contributions: [{
@@ -187,10 +242,10 @@ suite('JSON Hover', () => {
 			}]
 		};
 
-		let result = await testComputeInfo('{ "prop1": [ 1, false ] }', {}, { line: 0, character: 3 }, serviceParams);
+		let result = await testComputeInfo('{ "prop1": [ 1, false ] }', {}, { line: 0, character: 3 }, undefined, serviceParams);
 		assert.deepEqual(result.contents, ['test://test.json: prop1']);
 
-		result = await testComputeInfo('{ "prop1": [ 1, false ] }', {}, { line: 0, character: 13 }, serviceParams);
+		result = await testComputeInfo('{ "prop1": [ 1, false ] }', {}, { line: 0, character: 13 }, undefined, serviceParams);
 		assert.deepEqual(result.contents, ['test://test.json: prop1/0']);
 
 	});
