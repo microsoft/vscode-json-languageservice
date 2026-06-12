@@ -5,6 +5,68 @@
 
 import { SchemaDraft } from '../jsonLanguageTypes.js';
 
+const CORE_201909 = 'https://json-schema.org/draft/2019-09/vocab/core';
+const CORE_202012 = 'https://json-schema.org/draft/2020-12/vocab/core';
+
+const vocabularyKeywords: { [uri: string]: string[] } = {
+	[CORE_201909]: [
+		'$id', '$schema', '$ref', '$anchor', '$recursiveRef',
+		'$recursiveAnchor', '$defs', '$comment', '$vocabulary'
+	],
+	'https://json-schema.org/draft/2019-09/vocab/applicator': [
+		'prefixItems', 'items', 'contains', 'additionalProperties',
+		'properties', 'patternProperties', 'dependentSchemas',
+		'propertyNames', 'if', 'then', 'else', 'allOf', 'anyOf', 'oneOf', 'not'
+	],
+	'https://json-schema.org/draft/2019-09/vocab/validation': [
+		'type', 'enum', 'const', 'multipleOf', 'maximum', 'exclusiveMaximum',
+		'minimum', 'exclusiveMinimum', 'maxLength', 'minLength', 'pattern',
+		'maxItems', 'minItems', 'uniqueItems', 'maxContains', 'minContains',
+		'maxProperties', 'minProperties', 'required', 'dependentRequired'
+	],
+	'https://json-schema.org/draft/2019-09/vocab/meta-data': [
+		'title', 'description', 'default', 'deprecated',
+		'readOnly', 'writeOnly', 'examples'
+	],
+	'https://json-schema.org/draft/2019-09/vocab/format': [
+		'format'
+	],
+	'https://json-schema.org/draft/2019-09/vocab/content': [
+		'contentEncoding', 'contentMediaType', 'contentSchema'
+	],
+	[CORE_202012]: [
+		'$id', '$schema', '$ref', '$anchor', '$dynamicRef',
+		'$dynamicAnchor', '$defs', '$comment', '$vocabulary'
+	],
+	'https://json-schema.org/draft/2020-12/vocab/applicator': [
+		'prefixItems', 'items', 'contains', 'additionalProperties',
+		'properties', 'patternProperties', 'dependentSchemas',
+		'propertyNames', 'if', 'then', 'else', 'allOf', 'anyOf', 'oneOf', 'not'
+	],
+	'https://json-schema.org/draft/2020-12/vocab/unevaluated': [
+		'unevaluatedItems', 'unevaluatedProperties'
+	],
+	'https://json-schema.org/draft/2020-12/vocab/validation': [
+		'type', 'enum', 'const', 'multipleOf', 'maximum', 'exclusiveMaximum',
+		'minimum', 'exclusiveMinimum', 'maxLength', 'minLength', 'pattern',
+		'maxItems', 'minItems', 'uniqueItems', 'maxContains', 'minContains',
+		'maxProperties', 'minProperties', 'required', 'dependentRequired'
+	],
+	'https://json-schema.org/draft/2020-12/vocab/meta-data': [
+		'title', 'description', 'default', 'deprecated',
+		'readOnly', 'writeOnly', 'examples'
+	],
+	'https://json-schema.org/draft/2020-12/vocab/format-annotation': [
+		'format'
+	],
+	'https://json-schema.org/draft/2020-12/vocab/format-assertion': [
+		'format'
+	],
+	'https://json-schema.org/draft/2020-12/vocab/content': [
+		'contentEncoding', 'contentMediaType', 'contentSchema'
+	]
+};
+
 /*
  * Checks if a keyword is enabled based on the active vocabularies.
  * If no vocabulary constraints are present, all keywords are enabled.
@@ -18,65 +80,6 @@ export function isKeywordEnabled(
 	keyword: string,
 	activeVocabularies?: Map<string, boolean>
 ): boolean {
-	const vocabularyKeywords: { [uri: string]: string[] } = {
-		'https://json-schema.org/draft/2019-09/vocab/core': [
-			'$id', '$schema', '$ref', '$anchor', '$recursiveRef',
-			'$recursiveAnchor', '$defs', '$comment', '$vocabulary'
-		],
-		'https://json-schema.org/draft/2019-09/vocab/applicator': [
-			'prefixItems', 'items', 'contains', 'additionalProperties',
-			'properties', 'patternProperties', 'dependentSchemas',
-			'propertyNames', 'if', 'then', 'else', 'allOf', 'anyOf', 'oneOf', 'not'
-		],
-		'https://json-schema.org/draft/2019-09/vocab/validation': [
-			'type', 'enum', 'const', 'multipleOf', 'maximum', 'exclusiveMaximum',
-			'minimum', 'exclusiveMinimum', 'maxLength', 'minLength', 'pattern',
-			'maxItems', 'minItems', 'uniqueItems', 'maxContains', 'minContains',
-			'maxProperties', 'minProperties', 'required', 'dependentRequired'
-		],
-		'https://json-schema.org/draft/2019-09/vocab/meta-data': [
-			'title', 'description', 'default', 'deprecated',
-			'readOnly', 'writeOnly', 'examples'
-		],
-		'https://json-schema.org/draft/2019-09/vocab/format': [
-			'format'
-		],
-		'https://json-schema.org/draft/2019-09/vocab/content': [
-			'contentEncoding', 'contentMediaType', 'contentSchema'
-		],
-		'https://json-schema.org/draft/2020-12/vocab/core': [
-			'$id', '$schema', '$ref', '$anchor', '$dynamicRef',
-			'$dynamicAnchor', '$defs', '$comment', '$vocabulary'
-		],
-		'https://json-schema.org/draft/2020-12/vocab/applicator': [
-			'prefixItems', 'items', 'contains', 'additionalProperties',
-			'properties', 'patternProperties', 'dependentSchemas',
-			'propertyNames', 'if', 'then', 'else', 'allOf', 'anyOf', 'oneOf', 'not'
-		],
-		'https://json-schema.org/draft/2020-12/vocab/unevaluated': [
-			'unevaluatedItems', 'unevaluatedProperties'
-		],
-		'https://json-schema.org/draft/2020-12/vocab/validation': [
-			'type', 'enum', 'const', 'multipleOf', 'maximum', 'exclusiveMaximum',
-			'minimum', 'exclusiveMinimum', 'maxLength', 'minLength', 'pattern',
-			'maxItems', 'minItems', 'uniqueItems', 'maxContains', 'minContains',
-			'maxProperties', 'minProperties', 'required', 'dependentRequired'
-		],
-		'https://json-schema.org/draft/2020-12/vocab/meta-data': [
-			'title', 'description', 'default', 'deprecated',
-			'readOnly', 'writeOnly', 'examples'
-		],
-		'https://json-schema.org/draft/2020-12/vocab/format-annotation': [
-			'format'
-		],
-		'https://json-schema.org/draft/2020-12/vocab/format-assertion': [
-			'format'
-		],
-		'https://json-schema.org/draft/2020-12/vocab/content': [
-			'contentEncoding', 'contentMediaType', 'contentSchema'
-		]
-	};
-
 	// If no vocabulary constraints, treat all keywords as enabled
 	if (!activeVocabularies) {
 		return true;
@@ -91,10 +94,8 @@ export function isKeywordEnabled(
 
 	// Core keywords are always enabled per JSON Schema spec.
 	// Check both 2019-09 and 2020-12 core vocabularies.
-	const core201909 = vocabularyKeywords['https://json-schema.org/draft/2019-09/vocab/core'];
-	const core202012 = vocabularyKeywords['https://json-schema.org/draft/2020-12/vocab/core'];
-
-	if (core201909.includes(keyword) || core202012.includes(keyword)) {
+	if (vocabularyKeywords[CORE_201909].includes(keyword) ||
+		vocabularyKeywords[CORE_202012].includes(keyword)) {
 		return true;
 	}
 

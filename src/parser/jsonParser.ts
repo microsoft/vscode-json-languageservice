@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Json from 'jsonc-parser';
-import { JSONSchema, JSONSchemaRef } from '../jsonSchema.js';
+import { JSONSchema, JSONSchemaRef, MergedJSONSchema } from '../jsonSchema.js';
 import { isNumber, equals, isBoolean, isString, isDefined, isObject } from '../utils/objects.js';
 import { extendedRegExp, stringLength } from '../utils/strings.js';
 import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range, SchemaDraft, Vocabularies  } from '../jsonLanguageTypes.js';
@@ -444,7 +444,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 	if (schema.$recursiveRef) {
 		const hasRecursiveAnchor = (s: JSONSchema) => s.$recursiveAnchor === true;
-		const isSchemaRoot = (s: JSONSchema) => s.$id || s.id || (<any>s)._originalId;
+		const isSchemaRoot = (s: JSONSchema) => s.$id || s.id || (s as MergedJSONSchema).$originalId;
 
 		// Find nearest schema resource root
 		const currentResourceRoot = schemaStack.slice().reverse().find(isSchemaRoot);
@@ -462,8 +462,8 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		}
 	}
 
-	// Track schema document roots (schemas with $id or _originalId) if not already the root
-	const isNewRoot = (schema.$id || schema.id || (<any>schema)._originalId) && !schemaRoots.includes(schema);
+	// Track schema document roots (schemas with $id or $originalId) if not already the root
+	const isNewRoot = (schema.$id || schema.id || (schema as MergedJSONSchema).$originalId) && !schemaRoots.includes(schema);
 	if (isNewRoot) {
 		schemaRoots.push(schema);
 	}

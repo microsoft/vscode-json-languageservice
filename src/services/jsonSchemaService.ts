@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Json from 'jsonc-parser';
-import { JSONSchema, JSONSchemaRef } from '../jsonSchema.js';
+import { JSONSchema, JSONSchemaRef, MergedJSONSchema } from '../jsonSchema.js';
 import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings.js';
 import { asSchema, getSchemaDraftFromId, JSONDocument, normalizeId } from '../parser/jsonParser.js';
@@ -578,7 +578,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const getSchemaId = (schema: JSONSchema): string | undefined => schema.$id || schema.id;
 
-		const merge = (target: JSONSchema, section: any): void => {
+		const merge = (target: MergedJSONSchema, section: any): void => {
 			for (const key in section) {
 				if (!section.hasOwnProperty(key) || key === 'id' || key === '$id') {
 					continue;
@@ -596,9 +596,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 			// Preserve $id as a non-enumerable hidden property for $recursiveRef resolution.
 			// This allows $recursiveRef to correctly resolve references within the schema without exposing $id publicly.
-			const id = section.$id || section.id;
+			const id: MergedJSONSchema['$originalId'] = section.$id || section.id;
 			if (id) {
-				Object.defineProperty(target, '_originalId', {
+				Object.defineProperty(target, '$originalId', {
 					value: id,
 					enumerable: false,
 					writable: true,
@@ -701,13 +701,17 @@ export class JSONSchemaService implements IJSONSchemaService {
 			if (section) {
 				// If the found section contains a $ref that needs to be resolved
 				// relative to a different base (e.g. it's inside a schema with $id),
-				// pre-resolve it now so it carries the correct base URI context.
+				// pre-resolve it now so the merged target carries the correct base.
+				// Clone before rewriting to avoid mutating the cached source schema.
 				if (section.$ref && sectionBaseHandle !== sourceHandle) {
 					const innerRef = section.$ref;
 					const innerSegments = innerRef.split('#', 2);
 					if (innerSegments[0].length > 0 && contextService && !hasSchemeRegex.test(innerSegments[0])) {
-						section.$ref = contextService.resolveRelativePath(innerSegments[0], sectionBaseHandle.uri) +
-							(innerSegments[1] !== undefined ? '#' + innerSegments[1] : '');
+						section = {
+							...section,
+							$ref: contextService.resolveRelativePath(innerSegments[0], sectionBaseHandle.uri) +
+								(innerSegments[1] !== undefined ? '#' + innerSegments[1] : '')
+						};
 					}
 				}
 				const reservedKeys = new Set(['$ref', '$defs', 'definitions', '$schema', '$id', 'id']);
@@ -783,22 +787,27 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 				seen.add(schema);
 
-				// Check if this schema has its own $id that creates a new base scope
-				// This needs to be determined before processing refs
+				// A schema with its own $id defines a new base URI scope for everything
+				// inside it. Resolve the id (relative to the current base) and use that
+				// handle as the base going forward.
+				//
+				// We do this even when `isRoot` is true so that a recursive call from
+				// `resolveExternalLink` — which passes the external schema's handle as
+				// `currentBaseHandle` — still uses *this* node's own $id as its base
+				// when re-traversing it. Without this, nested $id values inside the
+				// original schema would be resolved against the external schema's URI.
 				const id = getSchemaId(schema);
 				let newBase = currentBase;
 				let newBaseHandle = currentBaseHandle;
-				if (!isRoot && isString(id) && id.charAt(0) !== '#') {
-					// This is an embedded schema with its own URI - it becomes the new base
-					newBase = schema;
-					// Get or create a handle for this embedded schema
+				if (isString(id) && id.charAt(0) !== '#') {
 					let resolvedUri = id;
 					if (contextService && !hasSchemeRegex.test(id)) {
 						resolvedUri = contextService.resolveRelativePath(id, currentBaseHandle.uri);
 					}
 					resolvedUri = normalizeId(resolvedUri);
+					newBase = schema;
 					newBaseHandle = this.getOrAddSchemaHandle(resolvedUri);
-					// Ensure the handle has this schema registered
+					// Register the schema under its id if we haven't already.
 					if (!this.schemasById[resolvedUri]) {
 						this.addSchemaHandle(resolvedUri, schema);
 					}
