@@ -938,6 +938,10 @@ export class JSONCompletion {
 						value = '${1:null}';
 						break;
 					default:
+						if (Array.isArray(propertySchema.oneOf) && propertySchema.oneOf.length > 0) {
+							value = '$1';
+							break;
+						}
 						return propertyText;
 				}
 			}
