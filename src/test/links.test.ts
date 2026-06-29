@@ -53,4 +53,36 @@ suite('JSON Find Links', () => {
 		await testFindLinksFor(doc('#/ '), {target: 81, offset: 102, length: 3});
 		await testFindLinksFor(doc('#/m~0n'), {target: 90, offset: 102, length: 6});
 	});
+
+	test('FindDefinition anchor reference ($anchor)', async function () {
+		// $anchor in $defs
+		const schema1 = '{"$defs": {"foo": {"$anchor": "myAnchor", "type": "string"}}, "properties": {"x": {"$ref": "#myAnchor"}}}';
+		// target: the object {"$anchor": "myAnchor", "type": "string"} starts at offset 18
+		await testFindLinksFor(schema1, { target: 18, offset: 92, length: 9 });
+	});
+
+	test('FindDefinition anchor reference (legacy $id fragment)', async function () {
+		// $id: "#foo" is a legacy anchor in draft-06/07
+		const schema2 = '{"$defs": {"a": {"$id": "#legacyAnchor", "type": "number"}}, "properties": {"x": {"$ref": "#legacyAnchor"}}}';
+		// target: the object {"$id": "#legacyAnchor", ...} starts at offset 16
+		await testFindLinksFor(schema2, { target: 16, offset: 91, length: 13 });
+	});
+
+	test('FindDefinition embedded schema by $id', async function () {
+		// $ref to an embedded schema URI matching a $id within the document
+		const schema3 = '{"$defs": {"e": {"$id": "https://example.com/embedded", "type": "string"}}, "properties": {"x": {"$ref": "https://example.com/embedded"}}}';
+		// target: the object {"$id": "https://example.com/embedded", ...} starts at offset 16
+		await testFindLinksFor(schema3, { target: 16, offset: 106, length: 28 });
+	});
+
+	test('FindDefinition embedded schema not matching root', async function () {
+		// $ref to a URI that only the root has should not match
+		const schema4 = '{"$id": "https://example.com/root", "$defs": {"e": {"type": "string"}}, "properties": {"x": {"$ref": "https://example.com/root"}}}';
+		await testFindLinksFor(schema4, null);
+	});
+
+	test('FindDefinition anchor reference not found', async function () {
+		// $ref to a non-existing anchor
+		await testFindLinksFor('{"$defs": {"foo": {"$anchor": "other"}}, "properties": {"x": {"$ref": "#missing"}}}', null);
+	});
 });

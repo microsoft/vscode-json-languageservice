@@ -64,8 +64,8 @@ export interface JSONSchema {
 	$defs?: { [name: string]: JSONSchema };
 	$anchor?: string;
 	$recursiveRef?: string;
-	$recursiveAnchor?: string;
-	$vocabulary?: any;
+	$recursiveAnchor?: boolean;
+	$vocabulary?: { [uri: string]: boolean };
 
 	// schema 2020-12
 	prefixItems?: JSONSchemaRef[];
@@ -92,4 +92,17 @@ export interface JSONSchema {
 
 export interface JSONSchemaMap {
 	[name: string]: JSONSchemaRef;
+}
+
+/**
+ * Internal extension of {@link JSONSchema} used when one schema is merged into
+ * another (e.g. when resolving `$ref`). The `$originalId` field preserves the
+ * `$id`/`id` of the referenced schema so features like `$recursiveRef` can
+ * still identify schema resource roots after the merge.
+ *
+ * `$originalId` is set as a non-enumerable property to keep it out of
+ * `for..in` iteration and JSON serialization.
+ */
+export interface MergedJSONSchema extends JSONSchema {
+	$originalId?: string;
 }
