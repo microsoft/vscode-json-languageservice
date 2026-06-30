@@ -667,6 +667,45 @@ suite('JSON Completion', () => {
 		});
 	});
 
+	test('Complete property whose value schema uses oneOf', async function () {
+
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'enum': {
+					enum: ['a', 'b']
+				},
+				'object': {
+					type: 'object',
+					properties: {
+						'q': {
+							enum: ['c', 'd']
+						}
+					}
+				},
+				'oneOf': {
+					oneOf: [
+						{ enum: ['a', 'b'] },
+						{
+							type: 'object',
+							properties: {
+								'q': {
+									enum: ['c', 'd']
+								}
+							}
+						}
+					]
+				}
+			}
+		};
+		await testCompletionsFor('{ "on|" }', schema, {
+			count: 3,
+			items: [
+				{ label: 'oneOf', resultText: '{ "oneOf": $1 }' }
+			]
+		});
+	});
+
 	test('Complete with required anyOf', async function () {
 
 		const schema: JSONSchema = {

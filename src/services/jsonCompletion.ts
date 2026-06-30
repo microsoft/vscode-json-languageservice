@@ -875,77 +875,103 @@ export class JSONCompletion {
 		let value;
 		let nValueProposals = 0;
 		if (propertySchema) {
-			if (Array.isArray(propertySchema.defaultSnippets)) {
-				if (propertySchema.defaultSnippets.length === 1) {
-					const body = propertySchema.defaultSnippets[0].body;
-					if (isDefined(body)) {
-						value = this.getInsertTextForSnippetValue(body, '');
-					}
-				}
-				nValueProposals += propertySchema.defaultSnippets.length;
-			}
-			if (propertySchema.enum) {
-				if (!value && propertySchema.enum.length === 1) {
-					value = this.getInsertTextForGuessedValue(propertySchema.enum[0], '');
-				}
-				nValueProposals += propertySchema.enum.length;
-			}
-			if (isDefined(propertySchema.const)) {
-				if (!value) {
-					value = this.getInsertTextForGuessedValue(propertySchema.const, '');
-				}
-				nValueProposals++;
-			}
-			if (isDefined(propertySchema.default)) {
-				if (!value) {
-					value = this.getInsertTextForGuessedValue(propertySchema.default, '');
-				}
-				nValueProposals++;
-			}
-			if (Array.isArray(propertySchema.examples) && propertySchema.examples.length) {
-				if (!value) {
-					value = this.getInsertTextForGuessedValue(propertySchema.examples[0], '');
-				}
-				nValueProposals += propertySchema.examples.length;
-			}
-			if (nValueProposals === 0) {
-				let type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
-				if (!type) {
-					if (propertySchema.properties) {
-						type = 'object';
-					} else if (propertySchema.items) {
-						type = 'array';
-					}
-				}
-				switch (type) {
-					case 'boolean':
-						value = '$1';
-						break;
-					case 'string':
-						value = '"$1"';
-						break;
-					case 'object':
-						value = '{$1}';
-						break;
-					case 'array':
-						value = '[$1]';
-						break;
-					case 'number':
-					case 'integer':
-						value = '${1:0}';
-						break;
-					case 'null':
-						value = '${1:null}';
-						break;
-					default:
-						return propertyText;
-				}
+			const propertyValue = this.getInsertTextForPropertyValue(propertySchema);
+			value = propertyValue.value;
+			nValueProposals = propertyValue.nValueProposals;
+			if (!value && nValueProposals === 0) {
+				return propertyText;
 			}
 		}
 		if (!value || nValueProposals > 1) {
 			value = '$1';
 		}
 		return resultText + value + separatorAfter;
+	}
+
+	private getInsertTextForPropertyValue(propertySchema: JSONSchema): { value: string | undefined; nValueProposals: number } {
+		let value: string | undefined;
+		let nValueProposals = 0;
+
+		if (Array.isArray(propertySchema.defaultSnippets)) {
+			if (propertySchema.defaultSnippets.length === 1) {
+				const body = propertySchema.defaultSnippets[0].body;
+				if (isDefined(body)) {
+					value = this.getInsertTextForSnippetValue(body, '');
+				}
+			}
+			nValueProposals += propertySchema.defaultSnippets.length;
+		}
+		if (propertySchema.enum) {
+			if (!value && propertySchema.enum.length === 1) {
+				value = this.getInsertTextForGuessedValue(propertySchema.enum[0], '');
+			}
+			nValueProposals += propertySchema.enum.length;
+		}
+		if (isDefined(propertySchema.const)) {
+			if (!value) {
+				value = this.getInsertTextForGuessedValue(propertySchema.const, '');
+			}
+			nValueProposals++;
+		}
+		if (isDefined(propertySchema.default)) {
+			if (!value) {
+				value = this.getInsertTextForGuessedValue(propertySchema.default, '');
+			}
+			nValueProposals++;
+		}
+		if (Array.isArray(propertySchema.examples) && propertySchema.examples.length) {
+			if (!value) {
+				value = this.getInsertTextForGuessedValue(propertySchema.examples[0], '');
+			}
+			nValueProposals += propertySchema.examples.length;
+		}
+		if (nValueProposals === 0) {
+			value = this.getInsertTextForSchemaType(propertySchema);
+		}
+		if (!value) {
+			const combinedSchemas = [propertySchema.allOf, propertySchema.anyOf, propertySchema.oneOf];
+			for (const schemaRefs of combinedSchemas) {
+				if (Array.isArray(schemaRefs)) {
+					for (const schemaRef of schemaRefs) {
+						if (typeof schemaRef === 'object') {
+							const propertyValue = this.getInsertTextForPropertyValue(schemaRef);
+							if (!value && propertyValue.value) {
+								value = propertyValue.value;
+							}
+							nValueProposals += propertyValue.nValueProposals;
+						}
+					}
+				}
+			}
+		}
+		return { value, nValueProposals };
+	}
+
+	private getInsertTextForSchemaType(propertySchema: JSONSchema): string | undefined {
+		let type = Array.isArray(propertySchema.type) ? propertySchema.type[0] : propertySchema.type;
+		if (!type) {
+			if (propertySchema.properties) {
+				type = 'object';
+			} else if (propertySchema.items) {
+				type = 'array';
+			}
+		}
+		switch (type) {
+			case 'boolean':
+				return '$1';
+			case 'string':
+				return '"$1"';
+			case 'object':
+				return '{$1}';
+			case 'array':
+				return '[$1]';
+			case 'number':
+			case 'integer':
+				return '${1:0}';
+			case 'null':
+				return '${1:null}';
+		}
+		return undefined;
 	}
 
 	private getCurrentWord(document: TextDocument, offset: number) {
