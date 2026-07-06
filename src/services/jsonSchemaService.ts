@@ -458,7 +458,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		let usesUnsupportedFeatures = new Set();
 
 		const contextService = this.contextService;
-		const hasSchemeRegex = /^[A-Za-z][A-Za-z0-9+\-.]*:\/.*/;
+		const hasSchemeRegex = /^\w[\w\d+.-]*:/;
 		const mergeableSchemaMapKeys = new Set(['properties', 'patternProperties', 'definitions', '$defs', 'dependencies', 'dependentSchemas']);
 		const getSchemaId = (node: JSONSchema) => node.$id || node.id;
 
@@ -656,9 +656,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 					const segments = ref.split('#', 2);
 					delete next.$ref;
 					if (segments[0].length > 0) {
-						// `nextResource.schema === next` means this node introduced a new non-fragment
-						// `$id` resource boundary, so sibling external refs still resolve against the
-						// parent resource URI rather than the newly declared resource URI.
+						// If this node declares its own non-fragment `$id`, sibling external `$ref`
+						// values on the same node still resolve against the parent resource URI.
+						// The new resource URI only becomes the base when traversing into children.
 						const refBaseUri = nextResource.schema === next ? currentResource.handle.uri : nextResource.handle.uri;
 						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentHandle, parentSchemaResources, refBaseUri));
 						return;
