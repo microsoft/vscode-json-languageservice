@@ -2017,6 +2017,32 @@ suite('JSON Schema', () => {
 		assert.deepStrictEqual([httpsUrl], accesses);
 	});
 
+	test('custom metaschema is not fetched while resolving a schema', async function () {
+		const schemaUrl = 'https://myschemastore/schema.json';
+		const metaSchemaUrl = 'https://myschemastore/meta-schema.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaUrl]: {
+				$schema: metaSchemaUrl,
+				type: 'object',
+				properties: {
+					bar: {
+						type: 'string'
+					}
+				}
+			},
+			[metaSchemaUrl]: {
+				type: 'object'
+			}
+		};
+		const accesses: string[] = [];
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(schemas, accesses), workspaceContext);
+		const handle = service.registerExternalSchema({ uri: schemaUrl });
+
+		const resolved = await handle.getResolvedSchema();
+		assert.deepStrictEqual(resolved.errors, []);
+		assert.deepStrictEqual([schemaUrl], accesses);
+	});
+
 	test('combined schemas and URIs without host', async function () {
 		const schemas: SchemaConfiguration[] = [{
 			uri: 'myproto:///schema.json',
