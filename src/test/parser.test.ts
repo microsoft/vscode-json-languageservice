@@ -2219,6 +2219,11 @@ suite('JSON Parser', () => {
 			const semanticErrors = validate2(jsonDoc, textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
 		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"a":true}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
 		schema = {
 			"type": "object",
 
@@ -2297,6 +2302,11 @@ suite('JSON Parser', () => {
 		{
 			const { textDoc, jsonDoc } = toDocument('{"a":true, "b": "string"}');
 			const semanticErrors = validate2(jsonDoc, textDoc, schema);
+			assert.strictEqual(semanticErrors!.length, 1);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{"a":true, "b": "string"}');
+			const semanticErrors = jsonDoc.validate(textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
 		}
 		schema = {
