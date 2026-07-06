@@ -458,7 +458,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		let usesUnsupportedFeatures = new Set();
 
 		const contextService = this.contextService;
-		const hasSchemeRegex = /^\w[\w\d+.-]*:/;
+		const schemePattern = /^\w[\w\d+.-]*:/;
 		const mergeableSchemaMapKeys = new Set(['properties', 'patternProperties', 'definitions', '$defs', 'dependencies', 'dependentSchemas']);
 		const getSchemaId = (node: JSONSchema) => node.$id || node.id;
 
@@ -537,12 +537,14 @@ export class JSONSchemaService implements IJSONSchemaService {
 		};
 
 		const resolveSchemaUri = (id: string, baseUri: string): string => {
-			if (contextService && !hasSchemeRegex.test(id)) {
+			if (contextService && !schemePattern.test(id)) {
 				return normalizeId(contextService.resolveRelativePath(id, baseUri));
 			}
 			return normalizeId(id);
 		};
 
+		// Tracks a schema resource root together with the handle used to resolve
+		// local anchors and relative refs within that resource boundary.
 		type SchemaResource = { schema: JSONSchema; handle: SchemaHandle };
 		const createSchemaResources = (root: JSONSchema, rootHandle: SchemaHandle): Map<string, SchemaResource> => {
 			const resources = new Map<string, SchemaResource>();
