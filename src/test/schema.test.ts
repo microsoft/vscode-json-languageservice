@@ -2017,7 +2017,7 @@ suite('JSON Schema', () => {
 		assert.deepStrictEqual([httpsUrl], accesses);
 	});
 
-	test('custom metaschema is not fetched while resolving a schema', async function () {
+	test('custom meta-schema is not fetched while resolving a schema', async function () {
 		const schemaUrl = 'https://myschemastore/schema.json';
 		const metaSchemaUrl = 'https://myschemastore/meta-schema.json';
 		const schemas: { [uri: string]: JSONSchema } = {
