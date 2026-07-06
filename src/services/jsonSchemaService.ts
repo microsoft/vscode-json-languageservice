@@ -656,6 +656,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 					const segments = ref.split('#', 2);
 					delete next.$ref;
 					if (segments[0].length > 0) {
+						// `nextResource.schema === next` means this node introduced a new non-fragment
+						// `$id` resource boundary, so sibling external refs still resolve against the
+						// parent resource URI rather than the newly declared resource URI.
 						const refBaseUri = nextResource.schema === next ? currentResource.handle.uri : nextResource.handle.uri;
 						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentHandle, parentSchemaResources, refBaseUri));
 						return;
