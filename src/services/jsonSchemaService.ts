@@ -458,6 +458,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 		let usesUnsupportedFeatures = new Set();
 
 		const contextService = this.contextService;
+		const hasSchemeRegex = /^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/;
+		const getSchemaId = (node: JSONSchema) => node.$id || node.id;
 
 		const findSectionByJSONPointer = (schema: JSONSchema, path: string): any => {
 			path = decodeURIComponent(path);
@@ -471,6 +473,104 @@ export class JSONSchemaService implements IJSONSchemaService {
 				return !current;
 			});
 			return current;
+		};
+
+		const traverseSchemaProperties = (node: JSONSchema, handle: (child: JSONSchema) => void): void => {
+			const collectEntry = (entry: JSONSchemaRef | undefined) => {
+				if (isObject(entry)) {
+					handle(entry);
+				}
+			};
+			const collectMapEntries = (map: JSONSchemaMap | undefined) => {
+				if (isObject(map)) {
+					for (const key in map) {
+						const entry = map[key as keyof JSONSchemaMap];
+						if (isObject(entry)) {
+							handle(entry);
+						}
+					}
+				}
+			};
+			const collectArrayEntries = (array: JSONSchemaRef[] | undefined) => {
+				if (Array.isArray(array)) {
+					for (const entry of array) {
+						if (isObject(entry)) {
+							handle(entry);
+						}
+					}
+				}
+			};
+			const collectEntryOrArrayEntries = (items: JSONSchemaRef[] | JSONSchemaRef | undefined) => {
+				if (Array.isArray(items)) {
+					for (const entry of items) {
+						if (isObject(entry)) {
+							handle(entry);
+						}
+					}
+				} else if (isObject(items)) {
+					handle(items);
+				}
+			};
+
+			collectEntry(node.additionalItems);
+			collectEntry(node.additionalProperties);
+			collectEntry(node.not);
+			collectEntry(node.contains);
+			collectEntry(node.propertyNames);
+			collectEntry(node.if);
+			collectEntry(node.then);
+			collectEntry(node.else);
+			collectEntry(node.unevaluatedItems);
+			collectEntry(node.unevaluatedProperties);
+			collectMapEntries(node.definitions);
+			collectMapEntries(node.$defs);
+			collectMapEntries(node.properties);
+			collectMapEntries(node.patternProperties);
+			collectMapEntries(<JSONSchemaMap>node.dependencies);
+			collectMapEntries(node.dependentSchemas);
+			collectArrayEntries(node.anyOf);
+			collectArrayEntries(node.allOf);
+			collectArrayEntries(node.oneOf);
+			collectArrayEntries(node.prefixItems);
+			collectEntryOrArrayEntries(node.items);
+		};
+
+		const resolveSchemaUri = (id: string, baseUri: string): string => {
+			if (contextService && !hasSchemeRegex.test(id)) {
+				return normalizeId(contextService.resolveRelativePath(id, baseUri));
+			}
+			return normalizeId(id);
+		};
+
+		type SchemaResource = { schema: JSONSchema; handle: SchemaHandle };
+		const createSchemaResources = (root: JSONSchema, rootHandle: SchemaHandle): Map<string, SchemaResource> => {
+			const resources = new Map<string, SchemaResource>();
+			const seen = new Set<JSONSchema>();
+			resources.set(rootHandle.uri, { schema: root, handle: rootHandle });
+
+			const visit = (node: JSONSchema, currentBaseUri: string, isRoot: boolean): void => {
+				if (!node || typeof node !== 'object' || seen.has(node)) {
+					return;
+				}
+				seen.add(node);
+
+				let newBaseUri = currentBaseUri;
+				const id = getSchemaId(node);
+				if (!isRoot && isString(id) && id.charAt(0) !== '#') {
+					const resolvedUri = resolveSchemaUri(id, currentBaseUri);
+					if (!resources.has(resolvedUri)) {
+						resources.set(resolvedUri, { schema: node, handle: new SchemaHandle(this, resolvedUri, node) });
+					}
+					newBaseUri = resolvedUri;
+				}
+
+				traverseSchemaProperties(node, childSchema => {
+					visit(childSchema, newBaseUri, false);
+				});
+			};
+
+			visit(root, rootHandle.uri, true);
+			return resources;
 		};
 
 		const findSchemaById = (schema: JSONSchema, handle: SchemaHandle, id: string) => {
@@ -507,11 +607,13 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		};
 
-		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle): PromiseLike<any> => {
-			if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.test(uri)) {
-				uri = contextService.resolveRelativePath(uri, parentHandle.uri);
+		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle, parentSchemaResources: Map<string, SchemaResource>, baseUri: string): PromiseLike<any> => {
+			uri = resolveSchemaUri(uri, baseUri);
+			const localResource = parentSchemaResources.get(uri);
+			if (localResource) {
+				mergeRef(node, localResource.schema, localResource.handle, refSegment);
+				return resolveRefs(node, localResource.schema, localResource.handle, parentSchemaResources);
 			}
-			uri = normalizeId(uri);
 			const referencedHandle = this.getOrAddSchemaHandle(uri);
 			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
 				parentHandle.dependencies.add(uri);
@@ -522,30 +624,39 @@ export class JSONSchemaService implements IJSONSchemaService {
 					resolveErrors.push(toDiagnostic(errorMessage, error.code, uri));
 				}
 				mergeRef(node, unresolvedSchema.schema, referencedHandle, refSegment);
-				return resolveRefs(node, unresolvedSchema.schema, referencedHandle);
+				return resolveRefs(node, unresolvedSchema.schema, referencedHandle, createSchemaResources(unresolvedSchema.schema, referencedHandle));
 			});
 		};
 
-		const resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentHandle: SchemaHandle): PromiseLike<any> => {
+		const resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentHandle: SchemaHandle, parentSchemaResources: Map<string, SchemaResource>): PromiseLike<any> => {
 			const openPromises: PromiseLike<any>[] = [];
 
-			this.traverseNodes(node, next => {
+			const traverseWithBaseTracking = (next: JSONSchema, currentResource: SchemaResource, isRoot: boolean, seen: Set<JSONSchema>) => {
+				if (!next || typeof next !== 'object' || seen.has(next)) {
+					return;
+				}
+				seen.add(next);
+
+				let nextResource = currentResource;
+				const id = getSchemaId(next);
+				if (!isRoot && isString(id) && id.charAt(0) !== '#') {
+					nextResource = parentSchemaResources.get(resolveSchemaUri(id, currentResource.handle.uri)) ?? currentResource;
+				}
+
 				const seenRefs = new Set<string>();
 				while (next.$ref) {
 					const ref = next.$ref;
 					const segments = ref.split('#', 2);
 					delete next.$ref;
 					if (segments[0].length > 0) {
-						// This is a reference to an external schema
-						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentHandle));
+						const refBaseUri = nextResource.schema === next ? currentResource.handle.uri : nextResource.handle.uri;
+						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentHandle, parentSchemaResources, refBaseUri));
 						return;
-					} else {
-						// This is a reference inside the current schema
-						if (!seenRefs.has(ref)) {
-							const id = segments[1];
-							mergeRef(next, parentSchema, parentHandle, id);
-							seenRefs.add(ref);
-						}
+					}
+					if (!seenRefs.has(ref)) {
+						const refId = segments[1];
+						mergeRef(next, nextResource.schema, nextResource.handle, refId);
+						seenRefs.add(ref);
 					}
 				}
 				if (next.$recursiveRef) {
@@ -554,15 +665,28 @@ export class JSONSchemaService implements IJSONSchemaService {
 				if (next.$dynamicRef) {
 					usesUnsupportedFeatures.add('$dynamicRef');
 				}
-			});
+				traverseSchemaProperties(next, childSchema => {
+					traverseWithBaseTracking(childSchema, nextResource, false, seen);
+				});
+			};
+
+			traverseWithBaseTracking(node, parentSchemaResources.get(parentHandle.uri) ?? { schema: parentSchema, handle: parentHandle }, true, new Set<JSONSchema>());
 
 			return this.promise.all(openPromises);
 		};
 
 		const collectAnchors = (root: JSONSchema): Map<string, JSONSchema> => {
 			const result = new Map<string, JSONSchema>();
-			this.traverseNodes(root, next => {
-				const id = next.$id || next.id;
+			const seen = new Set<JSONSchema>();
+			const visit = (next: JSONSchema, isRoot: boolean) => {
+				if (!next || typeof next !== 'object' || seen.has(next)) {
+					return;
+				}
+				seen.add(next);
+				const id = getSchemaId(next);
+				if (!isRoot && isString(id) && id.charAt(0) !== '#') {
+					return;
+				}
 				const anchor = isString(id) && id.charAt(0) === '#' ? id.substring(1) : next.$anchor;
 				if (anchor) {
 					if (result.has(anchor)) {
@@ -577,10 +701,14 @@ export class JSONSchemaService implements IJSONSchemaService {
 				if (next.$dynamicAnchor) {
 					usesUnsupportedFeatures.add('$dynamicAnchor');
 				}
-			});
+				traverseSchemaProperties(next, childSchema => {
+					visit(childSchema, false);
+				});
+			};
+			visit(root, true);
 			return result;
 		};
-		return resolveRefs(schema, schema, handle).then(_ => {
+		return resolveRefs(schema, schema, handle, createSchemaResources(schema, handle)).then(_ => {
 			let resolveWarnings: SchemaDiagnostic[] = [];
 			if (usesUnsupportedFeatures.size) {
 				resolveWarnings.push(toDiagnostic(l10n.t('The schema uses meta-schema features ({0}) that are not yet supported by the validator.', Array.from(usesUnsupportedFeatures.keys()).join(', ')), ErrorCode.SchemaUnsupportedFeature));

@@ -438,6 +438,86 @@ suite('JSON Schema', () => {
 		});
 	});
 
+	test('Resolving embedded $id resources does not overwrite external schemas', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		const externalId = 'https://example.com/schemas/address.json';
+		const rootId = 'https://example.com/schemas/root.json';
+
+		service.registerExternalSchema({
+			uri: externalId,
+			schema: {
+				type: 'string',
+				const: 'external'
+			}
+		});
+
+		service.registerExternalSchema({
+			uri: rootId,
+			schema: {
+				id: rootId,
+				type: 'object',
+				properties: {
+					address: {
+						$ref: 'address.json'
+					}
+				},
+				$defs: {
+					address: {
+						$id: 'address.json',
+						type: 'string',
+						const: 'embedded'
+					}
+				}
+			}
+		});
+
+		const resolvedRoot = await service.getResolvedSchema(rootId);
+		assert.deepStrictEqual(resolvedRoot?.schema.properties?.address, {
+			type: 'string',
+			const: 'embedded'
+		});
+
+		const resolvedExternal = await service.getResolvedSchema(externalId);
+		assert.deepStrictEqual(resolvedExternal?.schema, {
+			type: 'string',
+			const: 'external'
+		});
+	});
+
+	test('Resolving embedded $id resources does not register shared schema handles', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		const rootId = 'https://example.com/schemas/root.json';
+		const embeddedId = 'https://example.com/schemas/address.json';
+
+		service.registerExternalSchema({
+			uri: rootId,
+			schema: {
+				id: rootId,
+				type: 'object',
+				properties: {
+					address: {
+						$ref: 'address.json'
+					}
+				},
+				$defs: {
+					address: {
+						$id: 'address.json',
+						type: 'string',
+						const: 'embedded'
+					}
+				}
+			}
+		});
+
+		const resolvedRoot = await service.getResolvedSchema(rootId);
+		assert.deepStrictEqual(resolvedRoot?.schema.properties?.address, {
+			type: 'string',
+			const: 'embedded'
+		});
+		assert.deepStrictEqual(service.getRegisteredSchemaIds().sort(), [rootId].sort());
+		assert.strictEqual(await service.getResolvedSchema(embeddedId), undefined);
+	});
+
 
 	test('Resolving external $ref two levels', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
