@@ -49,6 +49,10 @@ suite('JSON Parser', () => {
 		return jsonDoc.validate(textDoc, schema, undefined, draft);
 	}
 
+	function validateWithInferredDraft(jsonDoc: JSONDocument, textDoc: TextDocument, schema: JSONSchema) {
+		return jsonDoc.validate(textDoc, schema);
+	}
+
 	function assertObject(node: ASTNode, expectedProperties: string[]) {
 		assert.equal(node.type, 'object');
 		assert.equal((<ObjectASTNode>node).properties.length, expectedProperties.length);
@@ -2221,7 +2225,7 @@ suite('JSON Parser', () => {
 		}
 		{
 			const { textDoc, jsonDoc } = toDocument('{"a":true}');
-			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			const semanticErrors = validateWithInferredDraft(jsonDoc, textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
 		}
 		schema = {
@@ -2306,7 +2310,7 @@ suite('JSON Parser', () => {
 		}
 		{
 			const { textDoc, jsonDoc } = toDocument('{"a":true, "b": "string"}');
-			const semanticErrors = jsonDoc.validate(textDoc, schema);
+			const semanticErrors = validateWithInferredDraft(jsonDoc, textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
 		}
 		schema = {
