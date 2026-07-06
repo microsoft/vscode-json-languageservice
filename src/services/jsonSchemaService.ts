@@ -458,7 +458,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 		let usesUnsupportedFeatures = new Set();
 
 		const contextService = this.contextService;
-		const hasSchemeRegex = /^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/;
+		const hasSchemeRegex = /^[A-Za-z][A-Za-z0-9+\-.]*:\/.*/;
+		const mergeableSchemaMapKeys = new Set(['properties', 'patternProperties', 'definitions', '$defs', 'dependencies', 'dependentSchemas']);
 		const getSchemaId = (node: JSONSchema) => node.$id || node.id;
 
 		const findSectionByJSONPointer = (schema: JSONSchema, path: string): any => {
@@ -585,7 +586,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				if (section.hasOwnProperty(key) && key !== 'id' && key !== '$id') {
 					const targetValue = (<any>target)[key];
 					const sourceValue = section[key];
-					if (isObject(targetValue) && isObject(sourceValue) && (key === 'properties' || key === 'patternProperties' || key === 'definitions' || key === '$defs' || key === 'dependencies' || key === 'dependentSchemas')) {
+					if (isObject(targetValue) && isObject(sourceValue) && mergeableSchemaMapKeys.has(key)) {
 						(<any>target)[key] = { ...targetValue, ...sourceValue };
 					} else {
 						(<any>target)[key] = sourceValue;
