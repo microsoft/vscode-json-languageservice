@@ -583,7 +583,13 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const merge = (target: JSONSchema, section: any): void => {
 			for (const key in section) {
 				if (section.hasOwnProperty(key) && key !== 'id' && key !== '$id') {
-					(<any>target)[key] = section[key];
+					const targetValue = (<any>target)[key];
+					const sourceValue = section[key];
+					if (isObject(targetValue) && isObject(sourceValue) && (key === 'properties' || key === 'patternProperties' || key === 'definitions' || key === '$defs' || key === 'dependencies' || key === 'dependentSchemas')) {
+						(<any>target)[key] = { ...targetValue, ...sourceValue };
+					} else {
+						(<any>target)[key] = sourceValue;
+					}
 				}
 			}
 		};
