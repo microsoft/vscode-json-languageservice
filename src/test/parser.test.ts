@@ -49,6 +49,20 @@ suite('JSON Parser', () => {
 		return jsonDoc.validate(textDoc, schema, undefined, draft);
 	}
 
+	function getMessageText(message: unknown): string {
+		if (typeof message === 'string') {
+			return message;
+		}
+		if (message && typeof message === 'object' && 'value' in message && typeof (message as { value: unknown }).value === 'string') {
+			return (message as { value: string }).value;
+		}
+		return String(message);
+	}
+
+	function assertInMessage(message: unknown, expected: string, assertionMessage?: string): void {
+		assert.ok(getMessageText(message).includes(expected), assertionMessage);
+	}
+
 	function assertObject(node: ASTNode, expectedProperties: string[]) {
 		assert.equal(node.type, 'object');
 		assert.equal((<ObjectASTNode>node).properties.length, expectedProperties.length);
@@ -3057,7 +3071,7 @@ suite('JSON Parser', () => {
 			const { textDoc, jsonDoc } = toDocument('{"type": "a"}');
 			const semanticErrors = validate2(jsonDoc, textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
-			assert.ok(semanticErrors![0].message.includes('multiple schemas'));
+			assertInMessage(semanticErrors![0].message, 'multiple schemas');
 		}
 	});
 
@@ -3140,7 +3154,7 @@ suite('JSON Parser', () => {
 			// With optimization, only the "cat" schema is tested
 			// The second item should be a string, but is a number
 			assert.strictEqual(semanticErrors!.length, 1);
-			assert.ok(semanticErrors![0].message.includes('string'));
+			assertInMessage(semanticErrors![0].message, 'string');
 		}
 
 		// Invalid: unknown discriminator
@@ -3235,7 +3249,7 @@ suite('JSON Parser', () => {
 			const { textDoc, jsonDoc } = toDocument('["a"]');
 			const semanticErrors = validate2(jsonDoc, textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
-			assert.ok(semanticErrors![0].message.includes('multiple schemas'));
+			assertInMessage(semanticErrors![0].message, 'multiple schemas');
 		}
 	});
 
@@ -3358,7 +3372,7 @@ suite('JSON Parser', () => {
 			const { textDoc, jsonDoc } = toDocument('{"type": "person", "name": "Joe", "age": 25}');
 			const semanticErrors = validate2(jsonDoc, textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
-			assert.ok(semanticErrors![0].message.includes('minimum length'));
+			assertInMessage(semanticErrors![0].message, 'minimum length');
 		}
 
 		// Discriminator matches 'person' but validation fails (age too low)
@@ -3366,7 +3380,7 @@ suite('JSON Parser', () => {
 			const { textDoc, jsonDoc } = toDocument('{"type": "person", "name": "Alice", "age": 15}');
 			const semanticErrors = validate2(jsonDoc, textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
-			assert.ok(semanticErrors![0].message.includes('minimum'));
+			assertInMessage(semanticErrors![0].message, 'minimum');
 		}
 
 		// Discriminator matches 'person' but required property missing
@@ -3374,7 +3388,7 @@ suite('JSON Parser', () => {
 			const { textDoc, jsonDoc } = toDocument('{"type": "person", "name": "Alice"}');
 			const semanticErrors = validate2(jsonDoc, textDoc, schema);
 			assert.strictEqual(semanticErrors!.length, 1);
-			assert.ok(semanticErrors![0].message.includes('Missing property'));
+			assertInMessage(semanticErrors![0].message, 'Missing property');
 		}
 
 		// Valid person
@@ -3478,7 +3492,7 @@ suite('JSON Parser', () => {
 			// With optimization, typeA schema is correctly selected
 			// The third element should be a string but is boolean
 			assert.strictEqual(semanticErrors!.length, 1);
-			assert.ok(semanticErrors![0].message.includes('string'));
+			assertInMessage(semanticErrors![0].message, 'string');
 		}
 	});
 
@@ -3672,7 +3686,7 @@ suite('JSON Parser', () => {
 			const { textDoc, jsonDoc } = toDocument('{"name": "root", "children": [{"children": []}]}');
 			const semanticErrors = validate2(jsonDoc, textDoc, schema, SchemaDraft.v2019_09);
 			assert.strictEqual(semanticErrors!.length, 1);
-			assert.ok(semanticErrors![0].message.includes('name'));
+			assertInMessage(semanticErrors![0].message, 'name');
 		}
 
 		// Invalid - wrong type for name
