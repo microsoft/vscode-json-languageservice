@@ -198,22 +198,5 @@ function initializeTests() {
 
 	});
 }
-const skippedTests = new Set([
-	"draft2020-12/dynamicRef.json/A $dynamicRef to a $dynamicAnchor in the same schema resource should behave like a normal $ref to an $anchor/An array of strings is valid",
-	"draft2020-12/dynamicRef.json/A $dynamicRef to an $anchor in the same schema resource should behave like a normal $ref to an $anchor/An array of strings is valid",
-	"draft2020-12/dynamicRef.json/A $ref to a $dynamicAnchor in the same schema resource should behave like a normal $ref to an $anchor/An array of strings is valid",
-	"draft2020-12/dynamicRef.json/A $dynamicRef should resolve to the first $dynamicAnchor still in scope that is encountered when the schema is evaluated/An array of strings is valid",
-	"draft2020-12/dynamicRef.json/A $dynamicRef with intermediate scopes that don't include a matching $dynamicAnchor should not affect dynamic scope resolution/An array of strings is valid",
-	"draft2020-12/dynamicRef.json/An $anchor with the same name as a $dynamicAnchor should not be used for dynamic scope resolution/Any array is valid",
-	"draft2020-12/dynamicRef.json/A $dynamicRef without a matching $dynamicAnchor in the same schema resource should behave like a normal $ref to $anchor/Any array is valid",
-	"draft2020-12/dynamicRef.json/A $dynamicRef with a non-matching $dynamicAnchor in the same schema resource should behave like a normal $ref to $anchor/Any array is valid",
-	"draft2020-12/dynamicRef.json/A $dynamicRef that initially resolves to a schema with a matching $dynamicAnchor should resolve to the first $dynamicAnchor in the dynamic scope/The recursive part is valid against the root",
-	"draft2020-12/dynamicRef.json/A $dynamicRef that initially resolves to a schema without a matching $dynamicAnchor should behave like a normal $ref to $anchor/The recursive part doesn't need to validate against the root",
-	"draft2020-12/dynamicRef.json/multiple dynamic paths to the $dynamicRef keyword/recurse to anyLeafNode - floats are allowed",
-	"draft2020-12/dynamicRef.json/after leaving a dynamic scope, it should not be used by a $dynamicRef//then/$defs/thingy is the final stop for the $dynamicRef",
-	"draft2020-12/dynamicRef.json/strict-tree schema, guards against misspelled properties/instance with correct field",
-	"draft2020-12/dynamicRef.json/tests for implementation dynamic anchor and reference link/correct extended schema",
-	"draft2020-12/dynamicRef.json/Tests for implementation dynamic anchor and reference link. Reference should be independent of any possible ordering./correct extended schema",
-	"draft2020-12/dynamicRef.json/Tests for implementation dynamic anchor and reference link. Reference should be independent of any possible ordering./correct extended schema",
-]);
+const skippedTests = new Set<string>([]);
 initializeTests();

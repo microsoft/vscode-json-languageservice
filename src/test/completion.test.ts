@@ -255,6 +255,32 @@ suite('JSON Completion', () => {
 
 	});
 
+	test('Complete properties through $dynamicRef (2020-12)', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: {
+				node: { $dynamicRef: '#node' }
+			},
+			$defs: {
+				node: {
+					$dynamicAnchor: 'node',
+					type: 'object',
+					properties: {
+						foo: { type: 'string' },
+						bar: { type: 'number' }
+					}
+				}
+			}
+		};
+		await testCompletionsFor('{ "node": { | } }', schema, {
+			items: [
+				{ label: 'foo' },
+				{ label: 'bar' }
+			]
+		});
+	});
+
 	test('Complete JS inherited property with schema', async function () {
 		const schema: JSONSchema = {
 			type: 'object',

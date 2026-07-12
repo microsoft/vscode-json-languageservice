@@ -107,6 +107,22 @@ suite('JSON Hover', () => {
 		});
 	});
 
+	test('Hover resolves through $dynamicRef (2020-12)', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: {
+				node: { $dynamicRef: '#node' }
+			},
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'string', description: 'Resolved through dynamicRef' }
+			}
+		};
+		// Hover over the value governed by the $dynamicRef.
+		const result = await testComputeInfo('{ "node": "value" }', schema, { line: 0, character: 12 });
+		assert.deepEqual(result.contents, ['Resolved through dynamicRef']);
+	});
+
 	test('Enum description', async function () {
 		const schema: JSONSchema = {
 			type: 'object',

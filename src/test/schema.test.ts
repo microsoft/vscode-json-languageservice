@@ -2411,7 +2411,7 @@ suite('JSON Schema', () => {
 		assert.strictEqual(validation.length, 0);
 	});
 
-	test('schema with $dynamicAnchor shows unsupported feature warning', async function () {
+	test('schema with $dynamicAnchor is supported', async function () {
 		const schema: JSONSchema = {
 			$schema: 'https://json-schema.org/draft/2020-12/schema',
 			$dynamicAnchor: 'items',
@@ -2423,55 +2423,429 @@ suite('JSON Schema', () => {
 		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ name: 'test' }));
 		const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
 
-		assert.strictEqual(validation.length, 1);
-		assertInMessage(validation[0].message, '$dynamicAnchor');
-		assertInMessage(validation[0].message, 'not yet supported');
-		assert.strictEqual(validation[0].severity, DiagnosticSeverity.Warning);
-		assert.strictEqual(validation[0].code, ErrorCode.SchemaUnsupportedFeature);
+		assert.strictEqual(validation.length, 0);
 	});
 
-	test('schema with $dynamicRef shows unsupported feature warning', async function () {
+	test('schema with $dynamicRef is supported', async function () {
 		const schema: JSONSchema = {
 			$schema: 'https://json-schema.org/draft/2020-12/schema',
-			$dynamicRef: '#items',
-			type: 'object'
+			type: 'array',
+			items: { $dynamicRef: '#node' },
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'string' }
+			}
 		};
 
 		const ls = getLanguageService({});
 
-		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ name: 'test' }));
-		const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
-
-		assert.strictEqual(validation.length, 1);
-		assertInMessage(validation[0].message, '$dynamicRef');
-		assertInMessage(validation[0].message, 'not yet supported');
-		assert.strictEqual(validation[0].severity, DiagnosticSeverity.Warning);
-		assert.strictEqual(validation[0].code, ErrorCode.SchemaUnsupportedFeature);
+		// Valid: every item resolves through $dynamicRef to the string schema
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a', 'b']));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(validation.length, 0);
+		}
+		// Invalid: a non-string item violates the resolved schema
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a', 1]));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(validation.length > 0);
+		}
 	});
 
-	test('schema with multiple unsupported features shows warning with all features', async function () {
+	test('schema with $dynamicRef and $dynamicAnchor together is supported', async function () {
 		const schema: JSONSchema = {
 			$schema: 'https://json-schema.org/draft/2020-12/schema',
 			$vocabulary: {
 				'https://json-schema.org/draft/2020-12/vocab/core': true
 			},
-			$dynamicAnchor: 'items',
-			$dynamicRef: '#items',
-			type: 'object'
+			type: 'array',
+			items: { $dynamicRef: '#node' },
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'string' }
+			}
 		};
 
 		const ls = getLanguageService({});
 
-		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ name: 'test' }));
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a', 'b']));
 		const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
 
-		assert.strictEqual(validation.length, 1);
-		assertInMessage(validation[0].message, '$dynamicRef');
-		assertInMessage(validation[0].message, '$dynamicAnchor');
-		assertNotInMessage(validation[0].message, '$vocabulary'); // $vocabulary is now supported
-		assertInMessage(validation[0].message, 'not yet supported');
-		assert.strictEqual(validation[0].severity, DiagnosticSeverity.Warning);
-		assert.strictEqual(validation[0].code, ErrorCode.SchemaUnsupportedFeature);
+		assert.strictEqual(validation.length, 0);
+	});
+
+	test('$dynamicRef applies alongside sibling keywords', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'array',
+			// maxLength is a sibling of $dynamicRef on the same node: per 2020-12 it
+			// must still be applied, not skipped just because $dynamicRef is present.
+			items: { $dynamicRef: '#node', maxLength: 2 },
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'string' }
+			}
+		};
+
+		const ls = getLanguageService({});
+
+		// Valid: every item is a string of length <= 2
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['ok', 'hi']));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(validation.length, 0);
+		}
+		// Invalid: 'toolong' resolves through $dynamicRef to the string schema, but
+		// violates the sibling maxLength keyword on the same node.
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['ok', 'toolong']));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(validation.length > 0, 'sibling maxLength alongside $dynamicRef should be enforced');
+		}
+	});
+
+	test('$dynamicRef is ignored as an unknown keyword before 2020-12', async function () {
+		// In draft-07 $dynamicRef is not a keyword; it must be ignored (left
+		// unresolved), not resolved like a reference (which previously produced a
+		// spurious "cannot be resolved" error).
+		const schema: JSONSchema = {
+			$schema: 'http://json-schema.org/draft-07/schema#',
+			type: 'object',
+			properties: {
+				list: { $dynamicRef: '#node' }
+			},
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'array' }
+			}
+		};
+
+		const ls = getLanguageService({});
+
+		// $dynamicRef ignored -> `list` is unconstrained -> a non-array value is valid.
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ list: 'not-an-array' }));
+		const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+
+		assert.strictEqual(validation.length, 0);
+	});
+
+	test('$dynamicAnchor on a sub-schema shared by reference is registered once', async function () {
+		// The same sub-schema object is reachable via two properties. The anchor
+		// collection passes must visit it only once (shared-node / cycle guard) and
+		// must not raise a spurious duplicate-anchor error.
+		const shared: JSONSchema = { $dynamicAnchor: 'shared', type: 'string' };
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: { a: shared, b: shared }
+		};
+
+		const ls = getLanguageService({});
+
+		// Valid: both properties resolve through the shared string schema.
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ a: 'x', b: 'y' }));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(validation.length, 0, 'shared sub-schema should validate without errors: ' + JSON.stringify(validation));
+		}
+		// Invalid: the shared schema still constrains each usage.
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ a: 1 }));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(validation.length > 0, 'shared sub-schema should still enforce its type');
+		}
+	});
+
+	test('duplicate $dynamicAnchor is reported as a schema resolution error', async function () {
+		// In 2020-12 a $dynamicAnchor also declares a plain-name anchor, so two
+		// different nodes claiming the same name in one resource is a conflict.
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				'https://myschemastore/dup': {
+					$id: 'https://myschemastore/dup',
+					$schema: 'https://json-schema.org/draft/2020-12/schema',
+					type: 'object',
+					properties: {
+						a: { $dynamicAnchor: 'dup', type: 'string' },
+						b: { $dynamicAnchor: 'dup', type: 'number' }
+					}
+				}
+			}
+		});
+
+		const resolved = await service.getResolvedSchema('https://myschemastore/dup');
+		assert.ok(resolved, 'expected a resolved schema');
+		assert.ok(
+			resolved!.errors.some(e => e.message.includes('Duplicate anchor declaration')),
+			'expected a duplicate-anchor error, got: ' + JSON.stringify(resolved!.errors)
+		);
+	});
+
+	test('$dynamicRef resolves dynamically across the dynamic scope (override)', async function () {
+		// A generic "extendible" resource whose array items resolve through a
+		// $dynamicRef that is bookended to a permissive default $dynamicAnchor.
+		const base: JSONSchema = {
+			$id: 'https://example.com/base',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: {
+				elements: { type: 'array', items: { $dynamicRef: '#elements' } }
+			},
+			required: ['elements'],
+			$defs: {
+				elements: { $dynamicAnchor: 'elements' }
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService({ 'https://example.com/base': base }), workspaceContext });
+
+		// Extending schema: brings a stricter $dynamicAnchor 'elements' into the
+		// dynamic scope, which must override the base default during evaluation.
+		const strict: JSONSchema = {
+			$id: 'https://example.com/strict',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$ref: 'https://example.com/base',
+			$defs: {
+				elements: {
+					$dynamicAnchor: 'elements',
+					type: 'object',
+					properties: { a: { type: 'integer' } },
+					required: ['a'],
+					additionalProperties: false
+				}
+			}
+		};
+
+		// Override active: each element must match the strict def.
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ elements: [{ a: 1 }] }));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, strict);
+			assert.strictEqual(v.length, 0, 'strict elements should be valid: ' + JSON.stringify(v));
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ elements: [{ b: 1 }] }));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, strict);
+			assert.ok(v.length > 0, 'override should reject an element missing "a"');
+		}
+		// Contrast: the base alone applies the permissive default (no override).
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ elements: [{ b: 1 }] }));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, base);
+			assert.strictEqual(v.length, 0, 'base default should permit any element: ' + JSON.stringify(v));
+		}
+	});
+
+	test('$dynamicRef override resolves across external documents', async function () {
+		// Like the override test above, but the extending resource that carries the
+		// stricter $dynamicAnchor lives in a *separate* document from the one being
+		// validated. The dynamic scope must reach into the external "strict" document
+		// so its $dynamicAnchor overrides the base default.
+		const base: JSONSchema = {
+			$id: 'https://example.com/x-base',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: {
+				elements: { type: 'array', items: { $dynamicRef: '#elements' } }
+			},
+			required: ['elements'],
+			$defs: {
+				elements: { $dynamicAnchor: 'elements' }
+			}
+		};
+		const strict: JSONSchema = {
+			$id: 'https://example.com/x-strict',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$ref: 'https://example.com/x-base',
+			$defs: {
+				elements: {
+					$dynamicAnchor: 'elements',
+					type: 'object',
+					properties: { a: { type: 'integer' } },
+					required: ['a'],
+					additionalProperties: false
+				}
+			}
+		};
+		const makeLs = () => getLanguageService({
+			schemaRequestService: newMockRequestService({
+				'https://example.com/x-base': base,
+				'https://example.com/x-strict': strict
+			}),
+			workspaceContext
+		});
+
+		// The validated document is neither base nor strict: it only references strict.
+		// A fresh service *and* a fresh consumer per case: the cross-document dynamic
+		// scope must be established by resolution alone, not leaked from a previous
+		// validation (in-place $ref resolution mutates the schema object it is given).
+		const makeConsumer = (): JSONSchema => ({
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$ref: 'https://example.com/x-strict'
+		});
+
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ elements: [{ a: 1 }] }));
+			const v = await makeLs().doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, makeConsumer());
+			assert.strictEqual(v.length, 0, 'strict element should be valid through external override: ' + JSON.stringify(v));
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ elements: [{ b: 1 }] }));
+			const v = await makeLs().doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, makeConsumer());
+			assert.ok(v.length > 0, 'external override should reject an element missing "a"');
+		}
+	});
+
+	test('$dynamicRef with a non-fragment URI starting point participates in the external dynamic scope', async function () {
+		// The $dynamicRef uses a non-fragment URI ("y-defs#T"): its starting point is
+		// resolved in another document, and the $dynamicAnchor that overrides it lives
+		// in a third document. Exercises both the external starting-point path and
+		// cross-document dynamic-scope resolution.
+		const defs: JSONSchema = {
+			$id: 'https://example.com/y-defs',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$defs: {
+				T: { $dynamicAnchor: 'T', type: 'number' }
+			}
+		};
+		const base: JSONSchema = {
+			$id: 'https://example.com/y-base',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			required: ['val'],
+			properties: {
+				val: { $dynamicRef: 'https://example.com/y-defs#T' }
+			}
+		};
+		const strict: JSONSchema = {
+			$id: 'https://example.com/y-strict',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$ref: 'https://example.com/y-base',
+			$defs: {
+				T: { $dynamicAnchor: 'T', type: 'integer' }
+			}
+		};
+		const makeLs = () => getLanguageService({
+			schemaRequestService: newMockRequestService({
+				'https://example.com/y-defs': defs,
+				'https://example.com/y-base': base,
+				'https://example.com/y-strict': strict
+			}),
+			workspaceContext
+		});
+		// A fresh service *and* a fresh consumer per case: the external override must be
+		// established by resolution, not leaked from a previous validation (in-place
+		// $ref resolution mutates the schema object it is given).
+		const makeConsumer = (): JSONSchema => ({
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$ref: 'https://example.com/y-strict'
+		});
+
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ val: 1 }));
+			const v = await makeLs().doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, makeConsumer());
+			assert.strictEqual(v.length, 0, 'integer should satisfy the external override: ' + JSON.stringify(v));
+		}
+		{
+			// 1.5 is a valid number (the base default) but not an integer (the override).
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ val: 1.5 }));
+			const v = await makeLs().doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, makeConsumer());
+			assert.ok(v.length > 0, 'external override (integer) should reject a non-integer number');
+		}
+	});
+
+	test('$dynamicRef to an $anchor (not a $dynamicAnchor) behaves like a plain $ref', async function () {
+		// #foo resolves to a plain $anchor, which is not "bookended" (its target is
+		// not a $dynamicAnchor of that name), so there is no dynamic-scope walk and
+		// it behaves like a normal $ref to the string schema.
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'array',
+			items: { $dynamicRef: '#foo' },
+			$defs: {
+				foo: { $anchor: 'foo', type: 'string' }
+			}
+		};
+		const ls = getLanguageService({});
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a', 'b']));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(v.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify([1]));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(v.length > 0, 'non-bookended $dynamicRef should still enforce the target schema');
+		}
+	});
+
+	test('$dynamicRef with a JSON-pointer fragment behaves like a plain $ref', async function () {
+		// A JSON-pointer fragment can never name a $dynamicAnchor, so it always
+		// resolves statically like $ref.
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'array',
+			items: { $dynamicRef: '#/$defs/node' },
+			$defs: {
+				node: { type: 'string' }
+			}
+		};
+		const ls = getLanguageService({});
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a']));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(v.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify([1]));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(v.length > 0);
+		}
+	});
+
+	test('$dynamicRef resolves through an external schema', async function () {
+		// The reference has a URI part, exercising external resolution of the
+		// initial target across documents.
+		const ext: JSONSchema = {
+			$id: 'https://example.com/ext',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'string' }
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService({ 'https://example.com/ext': ext }), workspaceContext });
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'array',
+			items: { $dynamicRef: 'https://example.com/ext#node' }
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a']));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(v.length, 0, 'external $dynamicRef should validate a string: ' + JSON.stringify(v));
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify([1]));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(v.length > 0, 'external $dynamicRef should reject a non-string');
+		}
+	});
+
+	test('$dynamicRef is ignored as an unknown keyword in draft 2019-09', async function () {
+		// 2019-09 uses $recursiveRef, not $dynamicRef, so $dynamicRef must be ignored
+		// (left unresolved), not resolved like a reference.
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2019-09/schema',
+			type: 'object',
+			properties: {
+				list: { $dynamicRef: '#node' }
+			},
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'array' }
+			}
+		};
+		const ls = getLanguageService({});
+
+		// $dynamicRef ignored -> `list` is unconstrained -> a non-array value is valid.
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ list: 'not-an-array' }));
+		const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+		assert.strictEqual(v.length, 0);
 	});
 
 	suite('Vocabulary Support (JSON Schema 2019-09+)', () => {

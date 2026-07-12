@@ -1,3 +1,8 @@
+6.0.0-next.2 / 2026-07-11
+================
+- Support $dynamicRef / $dynamicAnchor (JSON Schema 2020-12)
+- Support JSON Schema 2019-09
+
 6.0.0-next.1 / 2026-03-04
 ================
 * Breaking: the package is now ESM-only (`"type": "module"`) and exposes ESM entry points through `exports`.

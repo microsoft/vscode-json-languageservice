@@ -105,4 +105,66 @@ export interface JSONSchemaMap {
  */
 export interface MergedJSONSchema extends JSONSchema {
 	$originalId?: string;
+
+	/**
+	 * Non-enumerable metadata attached to a `$dynamicRef` node while resolving it.
+	 * Held off the enumerable keywords so it stays invisible to schema traversal,
+	 * merging and consumers, but available to the validator.
+	 */
+	$dynamicRefInfo?: DynamicRefInfo;
+
+	/**
+	 * Non-enumerable per-resource anchor maps, attached to resource-root schemas
+	 * (a node with its own `$id`, or the document root) for 2020-12 `$dynamicRef`
+	 * resolution.
+	 */
+	$anchorMaps?: AnchorMaps;
+}
+
+/**
+ * Internal, non-enumerable metadata recorded for a single `$dynamicRef` occurrence.
+ */
+export interface DynamicRefInfo {
+	/**
+	 * The statically resolved initial target (resolved like a plain `$ref`, against
+	 * the reference's own base URI).
+	 */
+	target?: JSONSchema;
+
+	/**
+	 * The plain-name fragment of the `$dynamicRef` (set whenever the fragment is a
+	 * plain name rather than a JSON pointer). The validator uses it, together with
+	 * the initial target, to decide at validation time whether the 2020-12
+	 * "bookending" requirement holds (i.e. the initial target is a `$dynamicAnchor`
+	 * of that name) and therefore whether to perform dynamic-scope resolution
+	 * instead of behaving like a plain `$ref`.
+	 */
+	name?: string;
+
+	/**
+	 * The schema resource (nearest enclosing `$id` scope) that lexically contains
+	 * the `$dynamicRef`. Recorded before `$ref` merging flattens resource
+	 * boundaries so an internal `#name` reference resolves against its own
+	 * resource's anchors, not a sibling's.
+	 */
+	scope?: MergedJSONSchema;
+}
+
+/**
+ * Internal, non-enumerable per-resource anchor maps used for 2020-12 `$dynamicRef`
+ * resolution. Attached to resource-root schemas.
+ */
+export interface AnchorMaps {
+	/**
+	 * `$dynamicAnchor` names → sub-schemas within the resource, used by the
+	 * validator to walk the dynamic scope (outermost resource first).
+	 */
+	dynamic: Map<string, JSONSchema>;
+
+	/**
+	 * Both `$anchor` and `$dynamicAnchor` names → sub-schemas within the resource,
+	 * used to resolve an internal `$dynamicRef`'s initial target within its own
+	 * resource.
+	 */
+	local: Map<string, JSONSchema>;
 }

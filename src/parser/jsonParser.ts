@@ -455,10 +455,11 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			? schemaStack.find(hasRecursiveAnchor)
 			: currentResourceRoot ?? schemaRoots[0];
 
-		// Validate against the target schema (avoiding infinite loop)
+		// Validate against the target schema (avoiding infinite loop).
+		// Fall through afterwards so sibling keywords (e.g. unevaluatedProperties)
+		// are still evaluated against this node, accumulating processedProperties.
 		if (targetSchema && targetSchema !== schema) {
 			validate(node, targetSchema, validationResult, matchingSchemas, context, schemaStack, schemaRoots);
-			return;
 		}
 	}
 
@@ -470,6 +471,39 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 	// Push current schema to stack for $recursiveRef resolution
 	schemaStack.push(schema);
+
+	// 2020-12 $dynamicRef. The initial (static) target and the referenced plain-name
+	// fragment were recorded during schema resolution in $dynamicRefInfo (target and
+	// name). "Bookending": dynamic resolution applies only when that
+	// initial target is itself a $dynamicAnchor of the referenced name; then the
+	// reference resolves to the outermost matching $dynamicAnchor currently in the
+	// dynamic scope (schemaRoots, ordered outermost-first). Otherwise it behaves
+	// like a plain $ref to the initial target. This runs after the schemaRoots push
+	// so the resource that contains the $dynamicRef participates in its own
+	// dynamic-scope resolution.
+	const dynamicRefInfo = (schema as MergedJSONSchema).$dynamicRefInfo;
+	const dynamicRefTarget = dynamicRefInfo?.target;
+	if (dynamicRefTarget !== undefined) {
+		let targetSchema: JSONSchema = dynamicRefTarget;
+		const dynamicName = dynamicRefInfo?.name;
+		if (dynamicName !== undefined && (dynamicRefTarget as MergedJSONSchema).$dynamicAnchor === dynamicName) {
+			for (const root of schemaRoots) {
+				const candidate = (root as MergedJSONSchema).$anchorMaps?.dynamic.get(dynamicName);
+				if (candidate) {
+					targetSchema = candidate;
+					break;
+				}
+			}
+		}
+
+		// Validate the instance against the referenced schema, then fall through so
+		// that any sibling keywords on this same node are validated too: per 2020-12
+		// $dynamicRef is an applicator that applies alongside its siblings (like $ref),
+		// not a redirect that replaces them. The shared cleanup below pops the stack.
+		if (targetSchema && targetSchema !== schema) {
+			validate(node, targetSchema, validationResult, matchingSchemas, context, schemaStack, schemaRoots);
+		}
+	}
 
 	const enabled = (keyword: string) => {
 		// Draft-based keyword gating: keywords only exist in certain drafts.
