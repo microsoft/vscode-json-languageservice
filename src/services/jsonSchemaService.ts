@@ -8,7 +8,7 @@ import { JSONSchema, JSONSchemaRef, MergedJSONSchema, DynamicRefInfo, AnchorMaps
 import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings.js';
 import { asSchema, getSchemaDraftFromId, JSONDocument, normalizeId } from '../parser/jsonParser.js';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies } from '../jsonLanguageTypes.js';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies, SchemaStoreSettings, JSONLanguageStatusDiagnostic } from '../jsonLanguageTypes.js';
 
 import * as l10n from '@vscode/l10n';
 import { createRegex } from '../utils/glob.js';
@@ -74,8 +74,24 @@ export interface ISchemaHandle {
 	getResolvedSchema(): PromiseLike<ResolvedSchema>;
 }
 
+export const defaultSchemaStoreCatalogUrl = 'https://www.schemastore.org/api/json/catalog.json';
+
 const BANG = '!';
 const PATH_SEP = '/';
+
+interface SchemaStoreCatalogEntry {
+	name: string;
+	description: string;
+	fileMatch?: string[];
+	url: string;
+	versions?: { [version: string]: string };
+}
+
+interface SchemaStoreCatalog {
+	$schema?: string;
+	version: number;
+	schemas: SchemaStoreCatalogEntry[];
+}
 
 interface IGlobWrapper {
 	regexp: RegExp;
@@ -277,6 +293,13 @@ export class JSONSchemaService implements IJSONSchemaService {
 	private callOnDispose: Function[];
 	private requestService: SchemaRequestService | undefined;
 	private promiseConstructor: PromiseConstructor;
+	private schemaStoreEnabled: boolean;
+	private schemaStoreCatalogUrl: string;
+	private schemaStoreCatalogPromise: PromiseLike<void> | undefined;
+	private schemaStoreCatalogLoaded: boolean;
+	private schemaStoreSchemaIds: { [id: string]: boolean };
+	private schemaStoreCatalogDiagnostics: JSONLanguageStatusDiagnostic[];
+	private schemaDiagnosticsByResource: { [resource: string]: JSONLanguageStatusDiagnostic[] };
 
 	private static traverseSchemaProperties(node: JSONSchema, callback: (schema: JSONSchema) => void): void {
 		// `$defs`/`definitions` are visited first so that a reusable resource they
@@ -336,6 +359,12 @@ export class JSONSchemaService implements IJSONSchemaService {
 		this.schemasById = {};
 		this.filePatternAssociations = [];
 		this.registeredSchemasIds = {};
+		this.schemaStoreEnabled = true;
+		this.schemaStoreCatalogUrl = defaultSchemaStoreCatalogUrl;
+		this.schemaStoreCatalogLoaded = false;
+		this.schemaStoreSchemaIds = {};
+		this.schemaStoreCatalogDiagnostics = [];
+		this.schemaDiagnosticsByResource = {};
 	}
 
 	public getRegisteredSchemaIds(filter?: (scheme: string) => boolean): string[] {
@@ -433,6 +462,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 		this.filePatternAssociations = [];
 		this.registeredSchemasIds = {};
 		this.cachedSchemaForResource = undefined;
+		this.schemaStoreCatalogPromise = undefined;
+		this.schemaStoreCatalogLoaded = false;
+		this.schemaStoreSchemaIds = {};
+		this.schemaStoreCatalogDiagnostics = [];
+		this.schemaDiagnosticsByResource = {};
 
 		for (const id in this.contributionSchemas) {
 			this.schemasById[id] = this.contributionSchemas[id];
@@ -441,6 +475,117 @@ export class JSONSchemaService implements IJSONSchemaService {
 		for (const contributionAssociation of this.contributionAssociations) {
 			this.filePatternAssociations.push(contributionAssociation);
 		}
+	}
+
+	public configureSchemaStore(settings: SchemaStoreSettings | undefined): void {
+		this.schemaStoreEnabled = settings?.enable !== false;
+		this.schemaStoreCatalogUrl = normalizeId(settings?.url || defaultSchemaStoreCatalogUrl);
+		this.schemaStoreCatalogPromise = undefined;
+		this.schemaStoreCatalogLoaded = false;
+		this.schemaStoreSchemaIds = {};
+		this.schemaStoreCatalogDiagnostics = [];
+		this.schemaDiagnosticsByResource = {};
+		this.cachedSchemaForResource = undefined;
+	}
+
+	public getSchemaDiagnosticsForResource(resource: string): JSONLanguageStatusDiagnostic[] | undefined {
+		const diagnostics: JSONLanguageStatusDiagnostic[] = [];
+		if (this.schemaStoreEnabled) {
+			diagnostics.push(...this.schemaStoreCatalogDiagnostics);
+		}
+		const resourceDiagnostics = this.schemaDiagnosticsByResource[resource];
+		if (resourceDiagnostics) {
+			diagnostics.push(...resourceDiagnostics);
+		}
+		return diagnostics.length ? diagnostics : undefined;
+	}
+
+	private setSchemaStoreCatalogDiagnostic(message: string, code: ErrorCode = ErrorCode.SchemaResolveError): void {
+		this.schemaStoreCatalogDiagnostics = [{
+			message,
+			code,
+			severity: 'warning',
+			uri: this.schemaStoreCatalogUrl
+		}];
+	}
+
+	private getErrorMessage(error: any): string {
+		if (error && typeof error.message === 'string') {
+			return error.message;
+		}
+		let errorMessage = error?.toString ? error.toString() as string : String(error);
+		const errorSplit = errorMessage.split('Error: ');
+		if (errorSplit.length > 1) {
+			errorMessage = errorSplit[1];
+		}
+		if (Strings.endsWith(errorMessage, '.')) {
+			errorMessage = errorMessage.substr(0, errorMessage.length - 1);
+		}
+		return errorMessage;
+	}
+
+	private toStatusDiagnostics(diagnostics: readonly SchemaDiagnostic[], uri: string | undefined): JSONLanguageStatusDiagnostic[] {
+		return diagnostics.map(diagnostic => ({
+			message: diagnostic.message,
+			code: diagnostic.code,
+			severity: 'warning',
+			uri
+		}));
+	}
+
+	private loadSchemaStoreCatalog(): PromiseLike<void> {
+		if (!this.schemaStoreEnabled || this.schemaStoreCatalogLoaded) {
+			return this.promise.resolve<void>(undefined);
+		}
+		if (!this.requestService) {
+			this.schemaStoreCatalogLoaded = true;
+			return this.promise.resolve<void>(undefined);
+		}
+		if (!this.schemaStoreCatalogPromise) {
+			this.schemaStoreCatalogDiagnostics = [];
+			this.schemaStoreCatalogPromise = this.requestService(this.schemaStoreCatalogUrl).then(content => {
+				if (!content) {
+					this.setSchemaStoreCatalogDiagnostic(l10n.t('Unable to load SchemaStore catalog from \'{0}\': No content.', toDisplayString(this.schemaStoreCatalogUrl)));
+					this.schemaStoreCatalogLoaded = true;
+					return;
+				}
+
+				const jsonErrors: Json.ParseError[] = [];
+				const catalog = Json.parse(content, jsonErrors) as SchemaStoreCatalog;
+				if (jsonErrors.length) {
+					this.setSchemaStoreCatalogDiagnostic(l10n.t('Unable to parse SchemaStore catalog from \'{0}\': Parse error at offset {1}.', toDisplayString(this.schemaStoreCatalogUrl), jsonErrors[0].offset));
+					this.schemaStoreCatalogLoaded = true;
+					return;
+				}
+				if (!catalog || typeof catalog !== 'object' || !Array.isArray(catalog.schemas)) {
+					this.setSchemaStoreCatalogDiagnostic(l10n.t('Unable to parse SchemaStore catalog from \'{0}\': Expected a catalog object with a schemas array.', toDisplayString(this.schemaStoreCatalogUrl)));
+					this.schemaStoreCatalogLoaded = true;
+					return;
+				}
+
+				for (const schema of catalog.schemas) {
+					if (!schema || typeof schema !== 'object' || typeof schema.url !== 'string' || !Array.isArray(schema.fileMatch)) {
+						continue;
+					}
+
+					const fileMatch = schema.fileMatch.filter((pattern): pattern is string => typeof pattern === 'string');
+					if (fileMatch.length) {
+						this.registerExternalSchema({ uri: schema.url, fileMatch });
+						this.schemaStoreSchemaIds[normalizeId(schema.url)] = true;
+					}
+				}
+
+				this.schemaStoreCatalogLoaded = true;
+			}, error => {
+				let errorCode = ErrorCode.SchemaResolveError;
+				if (typeof error?.code === 'number' && error.code < 0x10000) {
+					errorCode += error.code;
+				}
+				this.setSchemaStoreCatalogDiagnostic(l10n.t('Unable to load SchemaStore catalog from \'{0}\': {1}.', toDisplayString(this.schemaStoreCatalogUrl), this.getErrorMessage(error)), errorCode);
+				this.schemaStoreCatalogLoaded = true;
+			});
+		}
+		return this.schemaStoreCatalogPromise;
 	}
 
 	public getResolvedSchema(schemaId: string): PromiseLike<ResolvedSchema | undefined> {
@@ -1308,10 +1453,31 @@ export class JSONSchemaService implements IJSONSchemaService {
 		if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
 			return this.cachedSchemaForResource.resolvedSchema;
 		}
-		const schemas = this.getAssociatedSchemas(resource);
-		const resolvedSchema = schemas.length > 0 ? this.createCombinedSchema(resource, schemas).getResolvedSchema() : this.promise.resolve(undefined);
-		this.cachedSchemaForResource = { resource, resolvedSchema };
-		return resolvedSchema;
+		const resolveSchema = () => {
+			const schemas = this.getAssociatedSchemas(resource);
+			const resolvedSchema = schemas.length > 0 ? this.createCombinedSchema(resource, schemas).getResolvedSchema() : this.promise.resolve(undefined);
+			const usesSchemaStore = schemas.some(schemaId => this.schemaStoreSchemaIds[schemaId]);
+			if (usesSchemaStore) {
+				const resolvedSchemaWithDiagnostics = resolvedSchema.then(schema => {
+					const diagnostics = schema ? this.toStatusDiagnostics([...schema.errors, ...schema.warnings], schemas.length === 1 ? schemas[0] : undefined) : [];
+					if (diagnostics.length) {
+						this.schemaDiagnosticsByResource[resource] = diagnostics;
+					} else {
+						delete this.schemaDiagnosticsByResource[resource];
+					}
+					return schema;
+				});
+				this.cachedSchemaForResource = { resource, resolvedSchema: resolvedSchemaWithDiagnostics };
+				return resolvedSchemaWithDiagnostics;
+			}
+			delete this.schemaDiagnosticsByResource[resource];
+			this.cachedSchemaForResource = { resource, resolvedSchema };
+			return resolvedSchema;
+		};
+		if (this.schemaStoreEnabled && !this.schemaStoreCatalogLoaded) {
+			return this.loadSchemaStoreCatalog().then(resolveSchema);
+		}
+		return resolveSchema();
 	}
 
 	private createCombinedSchema(resource: string, schemaIds: string[]): ISchemaHandle {

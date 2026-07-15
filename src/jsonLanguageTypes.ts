@@ -130,6 +130,14 @@ export interface MatchingSchema {
 
 export interface JSONLanguageStatus {
 	schemas: string[];
+	schemaDiagnostics?: JSONLanguageStatusDiagnostic[];
+}
+
+export interface JSONLanguageStatusDiagnostic {
+	message: string;
+	code: ErrorCode;
+	severity: SeverityLevel;
+	uri?: string;
 }
 
 export interface LanguageSettings {
@@ -147,6 +155,23 @@ export interface LanguageSettings {
 	 * A list of known schemas and/or associations of schemas to file names.
 	 */
 	schemas?: SchemaConfiguration[];
+	/**
+	 * Optional support for loading schema associations from the SchemaStore catalog.
+	 * Enabled by default. Requires a schemaRequestService to load the catalog and schemas.
+	 */
+	schemaStore?: SchemaStoreSettings;
+}
+
+export interface SchemaStoreSettings {
+	/**
+	 * If set to false, the language service will not load schema associations from the SchemaStore catalog.
+	 */
+	enable?: boolean;
+	/**
+	 * Optional URL for a SchemaStore-compatible catalog.
+	 * If not set, https://www.schemastore.org/api/json/catalog.json is used.
+	 */
+	url?: string;
 }
 
 export type SeverityLevel = 'error' | 'warning' | 'ignore';

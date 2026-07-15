@@ -1180,6 +1180,126 @@ suite('JSON Schema', () => {
 		assert.strictEqual(section?.description, 'Meaning of Life');
 	});
 
+	test('SchemaStore can be disabled', async function () {
+		const catalogUri = 'https://www.schemastore.org/api/json/catalog.json';
+		const schemaUri = 'https://www.schemastore.org/package.json';
+		const accesses: string[] = [];
+		const service = getLanguageService({
+			schemaRequestService: newMockRequestService({
+				[catalogUri]: {
+					version: 1,
+					schemas: [{
+						name: 'package.json',
+						description: 'Package metadata',
+						fileMatch: ['package.json'],
+						url: schemaUri
+					}]
+				} as JSONSchema,
+				[schemaUri]: {
+					type: 'object',
+					properties: {
+						name: { type: 'string' }
+					}
+				}
+			}, accesses),
+			workspaceContext
+		});
+		service.configure({ schemaStore: { enable: false } });
+		const { textDoc, jsonDoc } = toDocument('{ "name": 1 }', undefined, 'file:///workspace/package.json');
+
+		const diagnostics = await service.doValidation(textDoc, jsonDoc);
+
+		assert.deepStrictEqual(diagnostics, []);
+		assert.deepStrictEqual(accesses, []);
+	});
+
+	test('SchemaStore catalog registers file matches when enabled', async function () {
+		const catalogUri = 'https://www.schemastore.org/api/json/catalog.json';
+		const schemaUri = 'https://www.schemastore.org/package.json';
+		const accesses: string[] = [];
+		const service = getLanguageService({
+			schemaRequestService: newMockRequestService({
+				[catalogUri]: {
+					version: 1,
+					schemas: [{
+						name: 'package.json',
+						description: 'Package metadata',
+						fileMatch: ['package.json'],
+						url: schemaUri
+					}]
+				} as JSONSchema,
+				[schemaUri]: {
+					type: 'object',
+					properties: {
+						name: { type: 'string' }
+					}
+				}
+			}, accesses),
+			workspaceContext
+		});
+		service.configure({ schemaStore: { enable: true, url: catalogUri } });
+		const { textDoc, jsonDoc } = toDocument('{ "name": 1 }', undefined, 'file:///workspace/package.json');
+
+		const diagnostics = await service.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assert.strictEqual(diagnostics[0].message, 'Incorrect type. Expected "string".');
+		assert.deepStrictEqual(accesses, [catalogUri, schemaUri]);
+	});
+
+	test('SchemaStore catalog request failures are reported in language status', async function () {
+		const catalogUri = 'https://www.schemastore.org/api/json/catalog.json';
+		const schemaRequestService: SchemaRequestService = async (): Promise<string> => {
+			return Promise.reject({ message: 'Blocked by schema allow-list', code: 1 });
+		};
+		const service = getLanguageService({ schemaRequestService, workspaceContext });
+		service.configure({ schemaStore: { enable: true, url: catalogUri } });
+		const { textDoc, jsonDoc } = toDocument('{ "name": 1 }', undefined, 'file:///workspace/package.json');
+
+		const diagnostics = await service.doValidation(textDoc, jsonDoc);
+		const status = service.getLanguageStatus(textDoc, jsonDoc);
+
+		assert.deepStrictEqual(diagnostics, []);
+		assert.strictEqual(status.schemaDiagnostics?.length, 1);
+		assertInMessage(status.schemaDiagnostics?.[0].message, 'Blocked by schema allow-list');
+		assert.strictEqual(status.schemaDiagnostics?.[0].uri, catalogUri);
+		assert.strictEqual(status.schemaDiagnostics?.[0].severity, 'warning');
+	});
+
+	test('SchemaStore schema request failures are reported in diagnostics and language status', async function () {
+		const catalogUri = 'https://www.schemastore.org/api/json/catalog.json';
+		const schemaUri = 'https://thirdparty.example/package.schema.json';
+		const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+			if (uri === catalogUri) {
+				return JSON.stringify({
+					version: 1,
+					schemas: [{
+						name: 'package.json',
+						description: 'Package metadata',
+						fileMatch: ['package.json'],
+						url: schemaUri
+					}]
+				});
+			}
+			return Promise.reject({ message: 'Blocked by schema allow-list', code: 1 });
+		};
+		const service = getLanguageService({ schemaRequestService, workspaceContext });
+		service.configure({ schemaStore: { enable: true, url: catalogUri } });
+		const { textDoc, jsonDoc } = toDocument('{ "name": 1 }', undefined, 'file:///workspace/package.json');
+
+		const diagnostics = await service.doValidation(textDoc, jsonDoc, { schemaRequest: 'error' });
+		const status = service.getLanguageStatus(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assert.strictEqual(diagnostics[0].code, ErrorCode.SchemaResolveError + 1);
+		assertInMessage(diagnostics[0].message, 'Blocked by schema allow-list');
+		assert.strictEqual(status.schemaDiagnostics?.length, 1);
+		assert.strictEqual(status.schemaDiagnostics?.[0].code, ErrorCode.SchemaResolveError + 1);
+		assertInMessage(status.schemaDiagnostics?.[0].message, 'Blocked by schema allow-list');
+		assert.strictEqual(status.schemaDiagnostics?.[0].uri, schemaUri);
+		assert.strictEqual(status.schemaDiagnostics?.[0].severity, 'warning');
+	});
+
 
 	test('Resolving in-line $refs', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);

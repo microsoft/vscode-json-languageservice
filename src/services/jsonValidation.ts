@@ -121,7 +121,8 @@ export class JSONValidation {
 	}
 
 	public getLanguageStatus(textDocument: TextDocument, jsonDocument: JSONDocument): JSONLanguageStatus {
-		return { schemas: this.jsonSchemaService.getSchemaURIsForResource(textDocument.uri, jsonDocument) };
+		const schemaDiagnostics = this.jsonSchemaService.getSchemaDiagnosticsForResource(textDocument.uri);
+		return { schemas: this.jsonSchemaService.getSchemaURIsForResource(textDocument.uri, jsonDocument), schemaDiagnostics };
 	}
 }
 
