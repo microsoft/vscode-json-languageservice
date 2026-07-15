@@ -1247,6 +1247,96 @@ suite('JSON Schema', () => {
 		assert.deepStrictEqual(accesses, [catalogUri, schemaUri]);
 	});
 
+	test('$schema takes precedence over SchemaStore file matches', async function () {
+		const catalogUri = 'https://www.schemastore.org/api/json/catalog.json';
+		const schemaStoreUri = 'https://www.schemastore.org/package.json';
+		const explicitSchemaUri = 'https://example.com/custom-package.schema.json';
+		const accesses: string[] = [];
+		const service = getLanguageService({
+			schemaRequestService: newMockRequestService({
+				[catalogUri]: {
+					version: 1,
+					schemas: [{
+						name: 'package.json',
+						description: 'Package metadata',
+						fileMatch: ['package.json'],
+						url: schemaStoreUri
+					}]
+				} as JSONSchema,
+				[schemaStoreUri]: {
+					type: 'object',
+					properties: {
+						name: { type: 'string' }
+					}
+				},
+				[explicitSchemaUri]: {
+					type: 'object',
+					properties: {
+						name: { type: 'number' }
+					}
+				}
+			}, accesses),
+			workspaceContext
+		});
+		service.configure({ schemaStore: { enable: true, url: catalogUri } });
+		const { textDoc, jsonDoc } = toDocument(`{ "$schema": "${explicitSchemaUri}", "name": 1 }`, undefined, 'file:///workspace/package.json');
+
+		const diagnostics = await service.doValidation(textDoc, jsonDoc);
+		const status = service.getLanguageStatus(textDoc, jsonDoc);
+
+		assert.deepStrictEqual(diagnostics, []);
+		assert.deepStrictEqual(status.schemas, [explicitSchemaUri]);
+		assert.deepStrictEqual(accesses, [explicitSchemaUri]);
+	});
+
+	test('Configured schemas take precedence over SchemaStore file matches', async function () {
+		const catalogUri = 'https://www.schemastore.org/api/json/catalog.json';
+		const schemaStoreUri = 'https://www.schemastore.org/package.json';
+		const configuredSchemaUri = 'https://example.com/configured-package.schema.json';
+		const accesses: string[] = [];
+		const service = getLanguageService({
+			schemaRequestService: newMockRequestService({
+				[catalogUri]: {
+					version: 1,
+					schemas: [{
+						name: 'package.json',
+						description: 'Package metadata',
+						fileMatch: ['package.json'],
+						url: schemaStoreUri
+					}]
+				} as JSONSchema,
+				[schemaStoreUri]: {
+					type: 'object',
+					properties: {
+						name: { type: 'string' }
+					}
+				}
+			}, accesses),
+			workspaceContext
+		});
+		service.configure({
+			schemaStore: { enable: true, url: catalogUri },
+			schemas: [{
+				uri: configuredSchemaUri,
+				fileMatch: ['package.json'],
+				schema: {
+					type: 'object',
+					properties: {
+						name: { type: 'number' }
+					}
+				}
+			}]
+		});
+		const { textDoc, jsonDoc } = toDocument('{ "name": 1 }', undefined, 'file:///workspace/package.json');
+
+		const diagnostics = await service.doValidation(textDoc, jsonDoc);
+		const status = service.getLanguageStatus(textDoc, jsonDoc);
+
+		assert.deepStrictEqual(diagnostics, []);
+		assert.deepStrictEqual(status.schemas, [configuredSchemaUri]);
+		assert.deepStrictEqual(accesses, []);
+	});
+
 	test('SchemaStore catalog request failures are reported in language status', async function () {
 		const catalogUri = 'https://www.schemastore.org/api/json/catalog.json';
 		const schemaRequestService: SchemaRequestService = async (): Promise<string> => {

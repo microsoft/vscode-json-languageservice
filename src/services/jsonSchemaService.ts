@@ -1430,7 +1430,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 			}
 		}
-		return schemas;
+		const nonSchemaStoreSchemas = schemas.filter(schemaId => !this.schemaStoreSchemaIds[schemaId]);
+		return nonSchemaStoreSchemas.length ? nonSchemaStoreSchemas : schemas;
 	}
 
 	public getSchemaURIsForResource(resource: string, document?: JSONDocument): string[] {
@@ -1475,6 +1476,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return resolvedSchema;
 		};
 		if (this.schemaStoreEnabled && !this.schemaStoreCatalogLoaded) {
+			const schemas = this.getAssociatedSchemas(resource);
+			if (schemas.length > 0) {
+				return resolveSchema();
+			}
 			return this.loadSchemaStoreCatalog().then(resolveSchema);
 		}
 		return resolveSchema();
