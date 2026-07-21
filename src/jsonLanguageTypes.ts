@@ -155,27 +155,6 @@ export interface LanguageSettings {
 	 * A list of known schemas and/or associations of schemas to file names.
 	 */
 	schemas?: SchemaConfiguration[];
-	/**
-	 * Optional support for loading schema associations from the SchemaStore catalog.
-	 * Enabled by default. Requires a schemaRequestService to load the catalog and schemas.
-	 */
-	schemaStore?: SchemaStoreSettings;
-}
-
-export interface SchemaStoreSettings {
-	/**
-	 * If set to false, the language service will not load schema associations from the SchemaStore catalog.
-	 */
-	enable?: boolean;
-	/**
-	 * Relative path selectors for resources that should not receive schema associations from the SchemaStore catalog.
-	 */
-	exclude?: string[];
-	/**
-	 * Optional URL for a SchemaStore-compatible catalog.
-	 * If not set, https://www.schemastore.org/api/json/catalog.json is used.
-	 */
-	url?: string;
 }
 
 export type SeverityLevel = 'error' | 'warning' | 'ignore';
@@ -238,6 +217,10 @@ export interface SchemaConfiguration {
 	 * if the document that is validated has the folderUri as parent
 	 */
 	folderUri?: string;
+	/**
+	 * The origin of this schema association.
+	 */
+	source?: 'schemaStore';
 }
 
 export interface WorkspaceContextService {
