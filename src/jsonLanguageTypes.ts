@@ -168,6 +168,10 @@ export interface SchemaStoreSettings {
 	 */
 	enable?: boolean;
 	/**
+	 * Relative path selectors for resources that should not receive schema associations from the SchemaStore catalog.
+	 */
+	exclude?: string[];
+	/**
 	 * Optional URL for a SchemaStore-compatible catalog.
 	 * If not set, https://www.schemastore.org/api/json/catalog.json is used.
 	 */

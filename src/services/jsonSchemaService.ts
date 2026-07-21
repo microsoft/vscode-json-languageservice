@@ -300,6 +300,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 	private schemaStoreSchemaIds: { [id: string]: boolean };
 	private schemaStoreCatalogDiagnostics: JSONLanguageStatusDiagnostic[];
 	private schemaDiagnosticsByResource: { [resource: string]: JSONLanguageStatusDiagnostic[] };
+	private schemaStoreExclusions: FilePatternAssociation | undefined;
 
 	private static traverseSchemaProperties(node: JSONSchema, callback: (schema: JSONSchema) => void): void {
 		// `$defs`/`definitions` are visited first so that a reusable resource they
@@ -365,6 +366,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		this.schemaStoreSchemaIds = {};
 		this.schemaStoreCatalogDiagnostics = [];
 		this.schemaDiagnosticsByResource = {};
+		this.schemaStoreExclusions = undefined;
 	}
 
 	public getRegisteredSchemaIds(filter?: (scheme: string) => boolean): string[] {
@@ -485,7 +487,27 @@ export class JSONSchemaService implements IJSONSchemaService {
 		this.schemaStoreSchemaIds = {};
 		this.schemaStoreCatalogDiagnostics = [];
 		this.schemaDiagnosticsByResource = {};
+		this.schemaStoreExclusions = this.createSchemaStoreExclusions(settings?.exclude);
 		this.cachedSchemaForResource = undefined;
+	}
+
+	private createSchemaStoreExclusions(exclusions: string[] | undefined): FilePatternAssociation | undefined {
+		if (!exclusions) {
+			return undefined;
+		}
+		const sanitizedExclusions = exclusions.map(exclusion => this.sanitizeSchemaStoreExclusion(exclusion)).filter((exclusion): exclusion is string => !!exclusion);
+		return sanitizedExclusions.length ? new FilePatternAssociation(sanitizedExclusions, undefined, []) : undefined;
+	}
+
+	private sanitizeSchemaStoreExclusion(exclusion: string): string | undefined {
+		if (typeof exclusion !== 'string' || !exclusion || exclusion[0] === BANG || exclusion[0] === PATH_SEP || exclusion.indexOf('\\') !== -1 || exclusion.indexOf(':') !== -1 || exclusion.indexOf('..') !== -1) {
+			return undefined;
+		}
+		return exclusion;
+	}
+
+	private matchesSchemaStoreExclusion(resource: string): boolean {
+		return !!this.schemaStoreExclusions?.matchesPattern(normalizeResourceForMatching(resource));
 	}
 
 	public getSchemaDiagnosticsForResource(resource: string): JSONLanguageStatusDiagnostic[] | undefined {
@@ -1430,7 +1452,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 			}
 		}
+		const matchesSchemaStoreExclusion = this.matchesSchemaStoreExclusion(resource);
 		const nonSchemaStoreSchemas = schemas.filter(schemaId => !this.schemaStoreSchemaIds[schemaId]);
+		if (matchesSchemaStoreExclusion) {
+			return nonSchemaStoreSchemas;
+		}
 		return nonSchemaStoreSchemas.length ? nonSchemaStoreSchemas : schemas;
 	}
 
@@ -1477,7 +1503,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		};
 		if (this.schemaStoreEnabled && !this.schemaStoreCatalogLoaded) {
 			const schemas = this.getAssociatedSchemas(resource);
-			if (schemas.length > 0) {
+			if (schemas.length > 0 || this.matchesSchemaStoreExclusion(resource)) {
 				return resolveSchema();
 			}
 			return this.loadSchemaStoreCatalog().then(resolveSchema);
