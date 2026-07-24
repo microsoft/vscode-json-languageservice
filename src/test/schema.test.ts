@@ -201,6 +201,109 @@ suite('JSON Schema', () => {
 
 	});
 
+	test('Relative $refs in a schema loaded by retrieval URI resolve against the schema $id', async function () {
+		const firstFile = 'file:///workspace/first.schema.json';
+		const secondFile = 'file:///workspace/second.schema.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[firstFile]: {
+				$id: 'http://example.com/first',
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				type: 'object',
+				properties: {
+					test: {
+						$ref: 'second#/$defs/somestruct'
+					}
+				}
+			},
+			[secondFile]: {
+				$id: 'http://example.com/second',
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				$defs: {
+					somestruct: {
+						type: 'object',
+						properties: {
+							innerTest: {
+								type: 'string'
+							}
+						}
+					}
+				}
+			}
+		};
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(schemas), workspaceContext);
+		service.registerExternalSchema({ uri: 'http://example.com/first', schema: { $ref: firstFile } });
+		service.registerExternalSchema({ uri: 'http://example.com/second', schema: { $ref: secondFile } });
+
+		const fs = await service.getResolvedSchema('http://example.com/first');
+
+		assert.strictEqual(fs?.errors.length, 0, 'No errors should occur: ' + JSON.stringify(fs?.errors));
+		assert.deepStrictEqual(fs?.schema.properties?.test, {
+			type: 'object',
+			properties: {
+				innerTest: {
+					type: 'string'
+				}
+			}
+		});
+	});
+
+	test('Local $refs in a schema with a sibling external $ref keep the schema $id base after retrieval URI loading', async function () {
+		const schemaBaseFile = 'file:///workspace/base.schema.json';
+		const defsUri = 'https://example.com/schema/defs';
+		const schemaUri = 'https://example.com/schema/external';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseFile]: {
+				$id: 'https://example.com/schema/base',
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				$ref: schemaUri,
+				properties: {
+					foo: {
+						$ref: '#/$defs/myDef'
+					}
+				},
+				$defs: {
+					myDef: {
+						const: defsUri
+					},
+					schema: {
+						$dynamicAnchor: 'meta',
+						$ref: defsUri,
+						properties: {
+							bar: {
+								$ref: '#/$defs/myDef'
+							}
+						}
+					}
+				}
+			},
+			[schemaUri]: {
+				$id: schemaUri,
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				type: 'object'
+			},
+			[defsUri]: {
+				$id: defsUri,
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				type: 'object'
+			}
+		};
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(schemas), workspaceContext);
+		service.registerExternalSchema({
+			uri: 'https://example.com/schema/base',
+			schema: { $ref: schemaBaseFile }
+		});
+
+		const fs = await service.getResolvedSchema('https://example.com/schema/base');
+
+		assert.strictEqual(fs?.errors.length, 0, 'No errors should occur: ' + JSON.stringify(fs?.errors));
+		assert.deepStrictEqual(fs?.schema.properties?.foo, {
+			const: defsUri
+		});
+		assert.deepStrictEqual(fs?.schema.$defs?.schema.properties?.bar, {
+			const: defsUri
+		});
+	});
+
 	test('Resolving $refs 4', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({

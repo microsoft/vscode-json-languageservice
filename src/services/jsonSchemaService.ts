@@ -613,7 +613,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return handle.anchors.get(id);
 		};
 
-		const getSchemaId = (schema: JSONSchema): string | undefined => schema.$id || schema.id;
+		const getSchemaId = (schema: JSONSchema): string | undefined => schema.$id || schema.id || (schema as MergedJSONSchema).$originalId;
 
 		// Fold a source resource's $dynamicAnchor names into a target node's dynamic
 		// map, creating it on demand. Existing entries win, so the outermost resource
@@ -640,6 +640,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		};
 
 		const merge = (target: MergedJSONSchema, section: any): void => {
+			const targetHasSiblingKeywords = hasRefSiblingKeywords(target);
 			for (const key in section) {
 				if (!section.hasOwnProperty(key) || key === 'id' || key === '$id') {
 					continue;
@@ -657,14 +658,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 			// Preserve $id as a non-enumerable hidden property for $recursiveRef resolution.
 			// This allows $recursiveRef to correctly resolve references within the schema without exposing $id publicly.
-			const id: MergedJSONSchema['$originalId'] = section.$id || section.id;
-			if (id) {
-				Object.defineProperty(target, '$originalId', {
-					value: id,
-					enumerable: false,
-					writable: true,
-					configurable: true
-				});
+			const id: MergedJSONSchema['$originalId'] = getSchemaId(section);
+			if (id && !getSchemaId(target) && !targetHasSiblingKeywords) {
+				setHidden(target, '$originalId', id);
 			}
 
 			// Propagate hidden $dynamicRef metadata. When a $dynamicRef lives directly on
@@ -697,6 +693,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 			keywords.some(keyword => hasKeyword(schema, keyword));
 
 		const objectPropertyKeywords: readonly SchemaKeyword[] = ['properties', 'patternProperties'];
+		const ignoredRefSiblingKeywords = new Set(['$ref', '$schema', '$id', 'id', '$comment']);
+		const hasRefSiblingKeywords = (schema: JSONSchema): boolean => Object.keys(schema).some(key => !ignoredRefSiblingKeywords.has(key));
 		const objectEvaluatorKeywords: readonly SchemaKeyword[] = [
 			...objectPropertyKeywords,
 			'additionalProperties',
@@ -812,7 +810,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				// relative to a different base (e.g. it's inside a schema with $id),
 				// pre-resolve it now so the merged target carries the correct base.
 				// Clone before rewriting to avoid mutating the cached source schema.
-				if (section.$ref && sectionBaseHandle !== sourceHandle) {
+				if (section.$ref && (sectionBaseHandle !== sourceHandle || hasRefSiblingKeywords(target))) {
 					const innerRef = section.$ref;
 					const innerSegments = innerRef.split('#', 2);
 					if (innerSegments[0].length > 0 && contextService && !hasSchemeRegex.test(innerSegments[0])) {
@@ -876,7 +874,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		};
 
-		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle): PromiseLike<any> => {
+		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle, continuationBase?: JSONSchema, continuationHandle?: SchemaHandle): PromiseLike<any> => {
 			if (contextService && !hasSchemeRegex.test(uri)) {
 				uri = contextService.resolveRelativePath(uri, parentHandle.uri);
 			}
@@ -884,6 +882,13 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const referencedHandle = this.getOrAddSchemaHandle(uri);
 			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
 				parentHandle.dependencies.add(uri);
+				const rootRef = unresolvedSchema.schema.$ref;
+				if (refSegment !== undefined && isString(rootRef) && Object.keys(unresolvedSchema.schema).every(key => key === '$ref')) {
+					const rootRefSegments = rootRef.split('#', 2);
+					if (rootRefSegments[0].length > 0 && rootRefSegments[1] === undefined) {
+						return resolveExternalLink(node, rootRefSegments[0], refSegment, referencedHandle, continuationBase, continuationHandle);
+					}
+				}
 				if (unresolvedSchema.errors.length) {
 					const error = unresolvedSchema.errors[0];
 					const loc = refSegment ? uri + '#' + refSegment : uri;
@@ -914,7 +919,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				// was merged. (For a whole-document ref the merge above already did this,
 				// since the merged section is the resource root; this is a no-op then.)
 				unionAnchorMaps(node as MergedJSONSchema, (unresolvedSchema.schema as MergedJSONSchema).$anchorMaps);
-				return resolveRefs(node, unresolvedSchema.schema, referencedHandle);
+				return resolveRefs(node, continuationBase ?? unresolvedSchema.schema, continuationHandle ?? referencedHandle);
 			});
 		};
 
@@ -1010,15 +1015,14 @@ export class JSONSchemaService implements IJSONSchemaService {
 				while (schema.$ref) {
 					const ref = schema.$ref;
 					const segments = ref.split('#', 2);
+					const isPreDraft201909 = schemaDraft !== undefined && schemaDraft < SchemaDraft.v2019_09;
+					const hasSiblingKeywords = !isPreDraft201909 && hasRefSiblingKeywords(schema);
 					delete schema.$ref;
 					if (segments[0].length > 0) {
 						// This is a reference to an external schema (like "foo.json" or "foo.json#/bar")
 						// Per JSON Schema spec, $ref is resolved against the current base URI.
-						// If this schema has its own $id (sibling case), the $ref should resolve
-						// against the parent's base, not the sibling $id. Otherwise, use the
-						// nearest ancestor's base (newBaseHandle).
-						const refBase = (newBase === schema) ? currentBaseHandle : newBaseHandle;
-						openPromises.push(resolveExternalLink(schema, segments[0], segments[1], refBase));
+						const refBaseHandle = isPreDraft201909 && newBase === schema ? currentBaseHandle : newBaseHandle;
+						openPromises.push(resolveExternalLink(schema, segments[0], segments[1], refBaseHandle, hasSiblingKeywords ? newBase : undefined, hasSiblingKeywords ? newBaseHandle : undefined));
 						return;
 					} else {
 						// This is an internal reference (like "#/definitions/foo")
