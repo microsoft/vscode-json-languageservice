@@ -876,12 +876,17 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		};
 
-		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle): PromiseLike<any> => {
+		const getExternalSchemaHandle = (uri: string, parentHandle: SchemaHandle): SchemaHandle => {
 			if (contextService && !hasSchemeRegex.test(uri)) {
 				uri = contextService.resolveRelativePath(uri, parentHandle.uri);
 			}
 			uri = normalizeId(uri);
-			const referencedHandle = this.getOrAddSchemaHandle(uri);
+			return this.getOrAddSchemaHandle(uri);
+		};
+
+		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle): PromiseLike<any> => {
+			const referencedHandle = getExternalSchemaHandle(uri, parentHandle);
+			uri = referencedHandle.uri;
 			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
 				parentHandle.dependencies.add(uri);
 				if (unresolvedSchema.errors.length) {
@@ -925,8 +930,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 			// referenced plain-name fragment is recorded as info.name. The "bookending"
 			// decision (does the initial target name a $dynamicAnchor?) and the
 			// dynamic-scope walk are both deferred to validation time, where the (possibly
-			// asynchronously resolved) target is fully populated. Returns the external-
-			// resolution promise (if any) for the caller to add to openPromises.
+			// asynchronously resolved) target is fully populated. Returns the external
+			// resolution promise, if one is needed.
 			const info = dynamicRefInfoOf(schema as MergedJSONSchema);
 			const ref = schema.$dynamicRef!;
 			const segments = ref.split('#', 2);
@@ -968,14 +973,60 @@ export class JSONSchemaService implements IJSONSchemaService {
 		};
 
 		const resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentHandle: SchemaHandle): PromiseLike<any> => {
-			const openPromises: PromiseLike<any>[] = [];
+			const prefetchExternalSchema = (uri: string, parentHandle: SchemaHandle): void => {
+				// Ordered traversal reuses this cached request before mutating schema state.
+				getExternalSchemaHandle(uri, parentHandle).getUnresolvedSchema();
+			};
+
+			const prefetchExternalRefs = (schema: JSONSchema, currentBase: JSONSchema, currentBaseHandle: SchemaHandle, seen: Set<JSONSchema>): void => {
+				if (!schema || typeof schema !== 'object' || seen.has(schema)) {
+					return;
+				}
+				seen.add(schema);
+
+				const id = getSchemaId(schema);
+				let newBase = currentBase;
+				let newBaseHandle = currentBaseHandle;
+				if (isString(id) && id.charAt(0) !== '#') {
+					let resolvedUri = id;
+					if (contextService && !hasSchemeRegex.test(id)) {
+						resolvedUri = contextService.resolveRelativePath(id, currentBaseHandle.uri);
+					}
+					newBase = schema;
+					newBaseHandle = this.getOrAddSchemaHandle(normalizeId(resolvedUri));
+				}
+
+				const refBase = (newBase === schema) ? currentBaseHandle : newBaseHandle;
+				if (schema.$ref) {
+					const segments = schema.$ref.split('#', 2);
+					if (segments[0].length > 0) {
+						prefetchExternalSchema(segments[0], refBase);
+					}
+					if (schemaDraft !== undefined && schemaDraft < SchemaDraft.v2019_09) {
+						return;
+					}
+				}
+
+				if (schema.$dynamicRef && (schemaDraft === undefined || schemaDraft >= SchemaDraft.v2020_12)) {
+					const segments = schema.$dynamicRef.split('#', 2);
+					if (segments[0].length > 0) {
+						prefetchExternalSchema(segments[0], refBase);
+					}
+				}
+
+				JSONSchemaService.traverseSchemaProperties(schema, childSchema => {
+					prefetchExternalRefs(childSchema, newBase, newBaseHandle, seen);
+				});
+			};
+
+			prefetchExternalRefs(node, parentSchema, parentHandle, new Set<JSONSchema>());
 
 			// Traversal that tracks the current base schema for internal refs.
 			// When we encounter a schema with its own $id, that becomes the new base
 			// for resolving fragment refs (#...) in its descendants
-			const traverseWithBaseTracking = (schema: JSONSchema, currentBase: JSONSchema, currentBaseHandle: SchemaHandle, isRoot: boolean, seen: Set<JSONSchema>) => {
+			const traverseWithBaseTracking = (schema: JSONSchema, currentBase: JSONSchema, currentBaseHandle: SchemaHandle, isRoot: boolean, seen: Set<JSONSchema>): PromiseLike<void> => {
 				if (!schema || typeof schema !== 'object' || seen.has(schema)) {
-					return;
+					return this.promise.resolve(undefined);
 				}
 				seen.add(schema);
 
@@ -1018,8 +1069,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 						// against the parent's base, not the sibling $id. Otherwise, use the
 						// nearest ancestor's base (newBaseHandle).
 						const refBase = (newBase === schema) ? currentBaseHandle : newBaseHandle;
-						openPromises.push(resolveExternalLink(schema, segments[0], segments[1], refBase));
-						return;
+						return resolveExternalLink(schema, segments[0], segments[1], refBase).then(() => undefined);
 					} else {
 						// This is an internal reference (like "#/definitions/foo")
 						// Internal refs are resolved within the current document
@@ -1033,24 +1083,29 @@ export class JSONSchemaService implements IJSONSchemaService {
 					}
 				}
 
+				// Apply child schemas in keyword order so references never observe
+				// partially resolved state from an earlier schema.
+				const traverseChildren = (): PromiseLike<void> => {
+					let result: PromiseLike<void> = this.promise.resolve(undefined);
+					JSONSchemaService.traverseSchemaProperties(schema, childSchema => {
+						result = result.then(() => traverseWithBaseTracking(childSchema, newBase, newBaseHandle, false, seen));
+					});
+					return result;
+				};
+
 				// $dynamicRef is a 2020-12 core keyword. In earlier drafts it is an
 				// unknown keyword, so leave it untouched and unresolved (ignored) there.
 				if (schema.$dynamicRef && (schemaDraft === undefined || schemaDraft >= SchemaDraft.v2020_12)) {
 					const dynamicRefPromise = resolveDynamicRef(schema, newBase, newBaseHandle, currentBaseHandle);
 					if (dynamicRefPromise) {
-						openPromises.push(dynamicRefPromise);
+						return dynamicRefPromise.then(() => traverseChildren());
 					}
 				}
 
-				// Continue traversing child schemas with the potentially updated base
-				JSONSchemaService.traverseSchemaProperties(schema, (childSchema) => {
-					traverseWithBaseTracking(childSchema, newBase, newBaseHandle, false, seen);
-				});
+				return traverseChildren();
 			};
 
-			traverseWithBaseTracking(node, parentSchema, parentHandle, true, new Set<JSONSchema>());
-
-			return this.promise.all(openPromises);
+			return traverseWithBaseTracking(node, parentSchema, parentHandle, true, new Set<JSONSchema>());
 		};
 
 		const collectAnchors = (root: JSONSchema): Map<string, JSONSchema> => {
