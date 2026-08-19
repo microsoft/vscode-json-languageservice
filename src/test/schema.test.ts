@@ -86,6 +86,64 @@ suite('JSON Schema', () => {
 		}
 	};
 
+	test('Referenced properties are allowed alongside additionalProperties', async function () {
+		const fixturePath = path.join(__dirname, '../../../src/test/fixtures/settings-example.json');
+		const documentUri = url.pathToFileURL(fixturePath).toString();
+		const content = `{
+			"$schema": "./settings.json",
+			"workbench.colorCustomizations": {
+				"menu.border": "#202122",
+				"[Abyss]": {
+					"menu.background": "#202122"
+				}
+			}
+		}`;
+		const schemaRequestService: SchemaRequestService = async uri => {
+			if (uri.startsWith('file:')) {
+				return fs.readFile(url.fileURLToPath(uri), 'utf8');
+			}
+			if (uri.startsWith('vscode:')) {
+				return JSON.stringify({ definitions: { colorGroup: {} } });
+			}
+			throw new Error(`Unexpected schema URI: ${uri}`);
+		};
+		const ls = getLanguageService({ schemaRequestService, workspaceContext });
+		const { textDoc, jsonDoc } = toDocument(content, undefined, documentUri);
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.deepStrictEqual(diagnostics, []);
+	});
+
+	test('External references across nested schema keywords are prefetched', async function () {
+		const schema: JSONSchema = {
+			properties: {
+				nested: {
+					$ref: 'https://example.com/first.json',
+					allOf: [{ $ref: 'https://example.com/second.json' }]
+				}
+			}
+		};
+		const accesses: string[] = [];
+		let secondRequestedBeforeFirstResolved = false;
+		const schemaRequestService: SchemaRequestService = uri => {
+			accesses.push(uri);
+			if (uri === 'https://example.com/first.json') {
+				return new Promise(resolve => setTimeout(() => {
+					secondRequestedBeforeFirstResolved = accesses.includes('https://example.com/second.json');
+					resolve('{}');
+				}, 0));
+			}
+			return Promise.resolve('{}');
+		};
+		const ls = getLanguageService({ schemaRequestService, workspaceContext });
+		const { textDoc, jsonDoc } = toDocument('{}');
+
+		await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+		assert.ok(secondRequestedBeforeFirstResolved, 'Expected sibling external schemas to be requested concurrently');
+	});
+
 	test('Resolving $refs', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({
@@ -3871,9 +3929,105 @@ suite('JSON Schema', () => {
 			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
 			assert.strictEqual(validation.length, 0, 'unevaluatedItems should be ignored in draft-07');
 		});
+
+		test('$dynamicRef should not be prefetched in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				$dynamicRef: 'https://example.com/ignored.json'
+			};
+			const accesses: string[] = [];
+			const schemaRequestService: SchemaRequestService = async uri => {
+				accesses.push(uri);
+				return '{}';
+			};
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument('{}');
+
+			await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.ok(!accesses.includes('https://example.com/ignored.json'), '$dynamicRef should be ignored before draft 2020-12');
+		});
+
+		test('$ref siblings should not be prefetched in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				$ref: 'https://example.com/referenced.json',
+				allOf: [{ $ref: 'https://example.com/ignored.json' }]
+			};
+			const accesses: string[] = [];
+			const schemaRequestService: SchemaRequestService = async uri => {
+				accesses.push(uri);
+				return '{}';
+			};
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument('{}');
+
+			await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.ok(accesses.includes('https://example.com/referenced.json'), 'Expected the referenced schema to be requested');
+			assert.ok(!accesses.includes('https://example.com/ignored.json'), '$ref siblings should be ignored before draft 2019-09');
+		});
+
+		test('internal $ref siblings should not be prefetched in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				$ref: '#/definitions/value',
+				allOf: [{ $ref: 'https://example.com/ignored.json' }],
+				definitions: {
+					value: { type: 'object' }
+				}
+			};
+			const accesses: string[] = [];
+			const schemaRequestService: SchemaRequestService = async uri => {
+				accesses.push(uri);
+				return '{}';
+			};
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument('{}');
+
+			await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.ok(!accesses.includes('https://example.com/ignored.json'), '$ref siblings should be ignored before draft 2019-09');
+		});
 	});
 
 	suite('Embedded $id in $defs', () => {
+		test('external references register embedded schemas before traversal continues', async function () {
+			const schema: JSONSchema = {
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					external: { $ref: 'https://example.com/external.json' }
+				}
+			};
+			const externalSchema: JSONSchema = {
+				$defs: {
+					value: {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+			const accesses: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				accesses.push(uri);
+				if (uri === 'https://example.com/external.json') {
+					return JSON.stringify(externalSchema);
+				}
+				throw new Error(`Unexpected external fetch: ${uri}`);
+			};
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument('{ "subject": 42 }');
+
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.ok(accesses.includes('https://example.com/external.json'), 'Expected the external schema to be requested');
+			assert.ok(!validation.some(v => messageContains(v.message, 'Unable to load schema')), 'Expected the prefetched embedded schema handle to be replaced before use');
+			assert.ok(validation.some(v => messageContains(v.message, 'string')), 'Expected type mismatch from the embedded schema');
+		});
+
 		test('nested embedded schema with $ref between embedded schemas', async function () {
 			// An embedded schema referencing another embedded schema within the same document
 			const schema: JSONSchema = {
