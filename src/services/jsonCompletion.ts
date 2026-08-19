@@ -223,7 +223,7 @@ export class JSONCompletion {
 	}
 
 	private getPropertyCompletions(schema: SchemaService.ResolvedSchema, doc: Parser.JSONDocument, node: ASTNode, addValue: boolean, separatorAfter: string, collector: CompletionsCollector): void {
-		const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset);
+		const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset, undefined, schema.activeVocabularies);
 		matchingSchemas.forEach((s) => {
 			if (s.node === node && !s.inverted) {
 				const schemaProperties = s.schema.properties;
@@ -451,7 +451,7 @@ export class JSONCompletion {
 		if (node && (parentKey !== undefined || node.type === 'array')) {
 			const separatorAfter = this.evaluateSeparatorAfter(document, offsetForSeparator);
 
-			const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset, valueNode);
+			const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset, valueNode, schema.activeVocabularies);
 			for (const s of matchingSchemas) {
 				if (s.node === node && !s.inverted && s.schema) {
 					if (node.type === 'array' && s.schema.items) {
