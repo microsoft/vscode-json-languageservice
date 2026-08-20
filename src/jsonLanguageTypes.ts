@@ -39,6 +39,15 @@ export {
 };
 
 /**
+ * Represents active JSON Schema vocabularies with their required/optional status.
+ * Key = vocabulary URI, Value = true if required, false if optional.
+ * Both required and optional vocabularies are active; the boolean indicates
+ * whether the validator must understand it (true) or should understand it (false).
+ * @since 2019-09
+ */
+export type Vocabularies = Map<string, boolean>;
+
+/**
  * Error codes used by diagnostics
  */
 export enum ErrorCode {

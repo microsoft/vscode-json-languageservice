@@ -8,7 +8,10 @@
 		"stripInternal": true,
 		"outDir": "../lib/esm",
 		"lib": [
-			"es2020"
+			"es2020",
+		],
+		"types": [
+			"node"
 		],
 		"strict": true
 	}
