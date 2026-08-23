@@ -276,7 +276,11 @@ export class ValidationResult {
 	}
 
 	public hasProblems(): boolean {
-		return !!this.problems.length;
+		// A deprecation notice is advisory, not a validation failure. It must not make an
+		// otherwise-valid schema look like a non-match, otherwise a deprecated-but-matching
+		// `anyOf`/`oneOf` alternative loses to a non-matching one (see #304). The deprecation
+		// problem is still reported; it just doesn't count towards match selection here.
+		return this.problems.some(p => p.code !== ErrorCode.Deprecated);
 	}
 
 	public merge(validationResult: ValidationResult): void {
