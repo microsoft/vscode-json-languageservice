@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Range, Position, SelectionRange, TextDocument } from '../jsonLanguageTypes';
+import { Range, Position, SelectionRange, TextDocument } from '../jsonLanguageTypes.js';
 
-import { JSONDocument } from '../parser/jsonParser';
+import { JSONDocument } from '../parser/jsonParser.js';
 import { SyntaxKind, createScanner } from 'jsonc-parser';
 
 export function getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[] {

@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions';
-import { JSONSchema } from './jsonSchema';
+import { JSONWorkerContribution, JSONPath, Segment, CompletionsCollector } from './jsonContributions.js';
+import { JSONSchema } from './jsonSchema.js';
 import {
 	Range, Position, DocumentUri, MarkupContent, MarkupKind,
 	Color, ColorInformation, ColorPresentation,
@@ -39,6 +39,15 @@ export {
 };
 
 /**
+ * Represents active JSON Schema vocabularies with their required/optional status.
+ * Key = vocabulary URI, Value = true if required, false if optional.
+ * Both required and optional vocabularies are active; the boolean indicates
+ * whether the validator must understand it (true) or should understand it (false).
+ * @since 2019-09
+ */
+export type Vocabularies = Map<string, boolean>;
+
+/**
  * Error codes used by diagnostics
  */
 export enum ErrorCode {
@@ -61,8 +70,12 @@ export enum ErrorCode {
 	DuplicateKey = 0x208,
 	CommentNotPermitted = 0x209,
 	PropertyKeysMustBeDoublequoted = 0x210,
-	SchemaResolveError = 0x300,
-	SchemaUnsupportedFeature = 0x301
+	SchemaUnsupportedFeature = 0x301,
+	SchemaResolveError = 0x10000,
+}
+
+export function isSchemaResolveError(code: number): boolean {
+	return code >= ErrorCode.SchemaResolveError;
 }
 
 export type ASTNode = ObjectASTNode | PropertyASTNode | ArrayASTNode | StringASTNode | NumberASTNode | BooleanASTNode | NullASTNode;
@@ -203,10 +216,11 @@ export interface WorkspaceContextService {
 }
 /**
  * The schema request service is used to fetch schemas. If successful, returns a resolved promise with the content of the schema.
- * In case of an error, returns a rejected promise with a displayable error string.
+ * In case of an error, returns a rejected promise with an Error object. If the type is of form { message: string, code: number }, the
+ * error code will be used for diagnostics.
  */
 export interface SchemaRequestService {
-	(uri: string): Thenable<string>;
+	(uri: string): PromiseLike<string>;
 }
 
 export interface PromiseConstructor {
@@ -216,7 +230,7 @@ export interface PromiseConstructor {
 	 * a resolve callback used resolve the promise with a value or the result of another promise,
 	 * and a reject callback used to reject the promise with a provided reason or error.
 	 */
-	new <T>(executor: (resolve: (value?: T | Thenable<T | undefined>) => void, reject: (reason?: any) => void) => void): Thenable<T | undefined>;
+	new <T>(executor: (resolve: (value?: T | PromiseLike<T | undefined>) => void, reject: (reason?: any) => void) => void): PromiseLike<T | undefined>;
 
 	/**
 	 * Creates a Promise that is resolved with an array of results when all of the provided Promises
@@ -224,33 +238,29 @@ export interface PromiseConstructor {
 	 * @param values An array of Promises.
 	 * @returns A new Promise.
 	 */
-	all<T>(values: Array<T | Thenable<T>>): Thenable<T[]>;
+	all<T>(values: Array<T | PromiseLike<T>>): PromiseLike<T[]>;
 	/**
 	 * Creates a new rejected promise for the provided reason.
 	 * @param reason The reason the promise was rejected.
 	 * @returns A new rejected Promise.
 	 */
-	reject<T>(reason: any): Thenable<T>;
+	reject<T>(reason: any): PromiseLike<T>;
 
 	/**
 		 * Creates a new resolved promise for the provided value.
 		 * @param value A promise.
 		 * @returns A promise whose internal state matches the provided promise.
 		 */
-	resolve<T>(value: T | Thenable<T>): Thenable<T>;
+	resolve<T>(value: T | PromiseLike<T>): PromiseLike<T>;
 
 }
 
-export interface Thenable<R> {
-	/**
-	* Attaches callbacks for the resolution and/or rejection of the Promise.
-	* @param onfulfilled The callback to execute when the Promise is resolved.
-	* @param onrejected The callback to execute when the Promise is rejected.
-	* @returns A Promise for the completion of which ever callback is executed.
-	*/
-	then<TResult>(onfulfilled?: (value: R) => TResult | Thenable<TResult>, onrejected?: (reason: any) => TResult | Thenable<TResult>): Thenable<TResult>;
-	then<TResult>(onfulfilled?: (value: R) => TResult | Thenable<TResult>, onrejected?: (reason: any) => void): Thenable<TResult>;
-}
+/**
+ * A deprecated alias of {@link PromiseLike}
+ * 
+ * @deprecated
+ */
+export interface Thenable<R> extends PromiseLike<R> {}
 
 export interface LanguageServiceParams {
 	/**

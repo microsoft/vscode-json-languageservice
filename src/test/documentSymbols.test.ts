@@ -4,14 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as JsonSchema from '../jsonSchema';
+import { suite, test } from 'node:test';
+import * as JsonSchema from '../jsonSchema.js';
 
 import {
-	Thenable, getLanguageService,
+	getLanguageService,
 	ClientCapabilities, DocumentSymbolsContext,
 	TextDocument, Color, SymbolInformation, SymbolKind, Range, Position, TextEdit, DocumentSymbol
-} from "../jsonLanguageService";
-import { colorFrom256RGB } from '../utils/colors';
+} from "../jsonLanguageService.js";
+import { colorFrom256RGB } from '../utils/colors.js';
 
 suite('JSON Document Symbols', () => {
 
@@ -37,7 +38,7 @@ suite('JSON Document Symbols', () => {
 		return ls.findDocumentSymbols2(document, jsonDoc, context);
 	}
 
-	function assertColors(value: string, schema: JsonSchema.JSONSchema, expectedOffsets: number[], expectedColors: Color[]): Thenable<any> {
+	function assertColors(value: string, schema: JsonSchema.JSONSchema, expectedOffsets: number[], expectedColors: Color[]): PromiseLike<any> {
 		const uri = 'test://test.json';
 		const schemaUri = "http://myschemastore/test1";
 
@@ -203,7 +204,7 @@ suite('JSON Document Symbols', () => {
 	});
 
 	test('Hierarchical Outline - Array', function () {
-		const content = '{ "key1": [ { "key2": true }, { "k1": [] } ]';
+		const content = '{ "key1": [ { "key2": true }, { "k1": [] } ]}';
 
 		const expected: ExpectedDocumentSymbol[] = [
 			{

@@ -1,6 +1,7 @@
 
-import { getLanguageService, ClientCapabilities, TextDocument, SortOptions } from '../jsonLanguageService';
+import { getLanguageService, ClientCapabilities, TextDocument, SortOptions } from '../jsonLanguageService.js';
 import * as assert from 'assert';
+import { suite, test } from 'node:test';
 
 suite('Sort JSON', () => {
 
@@ -1430,6 +1431,74 @@ suite('Sort JSON', () => {
             '      }',
             '    ]',
             '  ]',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
+
+    test('sorting a JSON object with mixed case keys', () => {
+        const content = [
+            '{',
+            '  "tEst": "tEst",',
+            '  "tesT": "tesT",',
+            '  "teSt": "teSt",',
+            '  "Test": "Test",',
+            '  "test": "test"',
+            '}'
+        ].join('\n');
+
+        const expected = [
+            '{',
+            '  "test": "test",',
+            '  "tesT": "tesT",',
+            '  "teSt": "teSt",',
+            '  "tEst": "tEst",',
+            '  "Test": "Test"',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
+
+    test('sorting an already sorted JSON object with mixed case keys', () => {
+        const content = [
+            '{',
+            '  "test": "test",',
+            '  "tesT": "tesT",',
+            '  "teSt": "teSt",',
+            '  "tEst": "tEst",',
+            '  "Test": "Test"',
+            '}'
+        ].join('\n');
+
+        const expected = [
+            '{',
+            '  "test": "test",',
+            '  "tesT": "tesT",',
+            '  "teSt": "teSt",',
+            '  "tEst": "tEst",',
+            '  "Test": "Test"',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+    });
+
+    test('sorting symbols before letters', () => {
+        const content = [
+            '{',
+            '  "Test": "Test",',
+            '  "test": "test",',
+            '  "[test]: "test',
+            '}'
+        ].join('\n');
+
+        const expected = [
+            '{',
+            '  "[test]: "test,',
+            '  "test": "test",',
+            '  "Test": "Test"',
             '}'
         ].join('\n');
 

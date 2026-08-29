@@ -3,20 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as Parser from '../parser/jsonParser';
+import * as Parser from '../parser/jsonParser.js';
 import * as Json from 'jsonc-parser';
-import * as SchemaService from './jsonSchemaService';
-import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
-import { JSONWorkerContribution, CompletionsCollector, JSONCompletionItem } from '../jsonContributions';
-import { stringifyObject } from '../utils/json';
-import { endsWith, extendedRegExp } from '../utils/strings';
-import { isDefined } from '../utils/objects';
+import * as SchemaService from './jsonSchemaService.js';
+import { JSONSchema, JSONSchemaRef } from '../jsonSchema.js';
+import { JSONWorkerContribution, CompletionsCollector, JSONCompletionItem } from '../jsonContributions.js';
+import { stringifyObject } from '../utils/json.js';
+import { endsWith, extendedRegExp } from '../utils/strings.js';
+import { isDefined } from '../utils/objects.js';
 import {
-	PromiseConstructor, Thenable,
+	PromiseConstructor,
 	ASTNode, ObjectASTNode, ArrayASTNode, PropertyASTNode, ClientCapabilities,
 	TextDocument,
 	CompletionItem, CompletionItemKind, CompletionList, Position, Range, TextEdit, InsertTextFormat, MarkupContent, MarkupKind
-} from '../jsonLanguageTypes';
+} from '../jsonLanguageTypes.js';
 
 import * as l10n from '@vscode/l10n';
 
@@ -36,7 +36,7 @@ export class JSONCompletion {
 		private clientCapabilities: ClientCapabilities = {}) {
 	}
 
-	public doResolve(item: CompletionItem): Thenable<CompletionItem> {
+	public doResolve(item: CompletionItem): PromiseLike<CompletionItem> {
 		for (let i = this.contributions.length - 1; i >= 0; i--) {
 			const resolveCompletion = this.contributions[i].resolveCompletion;
 			if (resolveCompletion) {
@@ -49,7 +49,7 @@ export class JSONCompletion {
 		return this.promiseConstructor.resolve(item);
 	}
 
-	public doComplete(document: TextDocument, position: Position, doc: Parser.JSONDocument): Thenable<CompletionList> {
+	public doComplete(document: TextDocument, position: Position, doc: Parser.JSONDocument): PromiseLike<CompletionList> {
 
 		const result: CompletionList = {
 			items: [],
@@ -130,7 +130,7 @@ export class JSONCompletion {
 		};
 
 		return this.schemaService.getSchemaForResource(document.uri, doc).then((schema) => {
-			const collectionPromises: Thenable<any>[] = [];
+			const collectionPromises: PromiseLike<any>[] = [];
 
 			let addValue = true;
 			let currentKey = '';
@@ -240,8 +240,11 @@ export class JSONCompletion {
 								insertText: this.getInsertTextForProperty(key, propertySchema, addValue, separatorAfter),
 								insertTextFormat: InsertTextFormat.Snippet,
 								filterText: this.getFilterTextForValue(key),
-								documentation: this.fromMarkup(propertySchema.markdownDescription) || propertySchema.description || '',
+								documentation: this.fromMarkup(propertySchema.markdownDescription) || propertySchema.description || ''
 							};
+							if (propertySchema.completionDetail !== undefined) {
+								proposal.detail = propertySchema.completionDetail;
+							}
 							if (propertySchema.suggestSortText !== undefined) {
 								proposal.sortText = propertySchema.suggestSortText;
 							}
@@ -257,18 +260,17 @@ export class JSONCompletion {
 				}
 				const schemaPropertyNames = s.schema.propertyNames;
 				if (typeof schemaPropertyNames === 'object' && !schemaPropertyNames.deprecationMessage && !schemaPropertyNames.doNotSuggest) {
-					const propertyNameCompletionItem = (name: string, enumDescription: string | MarkupContent | undefined = undefined) => {
+					const propertyNameCompletionItem = (name: string, documentation: string | MarkupContent | undefined, detail: string | undefined, sortText: string | undefined) => {
 						const proposal: JSONCompletionItem = {
 							kind: CompletionItemKind.Property,
 							label: name,
 							insertText: this.getInsertTextForProperty(name, undefined, addValue, separatorAfter),
 							insertTextFormat: InsertTextFormat.Snippet,
 							filterText: this.getFilterTextForValue(name),
-							documentation: enumDescription || this.fromMarkup(schemaPropertyNames.markdownDescription) || schemaPropertyNames.description || '',
+							documentation: documentation || this.fromMarkup(schemaPropertyNames.markdownDescription) || schemaPropertyNames.description || '',
+							sortText,
+							detail
 						};
-						if (schemaPropertyNames.suggestSortText !== undefined) {
-							proposal.sortText = schemaPropertyNames.suggestSortText;
-						}
 						if (proposal.insertText && endsWith(proposal.insertText, `$1${separatorAfter}`)) {
 							proposal.command = {
 								title: 'Suggest',
@@ -285,11 +287,18 @@ export class JSONCompletion {
 							} else if (schemaPropertyNames.enumDescriptions && i < schemaPropertyNames.enumDescriptions.length) {
 								enumDescription = schemaPropertyNames.enumDescriptions[i];
 							}
-							propertyNameCompletionItem(schemaPropertyNames.enum[i], enumDescription);
+							const enumSortText = schemaPropertyNames.enumSortTexts?.[i];
+							const enumDetails = schemaPropertyNames.enumDetails?.[i];
+							propertyNameCompletionItem(schemaPropertyNames.enum[i], enumDescription, enumDetails, enumSortText);
+						}
+					}
+					if (schemaPropertyNames.examples) {
+						for (let i = 0; i < schemaPropertyNames.examples.length; i++) {
+							propertyNameCompletionItem(schemaPropertyNames.examples[i], undefined, undefined, undefined);
 						}
 					}
 					if (schemaPropertyNames.const) {
-						propertyNameCompletionItem(schemaPropertyNames.const);
+						propertyNameCompletionItem(schemaPropertyNames.const, undefined, schemaPropertyNames.completionDetail, schemaPropertyNames.suggestSortText);
 					}
 				}
 			}
@@ -515,7 +524,7 @@ export class JSONCompletion {
 
 	}
 
-	private getContributedValueCompletions(doc: Parser.JSONDocument, node: ASTNode | undefined, offset: number, document: TextDocument, collector: CompletionsCollector, collectionPromises: Thenable<any>[]) {
+	private getContributedValueCompletions(doc: Parser.JSONDocument, node: ASTNode | undefined, offset: number, document: TextDocument, collector: CompletionsCollector, collectionPromises: PromiseLike<any>[]) {
 		if (!node) {
 			this.contributions.forEach((contribution) => {
 				const collectPromise = contribution.collectDefaultCompletions(document.uri, collector);
@@ -676,6 +685,8 @@ export class JSONCompletion {
 					label: this.getLabelForValue(enm),
 					insertText: this.getInsertTextForValue(enm, separatorAfter),
 					insertTextFormat: InsertTextFormat.Snippet,
+					sortText: schema.enumSortTexts?.[i],
+					detail: schema.enumDetails?.[i],
 					documentation
 				});
 			}
@@ -740,7 +751,7 @@ export class JSONCompletion {
 	private addDollarSchemaCompletions(separatorAfter: string, collector: CompletionsCollector): void {
 		const schemaIds = this.schemaService.getRegisteredSchemaIds(schema => schema === 'http' || schema === 'https');
 		schemaIds.forEach(schemaId => {
-			if (schemaId.startsWith('http://json-schema.org/draft-')) {
+			if (schemaId.startsWith('https://json-schema.org/draft-')) {
 				schemaId = schemaId + '#';
 			}
 			collector.add({

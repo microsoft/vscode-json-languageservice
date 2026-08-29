@@ -42,22 +42,22 @@ extends:
 
         tag: ${{ parameters.quality }}
         preReleaseTag: next
-        preReleaseTagAddToLatest: true
         publishPackage: ${{ parameters.publishPackage }}
+        publishRequiresApproval: false
 
         testPlatforms:
           - name: Linux
             nodeVersions:
-              - 16.x
+              - 22.x
           - name: MacOS
             nodeVersions:
-              - 16.x
+              - 22.x
           - name: Windows
             nodeVersions:
-              - 16.x                   
+              - 22.x
 
         testSteps:
           - script: npm ci
-            displayName: Install dependencies        
+            displayName: Install dependencies
           - script: npm test
             displayName: Test npm package

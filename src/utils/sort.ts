@@ -3,11 +3,10 @@
 *  Licensed under the MIT License. See License.txt in the project root for license information.
 *--------------------------------------------------------------------------------------------*/
 
-// import { TextEdit} from 'vscode-languageserver-textdocument';
-import { createScanner, SyntaxKind, JSONScanner, FormattingOptions as JPFormattingOptions } from 'jsonc-parser';
-import { TextDocument, TextEdit, FormattingOptions, Position, Range, TextDocumentContentChangeEvent, SortOptions } from '../jsonLanguageTypes';
-import { format } from './format';
-import { PropertyTree, Container } from './propertyTree';
+import { createScanner, SyntaxKind, JSONScanner } from 'jsonc-parser';
+import { TextDocument, TextEdit, FormattingOptions, Position, Range, TextDocumentContentChangeEvent, SortOptions } from '../jsonLanguageTypes.js';
+import { format } from './format.js';
+import { PropertyTree, Container } from './propertyTree.js';
 
 export function sort(documentToSort: TextDocument, formattingOptions: SortOptions): TextEdit[] {
     const options: FormattingOptions = {
@@ -376,6 +375,10 @@ function sortJsoncDocument(jsonDocument: TextDocument, propertyTree: PropertyTre
     return sortedJsonDocument;
 }
 
+function sortProperties(properties: PropertyTree[]): void {
+    properties.sort((a, b) => a.propertyName.localeCompare(b.propertyName));
+}
+
 function updateSortingQueue(queue: any[], propertyTree: PropertyTree, beginningLineNumber: number) {
     if (propertyTree.childrenProperties.length === 0) {
         return;
@@ -389,6 +392,8 @@ function updateSortingQueue(queue: any[], propertyTree: PropertyTree, beginningL
         }
         const diff = minimumBeginningLineNumber - propertyTree.beginningLineNumber!;
         beginningLineNumber = beginningLineNumber + diff;
+
+        sortProperties(propertyTree.childrenProperties);
 
         queue.push(new SortingRange(beginningLineNumber, propertyTree.childrenProperties));
 
