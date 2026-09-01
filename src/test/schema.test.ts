@@ -54,7 +54,17 @@ suite('JSON Schema', () => {
 		'http://schema.management.azure.com/schemas/2014-04-01-preview/Microsoft.Sql.json': 'Microsoft.Sql.json',
 		'http://schema.management.azure.com/schemas/2014-06-01/Microsoft.Web.json': 'Microsoft.Web.json',
 		'http://schema.management.azure.com/schemas/2014-04-01/SuccessBricks.ClearDB.json': 'SuccessBricks.ClearDB.json',
-		'http://schema.management.azure.com/schemas/2015-08-01/Microsoft.Compute.json': 'Microsoft.Compute.json'
+		'http://schema.management.azure.com/schemas/2015-08-01/Microsoft.Compute.json': 'Microsoft.Compute.json',
+		'https://www.schemastore.org/openapi-3.X.json': 'openapi-3.X.json',
+		'https://spec.openapis.org/oas/3.0/schema/2024-10-18': 'openapi/oas-3.0-schema-2024-10-18.json',
+		'https://spec.openapis.org/oas/3.1/schema-base/2025-11-23': 'openapi/oas-3.1-schema-base-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.1/schema/2025-11-23': 'openapi/oas-3.1-schema-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.1/dialect/2024-11-10': 'openapi/oas-3.1-dialect-2024-11-10.json',
+		'https://spec.openapis.org/oas/3.1/meta/2024-11-10': 'openapi/oas-3.1-meta-2024-11-10.json',
+		'https://spec.openapis.org/oas/3.2/schema-base/2025-11-23': 'openapi/oas-3.2-schema-base-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.2/schema/2025-11-23': 'openapi/oas-3.2-schema-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.2/dialect/2025-09-17': 'openapi/oas-3.2-dialect-2025-09-17.json',
+		'https://spec.openapis.org/oas/3.2/meta/2025-09-17': 'openapi/oas-3.2-meta-2025-09-17.json'
 	};
 
 	function newMockRequestService(schemas: { [uri: string]: JSONSchema } = {}, accesses: string[] = []): SchemaRequestService {
@@ -209,6 +219,134 @@ suite('JSON Schema', () => {
 		});
 
 
+	});
+
+	for (const version of ['3.0.0', '3.1.0', '3.2.0']) {
+		test(`OpenAPI ${version} schema resolves and validates`, async function () {
+			const schemaStoreUri = 'https://www.schemastore.org/openapi-3.X.json';
+			const ls = getLanguageService({ schemaRequestService: newMockRequestService(), workspaceContext });
+			ls.configure({ schemas: [{ uri: schemaStoreUri, fileMatch: ['*.json'] }] });
+			const content = JSON.stringify({
+				openapi: version,
+				info: {
+					title: 'Test API',
+					version: '1.0.0'
+				},
+				paths: {}
+			});
+			const { textDoc, jsonDoc } = toDocument(content, undefined, `file:///petstore${version}.openapi.json`);
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.deepStrictEqual(diagnostics, []);
+		});
+	}
+
+	test('Relative schema-base $id is applied once when resolving $ref siblings', async function () {
+		const schemaBaseUri = 'https://example.com/root/schema-base.json';
+		const referencedSchemaUri = 'https://example.com/root/sub/schema.json';
+		const childSchemaUri = 'https://example.com/root/sub/child.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$id: 'sub/',
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				$ref: 'schema.json',
+				properties: {
+					child: {
+						$ref: 'child.json'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
+				type: 'object'
+			},
+			[childSchemaUri]: {
+				type: 'string'
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"child":1}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'string');
+	});
+
+	test('Referenced schema relative $refs keep the referenced resource base', async function () {
+		const schemaBaseUri = 'https://example.com/a/schema-base.json';
+		const referencedSchemaUri = 'https://example.com/b/schema.json';
+		const childSchemaUri = 'https://example.com/b/child.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$id: schemaBaseUri,
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				$ref: referencedSchemaUri,
+				properties: {
+					local: {
+						type: 'boolean'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
+				type: 'object',
+				properties: {
+					child: {
+						$ref: 'child.json'
+					}
+				}
+			},
+			[childSchemaUri]: {
+				type: 'string'
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"child":1}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'string');
+	});
+
+	test('Nested external $ref siblings keep the inherited owner resource base', async function () {
+		const schemaBaseUri = 'https://example.com/a/schema.json';
+		const referencedSchemaUri = 'https://example.com/b/schema.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$id: schemaBaseUri,
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				type: 'object',
+				properties: {
+					container: {
+						$ref: referencedSchemaUri,
+						properties: {
+							local: {
+								$ref: '#/$defs/local'
+							}
+						}
+					}
+				},
+				$defs: {
+					local: {
+						type: 'string'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
+				type: 'object'
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"container":{"local":1}}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'string');
 	});
 
 	test('Resolving $refs 3', async function () {
@@ -904,6 +1042,33 @@ suite('JSON Schema', () => {
 			type: 'string',
 			const: 'world'
 		});
+	});
+
+	test('Resolving a pure external $ref redirect cycle reports an error', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				'https://myschemastore/main/schema.json': {
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: 'redirect-a.json#/$defs/value'
+						}
+					}
+				},
+				'https://myschemastore/main/redirect-a.json': {
+					$ref: 'redirect-b.json'
+				},
+				'https://myschemastore/main/redirect-b.json': {
+					$ref: 'redirect-a.json'
+				}
+			}
+		});
+
+		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema.json');
+
+		assert.strictEqual(resolvedSchema?.errors.length, 1);
+		assertInMessage(resolvedSchema?.errors[0].message, '/$defs/value');
 	});
 
 
