@@ -4028,6 +4028,40 @@ suite('JSON Schema', () => {
 			assert.ok(validation.some(v => messageContains(v.message, 'string')), 'Expected type mismatch from the embedded schema');
 		});
 
+		test('schema whose root $id matches its own retrieval URI keeps resolve errors on repeated validation', async function () {
+			// Reproduces a self-registration bug: registerEmbeddedSchemas treats the root
+			// schema's own $id (equal to the URI it was fetched from) as an embedded schema
+			// to (re-)register, calling setSchemaContent on the handle currently being
+			// resolved. That clears the handle's cached resolved/unresolved schema using the
+			// same (still being mutated) object reference, so a *second* validation of a
+			// document using this schema would recompute from the already ref-merged object
+			// and silently lose the resolveErrors recorded on the first pass.
+			const wrapperUri = 'https://example.com/wrapper.json';
+			const externalUri = 'https://example.com/unreachable.json';
+			const wrapperSchema: JSONSchema = {
+				$id: wrapperUri,
+				type: 'object',
+				allOf: [
+					{ $ref: externalUri }
+				]
+			};
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === wrapperUri) {
+					return JSON.stringify(wrapperSchema);
+				}
+				throw new Error(`Unreachable schema: ${uri}`);
+			};
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc: textDoc1, jsonDoc: jsonDoc1 } = toDocument(JSON.stringify({ $schema: wrapperUri }));
+			const firstValidation = await ls.doValidation(textDoc1, jsonDoc1, {});
+			assert.ok(firstValidation.some(v => messageContains(v.message, 'Unreachable schema')), 'Expected a resolve error on the first validation');
+
+			const { textDoc: textDoc2, jsonDoc: jsonDoc2 } = toDocument(JSON.stringify({ $schema: wrapperUri, extra: true }));
+			const secondValidation = await ls.doValidation(textDoc2, jsonDoc2, {});
+			assert.ok(secondValidation.some(v => messageContains(v.message, 'Unreachable schema')), 'Expected the resolve error to persist on a later validation of the same schema handle');
+		});
+
 		test('nested embedded schema with $ref between embedded schemas', async function () {
 			// An embedded schema referencing another embedded schema within the same document
 			const schema: JSONSchema = {
@@ -4351,5 +4385,42 @@ suite('JSON Schema', () => {
 			const embeddedErrors = validation.filter(v => messageContains(v.message, 'example.com/embedded'));
 			assert.strictEqual(embeddedErrors.length, 0, `Should have no errors for embedded schema after reconfigure, but got: ${embeddedErrors.map(v => v.message).join('; ')}`);
 		});
+	});
+
+	test('untrusted schema error is reported', async function () {
+		const overlaySchemaUri = 'https://www.schemastore.org/openapi-overlay-1.X.json';
+		const openApiSpecUri1 = 'https://spec.openapis.org/overlay/1.0/schema/2026-04-01';
+		const openApiSpecUri2 = 'https://spec.openapis.org/overlay/1.1/schema/2026-04-01';
+
+		const fixturePath = path.join(__dirname, '../../../src/test/fixtures/openapi-overlay-1.X.json');
+		const overlaySchemaContent = (await fs.readFile(fixturePath)).toString();
+
+		const schemaRequestService: SchemaRequestService = async (uri: string) => {
+			if (uri === overlaySchemaUri) {
+				return overlaySchemaContent;
+			}
+			if (uri === openApiSpecUri1 || uri === openApiSpecUri2) {
+				throw new Error('Untrusted schema: access denied');
+			}
+			throw new Error(`Resource not found: ${uri}`);
+		};
+
+		const ls = getLanguageService({ workspaceContext, schemaRequestService });
+
+		const { textDoc, jsonDoc } = toDocument(
+			JSON.stringify({ $schema: overlaySchemaUri, overlay: '1.0.0' }),
+			undefined,
+			'file:///test.json'
+		);
+
+		const validation = await ls.doValidation(textDoc, jsonDoc);
+
+		// Should report the untrusted error, not missing overlay fields
+		const untrustedErrors = validation.filter(v => messageContains(v.message, 'Untrusted'));
+		assert.ok(untrustedErrors.length > 0, `Expected untrusted schema error but got: ${validation.map(v => v.message).join('; ')}`);
+
+		// Should not report "overlay is required"
+		const overlayRequiredErrors = validation.filter(v => messageContains(v.message, 'overlay is required'));
+		assert.strictEqual(overlayRequiredErrors.length, 0, 'Should not report missing properties when schema cannot be loaded due to untrusted error');
 	});
 });
