@@ -1245,9 +1245,15 @@ export class JSONSchemaService implements IJSONSchemaService {
 					const existingHandle = this.schemasById[resolvedUri];
 					if (!existingHandle) {
 						this.addSchemaHandle(resolvedUri, node);
-					} else {
-						// Update existing handle with embedded schema content
-						// This ensures embedded schemas take precedence over external schemas
+					} else if (existingHandle !== handle) {
+						// Update existing handle with embedded schema content.
+						// This ensures embedded schemas take precedence over external schemas.
+						// Skip when the existing handle is the handle currently being resolved
+						// (i.e. the root schema's own $id matches its retrieval URI): overwriting
+						// it here would reset its cache mid-resolution using the same object
+						// reference that this resolution pass is still mutating (merging $refs
+						// into), silently discarding any resolveErrors accumulated so far on the
+						// next time this handle is resolved.
 						existingHandle.setSchemaContent(node);
 					}
 					newBaseUri = resolvedUri;
