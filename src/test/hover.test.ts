@@ -210,4 +210,47 @@ suite('JSON Hover', () => {
 		assert.deepEqual(result.contents, ['test://test.json: prop1/0']);
 
 	});
+	test('Annotation keywords', async function () {
+
+		const content = '{"port": 8080, "id": "abc", "debug": false, "secret": "s"}';
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'port': {
+					type: 'integer',
+					title: 'Port',
+					description: 'TCP port to bind.',
+					default: 8080,
+					examples: [8080, 3000]
+				},
+				'id': {
+					type: 'string',
+					description: 'Assigned by the server.',
+					readOnly: true
+				},
+				'debug': {
+					type: 'boolean',
+					default: false
+				},
+				'secret': {
+					type: 'string',
+					writeOnly: true
+				}
+			}
+		};
+		await testComputeInfo(content, schema, { line: 0, character: 2 }).then((result) => {
+			assert.deepEqual(result.contents, ['Port\n\nTCP port to bind\\.\n\nDefault: `8080`\n\nExamples: `8080`, `3000`']);
+		});
+		await testComputeInfo(content, schema, { line: 0, character: 16 }).then((result) => {
+			assert.deepEqual(result.contents, ['Assigned by the server\\.\n\nRead-only']);
+		});
+		// a falsy default must still be shown
+		await testComputeInfo(content, schema, { line: 0, character: 30 }).then((result) => {
+			assert.deepEqual(result.contents, ['Default: `false`']);
+		});
+		await testComputeInfo(content, schema, { line: 0, character: 45 }).then((result) => {
+			assert.deepEqual(result.contents, ['Write-only']);
+		});
+	});
+
 });

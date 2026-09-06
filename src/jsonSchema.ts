@@ -52,6 +52,8 @@ export interface JSONSchema {
 	if?: JSONSchemaRef;
 	then?: JSONSchemaRef;
 	else?: JSONSchemaRef;
+	readOnly?: boolean;
+	writeOnly?: boolean;
 
 	// schema 2019-09
 	unevaluatedProperties?: boolean | JSONSchemaRef;
