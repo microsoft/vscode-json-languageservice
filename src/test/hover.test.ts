@@ -253,4 +253,32 @@ suite('JSON Hover', () => {
 		});
 	});
 
+	test('Annotation keywords - empty examples and complex values', async function () {
+
+		const content = '{"a": 1, "b": 2}';
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'a': {
+					type: 'number',
+					description: 'A',
+					examples: []
+				},
+				'b': {
+					type: 'number',
+					default: { key: 'value' },
+					examples: [[1, 2], { x: true }]
+				}
+			}
+		};
+		// an empty examples array must not render an Examples block
+		await testComputeInfo(content, schema, { line: 0, character: 2 }).then((result) => {
+			assert.deepEqual(result.contents, ['A']);
+		});
+		// objects and arrays are rendered as JSON
+		await testComputeInfo(content, schema, { line: 0, character: 10 }).then((result) => {
+			assert.deepEqual(result.contents, ['Default: `{"key":"value"}`\n\nExamples: `[1,2]`, `{"x":true}`']);
+		});
+	});
+
 });
