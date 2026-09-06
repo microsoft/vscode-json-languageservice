@@ -3420,6 +3420,42 @@ suite('JSON Schema', () => {
 			assert.strictEqual(validation.length, 0, 'A non-boolean $vocabulary value should not enable format assertion');
 		});
 
+		test('a non-boolean $vocabulary value still activates the vocabulary', async function () {
+			// The boolean records required vs optional; it is presence in $vocabulary that
+			// activates a vocabulary. A malformed value normalizes to false (optional) and
+			// must not drop the vocabulary, so its keywords stay enabled.
+			const metaschema = {
+				$id: 'http://test/metaschema-2019-validation-malformed',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/applicator': true,
+					'https://json-schema.org/draft/2019-09/vocab/validation': 'yes'
+				},
+				type: 'object'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-2019-validation-malformed',
+				type: 'object',
+				properties: {
+					age: { minimum: 0 }
+				}
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-2019-validation-malformed') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			const { textDoc, jsonDoc } = toDocument('{ "age": -1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'validation keywords stay enabled when the vocabulary value is malformed');
+		});
+
 		test('no format vocabulary should not produce format errors', async function () {
 			const metaschema: JSONSchema = {
 				$id: 'http://test/metaschema-no-format',
