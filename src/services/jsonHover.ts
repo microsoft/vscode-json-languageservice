@@ -90,7 +90,7 @@ export class JSONHover {
 
 			let result = '';
 			if (title) {
-				result = toMarkdown(title);
+				result = "**" + toMarkdown(title) + "**";
 			}
 			if (markdownDescription) {
 				if (result.length > 0) {
