@@ -103,7 +103,7 @@ class FilePatternAssociation {
 						include: include,
 					});
 				}
-			};
+			}
 			if (folderUri) {
 				folderUri = normalizeResourceForMatching(folderUri);
 				if (!folderUri.endsWith('/')) {
@@ -1339,7 +1339,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				return new ResolvedSchema(schema, resolveErrors, [], schemaDraft, activeVocabularies);
 			});
 		});
-	};
+	}
 
 	private getSchemaFromProperty(resource: string, document: JSONDocument): string | undefined {
 		if (document.root?.type === 'object') {
