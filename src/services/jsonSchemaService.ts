@@ -641,10 +641,16 @@ export class JSONSchemaService implements IJSONSchemaService {
 			}
 		};
 
-		const merge = (target: MergedJSONSchema, section: any): void => {
+		const merge = (target: MergedJSONSchema, section: any, preserveDefinitions: boolean): void => {
 			const targetHasSiblingKeywords = hasRefSiblingKeywords(target);
 			for (const key in section) {
 				if (!section.hasOwnProperty(key) || key === 'id' || key === '$id') {
+					continue;
+				}
+
+				// Keep root definition containers when inlining a reference within that root.
+				// Replacing or merging them would remove targets or change their locations.
+				if (preserveDefinitions && (key === 'definitions' || key === '$defs') && target[key] !== undefined) {
 					continue;
 				}
 
@@ -846,7 +852,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 							delete (target as any)[key];
 						}
 					}
-					merge(target, section);
+					merge(target, section, target === sourceRoot);
 				} else if (isolateExternalResource || needsScopeIsolation(section, target)) {
 					// In JSON Schema 2019-09 or greater, $ref creates a new scope when sibling
 					// keywords would otherwise change the meaning of same-object-dependent keywords
@@ -880,7 +886,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 					// Create allOf with the $ref'd schema and sibling schema
 					target.allOf = [refSchema, siblingSchema];
 				} else {
-					merge(target, section);
+					merge(target, section, target === sourceRoot);
 				}
 			} else {
 				const message = l10n.t('$ref \'{0}\' in \'{1}\' can not be resolved.', refSegment || '', sourceHandle.uri)
