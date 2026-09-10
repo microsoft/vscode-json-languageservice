@@ -527,7 +527,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 			// not whether it's in use. All listed vocabularies should be included.
 			const vocabs = new Map<string, boolean>();
 			for (const [uri, required] of Object.entries(metaschema.$vocabulary)) {
-				vocabs.set(uri, required);
+				// Normalize: a malformed meta-schema can carry non-boolean values here.
+				vocabs.set(uri, required === true);
 			}
 			return vocabs.size > 0 ? vocabs : undefined;
 		};
