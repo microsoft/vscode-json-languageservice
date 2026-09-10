@@ -821,6 +821,107 @@ suite('JSON Completion', () => {
 		});
 	});
 
+	test('Complete discriminator values with anyOf and asymmetric required properties', async function () {
+		const schema: JSONSchema = {
+			anyOf: [{
+				type: 'object',
+				required: ['type', 'thing'],
+				properties: {
+					'type': {
+						const: 'A'
+					},
+					'thing': {
+						type: 'number'
+					}
+				}
+			}, {
+				type: 'object',
+				required: ['type'],
+				properties: {
+					'type': {
+						const: 'B'
+					}
+				}
+			}]
+		};
+
+		await testCompletionsFor('{ "type": "|" }', schema, {
+			count: 2,
+			items: [
+				{ label: '"A"' },
+				{ label: '"B"' }
+			]
+		});
+
+		await testCompletionsFor('{ "type": "A|" }', schema, {
+			count: 1,
+			items: [
+				{ label: '"A"' }
+			]
+		});
+	});
+
+	test('Complete discriminator values with oneOf, discriminator mapping and asymmetric required properties', async function () {
+		// Same shape as the anyOf case above, but modeled after a real-world discriminated
+		// union: oneOf + an explicit "discriminator" keyword (propertyName/mapping), which
+		// schema generators like Pydantic or OpenAPI commonly emit instead of a plain anyOf.
+		const schema = {
+			// "discriminator" isn't part of the JSONSchema type (it's an OpenAPI extension),
+			// included here only for fidelity with real-world schemas; this library's own
+			// discriminator inference works structurally off const/enum values regardless.
+			discriminator: {
+				propertyName: 'type',
+				mapping: {
+					'A': '#/$defs/A',
+					'B': '#/$defs/B'
+				}
+			},
+			oneOf: [{
+				$ref: '#/$defs/A'
+			}, {
+				$ref: '#/$defs/B'
+			}],
+			$defs: {
+				A: {
+					type: 'object',
+					required: ['type', 'thing'],
+					properties: {
+						'type': {
+							const: 'A'
+						},
+						'thing': {
+							type: 'number'
+						}
+					}
+				},
+				B: {
+					type: 'object',
+					required: ['type'],
+					properties: {
+						'type': {
+							const: 'B'
+						}
+					}
+				}
+			}
+		};
+
+		await testCompletionsFor('{ "type": "|" }', schema, {
+			count: 2,
+			items: [
+				{ label: '"A"' },
+				{ label: '"B"' }
+			]
+		});
+
+		await testCompletionsFor('{ "type": "A|" }', schema, {
+			count: 1,
+			items: [
+				{ label: '"A"' }
+			]
+		});
+	});
+
 	test('Complete with oneOf', async function () {
 
 		const schema: JSONSchema = {
