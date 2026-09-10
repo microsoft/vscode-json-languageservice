@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
-type LintRule = 'naming-convention' | 'curly' | 'eqeqeq' | 'no-throw-literal';
+type LintRule = 'naming-convention' | 'curly' | 'eqeqeq' | 'no-throw-literal' | 'no-extra-semi';
 
 interface LintDiagnostic {
 	sourceFile: ts.SourceFile;
@@ -50,6 +50,14 @@ test('only error objects are thrown', () => {
 	assert.deepEqual(lintSource("throw 'invalid';").map(diagnostic => diagnostic.rule), ['no-throw-literal']);
 });
 
+test('unnecessary semicolons are rejected', () => {
+	assert.deepEqual(lintSource('const value = 1;; class Example { ; }').map(diagnostic => diagnostic.rule), ['no-extra-semi', 'no-extra-semi']);
+});
+
+test('statement terminators and for loop semicolons are allowed', () => {
+	assert.deepEqual(lintSource('const value = 1; for (let i = 0; i < value; i++) { console.log(i); }'), []);
+});
+
 function lintProject(configPath: string): LintDiagnostic[] {
 	const config = ts.readConfigFile(configPath, ts.sys.readFile);
 	if (config.error) {
@@ -84,6 +92,7 @@ function checkNode(node: ts.Node, sourceFile: ts.SourceFile, diagnostics: LintDi
 	checkCurly(node, sourceFile, diagnostics);
 	checkEquality(node, sourceFile, diagnostics);
 	checkThrow(node, sourceFile, diagnostics);
+	checkUnnecessarySemicolon(node, sourceFile, diagnostics);
 	ts.forEachChild(node, child => checkNode(child, sourceFile, diagnostics));
 }
 
@@ -145,6 +154,20 @@ function checkThrow(node: ts.Node, sourceFile: ts.SourceFile, diagnostics: LintD
 	if (ts.isThrowStatement(node) && node.expression && !couldBeError(node.expression)) {
 		addDiagnostic(diagnostics, sourceFile, node, 'Expected an error object to be thrown', 'no-throw-literal');
 	}
+}
+
+function checkUnnecessarySemicolon(node: ts.Node, sourceFile: ts.SourceFile, diagnostics: LintDiagnostic[]): void {
+	if (ts.isSemicolonClassElement(node) || (ts.isEmptyStatement(node) && isStatementListContainer(node.parent))) {
+		addDiagnostic(diagnostics, sourceFile, node, 'Unnecessary semicolon', 'no-extra-semi');
+	}
+}
+
+function isStatementListContainer(node: ts.Node): boolean {
+	return ts.isSourceFile(node) ||
+		ts.isBlock(node) ||
+		ts.isModuleBlock(node) ||
+		ts.isCaseClause(node) ||
+		ts.isDefaultClause(node);
 }
 
 function couldBeError(expression: ts.Expression): boolean {
