@@ -68,7 +68,7 @@ export class JSONHover {
 			let markdownDescription: string | undefined = undefined;
 			let markdownEnumValueDescription: string | undefined = undefined, enumValue: string | undefined = undefined;
 
-			const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset).filter((s) => s.node === node && !s.inverted).map((s) => s.schema);
+			const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset, undefined, schema.activeVocabularies).filter((s) => s.node === node && !s.inverted).map((s) => s.schema);
 			for (const schema of matchingSchemas) {
 				title = title || schema.title;
 				markdownDescription = markdownDescription || schema.markdownDescription || toMarkdown(schema.description);
