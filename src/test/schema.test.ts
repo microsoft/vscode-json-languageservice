@@ -4,19 +4,44 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as SchemaService from '../services/jsonSchemaService';
-import * as Parser from '../parser/jsonParser';
-import * as fs from 'fs';
+import { suite, test } from 'node:test';
+import * as SchemaService from '../services/jsonSchemaService.js';
+import * as Parser from '../parser/jsonParser.js';
+import { promises as fs } from 'fs';
 import * as url from 'url';
 import * as path from 'path';
-import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema } from '../jsonLanguageService';
-import { DiagnosticSeverity } from '../jsonLanguageTypes';
+import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema, LanguageService } from '../jsonLanguageService.js';
+import { DiagnosticSeverity, ErrorCode, Range, SchemaConfiguration } from '../jsonLanguageTypes.js';
+
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 function toDocument(text: string, config?: Parser.JSONDocumentConfig, uri = 'foo://bar/file.json'): { textDoc: TextDocument, jsonDoc: Parser.JSONDocument } {
 
 	const textDoc = TextDocument.create(uri, 'json', 0, text);
 	const jsonDoc = Parser.parse(textDoc, config);
 	return { textDoc, jsonDoc };
+}
+
+function getMessageText(message: unknown): string {
+	if (typeof message === 'string') {
+		return message;
+	}
+	if (message && typeof message === 'object' && 'value' in message && typeof (message as { value: unknown }).value === 'string') {
+		return (message as { value: string }).value;
+	}
+	return String(message);
+}
+
+function messageContains(message: unknown, expected: string): boolean {
+	return getMessageText(message).includes(expected);
+}
+
+function assertInMessage(message: unknown, expected: string, assertionMessage?: string): void {
+	assert.ok(messageContains(message, expected), assertionMessage);
+}
+
+function assertNotInMessage(message: unknown, expected: string, assertionMessage?: string): void {
+	assert.ok(!messageContains(message, expected), assertionMessage);
 }
 
 suite('JSON Schema', () => {
@@ -29,12 +54,22 @@ suite('JSON Schema', () => {
 		'http://schema.management.azure.com/schemas/2014-04-01-preview/Microsoft.Sql.json': 'Microsoft.Sql.json',
 		'http://schema.management.azure.com/schemas/2014-06-01/Microsoft.Web.json': 'Microsoft.Web.json',
 		'http://schema.management.azure.com/schemas/2014-04-01/SuccessBricks.ClearDB.json': 'SuccessBricks.ClearDB.json',
-		'http://schema.management.azure.com/schemas/2015-08-01/Microsoft.Compute.json': 'Microsoft.Compute.json'
+		'http://schema.management.azure.com/schemas/2015-08-01/Microsoft.Compute.json': 'Microsoft.Compute.json',
+		'https://www.schemastore.org/openapi-3.X.json': 'openapi-3.X.json',
+		'https://spec.openapis.org/oas/3.0/schema/2024-10-18': 'openapi/oas-3.0-schema-2024-10-18.json',
+		'https://spec.openapis.org/oas/3.1/schema-base/2025-11-23': 'openapi/oas-3.1-schema-base-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.1/schema/2025-11-23': 'openapi/oas-3.1-schema-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.1/dialect/2024-11-10': 'openapi/oas-3.1-dialect-2024-11-10.json',
+		'https://spec.openapis.org/oas/3.1/meta/2024-11-10': 'openapi/oas-3.1-meta-2024-11-10.json',
+		'https://spec.openapis.org/oas/3.2/schema-base/2025-11-23': 'openapi/oas-3.2-schema-base-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.2/schema/2025-11-23': 'openapi/oas-3.2-schema-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.2/dialect/2025-09-17': 'openapi/oas-3.2-dialect-2025-09-17.json',
+		'https://spec.openapis.org/oas/3.2/meta/2025-09-17': 'openapi/oas-3.2-meta-2025-09-17.json'
 	};
 
 	function newMockRequestService(schemas: { [uri: string]: JSONSchema } = {}, accesses: string[] = []): SchemaRequestService {
 
-		return (uri: string): Promise<string> => {
+		return async (uri: string): Promise<string> => {
 			if (uri.length && uri[uri.length - 1] === '#') {
 				uri = uri.substr(0, uri.length - 1);
 			}
@@ -48,14 +83,10 @@ suite('JSON Schema', () => {
 
 			const fileName = fixureDocuments[uri];
 			if (fileName) {
-				return new Promise<string>((c, e) => {
-					const fixturePath = path.join(__dirname, '../../../src/test/fixtures', fileName);
-					fs.readFile(fixturePath, 'UTF-8', (err, result) => {
-						err ? e("Resource not found") : c(result.toString());
-					});
-				});
+				const fixturePath = path.join(__dirname, '../../../src/test/fixtures', fileName);
+				return (await fs.readFile(fixturePath)).toString();
 			}
-			return Promise.reject<string>("Resource not found");
+			throw new Error("Resource not found");
 		};
 	}
 
@@ -64,6 +95,64 @@ suite('JSON Schema', () => {
 			return url.resolve(resource, relativePath);
 		}
 	};
+
+	test('Referenced properties are allowed alongside additionalProperties', async function () {
+		const fixturePath = path.join(__dirname, '../../../src/test/fixtures/settings-example.json');
+		const documentUri = url.pathToFileURL(fixturePath).toString();
+		const content = `{
+			"$schema": "./settings.json",
+			"workbench.colorCustomizations": {
+				"menu.border": "#202122",
+				"[Abyss]": {
+					"menu.background": "#202122"
+				}
+			}
+		}`;
+		const schemaRequestService: SchemaRequestService = async uri => {
+			if (uri.startsWith('file:')) {
+				return fs.readFile(url.fileURLToPath(uri), 'utf8');
+			}
+			if (uri.startsWith('vscode:')) {
+				return JSON.stringify({ definitions: { colorGroup: {} } });
+			}
+			throw new Error(`Unexpected schema URI: ${uri}`);
+		};
+		const ls = getLanguageService({ schemaRequestService, workspaceContext });
+		const { textDoc, jsonDoc } = toDocument(content, undefined, documentUri);
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.deepStrictEqual(diagnostics, []);
+	});
+
+	test('External references across nested schema keywords are prefetched', async function () {
+		const schema: JSONSchema = {
+			properties: {
+				nested: {
+					$ref: 'https://example.com/first.json',
+					allOf: [{ $ref: 'https://example.com/second.json' }]
+				}
+			}
+		};
+		const accesses: string[] = [];
+		let secondRequestedBeforeFirstResolved = false;
+		const schemaRequestService: SchemaRequestService = uri => {
+			accesses.push(uri);
+			if (uri === 'https://example.com/first.json') {
+				return new Promise(resolve => setTimeout(() => {
+					secondRequestedBeforeFirstResolved = accesses.includes('https://example.com/second.json');
+					resolve('{}');
+				}, 0));
+			}
+			return Promise.resolve('{}');
+		};
+		const ls = getLanguageService({ schemaRequestService, workspaceContext });
+		const { textDoc, jsonDoc } = toDocument('{}');
+
+		await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+		assert.ok(secondRequestedBeforeFirstResolved, 'Expected sibling external schemas to be requested concurrently');
+	});
 
 	test('Resolving $refs', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
@@ -86,13 +175,12 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['child'], {
-				id: 'https://myschemastore/child',
-				type: 'bool',
-				description: 'Test description'
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main');
+		assert.deepStrictEqual(fs?.schema.properties?.['child'], {
+			type: 'bool',
+			description: 'Test description'
 		});
+
 
 	});
 
@@ -123,14 +211,142 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('http://json.schemastore.org/swagger-2.0').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['responseValue'], {
+		const fs = await service.getResolvedSchema('http://json.schemastore.org/swagger-2.0');
+		assert.deepStrictEqual(fs?.schema.properties?.['responseValue'], {
+			type: 'object',
+			required: ["$ref"],
+			properties: { $ref: { type: 'string' } }
+		});
+
+
+	});
+
+	for (const version of ['3.0.0', '3.1.0', '3.2.0']) {
+		test(`OpenAPI ${version} schema resolves and validates`, async function () {
+			const schemaStoreUri = 'https://www.schemastore.org/openapi-3.X.json';
+			const ls = getLanguageService({ schemaRequestService: newMockRequestService(), workspaceContext });
+			ls.configure({ schemas: [{ uri: schemaStoreUri, fileMatch: ['*.json'] }] });
+			const content = JSON.stringify({
+				openapi: version,
+				info: {
+					title: 'Test API',
+					version: '1.0.0'
+				},
+				paths: {}
+			});
+			const { textDoc, jsonDoc } = toDocument(content, undefined, `file:///petstore${version}.openapi.json`);
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.deepStrictEqual(diagnostics, []);
+		});
+	}
+
+	test('Relative schema-base $id is applied once when resolving $ref siblings', async function () {
+		const schemaBaseUri = 'https://example.com/root/schema-base.json';
+		const referencedSchemaUri = 'https://example.com/root/sub/schema.json';
+		const childSchemaUri = 'https://example.com/root/sub/child.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$id: 'sub/',
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				$ref: 'schema.json',
+				properties: {
+					child: {
+						$ref: 'child.json'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
+				type: 'object'
+			},
+			[childSchemaUri]: {
+				type: 'string'
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"child":1}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'string');
+	});
+
+	test('Referenced schema relative $refs keep the referenced resource base', async function () {
+		const schemaBaseUri = 'https://example.com/a/schema-base.json';
+		const referencedSchemaUri = 'https://example.com/b/schema.json';
+		const childSchemaUri = 'https://example.com/b/child.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$id: schemaBaseUri,
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				$ref: referencedSchemaUri,
+				properties: {
+					local: {
+						type: 'boolean'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
 				type: 'object',
-				required: ["$ref"],
-				properties: { $ref: { type: 'string' } }
-			});
-		});
+				properties: {
+					child: {
+						$ref: 'child.json'
+					}
+				}
+			},
+			[childSchemaUri]: {
+				type: 'string'
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"child":1}', undefined, 'file:///test.json');
 
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'string');
+	});
+
+	test('Nested external $ref siblings keep the inherited owner resource base', async function () {
+		const schemaBaseUri = 'https://example.com/a/schema.json';
+		const referencedSchemaUri = 'https://example.com/b/schema.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$id: schemaBaseUri,
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				type: 'object',
+				properties: {
+					container: {
+						$ref: referencedSchemaUri,
+						properties: {
+							local: {
+								$ref: '#/$defs/local'
+							}
+						}
+					}
+				},
+				$defs: {
+					local: {
+						type: 'string'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
+				type: 'object'
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"container":{"local":1}}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'string');
 	});
 
 	test('Resolving $refs 3', async function () {
@@ -138,7 +354,7 @@ suite('JSON Schema', () => {
 		service.setSchemaContributions({
 			schemas: {
 				"https://myschemastore/main/schema1.json": {
-					id: 'https://myschemastore/schema1.json',
+					id: 'https://myschemastore/main/schema1.json',
 					type: 'object',
 					properties: {
 						p1: {
@@ -164,29 +380,29 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['p1'], {
-				type: 'string',
-				enum: ["object"]
-			});
-			assert.deepEqual(fs?.schema.properties?.['p2'], {
-				type: 'string',
-				enum: ["object"]
-			});
-			assert.deepEqual(fs?.schema.properties?.['p3'], {
-				type: 'string',
-				enum: ["object"]
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
+			type: 'string',
+			enum: ["object"]
 		});
+		assert.deepStrictEqual(fs?.schema.properties?.['p2'], {
+			type: 'string',
+			enum: ["object"]
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.['p3'], {
+			type: 'string',
+			enum: ["object"]
+		});
+
 
 	});
 
-	test('Resolving $refs 3', async function () {
+	test('Resolving $refs 4', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({
 			schemas: {
 				"https://myschemastore/main/schema1.json": {
-					id: 'https://myschemastore/schema1.json',
+					id: 'https://myschemastore/main/schema1.json',
 					type: 'object',
 					properties: {
 						p1: {
@@ -212,19 +428,18 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['p1'], {
-				type: 'string',
-				enum: ["object"]
-			});
-			assert.deepEqual(fs?.schema.properties?.['p2'], {
-				type: 'string',
-				enum: ["object"]
-			});
-			assert.deepEqual(fs?.schema.properties?.['p3'], {
-				type: 'string',
-				enum: ["object"]
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
+			type: 'string',
+			enum: ["object"]
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.['p2'], {
+			type: 'string',
+			enum: ["object"]
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.['p3'], {
+			type: 'string',
+			enum: ["object"]
 		});
 
 	});
@@ -234,7 +449,7 @@ suite('JSON Schema', () => {
 		service.setSchemaContributions({
 			schemas: {
 				"https://myschemastore/main/schema1.json": {
-					id: 'https://myschemastore/schema1.json',
+					id: 'https://myschemastore/main/schema1.json',
 					type: 'object',
 					properties: {
 						p1: {
@@ -259,18 +474,744 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main/schema1.json').then(fs => {
-			assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
-				type: 'string'
-			});
-			assert.deepStrictEqual(fs?.schema.properties?.['p2'], {
-				type: 'string'
-			});
-			assert.deepStrictEqual(fs?.schema.properties?.['p3'], {
-				type: 'string'
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
+			type: 'string'
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.['p2'], {
+			type: 'string'
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.['p3'], {
+			type: 'string'
+		});
+	});
+
+	test('Resolving $refs to local $ids', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/main/schema1.json',
+					definitions: {
+						hello: {
+							id: '#hello',
+							type: 'string',
+							const: 'hello'
+						},
+						world: {
+							$id: '#world',
+							type: 'string',
+							const: 'world'
+						}
+					},
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: '#hello'
+						},
+						p2: {
+							$ref: '#world'
+						}
+					}
+				}
+			}
 		});
 
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.p1, {
+			type: 'string',
+			const: 'hello'
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.p2, {
+			type: 'string',
+			const: 'world'
+		});
+	});
+
+	test('Resolving $refs to local $anchors', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+
+		service.setSchemaContributions({
+			schemas: {
+				"https://example.com/schemas/address": {
+					"$id": "https://example.com/schemas/address",
+
+					"type": "object",
+					"properties": {
+						"street_address":
+						{
+							"$anchor": "street_address",
+							"type": "string"
+						},
+						"city": { "type": "string" },
+						"state": { "type": "string" }
+					},
+					"required": ["street_address", "city", "state"]
+				},
+				"https://example.com/schemas/customer": {
+					"$id": "https://example.com/schemas/customer",
+
+					"type": "object",
+					"properties": {
+						"first_name": { "type": "string" },
+						"last_name": { "type": "string" },
+						"street_address": { "$ref": "/schemas/address#street_address" },
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://example.com/schemas/customer');
+		assert.deepStrictEqual(fs?.schema.properties?.street_address, {
+			type: 'string',
+			$anchor: "street_address"
+		});
+	});
+
+	test('$anchor is recognized in draft-2019-09 schemas', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+
+		service.setSchemaContributions({
+			schemas: {
+				"https://example.com/schemas/test": {
+					"$schema": "https://json-schema.org/draft/2019-09/schema",
+					"$id": "https://example.com/schemas/test",
+					"type": "object",
+					"$defs": {
+						"myString": {
+							"$anchor": "myAnchor",
+							"type": "string"
+						}
+					},
+					"properties": {
+						"foo": { "$ref": "#myAnchor" }
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://example.com/schemas/test');
+		// $ref to #myAnchor should resolve to the $defs/myString schema
+		assert.deepStrictEqual(fs?.schema.properties?.foo, {
+			type: 'string',
+			$anchor: "myAnchor"
+		});
+	});
+
+	test('$anchor is not recognized in draft-07 schemas', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+
+		service.setSchemaContributions({
+			schemas: {
+				"https://example.com/schemas/test": {
+					"$schema": "http://json-schema.org/draft-07/schema#",
+					"$id": "https://example.com/schemas/test",
+					"type": "object",
+					"definitions": {
+						"myString": {
+							"$anchor": "myAnchor",
+							"type": "string"
+						}
+					},
+					"properties": {
+						"foo": { "$ref": "#myAnchor" }
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://example.com/schemas/test');
+		// In draft-07, $anchor is not an anchor keyword, so #myAnchor should not resolve
+		// The $ref should fail to resolve (schema will have errors)
+		assert.ok(fs?.errors.length! > 0, '$ref to $anchor should fail in draft-07');
+		assert.ok(fs?.errors[0].message.includes('myAnchor'), 'Error should mention the anchor');
+	});
+
+	test('Fragment anchors via $id work in draft-07 schemas', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+
+		service.setSchemaContributions({
+			schemas: {
+				"https://example.com/schemas/test": {
+					"$schema": "http://json-schema.org/draft-07/schema#",
+					"$id": "https://example.com/schemas/test",
+					"type": "object",
+					"definitions": {
+						"myString": {
+							"$id": "#myAnchor",
+							"type": "string"
+						}
+					},
+					"properties": {
+						"foo": { "$ref": "#myAnchor" }
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://example.com/schemas/test');
+		// In draft-07, $id with a fragment (e.g., "#myAnchor") defines an anchor
+		// The $ref should resolve correctly (note: $id is not copied during merge)
+		assert.strictEqual(fs?.errors.length, 0, 'No errors should occur');
+		assert.deepStrictEqual(fs?.schema.properties?.foo, {
+			type: 'string'
+		});
+	});
+
+	test('$anchor is not recognized in draft-06 schemas', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+
+		service.setSchemaContributions({
+			schemas: {
+				"https://example.com/schemas/test": {
+					"$schema": "http://json-schema.org/draft-06/schema#",
+					"$id": "https://example.com/schemas/test",
+					"type": "object",
+					"definitions": {
+						"myString": {
+							"$anchor": "myAnchor",
+							"type": "string"
+						}
+					},
+					"properties": {
+						"foo": { "$ref": "#myAnchor" }
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://example.com/schemas/test');
+		// In draft-06, $anchor is not an anchor keyword, so #myAnchor should not resolve
+		assert.ok(fs?.errors.length! > 0, '$ref to $anchor should fail in draft-06');
+	});
+
+	test('$anchor is recognized in draft-2020-12 schemas', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+
+		service.setSchemaContributions({
+			schemas: {
+				"https://example.com/schemas/test": {
+					"$schema": "https://json-schema.org/draft/2020-12/schema",
+					"$id": "https://example.com/schemas/test",
+					"type": "object",
+					"$defs": {
+						"myString": {
+							"$anchor": "myAnchor",
+							"type": "string"
+						}
+					},
+					"properties": {
+						"foo": { "$ref": "#myAnchor" }
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://example.com/schemas/test');
+		// $ref to #myAnchor should resolve to the $defs/myString schema
+		assert.strictEqual(fs?.errors.length, 0, 'No errors should occur');
+		assert.deepStrictEqual(fs?.schema.properties?.foo, {
+			type: 'string',
+			$anchor: "myAnchor"
+		});
+	});
+
+	test('No duplicate anchor error when same definition is referenced by anchor and JSON pointer', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+
+		// The JSON pointer ref (#/$defs/foo) is listed before the anchor ref (#foo).
+		// traverseSchemaProperties visits $defs before properties, and properties
+		// in insertion order, so the JSON pointer ref is resolved first. Its merge
+		// copies $anchor into properties.a. When the anchor ref then triggers
+		// collectAnchors, the traversal must not count the merged copy as a duplicate.
+		service.setSchemaContributions({
+			schemas: {
+				"https://example.com/schemas/test": {
+					"$schema": "https://json-schema.org/draft/2019-09/schema",
+					"$id": "https://example.com/schemas/test",
+					"type": "object",
+					"properties": {
+						"a": { "$ref": "#/$defs/foo" },
+						"b": { "$ref": "#foo" }
+					},
+					"$defs": {
+						"foo": {
+							"$anchor": "foo",
+							"type": "string"
+						}
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://example.com/schemas/test');
+		assert.strictEqual(fs?.errors.length, 0, 'Should not report duplicate anchor errors');
+		assert.deepStrictEqual(fs?.schema.properties?.a, {
+			type: 'string',
+			$anchor: "foo"
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.b, {
+			type: 'string',
+			$anchor: "foo"
+		});
+	});
+
+	test('$anchor in draft-07 schema referenced via $ref from 2019-09 schema should not resolve', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService({
+			"https://example.com/schemas/draft07": {
+				"$schema": "http://json-schema.org/draft-07/schema#",
+				"$id": "https://example.com/schemas/draft07",
+				"type": "object",
+				"$defs": {
+					"": {
+						"$anchor": "foo",
+						"type": "number"
+					}
+				},
+				"properties": {
+					"subject": { "$ref": "#foo" }
+				}
+			} as any
+		}), workspaceContext);
+
+		service.setSchemaContributions({
+			schemas: {
+				"https://example.com/schemas/main": {
+					"$schema": "https://json-schema.org/draft/2019-09/schema",
+					"$id": "https://example.com/schemas/main",
+					"$ref": "https://example.com/schemas/draft07"
+				}
+			}
+		});
+
+		// The draft-07 schema uses $anchor which is not valid in draft-07.
+		// Even though the parent schema is 2019-09, the external schema's
+		// own $schema (draft-07) should govern anchor interpretation.
+		const fs = await service.getResolvedSchema('https://example.com/schemas/main');
+		assert.ok(fs?.errors.length! > 0, '$ref to $anchor should fail in draft-07 schema even when referenced from 2019-09');
+		assert.ok(fs?.errors[0].message.includes('foo'), 'Error should mention the unresolvable anchor');
+	});
+
+	test('Resolving $refs to external $ids', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/main/schema1.json',
+					type: 'object',
+					properties: {
+						p1: {
+							'$ref': 'schema2.json#hello'
+						},
+						p2: {
+							'$ref': './schema2.json#/definitions/hello'
+						},
+						p3: {
+							'$ref': '/main/schema2.json#/definitions/hello'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"hello": {
+							$id: "#hello",
+							"type": "string",
+							"enum": ["object"],
+						}
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
+			type: 'string',
+			enum: ["object"]
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.['p2'], {
+			type: 'string',
+			enum: ["object"]
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.['p3'], {
+			type: 'string',
+			enum: ["object"]
+		});
+	});
+
+	test('Resolving $refs to external $ids with same as local', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/main/schema1.json',
+					definitions: {
+						"hello": {
+							$id: "#hello",
+							"type": "string",
+							"const": "wrong",
+						}
+					},
+					type: 'object',
+					properties: {
+						p1: {
+							'$ref': 'schema2.json#hello'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"hello": {
+							$id: "#hello",
+							"type": "string",
+							"const": "correct"
+						}
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
+			type: 'string',
+			const: 'correct'
+		});
+	});
+
+
+	test('Resolving external $ref two levels', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/main/schema1.json',
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: 'schema2.json#blue'
+						}
+					}
+				},
+				"https://myschemastore/main/schema3.json": {
+					id: 'https://myschemastore/main/schema3.json',
+					definitions: {
+						"world": {
+							$id: '#world',
+							type: 'string',
+							const: 'world'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"_blue": {
+							$id: '#blue',
+							$ref: 'schema3.json#world',
+							description: '_blue',
+						}
+					}
+				}
+			}
+		});
+
+		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p1, {
+			type: 'string',
+			const: 'world',
+			description: '_blue'
+		});
+	});
+
+	test('Resolving external $ref referenced multiple times', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/main/schema1.json',
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: 'schema2.json#blue'
+						},
+						p2: {
+							'$ref': 'https://myschemastore/main/schema2.json#blue'
+						},
+						p3: {
+							'$ref': 'https://myschemastore/main/schema2.json#/definitions/_blue'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"_blue": {
+							$id: '#blue',
+							const: 'blue'
+						}
+					}
+				}
+			}
+		});
+
+		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p1, {
+			const: 'blue'
+		});
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p2, {
+			const: 'blue'
+		});
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p3, {
+			const: 'blue'
+		});
+	});
+
+	test('Resolving external $ref to ref', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/main/schema1.json',
+					type: 'object',
+					properties: {
+						p1: {
+							'$ref': 'https://myschemastore/main/schema2.json#red'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"_red": {
+							$id: '#red',
+							$ref: '#yellow'
+						},
+						"_yellow": {
+							$id: '#yellow',
+							type: 'number',
+							const: 5
+						}
+					}
+				}
+			}
+		});
+
+		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p1, {
+			type: 'number',
+			const: 5
+		});
+	});
+
+	test('Resolving external $ref recursive', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					id: 'https://myschemastore/main/schema1.json',
+					definitions: {
+						"world": {
+							$id: '#world',
+							type: 'string',
+							const: 'world'
+						}
+					},
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: 'schema2.json#blue'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					id: 'https://myschemastore/main/schema2.json',
+					definitions: {
+						"blue": {
+							$id: '#blue',
+							$ref: 'schema1.json#world'
+						}
+					}
+				}
+			}
+		});
+
+		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(resolvedSchema?.schema.properties?.p1, {
+			type: 'string',
+			const: 'world'
+		});
+	});
+
+	test('Resolving a pure external $ref redirect cycle reports an error', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				'https://myschemastore/main/schema.json': {
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: 'redirect-a.json#/$defs/value'
+						}
+					}
+				},
+				'https://myschemastore/main/redirect-a.json': {
+					$ref: 'redirect-b.json'
+				},
+				'https://myschemastore/main/redirect-b.json': {
+					$ref: 'redirect-a.json'
+				}
+			}
+		});
+
+		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema.json');
+
+		assert.strictEqual(resolvedSchema?.errors.length, 1);
+		assertInMessage(resolvedSchema?.errors[0].message, '/$defs/value');
+	});
+
+
+	test('Resolving external $ref to already resolved schema', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: 'schema2.json#blue'
+						}
+					}
+				},
+				"https://myschemastore/main/schema3.json": {
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: 'schema2.json#blue'
+						}
+					}
+				},
+				"https://myschemastore/main/schema2.json": {
+					definitions: {
+						"blue": {
+							$id: '#blue',
+							type: 'string',
+							const: 'blue'
+						}
+					}
+				}
+			}
+		});
+
+		const resolvedSchema1 = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(resolvedSchema1?.schema.properties?.p1, {
+			type: 'string',
+			const: 'blue'
+		});
+		const resolvedSchema3 = await service.getResolvedSchema('https://myschemastore/main/schema3.json');
+		assert.deepStrictEqual(resolvedSchema3?.schema.properties?.p1, {
+			type: 'string',
+			const: 'blue'
+		});
+	});
+
+
+	test('Resolving $refs 5', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					"type": "object",
+					"properties": {
+						"p1": {
+							"$ref": "#hello"
+						},
+						"p2": {
+							"$ref": "#world"
+						},
+						"p3": {
+							"id": "#hello",
+							"type": "string",
+							"const": "hello"
+						},
+						"p4": {
+							"type": "object",
+							"properties": {
+								"deep": {
+									"$id": "#world",
+									"type": "string",
+									"const": "world"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['p1'], {
+			type: 'string',
+			const: 'hello'
+		});
+
+		assert.deepStrictEqual(fs?.schema.properties?.['p2'], {
+			"type": "string",
+			"const": "world"
+		});
+	});
+
+	test('Recursive $refs to $ids', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main/schema1.json": {
+					"type": "object",
+					"definitions": {
+						"foo": {
+							"id": "#foo",
+							"type": "object",
+							"properties": {
+								"bar": {
+									"type": "string",
+									"const": "hello"
+								},
+								"foo": {
+									"$ref": "#foo"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"properties": {
+						"foo": {
+							"$ref": "#foo"
+						}
+					},
+					"additionalProperties": false
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://myschemastore/main/schema1.json');
+		assert.deepStrictEqual(fs?.schema.properties?.['foo'], {
+			"type": "object",
+			"properties": {
+				"bar": {
+					"type": "string",
+					"const": "hello"
+				},
+				"foo": {
+					"additionalProperties": false,
+					properties: fs?.schema.definitions?.['foo'].properties,
+					type: "object"
+				}
+			},
+			"additionalProperties": false
+		});
 	});
 
 	test('FileSchema', async function () {
@@ -296,10 +1237,9 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('test://schemas/main').then(fs => {
-			const section = fs?.getSection(['child', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getResolvedSchema('test://schemas/main');
+		const section = fs?.getSection(['child', 'grandchild']);
+		assert.strictEqual(section?.description, 'Meaning of Life');
 	});
 
 	test('Array FileSchema', async function () {
@@ -328,10 +1268,9 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('test://schemas/main').then(fs => {
-			const section = fs?.getSection(['child', '0', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getResolvedSchema('test://schemas/main');
+		const section = fs?.getSection(['child', '0', 'grandchild']);
+		assert.strictEqual(section?.description, 'Meaning of Life');
 	});
 
 	test('Missing subschema', async function () {
@@ -351,10 +1290,9 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('test://schemas/main').then(fs => {
-			const section = fs?.getSection(['child', 'grandchild']);
-			assert.strictEqual(section, undefined);
-		});
+		const fs = await service.getResolvedSchema('test://schemas/main');
+		const section = fs?.getSection(['child', 'grandchild']);
+		assert.strictEqual(section, undefined);
 	});
 
 	test('Preloaded Schema', async function () {
@@ -375,12 +1313,11 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id, ['*.json'], schema);
+		service.registerExternalSchema({ uri: id, fileMatch: ['*.json'], schema: schema });
 
-		return service.getSchemaForResource('test.json').then((schema) => {
-			const section = schema?.getSection(['child', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getSchemaForResource('test.json');
+		const section = fs?.getSection(['child', 'grandchild']);
+		assert.strictEqual(section?.description, 'Meaning of Life');
 	});
 
 	test('Preloaded Schema, string as URI', async function () {
@@ -402,12 +1339,11 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id, ['*.json'], schema);
+		service.registerExternalSchema({ uri: id, fileMatch: ['*.json'], schema: schema });
 
-		return service.getSchemaForResource('test.json').then((schema) => {
-			const section = schema?.getSection(['child', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getSchemaForResource('test.json');
+		const section = fs?.getSection(['child', 'grandchild']);
+		assert.strictEqual(section?.description, 'Meaning of Life');
 	});
 
 	test('Multiple matches', async function () {
@@ -432,14 +1368,14 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id1, ['*.json'], schema1);
-		service.registerExternalSchema(id2, ['test.json'], schema2);
+		service.registerExternalSchema({ uri: id1, fileMatch: ['*.json'], schema: schema1 });
+		service.registerExternalSchema({ uri: id2, fileMatch: ['test.json'], schema: schema2 });
 
-		return service.getSchemaForResource('test.json').then(schema => {
-			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ foo: true, bar: true }));
-			const problems = jsonDoc.validate(textDoc, schema?.schema);
-			assert.equal(problems?.length, 2);
-		});
+		const fs = await service.getSchemaForResource('test.json');
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ foo: true, bar: true }));
+		const problems = jsonDoc.validate(textDoc, fs?.schema);
+		assert.strictEqual(problems?.length, 2);
+
 	});
 
 	test('External Schema', async function () {
@@ -460,12 +1396,11 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id, ['*.json'], schema);
+		service.registerExternalSchema({ uri: id, fileMatch: ['*.json'], schema: schema });
 
-		return service.getSchemaForResource('test.json').then(schema => {
-			const section = schema?.getSection(['child', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getSchemaForResource('test.json');
+		const section = fs?.getSection(['child', 'grandchild']);
+		assert.strictEqual(section?.description, 'Meaning of Life');
 	});
 
 
@@ -497,12 +1432,11 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id, ['*.json'], schema);
+		service.registerExternalSchema({ uri: id, fileMatch: ['*.json'], schema: schema });
 
-		return service.getSchemaForResource('test.json').then(fs => {
-			const section = fs?.getSection(['child', '0', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fs = await service.getSchemaForResource('test.json');
+		const section = fs?.getSection(['child', '0', 'grandchild']);
+		assert.strictEqual(section?.description, 'Meaning of Life');
 	});
 
 	test('Resolving in-line $refs automatically for external schemas', async function () {
@@ -532,11 +1466,10 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		const fsm = service.registerExternalSchema(id, ['*.json'], schema);
-		return fsm.getResolvedSchema().then((fs) => {
-			const section = fs.getSection(['child', '0', 'grandchild']);
-			assert.equal(section?.description, 'Meaning of Life');
-		});
+		const fsm = service.registerExternalSchema({ uri: id, fileMatch: ['*.json'], schema: schema });
+		const fs = await fsm.getResolvedSchema();
+		const section = fs.getSection(['child', '0', 'grandchild']);
+		assert.strictEqual(section?.description, 'Meaning of Life');
 	});
 
 
@@ -562,21 +1495,18 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id1, ['test.json', 'bar.json'], schema1);
+		service.registerExternalSchema({ uri: id1, fileMatch: ['test.json', 'bar.json'], schema: schema1 });
 
-		return service.getSchemaForResource('test.json').then(schema => {
-			const section = schema?.getSection(['child']);
-			assert.equal(section?.type, 'number');
+		const fs = await service.getSchemaForResource('test.json');
+		assert.strictEqual(fs?.getSection(['child'])?.type, 'number');
 
-			service.clearExternalSchemas();
+		service.clearExternalSchemas();
 
-			service.registerExternalSchema(id2, ['*.json'], schema2);
+		service.registerExternalSchema({ uri: id2, fileMatch: ['*.json'], schema: schema2 });
 
-			return service.getSchemaForResource('test.json').then(schema => {
-				const section = schema?.getSection(['child']);
-				assert.equal(section?.type, 'string');
-			});
-		});
+		const fs2 = await service.getSchemaForResource('test.json');
+		assert.strictEqual(fs2?.getSection(['child'])?.type, 'string');
+
 	});
 
 	test('Schema contributions', async function () {
@@ -612,24 +1542,29 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		service.registerExternalSchema(id2, undefined, schema2);
+		service.registerExternalSchema({ uri: id2, schema: schema2 });
 
-		return service.getSchemaForResource('main.bar').then(resolvedSchema => {
-			assert.deepEqual(resolvedSchema?.errors, []);
-			assert.equal(2, resolvedSchema?.schema.allOf?.length);
+		let resolvedSchema = await service.getSchemaForResource('main.bar');
+		assert.deepStrictEqual(resolvedSchema?.errors, []);
+		assert.strictEqual(2, resolvedSchema?.schema.allOf?.length);
 
-			service.clearExternalSchemas();
-			return service.getSchemaForResource('main.bar').then(resolvedSchema => {
-				assert.equal(resolvedSchema?.errors.length, 1);
-				assert.equal(resolvedSchema?.errors[0], "Problems loading reference 'http://myschemastore/myschemafoo': Unable to load schema from 'http://myschemastore/myschemafoo': Resource not found.");
+		service.clearExternalSchemas();
 
-				service.clearExternalSchemas();
-				service.registerExternalSchema(id2, undefined, schema2);
-				return service.getSchemaForResource('main.bar').then(resolvedSchema => {
-					assert.equal(resolvedSchema?.errors.length, 0);
-				});
-			});
-		});
+		resolvedSchema = await service.getSchemaForResource('main.bar');
+		const message = "Unable to load schema from 'http://myschemastore/myschemafoo': Resource not found.";
+		assert.deepStrictEqual(resolvedSchema?.errors, [
+			{
+				message: message,
+				code: ErrorCode.SchemaResolveError,
+				relatedInformation: [{ location: { uri: 'http://myschemastore/myschemafoo', range: Range.create(0, 0, 0, 0) }, message: message }]
+			}]);
+
+		service.clearExternalSchemas();
+		service.registerExternalSchema({ uri: id2, schema: schema2 });
+
+		resolvedSchema = await service.getSchemaForResource('main.bar');
+		assert.strictEqual(resolvedSchema?.errors.length, 0);
+
 	});
 
 	test('Exclusive file patterns', async function () {
@@ -659,14 +1594,7 @@ suite('JSON Schema', () => {
 		}
 	});
 
-	test('Schema matching, where fileMatch is a literal pattern, and denotes filename only', async function () {
-
-		const ls = getLanguageService({ workspaceContext });
-		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['part.json'], schema: { type: 'object', required: ['foo'] } }] });
-
-		const positives = ['file:///folder/part.json', 'file:///folder/part.json?f=true', 'file:///folder/part.json#f=true'];
-		const negatives = ['file:///folder/rampart.json', 'file:///folder/part.json/no.part.json', 'file:///folder/foo?part.json', 'file:///folder/foo#part.json'];
-
+	async function assertMatchingSchemas(ls: LanguageService, positives: string[], negatives: string[]) {
 		for (const positive of positives) {
 			const doc = toDocument("{}", undefined, positive);
 			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
@@ -678,6 +1606,17 @@ suite('JSON Schema', () => {
 			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
 			assert.ok(ms.length === 0, negative);
 		}
+	}
+
+	test('Schema matching, where fileMatch is a literal pattern, and denotes filename only', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['part.json'], schema: { type: 'object', required: ['foo'] } }] });
+
+		const positives = ['file:///folder/part.json', 'file:///folder/part.json?f=true', 'file:///folder/part.json#f=true'];
+		const negatives = ['file:///folder/rampart.json', 'file:///folder/part.json/no.part.json', 'file:///folder/foo?part.json', 'file:///folder/foo#part.json'];
+
+		assertMatchingSchemas(ls, positives, negatives);
 	});
 
 	test('Schema matching, match files starting with dots', async function () {
@@ -685,13 +1624,9 @@ suite('JSON Schema', () => {
 		const ls = getLanguageService({ workspaceContext });
 		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['/User/settings.json'], schema: { type: 'object', required: ['foo'] } }] });
 
-		const positives = ['vscode-userdata:/home/martin/.config/Code%20-%20Insiders/User/settings.json' ];
+		const positives = ['vscode-userdata:/home/martin/.config/Code%20-%20Insiders/User/settings.json'];
 
-		for (const positive of positives) {
-			const doc = toDocument("{}", undefined, positive);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length > 0, positive);
-		}
+		assertMatchingSchemas(ls, positives, []);
 	});
 
 
@@ -704,17 +1639,7 @@ suite('JSON Schema', () => {
 		const positives = ['file:///folder/part.json', 'file:///folder/part.json?f=true', 'file:///folder/part.json#f=true'];
 		const negatives = ['file:///folder/rampart.json', 'file:///folder/part.json/no.part.json', 'file:///folder/foo?part.json', 'file:///folder/foo#part.json'];
 
-		for (const positive of positives) {
-			const doc = toDocument("{}", undefined, positive);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length > 0, positive);
-		}
-
-		for (const negative of negatives) {
-			const doc = toDocument("{}", undefined, negative);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length === 0, negative);
-		}
+		assertMatchingSchemas(ls, positives, negatives);
 	});
 
 	test('Schema matching, where fileMatch is a literal pattern, and denotes a path', async function () {
@@ -725,81 +1650,85 @@ suite('JSON Schema', () => {
 		const positives = ['file:///folder/take/part.json', 'file:///folder/take/part.json?f=true', 'file:///folder/take/part.json#f=true'];
 		const negatives = ['file:///folder/part.json', 'file:///folder/.take/part.json', 'file:///folder/take.part.json', 'file:///folder/take/part.json/no.part.json', 'file:///folder/take?part.json', 'file:///folder/foo?take/part.json', 'file:///folder/take#part.json', 'file:///folder/foo#take/part.json', 'file:///folder/take/no/part.json'];
 
-		for (const positive of positives) {
-			const doc = toDocument("{}", undefined, positive);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length > 0, positive);
-		}
-
-		for (const negative of negatives) {
-			const doc = toDocument("{}", undefined, negative);
-			const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-			assert.ok(ms.length === 0, negative);
-		}
+		assertMatchingSchemas(ls, positives, negatives);
 	});
 
-	// test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes filename only', async function () {
+	test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes filename only', async function () {
 
-	// 	const ls = getLanguageService({ workspaceContext });
-	// 	ls.configure({ schemas: [ { uri: 'http://myschemastore/myschemabar', fileMatch: ['*.foo.json'], schema: { type: 'object', required: ['foo'] }}]});
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['*.foo.json'], schema: { type: 'object', required: ['foo'] } }] });
 
-	// 	const positives = ['file:///folder/a.foo.json', 'file:///folder/a.foo.json?f=true', 'file:///folder/a.foo.json#f=true'];
-	// 	const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo?a.foo.json', 'file:///folder/foo#a.foo.json'];
+		const positives = ['file:///folder/a.foo.json', 'file:///folder/a.foo.json?f=true', 'file:///folder/a.foo.json#f=true'];
+		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo?a.foo.json', 'file:///folder/foo#a.foo.json'];
 
-	// 	for (const positive of positives) {
-	// 		const doc = toDocument("{}", undefined, positive);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length > 0, positive);
-	// 	}
+		assertMatchingSchemas(ls, positives, negatives);
+	});
 
-	// 	for (const negative of negatives) {
-	// 		const doc = toDocument("{}", undefined, negative);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length === 0, negative);
-	// 	}
-	// });
+	test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes a path', async function () {
 
-	// test('Schema matching, where fileMatch is a wildcard pattern, contains no double-star, and denotes a path', async function () {
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo/*/bar.json'], schema: { type: 'object', required: ['foo'] } }] });
 
-	// 	const ls = getLanguageService({ workspaceContext });
-	// 	ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo/*/bar.json'], schema: { type: 'object', required: ['foo'] } }] });
+		const positives = ['file:///folder/foo/bat/bar.json', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/bat/bar.json#f=true'];
+		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
 
-	// 	const positives = ['file:///folder/foo/bat/bar.json', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/bat/bar.json#f=true'];
-	// 	const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
+		assertMatchingSchemas(ls, positives, negatives);
+	});
 
-	// 	for (const positive of positives) {
-	// 		const doc = toDocument("{}", undefined, positive);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length > 0, positive);
-	// 	}
+	test('Schema matching, where fileMatch is a wildcard pattern, contains double-star, and denotes a path', async function () {
 
-	// 	for (const negative of negatives) {
-	// 		const doc = toDocument("{}", undefined, negative);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length === 0, negative);
-	// 	}
-	// });
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo/**/bar.json'], schema: { type: 'object', required: ['foo'] } }] });
 
-	// test('Schema matching, where fileMatch is a wildcard pattern, contains double-star, and denotes a path', async function () {
+		const positives = ['file:///folder/foo/bar.json', 'file:///folder/foo/bat/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/bat/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json'];
+		const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
 
-	// 	const ls = getLanguageService({ workspaceContext });
-	// 	ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo/**/bar.json'], schema: { type: 'object', required: ['foo'] } }] });
+		assertMatchingSchemas(ls, positives, negatives);
+	});
 
-	// 	const positives = ['file:///folder/foo/bar.json', 'file:///folder/foo/bat/bar.json', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json', 'file:///folder/foo/bar.json?f=true', 'file:///folder/foo/bat/bar.json?f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json?f=true', 'file:///folder/foo/bar.json#f=true', 'file:///folder/foo/bat/bar.json#f=true', 'file:///folder/foo/can/be/as/deep/as/the/ocean/floor/bar.json#f=true', 'file:///folder/foo/bar.json/bat/bar.json'];
-	// 	const negatives = ['file:///folder/a.bar.json', 'file:///folder/foo.bar.json', 'file:///folder/foo.bat/bar.json', 'file:///folder/foo/bar.json/bat.json', 'file:///folder/.foo/bar.json', 'file:///folder/.foo/bat/bar.json', 'file:///folder/.foo/bat/man/bar.json', 'file:///folder/foo?foo/bar.json', 'file:///folder/foo?foo/bat/bar.json', 'file:///folder/foo?foo/bat/man/bar.json', 'file:///folder/foo#foo/bar.json', 'file:///folder/foo#foo/bat/bar.json', 'file:///folder/foo#foo/bat/man/bar.json'];
+	test('Schema matching with folder URI ', async function () {
 
-	// 	for (const positive of positives) {
-	// 		const doc = toDocument("{}", undefined, positive);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length > 0, positive);
-	// 	}
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo.json'], folderUri: 'file:///folder1', schema: { type: 'object', required: ['foo'] } }] });
 
-	// 	for (const negative of negatives) {
-	// 		const doc = toDocument("{}", undefined, negative);
-	// 		const ms = await ls.getMatchingSchemas(doc.textDoc, doc.jsonDoc);
-	// 		assert.ok(ms.length === 0, negative);
-	// 	}
-	// });
+		const positives = ['file:///folder1/foo.json', 'file:///folder1/foo/foo.json', 'file:///folder1/foo/can/be/as/deep/as/the/ocean/floor/foo.json', 'file:///folder1/foo/foo.json?f=true', 'file:///folder1/foo/bat/foo.json?f=true', 'file:///folder1/foo/foo.json/bat/foo.json'];
+		const negatives = ['file:///folder/foo.json', 'file:///folder11/foo.json', 'file:///folder2/foo/foo.json', 'file:///folder2/foo/can/be/as/deep/as/the/ocean/floor/foo.json', 'file:///folder2/foo/foo.json?f=true'];
+
+		assertMatchingSchemas(ls, positives, negatives);
+	});
+
+	test('Schema matching with folder URI ending with slash', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo.json'], folderUri: 'file:///parent/folder1/', schema: { type: 'object', required: ['foo'] } }] });
+
+		const positives = ['file:///parent/folder1/foo.json', 'file:///parent/folder1/foo/foo.json',];
+		const negatives = ['file:///folder1/foo.json', 'file:///folder1/parent/folder1/foo.json'];
+
+		assertMatchingSchemas(ls, positives, negatives);
+	});
+
+	test('Schema matching with encoding in folder URI', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo.json'], folderUri: 'file:///C%3A/parent/folder1/', schema: { type: 'object', required: ['foo'] } }] });
+
+		const positives = ['file:///C%3A/parent/folder1/foo.json', 'file:///C:/parent/folder1/foo.json', 'file:///c:/parent/folder1/foo.json'];
+		const negatives = ['file:///d:/parent/folder1/foo.json'];
+
+		assertMatchingSchemas(ls, positives, negatives);
+	});
+
+	test('Schema matching with encoding in folder URI 2', async function () {
+
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas: [{ uri: 'http://myschemastore/myschemabar', fileMatch: ['foo.json'], folderUri: 'file:///C:/parent/folder1/', schema: { type: 'object', required: ['foo'] } }] });
+
+		const positives = ['file:///C%3A/parent/folder1/foo.json', 'file:///C:/parent/folder1/foo.json', 'file:///c:/parent/folder1/foo.json'];
+		const negatives = ['file:///d:/parent/folder1/foo.json'];
+
+		assertMatchingSchemas(ls, positives, negatives);
+	});
 
 
 	test('Resolving circular $refs', async function () {
@@ -829,15 +1758,14 @@ suite('JSON Schema', () => {
 
 		const { textDoc, jsonDoc } = toDocument(JSON.stringify(input));
 
-		return service.getSchemaForResource('file://doc/mydoc.json', jsonDoc).then(resolveSchema => {
-			assert.deepEqual(resolveSchema?.errors, []);
+		const resolveSchema = await service.getSchemaForResource('file://doc/mydoc.json', jsonDoc);
+		assert.deepStrictEqual(resolveSchema?.errors, []);
 
-			const content = JSON.stringify(resolveSchema?.schema);
-			assert.equal(content.indexOf('$ref'), -1); // no more $refs
+		const content = JSON.stringify(resolveSchema?.schema);
+		assert.strictEqual(content.indexOf('$ref'), -1); // no more $refs
 
-			const problems = jsonDoc.validate(textDoc, resolveSchema?.schema);
-			assert.deepEqual(problems, []);
-		});
+		const problems = jsonDoc.validate(textDoc, resolveSchema?.schema);
+		assert.deepStrictEqual(problems, []);
 
 	});
 
@@ -859,15 +1787,14 @@ suite('JSON Schema', () => {
 
 		const { textDoc, jsonDoc } = toDocument(JSON.stringify(input));
 
-		return service.getSchemaForResource('file://doc/mydoc.json', jsonDoc).then(resolveSchema => {
-			assert.deepEqual(resolveSchema?.errors, []);
+		const resolveSchema = await service.getSchemaForResource('file://doc/mydoc.json', jsonDoc);
+		assert.deepStrictEqual(resolveSchema?.errors, []);
 
-			const content = JSON.stringify(resolveSchema?.schema);
-			assert.equal(content.indexOf('$ref'), -1); // no more $refs
+		const content = JSON.stringify(resolveSchema?.schema);
+		assert.strictEqual(content.indexOf('$ref'), -1); // no more $refs
 
-			const problems = jsonDoc.validate(textDoc, resolveSchema?.schema);
-			assert.equal(problems?.length, 1);
-		});
+		const problems = jsonDoc.validate(textDoc, resolveSchema?.schema);
+		assert.strictEqual(problems?.length, 1);
 
 	});
 
@@ -891,12 +1818,10 @@ suite('JSON Schema', () => {
 			},
 		};
 
-		const fsm0 = service.registerExternalSchema(id0, ['*.json'], schema0);
-		const fsm1 = service.registerExternalSchema(id1, [], schema1);
-		return fsm0.getResolvedSchema().then((fs0) => {
-			assert.equal((<JSONSchema>fs0?.schema.allOf?.[0]).type, 'object');
-		});
-
+		const fsm0 = service.registerExternalSchema({ uri: id0, fileMatch: ['*.json'], schema: schema0 });
+		service.registerExternalSchema({ uri: id1, fileMatch: [], schema: schema1 });
+		const fs0 = await fsm0.getResolvedSchema();
+		assert.strictEqual((<JSONSchema>fs0?.schema.allOf?.[0]).type, 'object');
 	});
 
 	test('$refs in $ref - circular', async function () {
@@ -915,14 +1840,14 @@ suite('JSON Schema', () => {
 					},
 					definitions: {
 						shellConfiguration: {
-							$ref: '#definitions/shellConfiguration',
+							$ref: '#/definitions/shellConfiguration',
 							type: 'object'
 						},
 						hop1: {
-							$ref: '#definitions/hop2',
+							$ref: '#/definitions/hop2',
 						},
 						hop2: {
-							$ref: '#definitions/hop1',
+							$ref: '#/definitions/hop1',
 							type: 'object'
 						}
 					}
@@ -930,16 +1855,134 @@ suite('JSON Schema', () => {
 			}
 		});
 
-		return service.getResolvedSchema('https://myschemastore/main').then(fs => {
-			assert.deepEqual(fs?.schema.properties?.['responseValue'], {
-				type: 'object'
-			});
-			assert.deepEqual(fs?.schema.properties?.['hops'], {
-				type: 'object'
-			});
+		const fs = await service.getResolvedSchema('https://myschemastore/main');
+		assert.deepStrictEqual(fs?.schema.properties?.['responseValue'], {
+			type: 'object'
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.['hops'], {
+			type: 'object'
 		});
 
 	});
+
+	test('$refs in $ref - circular with $anchor', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main": {
+					"$schema": "https://json-schema.org/draft/2020-12/schema",
+					type: 'object',
+					properties: {
+						tree: {
+							"$ref": "#/definitions/node"
+						}
+					},
+					definitions: {
+						node: {
+							"$anchor": "treeNode",
+							type: 'object',
+							properties: {
+								value: { type: 'string' },
+								children: {
+									type: 'array',
+									items: { "$ref": "#/definitions/node" }
+								}
+							}
+						}
+					}
+				}
+			}
+		});
+
+		// Should resolve without stack overflow despite circular $ref in a schema with $anchor
+		const fs = await service.getResolvedSchema('https://myschemastore/main');
+		const tree = fs?.schema.properties?.['tree'];
+		assert.ok(tree && typeof tree === 'object');
+		assert.strictEqual(tree.type, 'object');
+	});
+
+	test('$refs in $ref - circular 2', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main": {
+					type: 'object',
+					properties: {
+						responseValue: {
+							"$ref": "#/definitions/shellConfiguration"
+						},
+						hops: {
+							"$ref": "#/definitions/hop1"
+						}
+					},
+					definitions: {
+						shellConfiguration: {
+							$ref: '#/definitions/shellConfiguration',
+							type: 'object'
+						},
+						hop1: {
+							$ref: '#/definitions/hop2',
+						},
+						hop2: {
+							$ref: '#/definitions/hop1',
+							type: 'object'
+						}
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://myschemastore/main');
+		assert.deepStrictEqual(fs?.schema.properties?.['responseValue'], {
+			type: 'object'
+		});
+		assert.deepStrictEqual(fs?.schema.properties?.['hops'], {
+			type: 'object'
+		});
+
+	});
+
+
+	test('$refs in $ref - across files', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				"https://myschemastore/main1": {
+					type: 'object',
+					definitions: {
+						blue: {
+							properties: {
+								red: {
+									$ref: '#/definitions/blue'
+								}
+							}
+						}
+					}
+				},
+				"https://myschemastore/main2": {
+					type: 'object',
+					definitions: {
+						green: {
+							$ref: 'main1#/definitions/blue'
+						},
+						white: {
+							$ref: 'main1#/definitions/blue'
+						}
+					}
+				}
+			}
+		});
+
+		const fs = await service.getResolvedSchema('https://myschemastore/main2');
+		assert.deepStrictEqual(fs?.schema.definitions?.green, {
+			properties: {
+				red: {
+					properties: fs?.schema.definitions?.green.properties
+				}
+			}
+		});
+	});
+
 
 	test('$refs with encoded characters', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
@@ -957,11 +2000,10 @@ suite('JSON Schema', () => {
 			}
 		};
 
-		const fsm0 = service.registerExternalSchema(id0, ['*.json'], schema);
-		return fsm0.getResolvedSchema().then((fs0) => {
-			assert.deepEqual(fs0.errors, []);
-			assert.equal((<JSONSchema>fs0?.schema.properties?.p2).type, 'object');
-		});
+		const fsm0 = service.registerExternalSchema({ uri: id0, fileMatch: ['*.json'], schema: schema });
+		const fs0 = await fsm0.getResolvedSchema();
+		assert.deepStrictEqual(fs0.errors, []);
+		assert.strictEqual((<JSONSchema>fs0?.schema.properties?.p2).type, 'object');
 
 	});
 
@@ -1023,18 +2065,15 @@ suite('JSON Schema', () => {
 
 		const { textDoc, jsonDoc } = toDocument(JSON.stringify(input));
 
-		return service.getSchemaForResource('file://doc/mydoc.json', jsonDoc).then(resolvedSchema => {
-			assert.deepEqual(resolvedSchema?.errors, []);
+		const resolvedSchema = await service.getSchemaForResource('file://doc/mydoc.json', jsonDoc);
+		assert.deepStrictEqual(resolvedSchema?.errors, []);
 
-			const problems = jsonDoc.validate(textDoc, resolvedSchema?.schema);
+		const problems = jsonDoc.validate(textDoc, resolvedSchema?.schema);
 
-			assert.equal(problems?.length, 1);
-			assert.equal(problems?.[0].message, 'Missing property "computerName".');
-		});
+		assert.strictEqual(problems?.length, 1);
+		assert.strictEqual(problems?.[0].message, 'Missing property "computerName".');
 
 	});
-
-
 
 	test('Complex enums', function () {
 
@@ -1098,7 +2137,7 @@ suite('JSON Schema', () => {
 
 		const problems = jsonDoc.validate(textDoc, schema);
 
-		assert.equal(problems?.length, 0);
+		assert.strictEqual(problems?.length, 0);
 
 
 	});
@@ -1136,8 +2175,8 @@ suite('JSON Schema', () => {
 
 		const testDoc = toDocument(JSON.stringify({ $schema: mainSchemaURI, bar: { a: 1 } }));
 		let validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
-		assert.deepEqual(validation.map(v => v.message), ['Incorrect type. Expected "string".']);
-		assert.deepEqual([mainSchemaURI, aSchemaURI1], accesses); // b in not loaded as it is not references
+		assert.deepStrictEqual(validation.map(v => v.message), ['Incorrect type. Expected "string".']);
+		assert.deepStrictEqual([mainSchemaURI, aSchemaURI1], accesses); // b in not loaded as it is not references
 
 		accesses.length = 0;
 
@@ -1155,8 +2194,8 @@ suite('JSON Schema', () => {
 		ls.resetSchema(aSchemaURI1);
 
 		validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
-		assert.deepEqual(validation.map(v => v.message), ['Incorrect type. Expected "boolean".']);
-		assert.deepEqual([mainSchemaURI, aSchemaURI1, bSchemaURI1], accesses); // main, a and b are loaded
+		assert.deepStrictEqual(validation.map(v => v.message), ['Incorrect type. Expected "boolean".']);
+		assert.deepStrictEqual([mainSchemaURI, aSchemaURI1, bSchemaURI1], accesses); // main, a and b are loaded
 
 		// change to be but no reset
 
@@ -1167,15 +2206,15 @@ suite('JSON Schema', () => {
 		accesses.length = 0;
 
 		validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
-		assert.deepEqual(validation.map(v => v.message), ['Incorrect type. Expected "boolean".']);
-		assert.deepEqual([], accesses); // no loades as there was no reset
+		assert.deepStrictEqual(validation.map(v => v.message), ['Incorrect type. Expected "boolean".']);
+		assert.deepStrictEqual([], accesses); // no loades as there was no reset
 
 		// do the reset
 		ls.resetSchema(bSchemaURI1);
 
 		validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
-		assert.deepEqual(validation.map(v => v.message), []);
-		assert.deepEqual([mainSchemaURI, aSchemaURI1, bSchemaURI1], accesses); // main, a and b are loaded, main, a depend on b
+		assert.deepStrictEqual(validation.map(v => v.message), []);
+		assert.deepStrictEqual([mainSchemaURI, aSchemaURI1, bSchemaURI1], accesses); // main, a and b are loaded, main, a depend on b
 
 		accesses.length = 0;
 
@@ -1191,16 +2230,16 @@ suite('JSON Schema', () => {
 
 		ls.resetSchema(aSchemaURI1);
 		validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
-		assert.deepEqual(validation.map(v => v.message), ['Incorrect type. Expected "boolean".']);
-		assert.deepEqual([mainSchemaURI, aSchemaURI1], accesses);
+		assert.deepStrictEqual(validation.map(v => v.message), ['Incorrect type. Expected "boolean".']);
+		assert.deepStrictEqual([mainSchemaURI, aSchemaURI1], accesses);
 
 
 		accesses.length = 0;
 		ls.resetSchema(bSchemaURI1);
 
 		validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
-		assert.deepEqual(validation.map(v => v.message), ['Incorrect type. Expected "boolean".']);
-		assert.deepEqual([], accesses); // b is not depended anymore
+		assert.deepStrictEqual(validation.map(v => v.message), ['Incorrect type. Expected "boolean".']);
+		assert.deepStrictEqual([], accesses); // b is not depended anymore
 	});
 
 	test('resetSchema clears current document schema cache when not using $schema property', async function () {
@@ -1264,6 +2303,10 @@ suite('JSON Schema', () => {
 				baz: {
 					type: 'boolean',
 					$comment: 'baz',
+				},
+				key: {
+					type: 'string',
+					$comment: 'key',
 				}
 			},
 			properties: {
@@ -1280,6 +2323,9 @@ suite('JSON Schema', () => {
 						}
 					}
 				}
+			},
+			propertyNames: {
+				$ref: "#/definitions/key"
 			}
 		};
 
@@ -1291,13 +2337,14 @@ suite('JSON Schema', () => {
 		function assertMatchingSchema(ms: MatchingSchema[], nodeOffset: number, comment: string) {
 			for (const m of ms) {
 				if (m.node.offset === nodeOffset) {
-					assert.equal(m.schema.$comment, comment);
+					assert.strictEqual(m.schema.$comment, comment);
 					return;
 				}
 			}
 			assert.fail("No node at offset " + nodeOffset);
 		}
 		assertMatchingSchema(ms, 0, 'schema');
+		assertMatchingSchema(ms, 1, 'key');
 		assertMatchingSchema(ms, 7, 'foo');
 		assertMatchingSchema(ms, 14, 'bar');
 		assertMatchingSchema(ms, 22, 'baz');
@@ -1305,7 +2352,7 @@ suite('JSON Schema', () => {
 
 	test('schema resolving severity', async function () {
 		const schema: JSONSchema = {
-			$schema: 'http://json-schema.org/draft-03/schema',
+			$schema: 'http://json-schema.org/draft-03/schema#',
 			type: 'string'
 		};
 
@@ -1397,5 +2444,2148 @@ suite('JSON Schema', () => {
 		}
 	});
 
+	test('getLanguageStatus', async function () {
+		const schemas: SchemaConfiguration[] = [{
+			uri: 'https://myschemastore/schema1.json',
+			fileMatch: ['**/*.json'],
+			schema: {
+				type: 'object',
+			}
+		},
+		{
+			uri: 'https://myschemastore/schema2.json',
+			fileMatch: ['**/bar.json'],
+			schema: {
+				type: 'object',
+			}
+		},
+		{
+			uri: 'https://myschemastore/schema3.json',
+			schema: {
+				type: 'object',
+			}
+		}
+		];
+		const ls = getLanguageService({ workspaceContext });
+		ls.configure({ schemas });
 
+		{
+			const { textDoc, jsonDoc } = toDocument('{ }', undefined, 'foo://bar/folder/foo.json');
+			const info = ls.getLanguageStatus(textDoc, jsonDoc);
+			assert.deepStrictEqual(info.schemas, ['https://myschemastore/schema1.json']);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{ }', undefined, 'foo://bar/folder/bar.json');
+			const info = ls.getLanguageStatus(textDoc, jsonDoc);
+			assert.deepStrictEqual(info.schemas, ['https://myschemastore/schema1.json', 'https://myschemastore/schema2.json']);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{ $schema: "https://myschemastore/schema3.json" }', undefined, 'foo://bar/folder/bar.json');
+			const info = ls.getLanguageStatus(textDoc, jsonDoc);
+			assert.deepStrictEqual(info.schemas, ['https://myschemastore/schema3.json']);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{ $schema: "schema3.json" }', undefined, 'foo://bar/folder/bar.json');
+			const info = ls.getLanguageStatus(textDoc, jsonDoc);
+			assert.deepStrictEqual(info.schemas, ['foo://bar/folder/schema3.json']);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument('{ $schema: "./schema3.json" }', undefined, 'foo://bar/folder/bar.json');
+			const info = ls.getLanguageStatus(textDoc, jsonDoc);
+			assert.deepStrictEqual(info.schemas, ['foo://bar/folder/schema3.json']);
+		}
+
+	});
+
+	test('access json-schema.org with https', async function () {
+		const httpUrl = "http://json-schema.org/schema";
+		const httpsUrl = "https://json-schema.org/schema";
+
+		const schemas: { [uri: string]: JSONSchema } = {
+			[httpsUrl]: {
+				type: 'object',
+				properties: {
+					bar: {
+						const: 3
+					}
+				}
+			}
+		};
+		const accesses: string[] = [];
+		const schemaRequestService = newMockRequestService(schemas, accesses);
+
+		const ls = getLanguageService({ workspaceContext, schemaRequestService });
+
+		const testDoc = toDocument(JSON.stringify({ $schema: httpUrl, bar: 2 }));
+		let validation = await ls.doValidation(testDoc.textDoc, testDoc.jsonDoc);
+		assert.deepStrictEqual(validation.map(v => v.message), ['Value must be 3.']);
+		assert.deepStrictEqual([httpsUrl], accesses);
+	});
+
+	test('combined schemas and URIs without host', async function () {
+		const schemas: SchemaConfiguration[] = [{
+			uri: 'myproto:///schema.json',
+			fileMatch: ['foo.json'],
+		},
+		{
+			uri: 'https://myschemastore/schema2.json',
+			fileMatch: ['foo.json'],
+		}
+		];
+		const schemaContents: { [uri: string]: JSONSchema } = {
+			['myproto:/schema.json']: {
+				type: 'object',
+				properties: {
+					bar: {
+						type: 'string'
+					}
+				}
+			},
+			['https://myschemastore/schema2.json']: {
+				type: 'object',
+				properties: {
+					foo: {
+						type: 'string'
+					}
+				}
+			}
+		};
+
+		const accesses: string[] = [];
+
+
+		const schemaRequestService: SchemaRequestService = async (uri: string) => {
+			if (uri === `https://myschemastore/schema2.json` || uri === `myproto:/schema.json`) {
+				return '{}';
+			}
+			throw new Error('Unknown schema ' + uri);
+		};
+
+
+		const ls = getLanguageService({ workspaceContext, schemaRequestService });
+		ls.configure({ schemas });
+
+		{
+			const { textDoc, jsonDoc } = toDocument('{ }', undefined, 'foo://bar/folder/foo.json');
+			const res = await ls.doValidation(textDoc, jsonDoc);
+		}
+
+	});
+
+	test('validate against draft-2019-09', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2019-09/schema',
+			type: 'object',
+			properties: {
+				name: {
+					type: 'string',
+					minLength: 4,
+				}
+			},
+			required: ['name']
+		};
+
+		const ls = getLanguageService({});
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(schema));
+			assert.deepStrictEqual(jsonDoc.syntaxErrors, []);
+			const resolveError = await ls.doValidation(textDoc, jsonDoc, { schemaRequest: 'error' });
+			assert.deepStrictEqual(resolveError, []);
+		}
+	});
+
+	test('validate against draft-2020-12', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: {
+				name: {
+					type: 'string',
+					minLength: 4,
+				}
+			},
+			required: ['name']
+		};
+
+		const ls = getLanguageService({});
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(schema));
+			assert.deepStrictEqual(jsonDoc.syntaxErrors, []);
+			const resolveError = await ls.doValidation(textDoc, jsonDoc, { schemaRequest: 'error' });
+			assert.deepStrictEqual(resolveError, []);
+		}
+	});
+
+	test('schema with $vocabulary is supported', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$vocabulary: {
+				'https://json-schema.org/draft/2020-12/vocab/core': true,
+				'https://json-schema.org/draft/2020-12/vocab/applicator': true
+			},
+			type: 'object'
+		};
+
+		const ls = getLanguageService({});
+
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ name: 'test' }));
+		const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+
+		assert.strictEqual(validation.length, 0);
+	});
+
+	test('schema with $dynamicAnchor is supported', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$dynamicAnchor: 'items',
+			type: 'object'
+		};
+
+		const ls = getLanguageService({});
+
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ name: 'test' }));
+		const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+
+		assert.strictEqual(validation.length, 0);
+	});
+
+	test('schema with $dynamicRef is supported', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'array',
+			items: { $dynamicRef: '#node' },
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'string' }
+			}
+		};
+
+		const ls = getLanguageService({});
+
+		// Valid: every item resolves through $dynamicRef to the string schema
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a', 'b']));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(validation.length, 0);
+		}
+		// Invalid: a non-string item violates the resolved schema
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a', 1]));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(validation.length > 0);
+		}
+	});
+
+	test('schema with $dynamicRef and $dynamicAnchor together is supported', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$vocabulary: {
+				'https://json-schema.org/draft/2020-12/vocab/core': true
+			},
+			type: 'array',
+			items: { $dynamicRef: '#node' },
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'string' }
+			}
+		};
+
+		const ls = getLanguageService({});
+
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a', 'b']));
+		const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+
+		assert.strictEqual(validation.length, 0);
+	});
+
+	test('$dynamicRef applies alongside sibling keywords', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'array',
+			// maxLength is a sibling of $dynamicRef on the same node: per 2020-12 it
+			// must still be applied, not skipped just because $dynamicRef is present.
+			items: { $dynamicRef: '#node', maxLength: 2 },
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'string' }
+			}
+		};
+
+		const ls = getLanguageService({});
+
+		// Valid: every item is a string of length <= 2
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['ok', 'hi']));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(validation.length, 0);
+		}
+		// Invalid: 'toolong' resolves through $dynamicRef to the string schema, but
+		// violates the sibling maxLength keyword on the same node.
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['ok', 'toolong']));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(validation.length > 0, 'sibling maxLength alongside $dynamicRef should be enforced');
+		}
+	});
+
+	test('$dynamicRef is ignored as an unknown keyword before 2020-12', async function () {
+		// In draft-07 $dynamicRef is not a keyword; it must be ignored (left
+		// unresolved), not resolved like a reference (which previously produced a
+		// spurious "cannot be resolved" error).
+		const schema: JSONSchema = {
+			$schema: 'http://json-schema.org/draft-07/schema#',
+			type: 'object',
+			properties: {
+				list: { $dynamicRef: '#node' }
+			},
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'array' }
+			}
+		};
+
+		const ls = getLanguageService({});
+
+		// $dynamicRef ignored -> `list` is unconstrained -> a non-array value is valid.
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ list: 'not-an-array' }));
+		const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+
+		assert.strictEqual(validation.length, 0);
+	});
+
+	test('$dynamicAnchor on a sub-schema shared by reference is registered once', async function () {
+		// The same sub-schema object is reachable via two properties. The anchor
+		// collection passes must visit it only once (shared-node / cycle guard) and
+		// must not raise a spurious duplicate-anchor error.
+		const shared: JSONSchema = { $dynamicAnchor: 'shared', type: 'string' };
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: { a: shared, b: shared }
+		};
+
+		const ls = getLanguageService({});
+
+		// Valid: both properties resolve through the shared string schema.
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ a: 'x', b: 'y' }));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(validation.length, 0, 'shared sub-schema should validate without errors: ' + JSON.stringify(validation));
+		}
+		// Invalid: the shared schema still constrains each usage.
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ a: 1 }));
+			const validation = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(validation.length > 0, 'shared sub-schema should still enforce its type');
+		}
+	});
+
+	test('duplicate $dynamicAnchor is reported as a schema resolution error', async function () {
+		// In 2020-12 a $dynamicAnchor also declares a plain-name anchor, so two
+		// different nodes claiming the same name in one resource is a conflict.
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				'https://myschemastore/dup': {
+					$id: 'https://myschemastore/dup',
+					$schema: 'https://json-schema.org/draft/2020-12/schema',
+					type: 'object',
+					properties: {
+						a: { $dynamicAnchor: 'dup', type: 'string' },
+						b: { $dynamicAnchor: 'dup', type: 'number' }
+					}
+				}
+			}
+		});
+
+		const resolved = await service.getResolvedSchema('https://myschemastore/dup');
+		assert.ok(resolved, 'expected a resolved schema');
+		assert.ok(
+			resolved!.errors.some(e => e.message.includes('Duplicate anchor declaration')),
+			'expected a duplicate-anchor error, got: ' + JSON.stringify(resolved!.errors)
+		);
+	});
+
+	test('$dynamicRef resolves dynamically across the dynamic scope (override)', async function () {
+		// A generic "extendible" resource whose array items resolve through a
+		// $dynamicRef that is bookended to a permissive default $dynamicAnchor.
+		const base: JSONSchema = {
+			$id: 'https://example.com/base',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: {
+				elements: { type: 'array', items: { $dynamicRef: '#elements' } }
+			},
+			required: ['elements'],
+			$defs: {
+				elements: { $dynamicAnchor: 'elements' }
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService({ 'https://example.com/base': base }), workspaceContext });
+
+		// Extending schema: brings a stricter $dynamicAnchor 'elements' into the
+		// dynamic scope, which must override the base default during evaluation.
+		const strict: JSONSchema = {
+			$id: 'https://example.com/strict',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$ref: 'https://example.com/base',
+			$defs: {
+				elements: {
+					$dynamicAnchor: 'elements',
+					type: 'object',
+					properties: { a: { type: 'integer' } },
+					required: ['a'],
+					additionalProperties: false
+				}
+			}
+		};
+
+		// Override active: each element must match the strict def.
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ elements: [{ a: 1 }] }));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, strict);
+			assert.strictEqual(v.length, 0, 'strict elements should be valid: ' + JSON.stringify(v));
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ elements: [{ b: 1 }] }));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, strict);
+			assert.ok(v.length > 0, 'override should reject an element missing "a"');
+		}
+		// Contrast: the base alone applies the permissive default (no override).
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ elements: [{ b: 1 }] }));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, base);
+			assert.strictEqual(v.length, 0, 'base default should permit any element: ' + JSON.stringify(v));
+		}
+	});
+
+	test('$dynamicRef override resolves across external documents', async function () {
+		// Like the override test above, but the extending resource that carries the
+		// stricter $dynamicAnchor lives in a *separate* document from the one being
+		// validated. The dynamic scope must reach into the external "strict" document
+		// so its $dynamicAnchor overrides the base default.
+		const base: JSONSchema = {
+			$id: 'https://example.com/x-base',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: {
+				elements: { type: 'array', items: { $dynamicRef: '#elements' } }
+			},
+			required: ['elements'],
+			$defs: {
+				elements: { $dynamicAnchor: 'elements' }
+			}
+		};
+		const strict: JSONSchema = {
+			$id: 'https://example.com/x-strict',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$ref: 'https://example.com/x-base',
+			$defs: {
+				elements: {
+					$dynamicAnchor: 'elements',
+					type: 'object',
+					properties: { a: { type: 'integer' } },
+					required: ['a'],
+					additionalProperties: false
+				}
+			}
+		};
+		const makeLs = () => getLanguageService({
+			schemaRequestService: newMockRequestService({
+				'https://example.com/x-base': base,
+				'https://example.com/x-strict': strict
+			}),
+			workspaceContext
+		});
+
+		// The validated document is neither base nor strict: it only references strict.
+		// A fresh service *and* a fresh consumer per case: the cross-document dynamic
+		// scope must be established by resolution alone, not leaked from a previous
+		// validation (in-place $ref resolution mutates the schema object it is given).
+		const makeConsumer = (): JSONSchema => ({
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$ref: 'https://example.com/x-strict'
+		});
+
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ elements: [{ a: 1 }] }));
+			const v = await makeLs().doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, makeConsumer());
+			assert.strictEqual(v.length, 0, 'strict element should be valid through external override: ' + JSON.stringify(v));
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ elements: [{ b: 1 }] }));
+			const v = await makeLs().doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, makeConsumer());
+			assert.ok(v.length > 0, 'external override should reject an element missing "a"');
+		}
+	});
+
+	test('$dynamicRef with a non-fragment URI starting point participates in the external dynamic scope', async function () {
+		// The $dynamicRef uses a non-fragment URI ("y-defs#T"): its starting point is
+		// resolved in another document, and the $dynamicAnchor that overrides it lives
+		// in a third document. Exercises both the external starting-point path and
+		// cross-document dynamic-scope resolution.
+		const defs: JSONSchema = {
+			$id: 'https://example.com/y-defs',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$defs: {
+				T: { $dynamicAnchor: 'T', type: 'number' }
+			}
+		};
+		const base: JSONSchema = {
+			$id: 'https://example.com/y-base',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			required: ['val'],
+			properties: {
+				val: { $dynamicRef: 'https://example.com/y-defs#T' }
+			}
+		};
+		const strict: JSONSchema = {
+			$id: 'https://example.com/y-strict',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$ref: 'https://example.com/y-base',
+			$defs: {
+				T: { $dynamicAnchor: 'T', type: 'integer' }
+			}
+		};
+		const makeLs = () => getLanguageService({
+			schemaRequestService: newMockRequestService({
+				'https://example.com/y-defs': defs,
+				'https://example.com/y-base': base,
+				'https://example.com/y-strict': strict
+			}),
+			workspaceContext
+		});
+		// A fresh service *and* a fresh consumer per case: the external override must be
+		// established by resolution, not leaked from a previous validation (in-place
+		// $ref resolution mutates the schema object it is given).
+		const makeConsumer = (): JSONSchema => ({
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$ref: 'https://example.com/y-strict'
+		});
+
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ val: 1 }));
+			const v = await makeLs().doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, makeConsumer());
+			assert.strictEqual(v.length, 0, 'integer should satisfy the external override: ' + JSON.stringify(v));
+		}
+		{
+			// 1.5 is a valid number (the base default) but not an integer (the override).
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ val: 1.5 }));
+			const v = await makeLs().doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, makeConsumer());
+			assert.ok(v.length > 0, 'external override (integer) should reject a non-integer number');
+		}
+	});
+
+	test('$dynamicRef to an $anchor (not a $dynamicAnchor) behaves like a plain $ref', async function () {
+		// #foo resolves to a plain $anchor, which is not "bookended" (its target is
+		// not a $dynamicAnchor of that name), so there is no dynamic-scope walk and
+		// it behaves like a normal $ref to the string schema.
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'array',
+			items: { $dynamicRef: '#foo' },
+			$defs: {
+				foo: { $anchor: 'foo', type: 'string' }
+			}
+		};
+		const ls = getLanguageService({});
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a', 'b']));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(v.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify([1]));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(v.length > 0, 'non-bookended $dynamicRef should still enforce the target schema');
+		}
+	});
+
+	test('$dynamicRef with a JSON-pointer fragment behaves like a plain $ref', async function () {
+		// A JSON-pointer fragment can never name a $dynamicAnchor, so it always
+		// resolves statically like $ref.
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'array',
+			items: { $dynamicRef: '#/$defs/node' },
+			$defs: {
+				node: { type: 'string' }
+			}
+		};
+		const ls = getLanguageService({});
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a']));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(v.length, 0);
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify([1]));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(v.length > 0);
+		}
+	});
+
+	test('$dynamicRef resolves through an external schema', async function () {
+		// The reference has a URI part, exercising external resolution of the
+		// initial target across documents.
+		const ext: JSONSchema = {
+			$id: 'https://example.com/ext',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'string' }
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService({ 'https://example.com/ext': ext }), workspaceContext });
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'array',
+			items: { $dynamicRef: 'https://example.com/ext#node' }
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify(['a']));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.strictEqual(v.length, 0, 'external $dynamicRef should validate a string: ' + JSON.stringify(v));
+		}
+		{
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify([1]));
+			const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+			assert.ok(v.length > 0, 'external $dynamicRef should reject a non-string');
+		}
+	});
+
+	test('$dynamicRef is ignored as an unknown keyword in draft 2019-09', async function () {
+		// 2019-09 uses $recursiveRef, not $dynamicRef, so $dynamicRef must be ignored
+		// (left unresolved), not resolved like a reference.
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2019-09/schema',
+			type: 'object',
+			properties: {
+				list: { $dynamicRef: '#node' }
+			},
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'array' }
+			}
+		};
+		const ls = getLanguageService({});
+
+		// $dynamicRef ignored -> `list` is unconstrained -> a non-array value is valid.
+		const { textDoc, jsonDoc } = toDocument(JSON.stringify({ list: 'not-an-array' }));
+		const v = await ls.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+		assert.strictEqual(v.length, 0);
+	});
+
+	suite('Vocabulary Support (JSON Schema 2019-09+)', () => {
+		// Schema with no $schema - should use all keywords
+		test('schema without $schema should validate all keywords', async function () {
+			const schema: JSONSchema = {
+				type: 'number',
+				minimum: 10
+			};
+
+			const ls = getLanguageService({});
+
+			// Valid case
+			const { textDoc: validDoc, jsonDoc: validJsonDoc } = toDocument('15');
+			const validValidation = await ls.doValidation(validDoc, validJsonDoc, {}, schema);
+			assert.strictEqual(validValidation.length, 0);
+
+			// Invalid case - should catch minimum violation
+			const { textDoc: invalidDoc, jsonDoc: invalidJsonDoc } = toDocument('5');
+			const invalidValidation = await ls.doValidation(invalidDoc, invalidJsonDoc, {}, schema);
+			assert.strictEqual(invalidValidation.length, 1);
+			assertInMessage(invalidValidation[0].message, 'minimum');
+		});
+
+		test('meta-schema with only applicator vocabulary should ignore validation keywords', async function () {
+			// Custom meta-schema with only applicator vocabulary (no validation vocabulary)
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-no-validation',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/applicator': true
+					// Note: validation vocabulary is not included
+				},
+				type: 'object'
+			};
+
+			// Schema using the custom meta-schema
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-no-validation',
+				type: 'number',
+				minimum: 10  // This should be ignored because validation vocabulary is not active
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-no-validation') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			// Test with value below minimum - should not fail because minimum should be ignored
+			const { textDoc, jsonDoc } = toDocument('5');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'Validation keywords should be ignored when validation vocabulary is not active');
+		});
+
+		test('meta-schema with validation vocabulary should process validation keywords', async function () {
+			// Custom meta-schema with validation vocabulary
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-with-validation',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/validation': true
+				},
+				type: 'object'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-with-validation',
+				type: 'number',
+				minimum: 10
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-with-validation') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			// Test with value below minimum - should fail
+			const { textDoc, jsonDoc } = toDocument('5');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1);
+			assertInMessage(validation[0].message, 'minimum');
+		});
+
+		test('applicator keywords work when validation vocabulary is disabled', async function () {
+			// Custom meta-schema without validation vocabulary
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-applicator-only',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/applicator': true
+				},
+				type: 'object'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-applicator-only',
+				properties: {
+					name: { type: 'string' },
+					age: { minimum: 0 }  // minimum should be ignored
+				},
+				required: ['name']  // required should be ignored (it's a validation keyword)
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-applicator-only') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			// Missing required field - should not fail because required is a validation keyword
+			const { textDoc, jsonDoc } = toDocument('{}');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'Validation keywords like "required" should be ignored');
+		});
+
+		test('draft-06 schemas should not use vocabulary filtering', async function () {
+			// Draft-06 schema (predates vocabulary feature)
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-06/schema#',
+				type: 'number',
+				minimum: 10
+			};
+
+			const ls = getLanguageService({});
+
+			// Should still validate minimum keyword
+			const { textDoc, jsonDoc } = toDocument('5');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1);
+			assertInMessage(validation[0].message, 'minimum', 'Draft-06 schemas should process all keywords');
+		});
+
+		test('draft-07 schemas should not use vocabulary filtering', async function () {
+			// Draft-07 schema (predates vocabulary feature)
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'number',
+				minimum: 10
+			};
+
+			const ls = getLanguageService({});
+
+			// Should still validate minimum keyword
+			const { textDoc, jsonDoc } = toDocument('5');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1);
+			assertInMessage(validation[0].message, 'minimum', 'Draft-07 schemas should process all keywords');
+		});
+
+		test('meta-schema without $vocabulary should process all keywords', async function () {
+			// Custom meta-schema without $vocabulary property
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-no-vocab-property',
+				type: 'object'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-no-vocab-property',
+				type: 'number',
+				minimum: 10
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-no-vocab-property') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			// Should validate all keywords (backward compatibility)
+			const { textDoc, jsonDoc } = toDocument('5');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1);
+			assertInMessage(validation[0].message, 'minimum', 'Schemas using metaschemas without $vocabulary should process all keywords');
+		});
+
+		test('vocabularies with required=false should still be processed', async function () {
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-optional-vocab',
+				$vocabulary: {
+					'https://json-schema.org/draft/2020-12/vocab/core': true,
+					'https://json-schema.org/draft/2020-12/vocab/validation': false
+				},
+				type: 'object'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-optional-vocab',
+				type: 'number',
+				minimum: 10
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-optional-vocab') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			// Should validate minimum keyword since validation vocab is listed (even as optional)
+			const { textDoc, jsonDoc } = toDocument('5');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1);
+			assertInMessage(validation[0].message, 'minimum', 'Optional (required=false) vocabularies should still be processed');
+		});
+
+		test('format-annotation vocabulary should not produce validation errors', async function () {
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-format-annotation',
+				$vocabulary: {
+					'https://json-schema.org/draft/2020-12/vocab/core': true,
+					'https://json-schema.org/draft/2020-12/vocab/validation': true,
+					'https://json-schema.org/draft/2020-12/vocab/format-annotation': true
+				},
+				type: 'object'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-format-annotation',
+				type: 'string',
+				format: 'email'
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-format-annotation') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			// Invalid email format - should not produce error because format-annotation is annotation-only
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'format-annotation vocabulary should not produce validation errors');
+		});
+
+		test('format-assertion vocabulary should produce validation errors', async function () {
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-format-assertion',
+				$vocabulary: {
+					'https://json-schema.org/draft/2020-12/vocab/core': true,
+					'https://json-schema.org/draft/2020-12/vocab/validation': true,
+					'https://json-schema.org/draft/2020-12/vocab/format-assertion': true
+				},
+				type: 'object'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-format-assertion',
+				type: 'string',
+				format: 'email'
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-format-assertion') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			// Invalid email format - should produce error because format-assertion is active
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'format-assertion vocabulary should produce validation errors');
+			assertInMessage(getMessageText(validation[0].message).toLowerCase(), 'e-mail', 'Error should mention e-mail format');
+		});
+
+		test('2019-09 optional format vocabulary should be annotation-only (no errors)', async function () {
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-2019-format',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/validation': true,
+					'https://json-schema.org/draft/2019-09/vocab/format': false
+				},
+				type: 'object'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-2019-format',
+				type: 'string',
+				format: 'email'
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-2019-format') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			// Invalid email format - should not produce error because optional 2019-09 format is annotation-only
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'Optional 2019-09 format vocabulary should be annotation-only');
+		});
+
+		test('no format vocabulary should not produce format errors', async function () {
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-no-format',
+				$vocabulary: {
+					'https://json-schema.org/draft/2020-12/vocab/core': true,
+					'https://json-schema.org/draft/2020-12/vocab/validation': true
+				},
+				type: 'object'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-no-format',
+				type: 'string',
+				format: 'email'
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-no-format') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			// Invalid email format - should not produce error because format vocabulary is not active
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'format keyword should be ignored when format vocabulary is not active');
+		});
+
+		test('schema without $vocabulary should validate format (backward compatibility)', async function () {
+			const schema: JSONSchema = {
+				type: 'string',
+				format: 'email'
+			};
+
+			const ls = getLanguageService({});
+
+			// Invalid email format - should produce error for backward compatibility
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'Format should be validated when no vocabulary constraints exist');
+			assertInMessage(getMessageText(validation[0].message).toLowerCase(), 'e-mail', 'Error should mention e-mail format');
+		});
+
+		test('format should not validate by default for 2019-09 schemas', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'string',
+				format: 'email'
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'Format should be annotation-only by default in 2019-09');
+		});
+
+		test('format should not validate by default for 2020-12 schemas', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				type: 'string',
+				format: 'email'
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'Format should be annotation-only by default in 2020-12');
+		});
+
+		test('format should validate for draft-07 schemas', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'string',
+				format: 'email'
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'Format should validate for draft-07');
+			assertInMessage(getMessageText(validation[0].message).toLowerCase(), 'e-mail', 'Error should mention e-mail format');
+		});
+
+		test('vocabulary-disable: custom dialect disabling validation vocab with $ref to standard schema', async function () {
+			// Custom dialect that inherits from the 2019-09 schema but omits the validation vocabulary
+			const dialect: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				$id: 'http://test/custom-dialect-no-validation',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/applicator': true
+					// validation vocabulary intentionally omitted
+				},
+				$recursiveAnchor: true,
+				$ref: 'https://json-schema.org/draft/2019-09/schema'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/custom-dialect-no-validation',
+				type: 'object',
+				properties: {
+					name: { type: 'string' },  // type should be ignored (validation vocab)
+					age: { minimum: 0 },        // minimum should be ignored (validation vocab)
+					foo: false                   // false subschema should still work (applicator)
+				},
+				required: ['name']              // required should be ignored (validation vocab)
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/custom-dialect-no-validation') {
+					return JSON.stringify(dialect);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			// "name" missing, "age" negative - none of these should produce errors
+			// Only "foo" should produce an error because `false` is an applicator keyword
+			const { textDoc, jsonDoc } = toDocument('{ "age": -1, "foo": 42 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			// Validation keywords (required, type, minimum) should be ignored
+			const requiredErrors = validation.filter(v => messageContains(v.message, 'name'));
+			assert.strictEqual(requiredErrors.length, 0, '"required" should be ignored when validation vocab is disabled');
+
+			const minimumErrors = validation.filter(v => messageContains(v.message, 'minimum'));
+			assert.strictEqual(minimumErrors.length, 0, '"minimum" should be ignored when validation vocab is disabled');
+
+			// Applicator keyword (false subschema) should still work
+			const fooErrors = validation.filter(v => messageContains(v.message, 'not allowed') || messageContains(v.message, 'foo'));
+			assert.ok(fooErrors.length > 0, '"false" subschema should still produce an error (applicator vocab is active)');
+		});
+
+		test('vocabulary-disable: works with relative $schema URI', async function () {
+			// Same scenario as above but the schema references the dialect via a relative URI
+			const dialect: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/applicator': true
+					// validation vocabulary intentionally omitted
+				},
+				$recursiveAnchor: true,
+				$ref: 'https://json-schema.org/draft/2019-09/schema'
+			};
+
+			const schema: JSONSchema = {
+				$schema: './dialect.jsonc',  // relative URI to the dialect
+				type: 'object',
+				properties: {
+					name: { type: 'string' },  // type should be ignored (validation vocab)
+					age: { minimum: 0 },        // minimum should be ignored (validation vocab)
+					foo: false                   // false subschema should still work (applicator)
+				},
+				required: ['name']              // required should be ignored (validation vocab)
+			};
+
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				if (uri.includes('dialect.jsonc')) {
+					return JSON.stringify(dialect);
+				}
+				if (uri.includes('my-schema.json')) {
+					return JSON.stringify(schema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc, jsonDoc } = toDocument(
+				'{ "$schema": "./my-schema.json", "age": -1, "foo": 42 }',
+				undefined,
+				'file:///c%3A/test/subject.json'
+			);
+			const validation = await ls.doValidation(textDoc, jsonDoc);
+
+			// Validation keywords (required, type, minimum) should be ignored
+			const requiredErrors = validation.filter(v => messageContains(v.message, 'name'));
+			assert.strictEqual(requiredErrors.length, 0, '"required" should be ignored with relative dialect URI');
+
+			const minimumErrors = validation.filter(v => messageContains(v.message, 'minimum'));
+			assert.strictEqual(minimumErrors.length, 0, '"minimum" should be ignored with relative dialect URI');
+
+			// Applicator keyword (false subschema) should still work
+			const fooErrors = validation.filter(v => messageContains(v.message, 'not allowed') || messageContains(v.message, 'foo'));
+			assert.ok(fooErrors.length > 0, '"false" subschema should still produce an error with relative dialect URI');
+		});
+
+		test('vocabulary-format-enable: 2019-09 required format vocab produces validation errors', async function () {
+			// Custom dialect that includes the 2019-09 format vocabulary
+			const dialect: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				$id: 'http://test/custom-dialect-with-format',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/applicator': true,
+					'https://json-schema.org/draft/2019-09/vocab/validation': true,
+					'https://json-schema.org/draft/2019-09/vocab/meta-data': true,
+					'https://json-schema.org/draft/2019-09/vocab/format': true,
+					'https://json-schema.org/draft/2019-09/vocab/content': true
+				},
+				$recursiveAnchor: true,
+				$ref: 'https://json-schema.org/draft/2019-09/schema'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/custom-dialect-with-format',
+				type: 'object',
+				properties: {
+					subject: {
+						type: 'string',
+						format: 'date'
+					}
+				}
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/custom-dialect-with-format') {
+					return JSON.stringify(dialect);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			// Required 2019-09 format vocab enables format assertion for supported formats.
+			const { textDoc, jsonDoc } = toDocument('{ "subject": "not-a-date" }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			const formatErrors = validation.filter(v => messageContains(v.message, 'date') || messageContains(v.message, 'RFC3339'));
+			assert.strictEqual(formatErrors.length, 1, 'Required 2019-09 format vocab should produce format errors');
+		});
+	});
+
+	suite('Draft-based keyword gating', () => {
+		test('dependentRequired should not work in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'object',
+				dependentRequired: {
+					bar: ['foo']
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			// { "bar": 1 } without "foo" - dependentRequired should be ignored in draft-07
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'dependentRequired should be ignored in draft-07');
+		});
+
+		test('dependentRequired should work in 2019-09', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				dependentRequired: {
+					bar: ['foo']
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'dependentRequired should work in 2019-09');
+		});
+
+		test('dependentSchemas should not work in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'object',
+				dependentSchemas: {
+					bar: {
+						required: ['foo']
+					}
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'dependentSchemas should be ignored in draft-07');
+		});
+
+		test('dependentSchemas should work in 2019-09', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				dependentSchemas: {
+					bar: {
+						required: ['foo']
+					}
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'dependentSchemas should work in 2019-09');
+		});
+
+		test('dependencies should work in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'object',
+				dependencies: {
+					bar: ['foo']
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'dependencies should work in draft-07');
+		});
+
+		test('dependencies should not work in 2019-09', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				dependencies: {
+					bar: ['foo']
+				}
+			};
+
+			const ls = getLanguageService({});
+
+			const { textDoc, jsonDoc } = toDocument('{ "bar": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'dependencies should be ignored in 2019-09');
+		});
+	});
+
+	suite('$ref sibling scope isolation', () => {
+		test('referenced additionalProperties should not see sibling properties', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				$ref: '#/$defs/base',
+				properties: {
+					foo: {
+						type: 'string'
+					}
+				},
+				$defs: {
+					base: {
+						type: 'object',
+						additionalProperties: false
+					}
+				}
+			};
+
+			const ls = getLanguageService({});
+			const { textDoc, jsonDoc } = toDocument('{ "foo": "ok" }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.strictEqual(validation.length, 1);
+			assertInMessage(validation[0].message, 'Property foo is not allowed.');
+		});
+
+		test('referenced additionalItems should not pair with sibling tuple items', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				$ref: '#/$defs/base',
+				items: [
+					{
+						type: 'string'
+					}
+				],
+				$defs: {
+					base: {
+						type: 'array',
+						additionalItems: false
+					}
+				}
+			};
+
+			const ls = getLanguageService({});
+			const { textDoc, jsonDoc } = toDocument('["x", "y"]');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.strictEqual(validation.length, 0);
+		});
+
+		test('referenced unevaluatedItems should not see sibling tuple items', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				$ref: '#/$defs/base',
+				items: [
+					{
+						type: 'string'
+					}
+				],
+				$defs: {
+					base: {
+						type: 'array',
+						unevaluatedItems: false
+					}
+				}
+			};
+
+			const ls = getLanguageService({});
+			const { textDoc, jsonDoc } = toDocument('["x"]');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.strictEqual(validation.length, 1);
+			assertInMessage(validation[0].message, 'Item does not match any validation rule from the array.');
+		});
+
+		test('$ref siblings should be ignored in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'object',
+				properties: {
+					subject: {
+						$ref: '#/definitions/number',
+						minimum: 50
+					}
+				},
+				definitions: {
+					number: {
+						type: 'number'
+					}
+				}
+			};
+
+			const ls = getLanguageService({});
+			// In draft-07, keywords next to $ref should be ignored, so minimum: 50 should not apply
+			const { textDoc, jsonDoc } = toDocument('{ "subject": 42 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, '$ref siblings should be ignored in draft-07');
+		});
+	});
+
+	suite('$id fragment anchors', () => {
+		test('$id fragment should be an anchor in draft-07', async function () {
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService });
+
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				definitions: {
+					foo: {
+						$id: '#foo',
+						type: 'string'
+					}
+				},
+				$ref: '#foo'
+			};
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, '$id fragment should work as anchor in draft-07');
+		});
+
+		test('$id fragment should not be an anchor in 2019-09', async function () {
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService });
+
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				$defs: {
+					foo: {
+						$id: '#foo',
+						type: 'string'
+					}
+				},
+				$ref: '#foo'
+			};
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			// In 2019-09, $id with fragment is not an anchor, so $ref: '#foo' should not resolve.
+			// This should produce a resolve error, not a type validation error.
+			assert.strictEqual(validation.length, 1, 'Should get a resolve error for unresolved $ref');
+			assert.strictEqual(validation[0].code, ErrorCode.SchemaResolveError,
+				'Error should be a schema resolve error, not a type error');
+		});
+	});
+
+	suite('Relative $id references', () => {
+		test('$ref to a relative $id within $defs', async function () {
+			// A $ref targeting a relative $id should resolve against the document base URI
+			const schema: JSONSchema = {
+				$id: 'http://example.com/root.json',
+				$defs: {
+					foo: {
+						$id: 'schemas/foo',
+						type: 'string'
+					}
+				},
+				$ref: 'schemas/foo'
+			};
+
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			// $ref: "schemas/foo" should resolve to http://example.com/schemas/foo
+			// which matches the embedded $id: "schemas/foo" (also resolved to http://example.com/schemas/foo)
+			// The embedded schema requires type: string, so 42 should fail
+			assert.strictEqual(validation.length, 1, '$ref should resolve relative $id');
+			assertInMessage(validation[0].message, 'string', 'Error should be a type mismatch for string');
+		});
+
+		test('$ref resolves relative to the nearest $id base', async function () {
+			// When a schema has a nested $id, $ref inside it resolves relative to that $id
+			const barSchema: JSONSchema = {
+				$id: 'http://example.com/schemas/bar.json',
+				type: 'number'
+			};
+
+			const schema: JSONSchema = {
+				$id: 'http://example.com/root.json',
+				$defs: {
+					foo: {
+						$id: 'schemas/',
+						$defs: {
+							inner: {
+								// $ref inside a schema with $id: "schemas/" should resolve
+								// relative to http://example.com/schemas/
+								$ref: 'bar.json'
+							}
+						}
+					}
+				},
+				$ref: '#/$defs/foo/$defs/inner'
+			};
+
+			const schemaRequestService = newMockRequestService({
+				'http://example.com/schemas/bar.json': barSchema
+			});
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc, jsonDoc } = toDocument('"hello"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			// bar.json requires number, "hello" is a string, should produce a type error
+			assert.strictEqual(validation.length, 1, '$ref should resolve relative to nearest $id base');
+			assertInMessage(validation[0].message, 'number', 'Error should be a type mismatch for number');
+		});
+
+		test('$ref to a relative $id with a different path', async function () {
+			// $ref from root referencing an embedded schema with a relative $id
+			const schema: JSONSchema = {
+				$id: 'http://example.com/root.json',
+				$defs: {
+					address: {
+						$id: 'types/address.json',
+						type: 'object',
+						properties: {
+							street: { type: 'string' }
+						},
+						required: ['street']
+					}
+				},
+				type: 'object',
+				properties: {
+					home: { $ref: 'types/address.json' }
+				}
+			};
+
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			// Missing required "street" property
+			const { textDoc, jsonDoc } = toDocument('{ "home": {} }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, '$ref to relative $id should resolve');
+			assertInMessage(validation[0].message, 'street', 'Error should mention missing "street" property');
+		});
+
+		test('$ref to a relative $id in draft-07 with definitions', async function () {
+			// Draft-07 uses $id (not id) and definitions (not $defs)
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				$id: 'http://example.com/root.json',
+				definitions: {
+					foo: {
+						$id: 'schemas/foo',
+						type: 'string'
+					}
+				},
+				$ref: 'schemas/foo'
+			};
+
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'draft-07: $ref should resolve relative $id');
+			assertInMessage(validation[0].message, 'string', 'Error should be a type mismatch for string');
+		});
+
+		test('$ref to a relative id in draft-04', async function () {
+			// Draft-04 uses id (not $id) and definitions (not $defs)
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-04/schema#',
+				id: 'http://example.com/root.json',
+				definitions: {
+					foo: {
+						id: 'schemas/foo',
+						type: 'string'
+					}
+				},
+				$ref: 'schemas/foo'
+			};
+
+			const schemaRequestService = newMockRequestService();
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'draft-04: $ref should resolve relative id');
+			assertInMessage(validation[0].message, 'string', 'Error should be a type mismatch for string');
+		});
+
+		test('multiple levels of nested $id', async function () {
+			// $id inside $id inside root — each level re-bases the URI
+			const bazSchema: JSONSchema = {
+				$id: 'http://example.com/a/b/baz.json',
+				type: 'boolean'
+			};
+
+			const schema: JSONSchema = {
+				$id: 'http://example.com/root.json',
+				$defs: {
+					level1: {
+						$id: 'a/',
+						$defs: {
+							level2: {
+								$id: 'b/',
+								$defs: {
+									inner: {
+										// Should resolve to http://example.com/a/b/baz.json
+										$ref: 'baz.json'
+									}
+								}
+							}
+						}
+					}
+				},
+				$ref: '#/$defs/level1/$defs/level2/$defs/inner'
+			};
+
+			const schemaRequestService = newMockRequestService({
+				'http://example.com/a/b/baz.json': bazSchema
+			});
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc, jsonDoc } = toDocument('42');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'Nested $id levels should chain correctly');
+			assertInMessage(validation[0].message, 'boolean', 'Error should be a type mismatch for boolean');
+		});
+	});
+
+	suite('Draft-07 legacy keyword ignore', () => {
+		test('unevaluatedProperties should be ignored in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'object',
+				allOf: [
+					{
+						properties: {
+							a: { type: 'number' }
+						}
+					}
+				],
+				unevaluatedProperties: { type: 'string' }
+			};
+
+			const ls = getLanguageService({});
+			// In draft-07, unevaluatedProperties is not a recognized keyword and should be ignored
+			const { textDoc, jsonDoc } = toDocument('{ "a": 42, "unknown": true }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'unevaluatedProperties should be ignored in draft-07');
+		});
+
+		test('unevaluatedItems should be ignored in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				type: 'array',
+				allOf: [
+					{
+						items: [{ type: 'string' }]
+					}
+				],
+				unevaluatedItems: { type: 'number' }
+			};
+
+			const ls = getLanguageService({});
+			// In draft-07, unevaluatedItems is not a recognized keyword and should be ignored
+			const { textDoc, jsonDoc } = toDocument('["a", "b"]');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'unevaluatedItems should be ignored in draft-07');
+		});
+
+		test('$dynamicRef should not be prefetched in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				$dynamicRef: 'https://example.com/ignored.json'
+			};
+			const accesses: string[] = [];
+			const schemaRequestService: SchemaRequestService = async uri => {
+				accesses.push(uri);
+				return '{}';
+			};
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument('{}');
+
+			await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.ok(!accesses.includes('https://example.com/ignored.json'), '$dynamicRef should be ignored before draft 2020-12');
+		});
+
+		test('$ref siblings should not be prefetched in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				$ref: 'https://example.com/referenced.json',
+				allOf: [{ $ref: 'https://example.com/ignored.json' }]
+			};
+			const accesses: string[] = [];
+			const schemaRequestService: SchemaRequestService = async uri => {
+				accesses.push(uri);
+				return '{}';
+			};
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument('{}');
+
+			await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.ok(accesses.includes('https://example.com/referenced.json'), 'Expected the referenced schema to be requested');
+			assert.ok(!accesses.includes('https://example.com/ignored.json'), '$ref siblings should be ignored before draft 2019-09');
+		});
+
+		test('internal $ref siblings should not be prefetched in draft-07', async function () {
+			const schema: JSONSchema = {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				$ref: '#/definitions/value',
+				allOf: [{ $ref: 'https://example.com/ignored.json' }],
+				definitions: {
+					value: { type: 'object' }
+				}
+			};
+			const accesses: string[] = [];
+			const schemaRequestService: SchemaRequestService = async uri => {
+				accesses.push(uri);
+				return '{}';
+			};
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument('{}');
+
+			await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.ok(!accesses.includes('https://example.com/ignored.json'), '$ref siblings should be ignored before draft 2019-09');
+		});
+	});
+
+	suite('Embedded $id in $defs', () => {
+		test('external references register embedded schemas before traversal continues', async function () {
+			const schema: JSONSchema = {
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					external: { $ref: 'https://example.com/external.json' }
+				}
+			};
+			const externalSchema: JSONSchema = {
+				$defs: {
+					value: {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+			const accesses: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				accesses.push(uri);
+				if (uri === 'https://example.com/external.json') {
+					return JSON.stringify(externalSchema);
+				}
+				throw new Error(`Unexpected external fetch: ${uri}`);
+			};
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument('{ "subject": 42 }');
+
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.ok(accesses.includes('https://example.com/external.json'), 'Expected the external schema to be requested');
+			assert.ok(!validation.some(v => messageContains(v.message, 'Unable to load schema')), 'Expected the prefetched embedded schema handle to be replaced before use');
+			assert.ok(validation.some(v => messageContains(v.message, 'string')), 'Expected type mismatch from the embedded schema');
+		});
+
+		test('schema whose root $id matches its own retrieval URI keeps resolve errors on repeated validation', async function () {
+			// Reproduces a self-registration bug: registerEmbeddedSchemas treats the root
+			// schema's own $id (equal to the URI it was fetched from) as an embedded schema
+			// to (re-)register, calling setSchemaContent on the handle currently being
+			// resolved. That clears the handle's cached resolved/unresolved schema using the
+			// same (still being mutated) object reference, so a *second* validation of a
+			// document using this schema would recompute from the already ref-merged object
+			// and silently lose the resolveErrors recorded on the first pass.
+			const wrapperUri = 'https://example.com/wrapper.json';
+			const externalUri = 'https://example.com/unreachable.json';
+			const wrapperSchema: JSONSchema = {
+				$id: wrapperUri,
+				type: 'object',
+				allOf: [
+					{ $ref: externalUri }
+				]
+			};
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === wrapperUri) {
+					return JSON.stringify(wrapperSchema);
+				}
+				throw new Error(`Unreachable schema: ${uri}`);
+			};
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc: textDoc1, jsonDoc: jsonDoc1 } = toDocument(JSON.stringify({ $schema: wrapperUri }));
+			const firstValidation = await ls.doValidation(textDoc1, jsonDoc1, {});
+			assert.ok(firstValidation.some(v => messageContains(v.message, 'Unreachable schema')), 'Expected a resolve error on the first validation');
+
+			const { textDoc: textDoc2, jsonDoc: jsonDoc2 } = toDocument(JSON.stringify({ $schema: wrapperUri, extra: true }));
+			const secondValidation = await ls.doValidation(textDoc2, jsonDoc2, {});
+			assert.ok(secondValidation.some(v => messageContains(v.message, 'Unreachable schema')), 'Expected the resolve error to persist on a later validation of the same schema handle');
+		});
+
+		test('nested embedded schema with $ref between embedded schemas', async function () {
+			// An embedded schema referencing another embedded schema within the same document
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded-embedded' }
+				},
+				$defs: {
+					'outer': {
+						$id: 'https://example.com/embedded-embedded',
+						$ref: 'https://example.com/embedded',
+						$defs: {
+							'inner': {
+								$id: 'https://example.com/embedded',
+								type: 'string'
+							}
+						}
+					}
+				}
+			};
+
+			const accesses: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				accesses.push(uri);
+				throw new Error(`Unexpected external fetch: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			// Valid string
+			{
+				const { textDoc, jsonDoc } = toDocument('{ "subject": "foo" }');
+				const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+				assert.strictEqual(validation.length, 0, '"foo" is a valid string, no errors expected');
+			}
+
+			// Invalid - should fail type check
+			{
+				const { textDoc, jsonDoc } = toDocument('{ "subject": 42 }');
+				const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+						assert.ok(validation.some(v => messageContains(v.message, 'string')), 'Expected type mismatch error for non-string value');
+			}
+		});
+
+		test('$ref to absolute $id in $defs resolves locally without external fetch', async function () {
+			const schema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			const accesses: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				accesses.push(uri);
+				throw new Error(`Unexpected external fetch: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument('{ "subject": "foo" }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+
+			assert.ok(!accesses.some(u => u.includes('example.com/embedded')), 'Embedded schema should not be fetched externally');
+			assert.strictEqual(validation.length, 0, '"foo" is a valid string, no errors expected');
+		});
+
+		test('$ref to absolute $id in $defs loaded via $schema reference resolves locally', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			// Track ALL fetch attempts, including failures
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('example.com/example.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument(
+				'{ "$schema": "https://example.com/example.json", "subject": "foo" }',
+				undefined,
+				'https://example.com/test.json'
+			);
+			const validation = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.ok(!allFetches.some(u => u.includes('example.com/embedded')), 'Embedded schema should not be fetched externally');
+			const embeddedErrors = validation.filter(v => messageContains(v.message, 'example.com/embedded'));
+			assert.strictEqual(embeddedErrors.length, 0, 'Should have no errors related to the embedded schema');
+		});
+
+		test('$ref to absolute $id in $defs reports type mismatch for invalid value', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('example.com/example.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument(
+				'{ "$schema": "https://example.com/example.json", "subject": 42 }',
+				undefined,
+				'https://example.com/test.json'
+			);
+			const validation = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.ok(!allFetches.some(u => u.includes('example.com/embedded')), 'Embedded schema should not be fetched externally');
+			assert.ok(validation.some(v => messageContains(v.message, 'string')), 'Expected type mismatch error for non-string value');
+		});
+
+		test('$ref to absolute $id in $defs with relative $schema from file URI resolves locally', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('my-schema.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument(
+				'{ "$schema": "./my-schema.json", "subject": "foo" }',
+				undefined,
+				'file:///c%3A/Users/test/Desktop/test.json'
+			);
+			const validation = await ls.doValidation(textDoc, jsonDoc);
+
+			const embeddedFetches = allFetches.filter(u => u.includes('example.com/embedded'));
+			assert.strictEqual(embeddedFetches.length, 0, `Embedded schema should not be fetched externally, but was fetched: ${embeddedFetches.join(', ')}`);
+
+			const embeddedErrors = validation.filter(v => messageContains(v.message, 'example.com/embedded'));
+			assert.strictEqual(embeddedErrors.length, 0, `Should have no errors for embedded schema, but got: ${embeddedErrors.map(v => v.message).join('; ')}`);
+		});
+
+		test('$ref to absolute $id in $defs via $schema does not attempt external fetch', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			// Track ALL fetch attempts, including ones that fail
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('example.com/example.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			const { textDoc, jsonDoc } = toDocument(
+				'{ "$schema": "https://example.com/example.json", "subject": "foo" }',
+				undefined,
+				'https://example.com/test.json'
+			);
+			const validation = await ls.doValidation(textDoc, jsonDoc);
+
+			const embeddedFetches = allFetches.filter(u => u.includes('example.com/embedded'));
+			assert.strictEqual(embeddedFetches.length, 0, `Embedded schema should not be fetched externally, but was fetched: ${embeddedFetches.join(', ')}`);
+
+			const embeddedErrors = validation.filter(v => messageContains(v.message, 'example.com/embedded'));
+			assert.strictEqual(embeddedErrors.length, 0, `Should have no errors for embedded schema, but got: ${embeddedErrors.map(v => v.message).join('; ')}`);
+
+			assert.strictEqual(validation.filter(v => messageContains(v.message, 'Incorrect type')).length, 0, '"foo" is a valid string');
+		});
+
+		test('$ref to absolute $id in $defs resolves locally after configure() call', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('my-schema.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			// Simulate VS Code calling configure() before validation
+			ls.configure({ allowComments: false, schemas: [] });
+
+			const { textDoc, jsonDoc } = toDocument(
+				'{ "$schema": "./my-schema.json", "subject": "foo" }',
+				undefined,
+				'file:///c%3A/Users/test/Desktop/test.json'
+			);
+			const validation = await ls.doValidation(textDoc, jsonDoc);
+
+			const embeddedFetches = allFetches.filter(u => u.includes('example.com/embedded'));
+			assert.strictEqual(embeddedFetches.length, 0, `Embedded schema should not be fetched externally, but was fetched: ${embeddedFetches.join(', ')}`);
+
+			const embeddedErrors = validation.filter(v => messageContains(v.message, 'example.com/embedded'));
+			assert.strictEqual(embeddedErrors.length, 0, `Should have no errors for embedded schema, but got: ${embeddedErrors.map(v => v.message).join('; ')}`);
+		});
+
+		test('$ref to absolute $id in $defs resolves correctly across multiple validations', async function () {
+			const embeddingSchema: JSONSchema = {
+				$schema: 'https://json-schema.org/draft/2019-09/schema',
+				type: 'object',
+				properties: {
+					subject: { $ref: 'https://example.com/embedded' }
+				},
+				$defs: {
+					'': {
+						$id: 'https://example.com/embedded',
+						type: 'string'
+					}
+				}
+			};
+
+			const allFetches: string[] = [];
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				allFetches.push(uri);
+				if (uri.includes('my-schema.json')) {
+					return JSON.stringify(embeddingSchema);
+				}
+				throw new Error(`Unexpected fetch for: ${uri}`);
+			};
+
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			// First validation
+			const { textDoc: textDoc1, jsonDoc: jsonDoc1 } = toDocument(
+				'{ "$schema": "./my-schema.json", "subject": "foo" }',
+				undefined,
+				'file:///c%3A/Users/test/Desktop/test.json'
+			);
+			await ls.doValidation(textDoc1, jsonDoc1);
+
+			// Simulate settings change (wipes all cached schemas)
+			ls.configure({ allowComments: false, schemas: [] });
+			allFetches.length = 0;
+
+			// Second validation after configure
+			const { textDoc: textDoc2, jsonDoc: jsonDoc2 } = toDocument(
+				'{ "$schema": "./my-schema.json", "subject": "foo" }',
+				undefined,
+				'file:///c%3A/Users/test/Desktop/test.json'
+			);
+			const validation = await ls.doValidation(textDoc2, jsonDoc2);
+
+			const embeddedFetches = allFetches.filter(u => u.includes('example.com/embedded'));
+			assert.strictEqual(embeddedFetches.length, 0, `Embedded schema should not be fetched after reconfigure, but was fetched: ${embeddedFetches.join(', ')}`);
+
+			const embeddedErrors = validation.filter(v => messageContains(v.message, 'example.com/embedded'));
+			assert.strictEqual(embeddedErrors.length, 0, `Should have no errors for embedded schema after reconfigure, but got: ${embeddedErrors.map(v => v.message).join('; ')}`);
+		});
+	});
+
+	test('untrusted schema error is reported', async function () {
+		const overlaySchemaUri = 'https://www.schemastore.org/openapi-overlay-1.X.json';
+		const openApiSpecUri1 = 'https://spec.openapis.org/overlay/1.0/schema/2026-04-01';
+		const openApiSpecUri2 = 'https://spec.openapis.org/overlay/1.1/schema/2026-04-01';
+
+		const fixturePath = path.join(__dirname, '../../../src/test/fixtures/openapi-overlay-1.X.json');
+		const overlaySchemaContent = (await fs.readFile(fixturePath)).toString();
+
+		const schemaRequestService: SchemaRequestService = async (uri: string) => {
+			if (uri === overlaySchemaUri) {
+				return overlaySchemaContent;
+			}
+			if (uri === openApiSpecUri1 || uri === openApiSpecUri2) {
+				throw new Error('Untrusted schema: access denied');
+			}
+			throw new Error(`Resource not found: ${uri}`);
+		};
+
+		const ls = getLanguageService({ workspaceContext, schemaRequestService });
+
+		const { textDoc, jsonDoc } = toDocument(
+			JSON.stringify({ $schema: overlaySchemaUri, overlay: '1.0.0' }),
+			undefined,
+			'file:///test.json'
+		);
+
+		const validation = await ls.doValidation(textDoc, jsonDoc);
+
+		// Should report the untrusted error, not missing overlay fields
+		const untrustedErrors = validation.filter(v => messageContains(v.message, 'Untrusted'));
+		assert.ok(untrustedErrors.length > 0, `Expected untrusted schema error but got: ${validation.map(v => v.message).join('; ')}`);
+
+		// Should not report "overlay is required"
+		const overlayRequiredErrors = validation.filter(v => messageContains(v.message, 'overlay is required'));
+		assert.strictEqual(overlayRequiredErrors.length, 0, 'Should not report missing properties when schema cannot be loaded due to untrusted error');
+	});
 });

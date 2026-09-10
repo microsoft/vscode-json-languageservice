@@ -4,15 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { suite, test } from 'node:test';
 
-import { getLanguageService, JSONSchema, TextDocument, ClientCapabilities, CompletionList, CompletionItemKind, Position, MarkupContent, TextEdit } from '../jsonLanguageService';
-import { repeat } from '../utils/strings';
+import { getLanguageService, JSONSchema, TextDocument, ClientCapabilities, CompletionList, CompletionItemKind, Position, MarkupContent, TextEdit } from '../jsonLanguageService.js';
+import { repeat } from '../utils/strings.js';
+import { CompletionItemLabelDetails } from 'vscode-languageserver-types';
 
 const applyEdits = TextDocument.applyEdits;
 
 interface ItemDescription {
 	label: string;
 	detail?: string;
+	labelDetails?: CompletionItemLabelDetails;
 	documentation?: string | MarkupContent;
 	kind?: CompletionItemKind;
 	resultText?: string;
@@ -32,6 +35,9 @@ const assertCompletion = function (completions: CompletionList, expected: ItemDe
 	const match = matches[0];
 	if (expected.detail !== undefined) {
 		assert.equal(match.detail, expected.detail);
+	}
+	if (expected.labelDetails !== undefined) {
+		assert.deepEqual(match.labelDetails, expected.labelDetails);
 	}
 	if (expected.documentation !== undefined) {
 		assert.deepEqual(match.documentation, expected.documentation);
@@ -249,6 +255,56 @@ suite('JSON Completion', () => {
 
 	});
 
+	test('Complete properties through $dynamicRef (2020-12)', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: {
+				node: { $dynamicRef: '#node' }
+			},
+			$defs: {
+				node: {
+					$dynamicAnchor: 'node',
+					type: 'object',
+					properties: {
+						foo: { type: 'string' },
+						bar: { type: 'number' }
+					}
+				}
+			}
+		};
+		await testCompletionsFor('{ "node": { | } }', schema, {
+			items: [
+				{ label: 'foo' },
+				{ label: 'bar' }
+			]
+		});
+	});
+
+	test('Complete JS inherited property with schema', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'hasOwnProperty': {
+					type: 'integer',
+					description: 'hasOwnProperty'
+				},
+				'constructor': {
+					type: 'integer',
+					description: 'constructor'
+				},
+			}
+		};
+		await testCompletionsFor('{|}', schema, {
+			count: 2,
+			items: [
+				{ label: 'hasOwnProperty', documentation: 'hasOwnProperty', resultText: '{"hasOwnProperty": ${1:0}}' },
+				{ label: 'constructor', documentation: 'constructor', resultText: '{"constructor": ${1:0}}' },
+			]
+		});
+
+	});
+
 	test('Complete propertyNames', async function () {
 		const schema: JSONSchema = {
 			type: 'object',
@@ -297,6 +353,19 @@ suite('JSON Completion', () => {
 						{ propertyNames: { const: 'a', deprecationMessage: 'Deprecated' } },
 						{ propertyNames: { const: 'b' } }
 					]
+				},
+				enumSortTexts: {
+					type: 'object',
+					propertyNames: {
+						enum: ['a', 'b'],
+						enumSortTexts: ['2', '1'],
+					},
+				},
+				examples: {
+					type: 'object',
+					propertyNames: {
+						examples: ['a', 'b'],
+					},
 				}
 			}
 		};
@@ -339,6 +408,18 @@ suite('JSON Completion', () => {
 				{ label: 'b', documentation: '' },
 			]
 		});
+		await testCompletionsFor('{"enumSortTexts":{|}}', schema, {
+			items: [
+				{ label: 'a', sortText: "2" },
+				{ label: 'b', sortText: "1" },
+			]
+		});
+		await testCompletionsFor('{"examples":{|}}', schema, {
+			items: [
+				{ label: 'a' },
+				{ label: 'b' },
+			]
+		});
 	});
 
 	test('Complete value with schema', async function () {
@@ -354,7 +435,12 @@ suite('JSON Completion', () => {
 					items: {
 						type: 'string'
 					}
-				}
+				},
+				"version": {
+					"type": "number",
+					"const": 2,
+					"markdownDescription": "version",
+				},
 			}
 		};
 		await testCompletionsFor('{ "a": | }', schema, {
@@ -377,6 +463,18 @@ suite('JSON Completion', () => {
 			count: 3,
 			items: [
 				{ label: '"John"', resultText: '{ "a": "John", "b": 1 }' }
+			]
+		});
+		await testCompletionsFor('{ "version": | }', schema, {
+			count: 1,
+			items: [
+				{ label: '2', resultText: '{ "version": 2 }' },
+			]
+		});
+		await testCompletionsFor('{ "version": 2| }', schema, {
+			count: 1,
+			items: [
+				{ label: '2', resultText: '{ "version": 2 }' },
 			]
 		});
 	});
@@ -411,6 +509,53 @@ suite('JSON Completion', () => {
 			items: [
 				{ label: '1', resultText: '{ "c": [ 1, 1] }' },
 				{ label: '2', resultText: '{ "c": [ 2, 1] }' }
+			]
+		});
+	});
+
+	test('Complete array value with schema (uniqueItems)', async function () {
+
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'c': {
+					type: 'array',
+					uniqueItems: true,
+					items: {
+						type: 'number',
+						enum: [1, 2, "hello", "world"],
+					}
+				}
+			}
+		};
+		await testCompletionsFor('{ "c": [ 1, "hello", | ] }', schema, {
+			items: [
+				{ label: '2', resultText: '{ "c": [ 1, "hello", 2 ] }' },
+				{ label: '"world"', resultText: '{ "c": [ 1, "hello", "world" ] }' },
+				{ notAvailable: true, label: '1' },
+				{ notAvailable: true, label: "hello" }
+			]
+		});
+	});
+	test('Complete array value with schema (uniqueItems) 2', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'c': {
+					type: 'array',
+					uniqueItems: true,
+					items: {
+						default: 1,
+						defaultSnippets: [{ body: "world" }, { label: "new item", "description": "", body: "hello" }]
+					}
+				}
+			}
+		};
+		await testCompletionsFor('{ "c": [ 1, "hello", | ] }', schema, {
+			items: [
+				{ label: '"world"', resultText: '{ "c": [ 1, "hello", "world" ] }' },
+				{ notAvailable: true, label: '1' },
+				{ notAvailable: true, label: "hello" }
 			]
 		});
 	});
@@ -850,11 +995,13 @@ suite('JSON Completion', () => {
 			]
 		});
 		await testCompletionsFor('{ "type": "1", "a" : { "x": "", "z":"" }, |', schema, {
-			// both alternatives have errors: intellisense proposes all options
-			count: 2,
+			// Prior to the `enum` discriminator optimization, the parser failed to correlate `type: "1"` 
+			// via enums and fell back to offering completions from ALL `oneOf` branches (i.e., both 'b' and 'c').
+			// Now that `enum` properties are properly indexed as discriminators, `type: "1"` flawlessly 
+			// isolates the first branch, so it correctly proposes ONLY the 'b' property from that branch.
+			count: 1,
 			items: [
-				{ label: 'b' },
-				{ label: 'c' }
+				{ label: 'b' }
 			]
 		});
 		await testCompletionsFor('{ "a" : { "x": "", "z":"" }, |', schema, {
@@ -984,8 +1131,8 @@ suite('JSON Completion', () => {
 
 		await testCompletionsFor('{ "prop": | }', schema, {
 			items: [
-				{ label: '"green"', resultText: '{ "prop": "green" }', detail: undefined },
-				{ label: '"red"', resultText: '{ "prop": "red" }', detail: 'Default value' },
+				{ label: '"green"', resultText: '{ "prop": "green" }', labelDetails: undefined },
+				{ label: '"red"', resultText: '{ "prop": "red" }', labelDetails: { description: 'Default value' } },
 			],
 			count: 2
 		});
@@ -1056,7 +1203,9 @@ suite('JSON Completion', () => {
 		});
 		await testCompletionsFor('{ "$schema": | }', schema, {
 			items: [
-				{ label: '"http://myschemastore/test1"', resultText: '{ "$schema": "http://myschemastore/test1" }' }
+				{ label: '"http://myschemastore/test1"', resultText: '{ "$schema": "http://myschemastore/test1" }' },
+				{ label: '"https://json-schema.org/draft-04/schema#"', resultText: '{ "$schema": "https://json-schema.org/draft-04/schema#" }' },
+				{ label: '"https://json-schema.org/draft-07/schema#"', resultText: '{ "$schema": "https://json-schema.org/draft-07/schema#" }' }
 			]
 		});
 		await testCompletionsFor('{ "$schema": "|', schema, {
@@ -1255,6 +1404,12 @@ suite('JSON Completion', () => {
 					markdownDescription: '*prop5*',
 					enum: ['e1', 'e2', 'e3'],
 				},
+				'prop6': {
+					enum: ['e1', 'e2', 'e3'],
+					markdownEnumDescriptions: ['*E1*', '*E2*', '*E3*'],
+					enumDetails: [ 'D1', 'D2', 'D3' ],
+					enumSortTexts: ['s1', 's2', 's3']
+				},
 			}
 		};
 
@@ -1286,6 +1441,12 @@ suite('JSON Completion', () => {
 			items: [
 				{ label: '"e1"', documentation: { kind: 'markdown', value: '*prop5*' } },
 				{ label: '"e2"', documentation: { kind: 'markdown', value: '*prop5*' } }
+			]
+		});
+		await testCompletionsFor('{ "prop6": |', schema, {
+			items: [
+				{ label: '"e1"', documentation: { kind: 'markdown', value: '*E1*' }, detail: 'D1', sortText: 's1' },
+				{ label: '"e2"', documentation: { kind: 'markdown', value: '*E2*' }, detail: 'D2', sortText: 's2' }
 			]
 		});
 
@@ -1399,9 +1560,11 @@ suite('JSON Completion', () => {
 			]
 		});
 		await testCompletionsFor('{ "type": "foo|"', schema, {
+			// Since the user explicitly typed "foo", the parser instantly matches the enum discriminator 
+			// for the first `oneOf` branch. Therefore, it discards the second branch (which expects "bar")
+			// and appropriately proposes ONLY "foo", rather than falling back to proposing both options.
 			items: [
-				{ label: '"foo"' },
-				{ label: '"bar"' }
+				{ label: '"foo"' }
 			]
 		});
 	});

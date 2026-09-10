@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { suite, test } from 'node:test';
 
-import { Hover, Position, MarkedString, TextDocument, getLanguageService, JSONSchema, JSONWorkerContribution, LanguageServiceParams } from '../jsonLanguageService';
+import { Hover, Position, TextDocument, getLanguageService, JSONSchema, LanguageServiceParams } from '../jsonLanguageService.js';
 
 suite('JSON Hover', () => {
 
-	function testComputeInfo(value: string, schema: JSONSchema, position: Position, serviceParams?: LanguageServiceParams): PromiseLike<Hover> {
+	async function testComputeInfo(value: string, schema: JSONSchema, position: Position, serviceParams?: LanguageServiceParams): Promise<Hover> {
 		const uri = 'test://test.json';
 		const schemaUri = "http://myschemastore/test1";
 
@@ -22,7 +23,9 @@ suite('JSON Hover', () => {
 
 		const document = TextDocument.create(uri, 'json', 0, value);
 		const jsonDoc = service.parseJSONDocument(document);
-		return service.doHover(document, position, jsonDoc);
+		const hover = await service.doHover(document, position, jsonDoc);
+		assert.ok(hover, 'expected hover to be returned');
+		return hover;
 	}
 
 	let requestService = function (uri: string): Promise<string> {
@@ -31,7 +34,7 @@ suite('JSON Hover', () => {
 
 	test('Simple schema', async function () {
 
-		const content = '{"a": 42, "b": "hello", "c": false}';
+		const content = '{"a": 42, "b": "hello", "c": false, "complex-description": false}';
 		const schema: JSONSchema = {
 			type: 'object',
 			description: 'a very special object',
@@ -47,20 +50,27 @@ suite('JSON Hover', () => {
 				'c': {
 					type: 'boolean',
 					description: 'C'
-				}
+				},
+				'complex-description': {
+					type: 'boolean',
+					description: 'For example:\n\n<script>\n  alert(1)\n</script>\n\n    Test [1]'
+				},
 			}
 		};
 		await testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('a very special object')]);
+			assert.deepEqual(result.contents, ['a very special object']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('A')]);
+			assert.deepEqual(result.contents, ['A']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 32 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('C')]);
+			assert.deepEqual(result.contents, ['C']);
+		});
+		await testComputeInfo(content, schema, { line: 0, character: 37 }).then((result) => {
+			assert.deepEqual(result.contents, ['For example:\\\n\\\n\\<script\\>\\\n&nbsp;&nbsp;alert\\(1\\)\\\n\\</script\\>\\\n\\\n&nbsp;&nbsp;&nbsp;&nbsp;Test \\[1\\]']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 7 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('A')]);
+			assert.deepEqual(result.contents, ['A']);
 		});
 	});
 
@@ -87,14 +97,30 @@ suite('JSON Hover', () => {
 			}]
 		};
 		await testComputeInfo(content, schema, { line: 0, character: 0 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('a very special object')]);
+			assert.deepEqual(result.contents, ['a very special object']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 1 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('A')]);
+			assert.deepEqual(result.contents, ['A']);
 		});
 		await testComputeInfo(content, schema, { line: 0, character: 10 }).then((result) => {
-			assert.deepEqual(result.contents, [MarkedString.fromPlainText('B\n\nIt\'s B')]);
+			assert.deepEqual(result.contents, ['B\n\nIt\'s B']);
 		});
+	});
+
+	test('Hover resolves through $dynamicRef (2020-12)', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: {
+				node: { $dynamicRef: '#node' }
+			},
+			$defs: {
+				node: { $dynamicAnchor: 'node', type: 'string', description: 'Resolved through dynamicRef' }
+			}
+		};
+		// Hover over the value governed by the $dynamicRef.
+		const result = await testComputeInfo('{ "node": "value" }', schema, { line: 0, character: 12 });
+		assert.deepEqual(result.contents, ['Resolved through dynamicRef']);
 	});
 
 	test('Enum description', async function () {
@@ -152,10 +178,10 @@ suite('JSON Hover', () => {
 		};
 
 		await testComputeInfo('{ "prop1": "e1', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, ['line1\n\nline2\n\nline3\n\n\nline4\n']);
+			assert.deepEqual(result.contents, ['line1\\\nline2\\\n\\\nline3\\\n\\\n\\\nline4']);
 		});
 		await testComputeInfo('{ "prop2": "e1', schema, { line: 0, character: 12 }).then(result => {
-			assert.deepEqual(result.contents, ['line1\n\nline2\r\n\r\nline3']);
+			assert.deepEqual(result.contents, ['line1\r\\\nline2\r\\\n\r\\\nline3']);
 		});
 	});
 

@@ -20,7 +20,7 @@ export function equals(one: any, other: any): boolean {
 		return false;
 	}
 
-	var i: number,
+	let i: number,
 		key: string;
 
 	if (Array.isArray(one)) {
@@ -33,13 +33,13 @@ export function equals(one: any, other: any): boolean {
 			}
 		}
 	} else {
-		var oneKeys: string[] = [];
+		const oneKeys: string[] = [];
 
 		for (key in one) {
 			oneKeys.push(key);
 		}
 		oneKeys.sort();
-		var otherKeys: string[] = [];
+		const otherKeys: string[] = [];
 		for (key in other) {
 			otherKeys.push(key);
 		}
@@ -70,4 +70,8 @@ export function isBoolean(val: any): val is boolean {
 
 export function isString(val: any): val is string {
 	return typeof val === 'string';
+}
+
+export function isObject(val: any): val is object {
+	return typeof val === 'object' && val !== null && !Array.isArray(val);
 }

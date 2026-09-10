@@ -1,6 +1,6 @@
 
 
-import { getLanguageService, JSONSchema, SchemaRequestService, TextDocument, MatchingSchema } from '../jsonLanguageService';
+import { getLanguageService, TextDocument } from '../jsonLanguageService.js';
 
 async function main() {
     const jsonContentUri = 'foo://server/example.data.json';
@@ -49,8 +49,8 @@ async function main() {
      * > ]
      */
 
-    const competionResult = await jsonLanguageService.doComplete(textDocument, { line: 2, character: 18 }, jsonDocument);
-    console.log('Completion proposals:', competionResult?.items.map(i => `${i.label}`));
+    const completionResult = await jsonLanguageService.doComplete(textDocument, { line: 2, character: 18 }, jsonDocument);
+    console.log('Completion proposals:', completionResult?.items.map(i => `${i.label}`));
 
     /*
      * Completion proposals: [ '"Ireland"', '"Iceland"' ]
@@ -58,4 +58,3 @@ async function main() {
 
 }
 main();
-

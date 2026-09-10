@@ -4,23 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Json from 'jsonc-parser';
-import { JSONSchema, JSONSchemaMap, JSONSchemaRef } from '../jsonSchema';
+import { JSONSchema, JSONSchemaRef, MergedJSONSchema, DynamicRefInfo, AnchorMaps } from '../jsonSchema.js';
 import { URI } from 'vscode-uri';
-import * as Strings from '../utils/strings';
-import * as Parser from '../parser/jsonParser';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, Thenable, MatchingSchema, TextDocument } from '../jsonLanguageTypes';
+import * as Strings from '../utils/strings.js';
+import { asSchema, getSchemaDraftFromId, JSONDocument, normalizeId } from '../parser/jsonParser.js';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies } from '../jsonLanguageTypes.js';
 
-import * as nls from 'vscode-nls';
-import { createRegex} from '../utils/glob';
+import * as l10n from '@vscode/l10n';
+import { createRegex } from '../utils/glob.js';
+import { isString } from '../utils/objects.js';
+import { DiagnosticRelatedInformation, Range } from 'vscode-languageserver-types';
 
-const localize = nls.loadMessageBundle();
+const hasSchemePattern = /^[A-Za-z][A-Za-z0-9+\-.+]*:\/.*/.source;
+const hasSchemeRegex = new RegExp(hasSchemePattern);
 
 export interface IJSONSchemaService {
 
 	/**
 	 * Registers a schema file in the current workspace to be applicable to files that match the pattern
 	 */
-	registerExternalSchema(uri: string, filePatterns?: string[], unresolvedSchema?: JSONSchema): ISchemaHandle;
+	registerExternalSchema(config: SchemaConfiguration): ISchemaHandle;
 
 	/**
 	 * Clears all cached schema files
@@ -35,7 +38,7 @@ export interface IJSONSchemaService {
 	/**
 	 * Looks up the appropriate schema for the given URI
 	 */
-	getSchemaForResource(resource: string, document?: Parser.JSONDocument): Thenable<ResolvedSchema | undefined>;
+	getSchemaForResource(resource: string, document?: JSONDocument): PromiseLike<ResolvedSchema | undefined>;
 
 	/**
 	 * Returns all registered schema ids
@@ -46,6 +49,7 @@ export interface IJSONSchemaService {
 export interface SchemaAssociation {
 	pattern: string[];
 	uris: string[];
+	folderUri?: string;
 }
 
 export interface ISchemaContributions {
@@ -57,17 +61,17 @@ export interface ISchemaHandle {
 	/**
 	 * The schema id
 	 */
-	url: string;
+	uri: string;
 
 	/**
 	 * The schema from the file, with potential $ref references
 	 */
-	getUnresolvedSchema(): Thenable<UnresolvedSchema>;
+	getUnresolvedSchema(): PromiseLike<UnresolvedSchema>;
 
 	/**
 	 * The schema from the file, with references resolved
 	 */
-	getResolvedSchema(): Thenable<ResolvedSchema>;
+	getResolvedSchema(): PromiseLike<ResolvedSchema>;
 }
 
 const BANG = '!';
@@ -80,10 +84,9 @@ interface IGlobWrapper {
 
 class FilePatternAssociation {
 
-	private readonly uris: string[];
 	private readonly globWrappers: IGlobWrapper[];
 
-	constructor(pattern: string[], uris: string[]) {
+	constructor(pattern: string[], private readonly folderUri: string | undefined, private readonly uris: string[]) {
 		this.globWrappers = [];
 		try {
 			for (let patternString of pattern) {
@@ -101,7 +104,13 @@ class FilePatternAssociation {
 					});
 				}
 			};
-			this.uris = uris;
+			if (folderUri) {
+				folderUri = normalizeResourceForMatching(folderUri);
+				if (!folderUri.endsWith('/')) {
+					folderUri = folderUri + '/';
+				}
+				this.folderUri = folderUri;
+			}
 		} catch (e) {
 			this.globWrappers.length = 0;
 			this.uris = [];
@@ -109,6 +118,9 @@ class FilePatternAssociation {
 	}
 
 	public matchesPattern(fileName: string): boolean {
+		if (this.folderUri && !fileName.startsWith(this.folderUri)) {
+			return false;
+		}
 		let match = false;
 		for (const { regexp, include } of this.globWrappers) {
 			if (regexp.test(fileName)) {
@@ -123,73 +135,99 @@ class FilePatternAssociation {
 	}
 }
 
-type SchemaDependencies = { [uri: string]: true };
+type SchemaDependencies = Set<string>;
 
 class SchemaHandle implements ISchemaHandle {
 
-	public url: string;
-	public dependencies: SchemaDependencies;
+	public readonly uri: string;
+	public readonly dependencies: SchemaDependencies;
+	public anchors: Map<string, JSONSchema> | undefined;
+	private resolvedSchema: PromiseLike<ResolvedSchema> | undefined;
+	private unresolvedSchema: PromiseLike<UnresolvedSchema> | undefined;
+	private readonly service: JSONSchemaService;
 
-	private resolvedSchema: Thenable<ResolvedSchema> | undefined;
-	private unresolvedSchema: Thenable<UnresolvedSchema> | undefined;
-	private service: JSONSchemaService;
-
-	constructor(service: JSONSchemaService, url: string, unresolvedSchemaContent?: JSONSchema) {
+	constructor(service: JSONSchemaService, uri: string, unresolvedSchemaContent?: JSONSchema) {
 		this.service = service;
-		this.url = url;
-		this.dependencies = {};
+		this.uri = uri;
+		this.dependencies = new Set();
+		this.anchors = undefined;
 		if (unresolvedSchemaContent) {
 			this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(unresolvedSchemaContent));
 		}
 	}
 
-	public getUnresolvedSchema(): Thenable<UnresolvedSchema> {
+	public getUnresolvedSchema(): PromiseLike<UnresolvedSchema> {
 		if (!this.unresolvedSchema) {
-			this.unresolvedSchema = this.service.loadSchema(this.url);
+			this.unresolvedSchema = this.service.loadSchema(this.uri);
 		}
 		return this.unresolvedSchema;
 	}
 
-	public getResolvedSchema(): Thenable<ResolvedSchema> {
+	public getResolvedSchema(): PromiseLike<ResolvedSchema> {
 		if (!this.resolvedSchema) {
 			this.resolvedSchema = this.getUnresolvedSchema().then(unresolved => {
-				return this.service.resolveSchemaContent(unresolved, this.url, this.dependencies);
+				return this.service.resolveSchemaContent(unresolved, this);
 			});
 		}
 		return this.resolvedSchema;
 	}
 
-	public clearSchema() {
+	public clearSchema(): boolean {
+		const hasChanges = !!this.unresolvedSchema;
 		this.resolvedSchema = undefined;
 		this.unresolvedSchema = undefined;
-		this.dependencies = {};
+		this.dependencies.clear();
+		this.anchors = undefined;
+		return hasChanges;
+	}
+
+	public setSchemaContent(schemaContent: JSONSchema): void {
+		this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(schemaContent));
+		this.resolvedSchema = undefined;
+		this.anchors = undefined;
 	}
 }
 
 
 export class UnresolvedSchema {
-	public schema: JSONSchema;
-	public errors: string[];
+	public readonly schema: JSONSchema;
+	public readonly errors: SchemaDiagnostic[];
 
-	constructor(schema: JSONSchema, errors: string[] = []) {
+	constructor(schema: JSONSchema, errors: SchemaDiagnostic[] = []) {
 		this.schema = schema;
 		this.errors = errors;
 	}
 }
 
-export class ResolvedSchema {
-	public schema: JSONSchema;
-	public errors: string[];
+export type SchemaDiagnostic = { readonly message: string; readonly code: ErrorCode; relatedInformation?: DiagnosticRelatedInformation[] }
 
-	constructor(schema: JSONSchema, errors: string[] = []) {
+function toDiagnostic(message: string, code: ErrorCode, relatedURL?: string): SchemaDiagnostic {
+	const relatedInformation: DiagnosticRelatedInformation[] | undefined = relatedURL ? [{
+		location: { uri: relatedURL, range: Range.create(0, 0, 0, 0) },
+		message
+	}] : undefined;
+	return { message, code, relatedInformation };
+}
+
+export class ResolvedSchema {
+	public readonly schema: JSONSchema;
+	public readonly errors: SchemaDiagnostic[];
+	public readonly warnings: SchemaDiagnostic[];
+	public readonly schemaDraft: SchemaDraft | undefined;
+	public readonly activeVocabularies: Vocabularies | undefined;
+
+	constructor(schema: JSONSchema, errors: SchemaDiagnostic[] = [], warnings: SchemaDiagnostic[] = [], schemaDraft: SchemaDraft | undefined, activeVocabularies: Vocabularies | undefined) {
 		this.schema = schema;
 		this.errors = errors;
+		this.warnings = warnings;
+		this.schemaDraft = schemaDraft;
+		this.activeVocabularies = activeVocabularies;
 	}
 
 	public getSection(path: string[]): JSONSchema | undefined {
 		const schemaRef = this.getSectionRecursive(path, this.schema);
 		if (schemaRef) {
-			return Parser.asSchema(schemaRef);
+			return asSchema(schemaRef);
 		}
 		return undefined;
 	}
@@ -205,7 +243,7 @@ export class ResolvedSchema {
 		} else if (schema.patternProperties) {
 			for (const pattern of Object.keys(schema.patternProperties)) {
 				const regex = Strings.extendedRegExp(pattern);
-				if (regex.test(next)) {
+				if (regex?.test(next)) {
 					return this.getSectionRecursive(path, schema.patternProperties[pattern]);
 				}
 			}
@@ -240,7 +278,52 @@ export class JSONSchemaService implements IJSONSchemaService {
 	private requestService: SchemaRequestService | undefined;
 	private promiseConstructor: PromiseConstructor;
 
-	private cachedSchemaForResource: { resource: string; resolvedSchema: Thenable<ResolvedSchema | undefined> } | undefined;
+	private static traverseSchemaProperties(node: JSONSchema, callback: (schema: JSONSchema) => void): void {
+		// `$defs`/`definitions` are visited first so that a reusable resource they
+		// contain (which may itself carry a `$ref` chain) begins resolving before an
+		// `if`/`then`/`else`/`items`/… sibling references it. During asynchronous
+		// `$ref` resolution the referenced resource must be fully assembled before a
+		// referrer merges it, otherwise the referrer captures a half-resolved snapshot
+		// (e.g. a `$dynamicRef` chain reached through `then: { $ref: "numberList" }`).
+		const schemaMapProps = ['definitions', '$defs', 'properties', 'patternProperties',
+			'dependencies', 'dependentSchemas'] as const;
+		const singleSchemaProps = ['additionalItems', 'additionalProperties', 'not', 'contains',
+			'propertyNames', 'if', 'then', 'else', 'unevaluatedItems', 'unevaluatedProperties', 'items'] as const;
+		const schemaArrayProps = ['anyOf', 'allOf', 'oneOf', 'prefixItems'] as const;
+
+		const visitValue = (value: JSONSchemaRef | JSONSchemaRef[]): void => {
+			if (value) {
+				if (Array.isArray(value)) {
+					value.forEach(item => visitValue(item));
+				} else if (typeof value === 'object') {
+					callback(value);
+				}
+			}
+		};
+
+		for (const prop of schemaMapProps) {
+			const map = node[prop];
+			if (map && typeof map === 'object') {
+				Object.values(map).forEach(visitValue);
+			}
+		}
+
+		for (const prop of singleSchemaProps) {
+			const propValue = node[prop];
+			if (propValue) {
+				visitValue(propValue);
+			}
+		}
+
+		for (const prop of schemaArrayProps) {
+			const propValue = node[prop];
+			if (propValue) {
+				visitValue(propValue);
+			}
+		}
+	}
+
+	private cachedSchemaForResource: { resource: string; resolvedSchema: PromiseLike<ResolvedSchema | undefined> } | undefined;
 
 	constructor(requestService?: SchemaRequestService, contextService?: WorkspaceContextService, promiseConstructor?: PromiseConstructor) {
 		this.contextService = contextService;
@@ -286,13 +369,14 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const curr = toWalk.pop()!;
 			for (let i = 0; i < all.length; i++) {
 				const handle = all[i];
-				if (handle && (handle.url === curr || handle.dependencies[curr])) {
-					if (handle.url !== curr) {
-						toWalk.push(handle.url);
+				if (handle && (handle.uri === curr || handle.dependencies.has(curr))) {
+					if (handle.uri !== curr) {
+						toWalk.push(handle.uri);
 					}
-					handle.clearSchema();
+					if (handle.clearSchema()) {
+						hasChanges = true;
+					}
 					all[i] = undefined;
-					hasChanges = true;
 				}
 			}
 		}
@@ -311,7 +395,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const schemaAssociations = schemaContributions.schemaAssociations;
 			for (let schemaAssociation of schemaAssociations) {
 				const uris = schemaAssociation.uris.map(normalizeId);
-				const association = this.addFilePatternAssociation(schemaAssociation.pattern, uris);
+				const association = this.addFilePatternAssociation(schemaAssociation.pattern, schemaAssociation.folderUri, uris);
 				this.contributionAssociations.push(association);
 			}
 		}
@@ -327,21 +411,21 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return this.schemasById[id] || this.addSchemaHandle(id, unresolvedSchemaContent);
 	}
 
-	private addFilePatternAssociation(pattern: string[], uris: string[]): FilePatternAssociation {
-		const fpa = new FilePatternAssociation(pattern, uris);
+	private addFilePatternAssociation(pattern: string[], folderUri: string | undefined, uris: string[]): FilePatternAssociation {
+		const fpa = new FilePatternAssociation(pattern, folderUri, uris);
 		this.filePatternAssociations.push(fpa);
 		return fpa;
 	}
 
-	public registerExternalSchema(uri: string, filePatterns?: string[], unresolvedSchemaContent?: JSONSchema): ISchemaHandle {
-		const id = normalizeId(uri);
+	public registerExternalSchema(config: SchemaConfiguration): ISchemaHandle {
+		const id = normalizeId(config.uri);
 		this.registeredSchemasIds[id] = true;
 		this.cachedSchemaForResource = undefined;
 
-		if (filePatterns) {
-			this.addFilePatternAssociation(filePatterns, [id]);
+		if (config.fileMatch && config.fileMatch.length) {
+			this.addFilePatternAssociation(config.fileMatch, config.folderUri, [id]);
 		}
-		return unresolvedSchemaContent ? this.addSchemaHandle(id, unresolvedSchemaContent) : this.getOrAddSchemaHandle(id);
+		return config.schema ? this.addSchemaHandle(id, config.schema) : this.getOrAddSchemaHandle(id);
 	}
 
 	public clearExternalSchemas(): void {
@@ -359,7 +443,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		}
 	}
 
-	public getResolvedSchema(schemaId: string): Thenable<ResolvedSchema | undefined> {
+	public getResolvedSchema(schemaId: string): PromiseLike<ResolvedSchema | undefined> {
 		const id = normalizeId(schemaId);
 		const schemaHandle = this.schemasById[id];
 		if (schemaHandle) {
@@ -368,203 +452,911 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return this.promise.resolve(undefined);
 	}
 
-	public loadSchema(url: string): Thenable<UnresolvedSchema> {
+	public loadSchema(url: string): PromiseLike<UnresolvedSchema> {
 		if (!this.requestService) {
-			const errorMessage = localize('json.schema.norequestservice', 'Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
-			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [errorMessage]));
+			const errorMessage = l10n.t('Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
+			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, ErrorCode.SchemaResolveError, url)]));
 		}
 		return this.requestService(url).then(
 			content => {
 				if (!content) {
-					const errorMessage = localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': No content.', toDisplayString(url));
-					return new UnresolvedSchema(<JSONSchema>{}, [errorMessage]);
+					const errorMessage = l10n.t('Unable to load schema from \'{0}\': No content.', toDisplayString(url));
+					return new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, ErrorCode.SchemaResolveError, url)]);
+				}
+				const errors = [];
+				if (content.charCodeAt(0) === 65279) {
+					errors.push(toDiagnostic(l10n.t('Problem reading content from \'{0}\': UTF-8 with BOM detected, only UTF 8 is allowed.', toDisplayString(url)), ErrorCode.SchemaResolveError, url));
+					content = content.trimStart();
 				}
 
 				let schemaContent: JSONSchema = {};
 				const jsonErrors: Json.ParseError[] = [];
 				schemaContent = Json.parse(content, jsonErrors);
-				const errors = jsonErrors.length ? [localize('json.schema.invalidFormat', 'Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset)] : [];
+				if (jsonErrors.length) {
+					errors.push(toDiagnostic(l10n.t('Unable to parse content from \'{0}\': Parse error at offset {1}.', toDisplayString(url), jsonErrors[0].offset), ErrorCode.SchemaResolveError, url));
+				}
 				return new UnresolvedSchema(schemaContent, errors);
 			},
 			(error: any) => {
-				let errorMessage = error.toString() as string;
-				const errorSplit = error.toString().split('Error: ');
-				if (errorSplit.length > 1) {
-					// more concise error message, URL and context are attached by caller anyways
-					errorMessage = errorSplit[1];
+				let { message, code } = error;
+				if (typeof message !== 'string') {
+					let errorMessage = error.toString() as string;
+					const errorSplit = error.toString().split('Error: ');
+					if (errorSplit.length > 1) {
+						// more concise error message, URL and context are attached by caller anyways
+						errorMessage = errorSplit[1];
+					}
+					if (Strings.endsWith(errorMessage, '.')) {
+						errorMessage = errorMessage.substr(0, errorMessage.length - 1);
+					}
+					message = errorMessage;
 				}
-				if (Strings.endsWith(errorMessage, '.')) {
-					errorMessage = errorMessage.substr(0, errorMessage.length - 1);
+				let errorCode = ErrorCode.SchemaResolveError;
+				if (typeof code === 'number' && code < 0x10000) {
+					errorCode += code;
 				}
-				return new UnresolvedSchema(<JSONSchema>{}, [localize('json.schema.nocontent', 'Unable to load schema from \'{0}\': {1}.', toDisplayString(url), errorMessage)]);
+				const errorMessage = l10n.t('Unable to load schema from \'{0}\': {1}.', toDisplayString(url), message);
+				return new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, errorCode, url)]);
 			}
 		);
 	}
 
-	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, schemaURL: string, dependencies: SchemaDependencies): Thenable<ResolvedSchema> {
+	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, handle: SchemaHandle): PromiseLike<ResolvedSchema> {
 
-		const resolveErrors: string[] = schemaToResolve.errors.slice(0);
+		const resolveErrors: SchemaDiagnostic[] = schemaToResolve.errors.slice(0);
 		const schema = schemaToResolve.schema;
 
-		if (schema.$schema) {
-			const id = normalizeId(schema.$schema);
-			if (id === 'http://json-schema.org/draft-03/schema') {
-				return this.promise.resolve(new ResolvedSchema({}, [localize('json.schema.draft03.notsupported', "Draft-03 schemas are not supported.")]));
-			} else if (id === 'https://json-schema.org/draft/2019-09/schema') {
-				resolveErrors.push(localize('json.schema.draft201909.notsupported', "Draft 2019-09 schemas are not yet fully supported."));
-			}
+		// External documents whose embedded $id resources have already been registered
+		// as resolvable handles, so we only do it once per referenced document.
+		const embeddedRegisteredFor = new Set<string>();
+		const embeddedSchemaUris = new Set<string>();
+
+		const schemaDraft = schema.$schema ? getSchemaDraftFromId(schema.$schema) : undefined;
+		if (schemaDraft === SchemaDraft.v3) {
+			return this.promise.resolve(new ResolvedSchema({}, [toDiagnostic(l10n.t("Draft-03 schemas are not supported."), ErrorCode.SchemaUnsupportedFeature)], [], schemaDraft, undefined));
 		}
+
+		let activeVocabularies: Vocabularies | undefined = undefined;
+
+		const extractVocabularies = (metaschema: JSONSchema): Vocabularies | undefined => {
+			if (!metaschema.$vocabulary || typeof metaschema.$vocabulary !== 'object') {
+				return undefined;
+			}
+			// Both true and false values indicate the vocabulary is active.
+			// The boolean indicates whether the vocabulary is required (true) or optional (false),
+			// not whether it's in use. All listed vocabularies should be included.
+			const vocabs = new Map<string, boolean>();
+			for (const [uri, required] of Object.entries(metaschema.$vocabulary)) {
+				vocabs.set(uri, required);
+			}
+			return vocabs.size > 0 ? vocabs : undefined;
+		};
 
 		const contextService = this.contextService;
 
-		const findSection = (schema: JSONSchema, path: string | undefined): any => {
-			if (!path) {
-				return schema;
+		// Attach internal, non-enumerable metadata to a schema node. Hidden so it is
+		// invisible to schema traversal, merging and consumers, but available to the
+		// validator (e.g. for $recursiveRef/$dynamicRef resolution).
+		const setHidden = (obj: any, key: string, value: any): void => {
+			Object.defineProperty(obj, key, {
+				value,
+				enumerable: false,
+				writable: true,
+				configurable: true
+			});
+		};
+
+		// Get (creating on first use) the hidden $dynamicRefInfo record for a $dynamicRef
+		// node. Its fields are populated across two passes — `scope` while collecting
+		// anchors, `target`/`name` while resolving the reference — over the same object.
+		const dynamicRefInfoOf = (node: MergedJSONSchema): DynamicRefInfo => {
+			let info = node.$dynamicRefInfo;
+			if (!info) {
+				info = {};
+				setHidden(node, '$dynamicRefInfo', info);
 			}
+			return info;
+		};
+
+		const findSectionByJSONPointer = (schema: JSONSchema, path: string): any => {
+			path = decodeURIComponent(path);
 			let current: any = schema;
 			if (path[0] === '/') {
-				path = path.substr(1);
+				path = path.substring(1);
 			}
 			path.split('/').some((part) => {
 				part = part.replace(/~1/g, '/').replace(/~0/g, '~');
 				current = current[part];
-				return !current;
+				// A boolean `false` is a valid schema, not a "missing" section, so only
+				// stop on genuinely absent values (undefined/null).
+				return current === undefined || current === null;
 			});
 			return current;
 		};
 
-		const merge = (target: JSONSchema, sourceRoot: JSONSchema, sourceURI: string, refSegment: string | undefined): void => {
-			const path = refSegment ? decodeURIComponent(refSegment) : undefined;
-			const section = findSection(sourceRoot, path);
-			if (section) {
-				for (const key in section) {
-					if (section.hasOwnProperty(key) && !target.hasOwnProperty(key)) {
-						(<any>target)[key] = section[key];
-					}
+		// Like findSectionByJSONPointer, but also tracks the effective base URI
+		// through any $id encountered along the path. This is needed so that
+		// $ref values merged from the found section can be resolved against the
+		// correct base, not the document root.
+		const findSectionAndBase = (schema: JSONSchema, path: string, baseHandle: SchemaHandle): { section: any; baseHandle: SchemaHandle } => {
+			path = decodeURIComponent(path);
+			let current: any = schema;
+			let currentBaseHandle = baseHandle;
+			if (path[0] === '/') {
+				path = path.substring(1);
+			}
+			path.split('/').some((part) => {
+				part = part.replace(/~1/g, '/').replace(/~0/g, '~');
+				current = current[part];
+				// A boolean `false` is a valid schema, not a "missing" section, so only
+				// stop on genuinely absent values (undefined/null).
+				if (current === undefined || current === null) {
+					return true;
 				}
-			} else {
-				resolveErrors.push(localize('json.schema.invalidref', '$ref \'{0}\' in \'{1}\' can not be resolved.', path, sourceURI));
+				const id = getSchemaId(current);
+				if (isString(id) && id.charAt(0) !== '#') {
+					let resolvedUri = id;
+					if (contextService && !hasSchemeRegex.test(id)) {
+						resolvedUri = contextService.resolveRelativePath(id, currentBaseHandle.uri);
+					}
+					resolvedUri = normalizeId(resolvedUri);
+					currentBaseHandle = this.getOrAddSchemaHandle(resolvedUri);
+				}
+				return false;
+			});
+			return { section: current, baseHandle: currentBaseHandle };
+		};
+
+		const findSchemaById = (schema: JSONSchema, handle: SchemaHandle, id: string) => {
+			if (!handle.anchors) {
+				handle.anchors = collectAnchors(schema);
+			}
+			return handle.anchors.get(id);
+		};
+
+		const getSchemaId = (schema: JSONSchema): string | undefined => schema.$id || schema.id || (schema as MergedJSONSchema).$originalId;
+
+		// Fold a source resource's $dynamicAnchor names into a target node's dynamic
+		// map, creating it on demand. Existing entries win, so the outermost resource
+		// in a dynamic scope retains precedence — this is what lets a $dynamicAnchor in
+		// an outer resource override an inner (referenced) one during the validation
+		// walk. Only the `dynamic` map is folded: the `local` map must stay per-resource
+		// (it resolves an internal $dynamicRef's initial target within its own lexical
+		// resource), so a sibling/referenced resource's identically-named anchor must
+		// not leak into it.
+		const unionAnchorMaps = (target: MergedJSONSchema, srcMaps: AnchorMaps | undefined): void => {
+			if (srcMaps === undefined) {
+				return;
+			}
+			let maps = target.$anchorMaps;
+			if (maps === undefined) {
+				maps = { dynamic: new Map<string, JSONSchema>(), local: new Map<string, JSONSchema>() };
+				setHidden(target, '$anchorMaps', maps);
+			}
+			for (const [name, node] of srcMaps.dynamic) {
+				if (!maps.dynamic.has(name)) {
+					maps.dynamic.set(name, node);
+				}
 			}
 		};
 
-		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
-			if (contextService && !/^[A-Za-z][A-Za-z0-9+\-.+]*:\/\/.*/.test(uri)) {
-				uri = contextService.resolveRelativePath(uri, parentSchemaURL);
+		const merge = (target: MergedJSONSchema, section: any): void => {
+			const targetHasSiblingKeywords = hasRefSiblingKeywords(target);
+			for (const key in section) {
+				if (!section.hasOwnProperty(key) || key === 'id' || key === '$id') {
+					continue;
+				}
+
+				// Deep merge for properties and patternProperties to combine them
+				const shouldDeepMerge = (key === 'properties' || key === 'patternProperties') &&
+					typeof section[key] === 'object' && section[key] !== null &&
+					typeof (<any>target)[key] === 'object' && (<any>target)[key] !== null;
+
+				(<any>target)[key] = shouldDeepMerge
+					? { ...(<any>target)[key], ...section[key] }
+					: section[key];
+			}
+
+			// Preserve $id as a non-enumerable hidden property for $recursiveRef resolution.
+			// This allows $recursiveRef to correctly resolve references within the schema without exposing $id publicly.
+			const id: MergedJSONSchema['$originalId'] = getSchemaId(section);
+			if (id && !getSchemaId(target) && !targetHasSiblingKeywords) {
+				setHidden(target, '$originalId', id);
+			}
+
+			// Propagate hidden $dynamicRef metadata. When a $dynamicRef lives directly on
+			// a $ref'd schema resource, that resource is a distinct object from the
+			// referencing schema and is often resolved standalone first — deleting its
+			// $dynamicRef and recording the (non-enumerable, so not copied above)
+			// $dynamicRefInfo. Carry it over so the merged schema still resolves
+			// dynamically. (When the $dynamicRef lives on a child of the merged resource,
+			// that child is shared by reference and already carries its own metadata.)
+			const src = section as MergedJSONSchema;
+			const dst = target as MergedJSONSchema;
+			if (src.$dynamicRefInfo !== undefined && dst.$dynamicRefInfo === undefined) {
+				setHidden(target, '$dynamicRefInfo', src.$dynamicRefInfo);
+			}
+
+			// When the merged section is itself a schema resource (it carries anchor
+			// maps), fold its $dynamicAnchor / $anchor maps into the target's. The
+			// merged node stands in for that resource during validation (it becomes a
+			// dynamic-scope root via $originalId), so those anchors must participate in
+			// dynamic-scope resolution — this is what lets a $dynamicAnchor defined in
+			// an external (or $ref'd sub-) resource override a base default. Existing
+			// entries are kept so the outermost resource retains precedence.
+			unionAnchorMaps(dst, src.$anchorMaps);
+		};
+
+		type SchemaKeyword = keyof JSONSchema;
+
+		const hasKeyword = (schema: JSONSchema, keyword: SchemaKeyword): boolean => schema[keyword] !== undefined;
+		const hasAnyKeyword = (schema: JSONSchema, keywords: readonly SchemaKeyword[]): boolean =>
+			keywords.some(keyword => hasKeyword(schema, keyword));
+
+		const objectPropertyKeywords: readonly SchemaKeyword[] = ['properties', 'patternProperties'];
+		const ignoredRefSiblingKeywords = new Set(['$ref', '$schema', '$id', 'id', '$comment']);
+		const hasRefSiblingKeywords = (schema: JSONSchema): boolean => Object.keys(schema).some(key => !ignoredRefSiblingKeywords.has(key));
+		const objectEvaluatorKeywords: readonly SchemaKeyword[] = [
+			...objectPropertyKeywords,
+			'additionalProperties',
+			'dependentSchemas',
+			'allOf',
+			'anyOf',
+			'oneOf',
+			'if',
+			'then',
+			'else'
+		];
+		const arrayEvaluatorKeywords: readonly SchemaKeyword[] = [
+			'items',
+			'additionalItems',
+			'prefixItems',
+			'allOf',
+			'anyOf',
+			'oneOf',
+			'if',
+			'then',
+			'else'
+		];
+		const containsBoundKeywords: readonly SchemaKeyword[] = ['minContains', 'maxContains'];
+		const conditionalBranchKeywords: readonly SchemaKeyword[] = ['then', 'else'];
+		const arrayApplicatorKeywords: readonly SchemaKeyword[] = ['items', 'prefixItems', 'additionalItems'];
+		const uses2020_12ArrayAnnotations = schemaDraft === undefined || schemaDraft >= SchemaDraft.v2020_12;
+
+		// Some keywords only make sense relative to adjacent keywords in the same schema object.
+		// If they live behind $ref, sibling keywords on the referencing schema must not be
+		// flattened into the same scope.
+		const needsScopeIsolation = (referencedSchema: JSONSchema, referencingSchema: JSONSchema): boolean => {
+			const hasSiblingObjectProperties = hasAnyKeyword(referencingSchema, objectPropertyKeywords);
+			if (hasKeyword(referencedSchema, 'additionalProperties') && hasSiblingObjectProperties) {
+				return true;
+			}
+
+			if (hasKeyword(referencedSchema, 'additionalItems') && Array.isArray(referencingSchema.items)) {
+				return true;
+			}
+
+			const hasSiblingObjectEvaluators = hasAnyKeyword(referencingSchema, objectEvaluatorKeywords);
+			if (hasKeyword(referencedSchema, 'unevaluatedProperties') && hasSiblingObjectEvaluators) {
+				return true;
+			}
+
+			const hasSiblingArrayEvaluators = hasAnyKeyword(referencingSchema, arrayEvaluatorKeywords) ||
+				(uses2020_12ArrayAnnotations && hasKeyword(referencingSchema, 'contains'));
+			if (hasKeyword(referencedSchema, 'unevaluatedItems') && hasSiblingArrayEvaluators) {
+				return true;
+			}
+
+			// Reverse of the above: the *referencing* schema declares unevaluatedItems
+			// while the referenced schema constrains items positionally and may contain
+			// internal self-references (`$ref: "#"`). Flattening would pull the referenced
+			// items into the referencing scope, so those self-references would inherit the
+			// referencing unevaluatedItems. Isolate so the referenced resource keeps its
+			// own annotation scope.
+			if (hasKeyword(referencingSchema, 'unevaluatedItems') && hasAnyKeyword(referencedSchema, arrayApplicatorKeywords)) {
+				return true;
+			}
+
+			if (hasKeyword(referencedSchema, 'contains') && hasAnyKeyword(referencingSchema, containsBoundKeywords)) {
+				return true;
+			}
+
+			// Both the referenced and referencing schemas constrain array items
+			// (tuple `items`, or 2020-12 `items`/`prefixItems`). A flatten-merge can
+			// only keep one `items`, silently dropping the other; isolate into an
+			// allOf so both position constraints apply and item-evaluation
+			// annotations (for unevaluatedItems) accumulate across both.
+			if (Array.isArray(referencedSchema.items) && Array.isArray(referencingSchema.items)) {
+				return true;
+			}
+
+			if (hasAnyKeyword(referencedSchema, containsBoundKeywords) && hasKeyword(referencingSchema, 'contains')) {
+				return true;
+			}
+
+			if (hasKeyword(referencedSchema, 'if') && hasAnyKeyword(referencingSchema, conditionalBranchKeywords)) {
+				return true;
+			}
+
+			if (hasAnyKeyword(referencedSchema, conditionalBranchKeywords) && hasKeyword(referencingSchema, 'if')) {
+				return true;
+			}
+
+			return uses2020_12ArrayAnnotations &&
+				hasKeyword(referencedSchema, 'items') &&
+				hasKeyword(referencingSchema, 'prefixItems');
+		};
+
+		const mergeRef = (target: JSONSchema, sourceRoot: JSONSchema, sourceHandle: SchemaHandle, refSegment: string | undefined, isolateExternalResource = false): void => {
+			let section;
+			let sectionBaseHandle = sourceHandle;
+			if (refSegment === undefined || refSegment.length === 0) {
+				section = sourceRoot;
+			} else if (refSegment.charAt(0) === '/') {
+				// A $ref to a JSON Pointer (i.e #/definitions/foo)
+				// Track $id base changes along the path so inner $refs resolve correctly.
+				({ section, baseHandle: sectionBaseHandle } = findSectionAndBase(sourceRoot, refSegment, sourceHandle));
+			} else {
+				// A $ref to a sub-schema with an $id (i.e #hello)
+				section = findSchemaById(sourceRoot, sourceHandle, refSegment);
+			}
+			// A boolean is a valid JSON Schema: `true` accepts everything ({}) and
+			// `false` rejects everything ({ not: {} }). Normalize so it merges like any
+			// other schema (and isn't mistaken for an unresolved section below).
+			if (typeof section === 'boolean') {
+				section = section ? {} : { not: {} };
+			}
+			if (section) {
+				// If the found section contains a $ref that needs to be resolved
+				// relative to a different base (e.g. it's inside a schema with $id),
+				// pre-resolve it now so the merged target carries the correct base.
+				// Clone before rewriting to avoid mutating the cached source schema.
+				if (section.$ref && (sectionBaseHandle !== sourceHandle || hasRefSiblingKeywords(target))) {
+					const innerRef = section.$ref;
+					const innerSegments = innerRef.split('#', 2);
+					if (innerSegments[0].length > 0 && contextService && !hasSchemeRegex.test(innerSegments[0])) {
+						section = {
+							...section,
+							$ref: contextService.resolveRelativePath(innerSegments[0], sectionBaseHandle.uri) +
+								(innerSegments[1] !== undefined ? '#' + innerSegments[1] : '')
+						};
+					}
+				}
+				const reservedKeys = new Set(['$ref', '$defs', 'definitions', '$schema', '$id', 'id']);
+				// Keywords that must stay on the wrapper rather than move into the allOf
+				// sibling. Scope-anchor keywords ($recursiveAnchor/$dynamicAnchor) keep this
+				// resource discoverable as a $recursiveRef/$dynamicRef bookending target.
+				// The unevaluated* annotations must observe the results of *all* in-place
+				// applicators (including the $ref'd schema in allOf[0]); leaving them on the
+				// wrapper lets them see the aggregated annotations rather than only the
+				// sibling's own evaluations.
+				const keepOnWrapperKeys = new Set([
+					'$recursiveAnchor', '$dynamicAnchor', 'unevaluatedItems', 'unevaluatedProperties'
+				]);
+
+				// In JSON Schema draft-04 through draft-07, $ref completely overrides any sibling keywords.
+				// Starting in 2019-09, sibling keywords are processed alongside $ref.
+				// Only strip siblings when schema explicitly declares a pre-2019-09 draft via $schema.
+				const isPreDraft201909 = schemaDraft !== undefined && schemaDraft < SchemaDraft.v2019_09;
+				if (isPreDraft201909) {
+					// Clear all sibling keywords from target - $ref takes precedence
+					for (const key in target) {
+						if (target.hasOwnProperty(key) && !reservedKeys.has(key)) {
+							delete (target as any)[key];
+						}
+					}
+					merge(target, section);
+				} else if (isolateExternalResource || needsScopeIsolation(section, target)) {
+					// In JSON Schema 2019-09 or greater, $ref creates a new scope when sibling
+					// keywords would otherwise change the meaning of same-object-dependent keywords
+					// from the referenced schema.
+					// To achieve this, we wrap the $ref in an allOf when needed.
+					const siblingSchema: JSONSchema = {};
+					const refSchema = { ...section };
+					if (isolateExternalResource) {
+						let resourceUri = sectionBaseHandle.uri;
+						const sectionId = section.$id || section.id;
+						if (isString(sectionId) && sectionId.charAt(0) !== '#') {
+							resourceUri = contextService && !hasSchemeRegex.test(sectionId)
+								? contextService.resolveRelativePath(sectionId, sectionBaseHandle.uri)
+								: sectionId;
+						}
+						delete refSchema.$id;
+						delete refSchema.id;
+						setHidden(refSchema, '$originalId', normalizeId(resourceUri));
+					}
+
+					// Move all existing properties from target to siblingSchema, except
+					// keywords that must remain on the wrapper resource.
+					for (const key in target) {
+						if (target.hasOwnProperty(key) && !reservedKeys.has(key) && !keepOnWrapperKeys.has(key)) {
+							const k = key as keyof JSONSchema;
+							siblingSchema[k] = target[k] as any;
+							delete target[k];
+						}
+					}
+
+					// Create allOf with the $ref'd schema and sibling schema
+					target.allOf = [refSchema, siblingSchema];
+				} else {
+					merge(target, section);
+				}
+			} else {
+				const message = l10n.t('$ref \'{0}\' in \'{1}\' can not be resolved.', refSegment || '', sourceHandle.uri)
+				resolveErrors.push(toDiagnostic(message, ErrorCode.SchemaResolveError));
+			}
+		};
+
+		const getExternalSchemaHandle = (uri: string, parentHandle: SchemaHandle): SchemaHandle => {
+			if (contextService && !hasSchemeRegex.test(uri)) {
+				uri = contextService.resolveRelativePath(uri, parentHandle.uri);
 			}
 			uri = normalizeId(uri);
-			const referencedHandle = this.getOrAddSchemaHandle(uri);
+			return this.getOrAddSchemaHandle(uri);
+		};
+
+		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle, continuationBase?: JSONSchema, continuationHandle?: SchemaHandle, followedRedirects = new Set<string>()): PromiseLike<any> => {
+			const referencedHandle = getExternalSchemaHandle(uri, parentHandle);
+			uri = referencedHandle.uri;
 			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
-				parentSchemaDependencies[uri] = true;
-				if (unresolvedSchema.errors.length) {
-					const loc = refSegment ? uri + '#' + refSegment : uri;
-					resolveErrors.push(localize('json.schema.problemloadingref', 'Problems loading reference \'{0}\': {1}', loc, unresolvedSchema.errors[0]));
+				parentHandle.dependencies.add(uri);
+				const rootRef = unresolvedSchema.schema.$ref;
+				const alreadyFollowed = followedRedirects.has(uri);
+				followedRedirects.add(uri);
+				if (!alreadyFollowed && refSegment !== undefined && isString(rootRef) && Object.keys(unresolvedSchema.schema).every(key => key === '$ref')) {
+					const rootRefSegments = rootRef.split('#', 2);
+					if (rootRefSegments[0].length > 0 && rootRefSegments[1] === undefined) {
+						return resolveExternalLink(node, rootRefSegments[0], refSegment, referencedHandle, continuationBase, continuationHandle, followedRedirects);
+					}
 				}
-				merge(node, unresolvedSchema.schema, uri, refSegment);
-				return resolveRefs(node, unresolvedSchema.schema, uri, referencedHandle.dependencies);
+				if (unresolvedSchema.errors.length) {
+					const error = unresolvedSchema.errors[0];
+					const loc = refSegment ? uri + '#' + refSegment : uri;
+					const errorMessage = refSegment ? l10n.t('Problems loading reference \'{0}\': {1}', refSegment, error.message) : error.message;
+					resolveErrors.push(toDiagnostic(errorMessage, error.code, uri));
+				}
+				// A referenced document may itself embed subschemas with their own
+				// absolute $id. Register those as resolvable handles (once per document)
+				// so a nested $ref by that $id resolves to the embedded resource instead
+				// of being (mis)loaded as a standalone document. registerEmbeddedSchemas
+				// only runs for the root document otherwise.
+				if (!embeddedRegisteredFor.has(uri)) {
+					embeddedRegisteredFor.add(uri);
+					registerEmbeddedSchemas(unresolvedSchema.schema, uri);
+				}
+				// 2020-12: collect the referenced document's own resource anchor maps
+				// (once) before merging, so its $dynamicAnchor declarations can join the
+				// dynamic scope and its $dynamicRef nodes get their lexical resource
+				// recorded — mirroring what is done eagerly for the root document, before
+				// $ref merging flattens resource boundaries.
+				if ((unresolvedSchema.schema as MergedJSONSchema).$anchorMaps === undefined) {
+					collectDynamicAnchors(unresolvedSchema.schema);
+				}
+				mergeRef(node, unresolvedSchema.schema, referencedHandle, refSegment, continuationBase !== undefined && !embeddedSchemaUris.has(referencedHandle.uri));
+				// Referencing a fragment of another resource (e.g. "other#/$defs/x")
+				// still *enters* that resource's dynamic scope, so its $dynamicAnchor
+				// declarations must join `node`'s scope even though only the sub-schema
+				// was merged. (For a whole-document ref the merge above already did this,
+				// since the merged section is the resource root; this is a no-op then.)
+				unionAnchorMaps(node as MergedJSONSchema, (unresolvedSchema.schema as MergedJSONSchema).$anchorMaps);
+				return resolveRefs(node, continuationBase ?? unresolvedSchema.schema, continuationHandle ?? referencedHandle);
 			});
 		};
 
-		const resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentSchemaURL: string, parentSchemaDependencies: SchemaDependencies): Thenable<any> => {
-			if (!node || typeof node !== 'object') {
-				return Promise.resolve(null);
+		const resolveDynamicRef = (schema: JSONSchema, newBase: JSONSchema, newBaseHandle: SchemaHandle, currentBaseHandle: SchemaHandle): PromiseLike<any> | undefined => {
+			// 2020-12 $dynamicRef. Its *initial* target is resolved statically, exactly
+			// like a plain $ref, and kept as hidden metadata (info.target) instead of
+			// being merged into `schema`, so `schema`'s own keywords are preserved. The
+			// referenced plain-name fragment is recorded as info.name. The "bookending"
+			// decision (does the initial target name a $dynamicAnchor?) and the
+			// dynamic-scope walk are both deferred to validation time, where the (possibly
+			// asynchronously resolved) target is fully populated. Returns the external
+			// resolution promise, if one is needed.
+			const info = dynamicRefInfoOf(schema as MergedJSONSchema);
+			const ref = schema.$dynamicRef!;
+			const segments = ref.split('#', 2);
+			delete schema.$dynamicRef;
+
+			// A JSON-pointer fragment ("#/…") or a missing fragment can never name a
+			// $dynamicAnchor, so such a $dynamicRef always behaves like a plain $ref.
+			const fragment = segments[1];
+			const dynamicName = (isString(fragment) && fragment.length > 0 && fragment.charAt(0) !== '/') ? fragment : undefined;
+			if (dynamicName !== undefined) {
+				info.name = dynamicName;
 			}
 
-			const toWalk: JSONSchema[] = [node];
-			const seen: JSONSchema[] = [];
-
-			const openPromises: Thenable<any>[] = [];
-
-			const collectEntries = (...entries: (JSONSchemaRef | undefined)[]) => {
-				for (const entry of entries) {
-					if (typeof entry === 'object') {
-						toWalk.push(entry);
-					}
-				}
-			};
-			const collectMapEntries = (...maps: (JSONSchemaMap | undefined)[]) => {
-				for (const map of maps) {
-					if (typeof map === 'object') {
-						for (const k in map) {
-							const key = k as keyof JSONSchemaMap;
-							const entry = map[key];
-							if (typeof entry === 'object') {
-								toWalk.push(entry);
-							}
-						}
-					}
-				}
-			};
-			const collectArrayEntries = (...arrays: (JSONSchemaRef[] | undefined)[]) => {
-				for (const array of arrays) {
-					if (Array.isArray(array)) {
-						for (const entry of array) {
-							if (typeof entry === 'object') {
-								toWalk.push(entry);
-							}
-						}
-					}
-				}
-			};
-			const handleRef = (next: JSONSchema) => {
-				const seenRefs = [];
-				while (next.$ref) {
-					const ref = next.$ref;
-					const segments = ref.split('#', 2);
-					delete next.$ref;
-					if (segments[0].length > 0) {
-						openPromises.push(resolveExternalLink(next, segments[0], segments[1], parentSchemaURL, parentSchemaDependencies));
-						return;
-					} else {
-						if (seenRefs.indexOf(ref) === -1) {
-							merge(next, parentSchema, parentSchemaURL, segments[1]); // can set next.$ref again, use seenRefs to avoid circle
-							seenRefs.push(ref);
-						}
-					}
-				}
-
-				collectEntries(<JSONSchema>next.items, next.additionalItems, <JSONSchema>next.additionalProperties, next.not, next.contains, next.propertyNames, next.if, next.then, next.else);
-				collectMapEntries(next.definitions, next.properties, next.patternProperties, <JSONSchemaMap>next.dependencies);
-				collectArrayEntries(next.anyOf, next.allOf, next.oneOf, <JSONSchema[]>next.items);
-			};
-
-			while (toWalk.length) {
-				const next = toWalk.pop()!;
-				if (seen.indexOf(next) >= 0) {
-					continue;
-				}
-				seen.push(next);
-				handleRef(next);
+			if (segments[0].length > 0) {
+				// External / relative reference: resolve the target document into a
+				// throwaway container so `schema`'s own keywords are preserved.
+				const target: JSONSchema = {};
+				info.target = target;
+				const refBase = (newBase === schema) ? currentBaseHandle : newBaseHandle;
+				return resolveExternalLink(target, segments[0], segments[1], refBase);
 			}
-			return this.promise.all(openPromises);
+
+			// Internal reference. Resolve #name within the *lexical* schema resource
+			// (recorded as info.scope before $ref merging flattened resource boundaries)
+			// so a sibling resource's identically-named anchor cannot leak in.
+			let target: JSONSchema | undefined;
+			if (dynamicName !== undefined && info.scope?.$anchorMaps) {
+				target = info.scope.$anchorMaps.local.get(dynamicName);
+			}
+			if (target === undefined) {
+				// JSON-pointer fragment, or no lexical anchor found: fall back to a plain
+				// static $ref resolution against the current base.
+				const container: JSONSchema = {};
+				mergeRef(container, newBase, newBaseHandle, segments[1]);
+				target = container;
+			}
+			info.target = target;
+			return undefined;
 		};
 
-		return resolveRefs(schema, schema, schemaURL, dependencies).then(_ => new ResolvedSchema(schema, resolveErrors));
-	}
+		const resolveRefs = (node: JSONSchema, parentSchema: JSONSchema, parentHandle: SchemaHandle): PromiseLike<any> => {
+			const prefetchExternalSchema = (uri: string, parentHandle: SchemaHandle): void => {
+				// Ordered traversal reuses this cached request before mutating schema state.
+				getExternalSchemaHandle(uri, parentHandle).getUnresolvedSchema();
+			};
 
-	public getSchemaForResource(resource: string, document?: Parser.JSONDocument): Thenable<ResolvedSchema | undefined> {
+			const prefetchExternalRefs = (schema: JSONSchema, currentBase: JSONSchema, currentBaseHandle: SchemaHandle, seen: Set<JSONSchema>): void => {
+				if (!schema || typeof schema !== 'object' || seen.has(schema)) {
+					return;
+				}
+				seen.add(schema);
 
-		// first use $schema if present
-		if (document && document.root && document.root.type === 'object') {
-			const schemaProperties = document.root.properties.filter(p => (p.keyNode.value === '$schema') && p.valueNode && p.valueNode.type === 'string');
-			if (schemaProperties.length > 0) {
-				const valueNode = schemaProperties[0].valueNode;
-				if (valueNode && valueNode.type === 'string') {
-					let schemeId = <string>Parser.getNodeValue(valueNode);
-					if (schemeId && Strings.startsWith(schemeId, '.') && this.contextService) {
-						schemeId = this.contextService.resolveRelativePath(schemeId, resource);
+				const id = getSchemaId(schema);
+				let newBase = currentBase;
+				let newBaseHandle = currentBaseHandle;
+				if (isString(id) && id.charAt(0) !== '#') {
+					let resolvedUri = id;
+					if (contextService && !hasSchemeRegex.test(id)) {
+						resolvedUri = contextService.resolveRelativePath(id, currentBaseHandle.uri);
 					}
-					if (schemeId) {
-						const id = normalizeId(schemeId);
-						return this.getOrAddSchemaHandle(id).getResolvedSchema();
+					newBase = schema;
+					newBaseHandle = this.getOrAddSchemaHandle(normalizeId(resolvedUri));
+				}
+
+				const refBase = (newBase === schema) ? currentBaseHandle : newBaseHandle;
+				if (schema.$ref) {
+					const segments = schema.$ref.split('#', 2);
+					if (segments[0].length > 0) {
+						prefetchExternalSchema(segments[0], refBase);
 					}
+					if (schemaDraft !== undefined && schemaDraft < SchemaDraft.v2019_09) {
+						return;
+					}
+				}
+
+				if (schema.$dynamicRef && (schemaDraft === undefined || schemaDraft >= SchemaDraft.v2020_12)) {
+					const segments = schema.$dynamicRef.split('#', 2);
+					if (segments[0].length > 0) {
+						prefetchExternalSchema(segments[0], refBase);
+					}
+				}
+
+				JSONSchemaService.traverseSchemaProperties(schema, childSchema => {
+					prefetchExternalRefs(childSchema, newBase, newBaseHandle, seen);
+				});
+			};
+
+			prefetchExternalRefs(node, parentSchema, parentHandle, new Set<JSONSchema>());
+
+			// Traversal that tracks the current base schema for internal refs.
+			// When we encounter a schema with its own $id, that becomes the new base
+			// for resolving fragment refs (#...) in its descendants
+			const traverseWithBaseTracking = (schema: JSONSchema, currentBase: JSONSchema, currentBaseHandle: SchemaHandle, isRoot: boolean, seen: Set<JSONSchema>): PromiseLike<void> => {
+				if (!schema || typeof schema !== 'object' || seen.has(schema)) {
+					return this.promise.resolve(undefined);
+				}
+				seen.add(schema);
+
+				// A schema with its own $id defines a new base URI scope for everything
+				// inside it. Resolve the id (relative to the current base) and use that
+				// handle as the base going forward.
+				//
+				// We do this even when `isRoot` is true so that a recursive call from
+				// `resolveExternalLink` — which passes the external schema's handle as
+				// `currentBaseHandle` — still uses *this* node's own $id as its base
+				// when re-traversing it. Without this, nested $id values inside the
+				// original schema would be resolved against the external schema's URI.
+				const id = getSchemaId(schema);
+				let newBase = currentBase;
+				let newBaseHandle = currentBaseHandle;
+				if (isString(id) && id.charAt(0) !== '#') {
+					let resolvedUri = id;
+					if (contextService && !hasSchemeRegex.test(id)) {
+						resolvedUri = contextService.resolveRelativePath(id, currentBaseHandle.uri);
+					}
+					resolvedUri = normalizeId(resolvedUri);
+					newBase = schema;
+					newBaseHandle = this.getOrAddSchemaHandle(resolvedUri);
+					// Register the schema under its id if we haven't already.
+					if (!this.schemasById[resolvedUri]) {
+						this.addSchemaHandle(resolvedUri, schema);
+					}
+				}
+
+				// Process refs in this schema
+				const seenRefs = new Set<string>();
+				while (schema.$ref) {
+					const ref = schema.$ref;
+					const segments = ref.split('#', 2);
+					const isPreDraft201909 = schemaDraft !== undefined && schemaDraft < SchemaDraft.v2019_09;
+					const hasSiblingKeywords = !isPreDraft201909 && hasRefSiblingKeywords(schema);
+					const preservesOwnBase = hasSiblingKeywords && (newBase === schema || schemaDraft !== undefined);
+					delete schema.$ref;
+					if (segments[0].length > 0) {
+						// This is a reference to an external schema (like "foo.json" or "foo.json#/bar")
+						// Per JSON Schema spec, $ref is resolved against the current base URI.
+						const refBaseHandle = isPreDraft201909 && newBase === schema ? currentBaseHandle : newBaseHandle;
+						const continuationHandle = newBase === schema ? currentBaseHandle : newBaseHandle;
+						return resolveExternalLink(schema, segments[0], segments[1], refBaseHandle, preservesOwnBase ? newBase : undefined, preservesOwnBase ? continuationHandle : undefined).then(() => undefined);
+					} else {
+						// This is an internal reference (like "#/definitions/foo")
+						// Internal refs are resolved within the current document
+						// If this schema has its own $id, it is a new document, so use newBase
+						// Otherwise, use the parent's base (currentBase)
+						if (!seenRefs.has(ref)) {
+							const refId = segments[1];
+							mergeRef(schema, newBase, newBaseHandle, refId);
+							seenRefs.add(ref);
+						}
+					}
+				}
+
+				// Apply child schemas in keyword order so references never observe
+				// partially resolved state from an earlier schema.
+				const traverseChildren = (): PromiseLike<void> => {
+					let result: PromiseLike<void> = this.promise.resolve(undefined);
+					JSONSchemaService.traverseSchemaProperties(schema, childSchema => {
+						result = result.then(() => traverseWithBaseTracking(childSchema, newBase, newBaseHandle, false, seen));
+					});
+					return result;
+				};
+
+				// $dynamicRef is a 2020-12 core keyword. In earlier drafts it is an
+				// unknown keyword, so leave it untouched and unresolved (ignored) there.
+				if (schema.$dynamicRef && (schemaDraft === undefined || schemaDraft >= SchemaDraft.v2020_12)) {
+					const dynamicRefPromise = resolveDynamicRef(schema, newBase, newBaseHandle, currentBaseHandle);
+					if (dynamicRefPromise) {
+						return dynamicRefPromise.then(() => traverseChildren());
+					}
+				}
+
+				return traverseChildren();
+			};
+
+			return traverseWithBaseTracking(node, parentSchema, parentHandle, true, new Set<JSONSchema>());
+		};
+
+		const collectAnchors = (root: JSONSchema): Map<string, JSONSchema> => {
+			const result = new Map<string, JSONSchema>();
+			const seen = new Set<JSONSchema>();
+			// Use the schema's own $schema to determine draft, so that an external
+			// schema referenced from a doesn't inherit the parent's anchor rules.
+			const draft = root.$schema ? getSchemaDraftFromId(root.$schema) : schemaDraft;
+			// Traversal that stops at sub-schemas with their own $id
+			// because those create a new URI scope for anchors
+			const traverseForAnchors = (node: JSONSchema, isRoot: boolean): void => {
+				if (!node || typeof node !== 'object' || seen.has(node)) {
+					return;
+				}
+				seen.add(node);
+				// If this node has its own $id, and it's not the root, it's a new URI scope
+				const id = getSchemaId(node);
+				if (!isRoot && isString(id) && id.charAt(0) !== '#') {
+					return;
+				}
+
+				// Collect anchor from this node
+				// In draft-04/06/07, anchors are defined via $id/#fragment (e.g., "$id": "#myanchor")
+				// In 2019-09+, $id fragments are no longer anchors; $anchor is used instead
+				// In 2020-12, $dynamicAnchor also defines a plain-name fragment that a
+				// (static) $ref can resolve to, just like $anchor.
+				const fragmentAnchor = (draft === undefined || draft < SchemaDraft.v2019_09) && isString(id) && id.charAt(0) === '#' ? id.substring(1) : undefined;
+				const dollarAnchor = (draft === undefined || draft >= SchemaDraft.v2019_09) ? node.$anchor : undefined;
+				const dynamicAnchor = (draft === undefined || draft >= SchemaDraft.v2020_12) ? node.$dynamicAnchor : undefined;
+				const registerAnchor = (anchor: string | undefined) => {
+					if (!anchor) {
+						return;
+					}
+					if (result.has(anchor) && result.get(anchor) !== node) {
+						resolveErrors.push(toDiagnostic(l10n.t('Duplicate anchor declaration: \'{0}\'', anchor), ErrorCode.SchemaResolveError));
+					} else {
+						result.set(anchor, node);
+					}
+				};
+				registerAnchor(fragmentAnchor ?? dollarAnchor);
+				registerAnchor(dynamicAnchor);
+
+				// Continue traversing child schemas
+				JSONSchemaService.traverseSchemaProperties(node, (childSchema) => {
+					traverseForAnchors(childSchema, false);
+				});
+			};
+
+			traverseForAnchors(root, true);
+
+			return result;
+		};
+
+		// 2020-12: group $anchor / $dynamicAnchor declarations by the schema resource
+		// ($id scope) that contains them, and attach each resource's name→node maps to
+		// its resource-root node as hidden metadata ($anchorMaps):
+		//   - $anchorMaps.dynamic: only $dynamicAnchor names, used by the validator to
+		//     walk the dynamic scope (outermost resource first).
+		//   - $anchorMaps.local: both $anchor and $dynamicAnchor names, used to resolve
+		//     an internal $dynamicRef's initial target within its own resource.
+		// Each $dynamicRef node also gets its lexical resource recorded as
+		// $dynamicRefInfo.scope. This must run on the original schema, before $ref
+		// resolution merges (and thereby flattens) resource boundaries; node identities
+		// are preserved through in-place resolution, so the attached metadata stays valid.
+		const collectDynamicAnchors = (root: JSONSchema): void => {
+			// Respect the resource's own $schema (like collectAnchors) so a referenced
+			// document with a different, pre-2020-12 dialect is not given $dynamicAnchor
+			// semantics just because the root document is 2020-12.
+			const draft = root && typeof root === 'object' && root.$schema ? getSchemaDraftFromId(root.$schema) : schemaDraft;
+			if (!(draft === undefined || draft >= SchemaDraft.v2020_12)) {
+				return;
+			}
+			const seen = new Set<JSONSchema>();
+			const visit = (node: JSONSchema, resourceRoot: MergedJSONSchema): void => {
+				if (!node || typeof node !== 'object' || seen.has(node)) {
+					return;
+				}
+				seen.add(node);
+
+				// A node with its own $id (or the document root) starts a new resource.
+				let currentRoot = resourceRoot;
+				const id = getSchemaId(node);
+				if (node === root || (isString(id) && id.charAt(0) !== '#')) {
+					currentRoot = node as MergedJSONSchema;
+					if (!currentRoot.$anchorMaps) {
+						const maps: AnchorMaps = { dynamic: new Map<string, JSONSchema>(), local: new Map<string, JSONSchema>() };
+						setHidden(currentRoot, '$anchorMaps', maps);
+					}
+				}
+
+				const maps = currentRoot.$anchorMaps!;
+				if (isString(node.$dynamicAnchor)) {
+					if (!maps.dynamic.has(node.$dynamicAnchor)) {
+						maps.dynamic.set(node.$dynamicAnchor, node);
+					}
+					if (!maps.local.has(node.$dynamicAnchor)) {
+						maps.local.set(node.$dynamicAnchor, node);
+					}
+				}
+				if (isString(node.$anchor) && !maps.local.has(node.$anchor)) {
+					maps.local.set(node.$anchor, node);
+				}
+				if (isString(node.$dynamicRef)) {
+					dynamicRefInfoOf(node as MergedJSONSchema).scope = currentRoot;
+				}
+
+				JSONSchemaService.traverseSchemaProperties(node, (childSchema) => {
+					visit(childSchema, currentRoot);
+				});
+			};
+			visit(root, root as MergedJSONSchema);
+		};
+
+		// Collect and register embedded schemas with $id so they can be resolved as external refs
+		// This traversal tracks the current base URI so nested $id values are resolved correctly
+		const registerEmbeddedSchemas = (root: JSONSchema, baseUri: string): void => {
+			const seen = new Set<JSONSchema>();
+
+			const resolveId = (id: string, currentBaseUri: string): string => {
+				if (contextService && !hasSchemeRegex.test(id)) {
+					return normalizeId(contextService.resolveRelativePath(id, currentBaseUri));
+				}
+				return normalizeId(id);
+			};
+
+			const visit = (node: JSONSchema, currentBaseUri: string, isDocumentRoot: boolean): void => {
+				if (!node || typeof node !== 'object' || seen.has(node)) {
+					return;
+				}
+				seen.add(node);
+
+				// Check if this node has its own $id that changes the base URI
+				const id = getSchemaId(node);
+				let newBaseUri = currentBaseUri;
+				if (isString(id) && id.charAt(0) !== '#') {
+					const resolvedUri = resolveId(id, currentBaseUri);
+					if (!isDocumentRoot) {
+						embeddedSchemaUris.add(resolvedUri);
+					}
+					const existingHandle = this.schemasById[resolvedUri];
+					if (!existingHandle) {
+						this.addSchemaHandle(resolvedUri, node);
+					} else if (existingHandle !== handle) {
+						// Update existing handle with embedded schema content.
+						// This ensures embedded schemas take precedence over external schemas.
+						// Skip when the existing handle is the handle currently being resolved
+						// (i.e. the root schema's own $id matches its retrieval URI): overwriting
+						// it here would reset its cache mid-resolution using the same object
+						// reference that this resolution pass is still mutating (merging $refs
+						// into), silently discarding any resolveErrors accumulated so far on the
+						// next time this handle is resolved.
+						existingHandle.setSchemaContent(node);
+					}
+					newBaseUri = resolvedUri;
+				}
+
+				// Visit child schemas
+				JSONSchemaService.traverseSchemaProperties(node, (childSchema) => {
+					visit(childSchema, newBaseUri, false);
+				});
+			};
+
+			visit(root, baseUri, true);
+		};
+
+		// Register embedded schemas before resolving refs
+		registerEmbeddedSchemas(schema, handle.uri);
+
+		// Collect anchors eagerly before $ref resolution mutates the schema.
+		// resolveRefs merges referenced nodes (including $anchor) into $ref targets,
+		// so a lazy collectAnchors call could see duplicates from merged copies.
+		handle.anchors = collectAnchors(schema);
+
+		// Collect $dynamicAnchor maps eagerly too, for the same reason: resource
+		// boundaries must be read before $ref resolution flattens them.
+		collectDynamicAnchors(schema);
+
+		// Resolve meta-schema to extract vocabularies if present
+		const resolveMetaschemaVocabularies = (): PromiseLike<void> => {
+			if (!schema.$schema || typeof schema.$schema !== 'string') {
+				return this.promise.resolve(undefined);
+			}
+
+			let metaschemaUri = schema.$schema;
+			if (contextService && !hasSchemeRegex.test(metaschemaUri)) {
+				metaschemaUri = contextService.resolveRelativePath(metaschemaUri, handle.uri);
+			}
+			const normalizedMetaschemaUri = normalizeId(metaschemaUri);
+			const metaschemaHandle = this.getOrAddSchemaHandle(normalizedMetaschemaUri);
+
+			return metaschemaHandle.getUnresolvedSchema().then(unresolvedMetaschema => {
+				// Only extract vocabularies if the meta-schema has a $vocabulary property
+				// or if it's draft 2019-09 or later which support vocabularies.
+				const metaschemaDraft = unresolvedMetaschema.schema.$schema ? getSchemaDraftFromId(unresolvedMetaschema.schema.$schema) : undefined;
+				const isDraft2019OrLater = metaschemaDraft && metaschemaDraft >= SchemaDraft.v2019_09;
+				const hasVocabulary = unresolvedMetaschema.schema.$vocabulary && typeof unresolvedMetaschema.schema.$vocabulary === 'object';
+
+				if (hasVocabulary || isDraft2019OrLater) {
+					activeVocabularies = extractVocabularies(unresolvedMetaschema.schema);
+				}
+				return undefined;
+			}, () => {
+				// If we can't load the meta-schema, proceed without vocabulary info
+				return undefined;
+			});
+		};
+
+		return resolveMetaschemaVocabularies().then(() => {
+			return resolveRefs(schema, schema, handle).then(_ => {
+				return new ResolvedSchema(schema, resolveErrors, [], schemaDraft, activeVocabularies);
+			});
+		});
+	};
+
+	private getSchemaFromProperty(resource: string, document: JSONDocument): string | undefined {
+		if (document.root?.type === 'object') {
+			for (const p of document.root.properties) {
+				if (p.keyNode.value === '$schema' && p.valueNode?.type === 'string') {
+					let schemaId = p.valueNode.value;
+					if (this.contextService && !/^\w[\w\d+.-]*:/.test(schemaId)) { // has scheme
+						schemaId = this.contextService.resolveRelativePath(schemaId, resource);
+					}
+					return schemaId;
 				}
 			}
 		}
+		return undefined;
+	}
 
-		if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
-			return this.cachedSchemaForResource.resolvedSchema;
-		}
-
+	private getAssociatedSchemas(resource: string): string[] {
 		const seen: { [schemaId: string]: boolean } = Object.create(null);
 		const schemas: string[] = [];
 		const normalizedResource = normalizeResourceForMatching(resource);
@@ -578,6 +1370,30 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 			}
 		}
+		return schemas;
+	}
+
+	public getSchemaURIsForResource(resource: string, document?: JSONDocument): string[] {
+		let schemeId = document && this.getSchemaFromProperty(resource, document);
+		if (schemeId) {
+			return [schemeId];
+		}
+		return this.getAssociatedSchemas(resource);
+	}
+
+	public getSchemaForResource(resource: string, document?: JSONDocument): PromiseLike<ResolvedSchema | undefined> {
+		if (document) {
+			// first use $schema if present
+			let schemeId = this.getSchemaFromProperty(resource, document);
+			if (schemeId) {
+				const id = normalizeId(schemeId);
+				return this.getOrAddSchemaHandle(id).getResolvedSchema();
+			}
+		}
+		if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
+			return this.cachedSchemaForResource.resolvedSchema;
+		}
+		const schemas = this.getAssociatedSchemas(resource);
 		const resolvedSchema = schemas.length > 0 ? this.createCombinedSchema(resource, schemas).getResolvedSchema() : this.promise.resolve(undefined);
 		this.cachedSchemaForResource = { resource, resolvedSchema };
 		return resolvedSchema;
@@ -595,10 +1411,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 		}
 	}
 
-	public getMatchingSchemas(document: TextDocument, jsonDocument: Parser.JSONDocument, schema?: JSONSchema): Thenable<MatchingSchema[]> {
+	public getMatchingSchemas(document: TextDocument, jsonDocument: JSONDocument, schema?: JSONSchema): PromiseLike<MatchingSchema[]> {
 		if (schema) {
 			const id = schema.id || ('schemaservice://untitled/matchingSchemas/' + idCounter++);
-			return this.resolveSchemaContent(new UnresolvedSchema(schema), id, {}).then(resolvedSchema => {
+			const handle = this.addSchemaHandle(id, schema);
+			return handle.getResolvedSchema().then(resolvedSchema => {
 				return jsonDocument.getMatchingSchemas(resolvedSchema.schema).filter(s => !s.inverted);
 			});
 		}
@@ -614,20 +1431,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 let idCounter = 0;
 
-function normalizeId(id: string): string {
-	// remove trailing '#', normalize drive capitalization
-	try {
-		return URI.parse(id).toString();
-	} catch (e) {
-		return id;
-	}
-
-}
-
 function normalizeResourceForMatching(resource: string): string {
 	// remove queries and fragments, normalize drive capitalization
 	try {
-		return URI.parse(resource).with({ fragment: null, query: null }).toString();
+		return URI.parse(resource).with({ fragment: null, query: null }).toString(true);
 	} catch (e) {
 		return resource;
 	}

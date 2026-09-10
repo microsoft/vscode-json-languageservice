@@ -3,8 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { stringifyObject } from '../utils/json';
+import { stringifyObject } from '../utils/json.js';
 import * as assert from 'assert';
+import { suite, test } from 'node:test';
 
 suite('JSON Stringify', () => {
 

@@ -3,15 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { JSONSchemaService, ResolvedSchema, UnresolvedSchema } from './jsonSchemaService';
-import { JSONDocument } from '../parser/jsonParser';
+import { JSONSchemaService, ResolvedSchema } from './jsonSchemaService.js';
+import { JSONDocument } from '../parser/jsonParser.js';
 
-import { TextDocument, ErrorCode, PromiseConstructor, Thenable, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range } from '../jsonLanguageTypes';
-import * as nls from 'vscode-nls';
-import { JSONSchemaRef, JSONSchema } from '../jsonSchema';
-import { isBoolean } from '../utils/objects';
-
-const localize = nls.loadMessageBundle();
+import { TextDocument, ErrorCode, PromiseConstructor, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range, JSONLanguageStatus } from '../jsonLanguageTypes.js';
+import * as l10n from '@vscode/l10n';
+import { JSONSchemaRef, JSONSchema } from '../jsonSchema.js';
+import { isBoolean } from '../utils/objects.js';
+import { DiagnosticRelatedInformation } from 'vscode-languageserver-types';
 
 export class JSONValidation {
 
@@ -27,14 +26,14 @@ export class JSONValidation {
 		this.validationEnabled = true;
 	}
 
-	public configure(raw: LanguageSettings) {
+	public configure(raw: LanguageSettings | undefined): void {
 		if (raw) {
 			this.validationEnabled = raw.validate !== false;
 			this.commentSeverity = raw.allowComments ? undefined : DiagnosticSeverity.Error;
 		}
 	}
 
-	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): Thenable<Diagnostic[]> {
+	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): PromiseLike<Diagnostic[]> {
 		if (!this.validationEnabled) {
 			return this.promise.resolve([]);
 		}
@@ -55,24 +54,32 @@ export class JSONValidation {
 			let schemaRequest = documentSettings?.schemaRequest ? toDiagnosticSeverity(documentSettings.schemaRequest) : DiagnosticSeverity.Warning;
 
 			if (schema) {
-				if (schema.errors.length && jsonDocument.root && schemaRequest) {
-					const astRoot = jsonDocument.root;
-					const property = astRoot.type === 'object' ? astRoot.properties[0] : undefined;
-					if (property && property.keyNode.value === '$schema') {
-						const node = property.valueNode || property;
-						const range = Range.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
-						addProblem(Diagnostic.create(range, schema.errors[0], schemaRequest, ErrorCode.SchemaResolveError));
-					} else {
-						const range = Range.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
-						addProblem(Diagnostic.create(range, schema.errors[0], schemaRequest, ErrorCode.SchemaResolveError));
+				const addSchemaProblem = (errorMessage: string, errorCode: ErrorCode, relatedInformation?: DiagnosticRelatedInformation[]) => {
+					if (jsonDocument.root && schemaRequest) {
+						const astRoot = jsonDocument.root;
+						const property = astRoot.type === 'object' ? astRoot.properties[0] : undefined;
+						if (property && property.keyNode.value === '$schema') {
+							const node = property.valueNode || property;
+							const range = Range.create(textDocument.positionAt(node.offset), textDocument.positionAt(node.offset + node.length));
+							addProblem(Diagnostic.create(range, errorMessage, schemaRequest, errorCode, 'json', relatedInformation));
+						} else {
+							const range = Range.create(textDocument.positionAt(astRoot.offset), textDocument.positionAt(astRoot.offset + 1));
+							addProblem(Diagnostic.create(range, errorMessage, schemaRequest, errorCode, 'json', relatedInformation));
+						}
 					}
+				};
+				if (schema.errors.length) {
+					const error = schema.errors[0];
+					addSchemaProblem(error.message, error.code, error.relatedInformation);
 				} else if (schemaValidation) {
-					const semanticErrors = jsonDocument.validate(textDocument, schema.schema, schemaValidation);
+					for (const warning of schema.warnings) {
+						addSchemaProblem(warning.message, warning.code, warning.relatedInformation);
+					}
+					const semanticErrors = jsonDocument.validate(textDocument, schema.schema, schemaValidation, documentSettings?.schemaDraft, schema.activeVocabularies);
 					if (semanticErrors) {
 						semanticErrors.forEach(addProblem);
 					}
 				}
-
 				if (schemaAllowsComments(schema.schema)) {
 					commentSeverity = undefined;
 				}
@@ -93,7 +100,7 @@ export class JSONValidation {
 			}
 
 			if (typeof commentSeverity === 'number') {
-				const message = localize('InvalidCommentToken', 'Comments are not permitted in JSON.');
+				const message = l10n.t('Comments are not permitted in JSON.');
 				jsonDocument.comments.forEach(c => {
 					addProblem(Diagnostic.create(c, message, commentSeverity, ErrorCode.CommentNotPermitted));
 				});
@@ -102,14 +109,19 @@ export class JSONValidation {
 		};
 
 		if (schema) {
-			const id = schema.id || ('schemaservice://untitled/' + idCounter++);
-			return this.jsonSchemaService.resolveSchemaContent(new UnresolvedSchema(schema), id, {}).then(resolvedSchema => {
+			const uri = schema.$id || schema.id || ('schemaservice://untitled/' + idCounter++);
+			const handle = this.jsonSchemaService.registerExternalSchema({ uri, schema });
+			return handle.getResolvedSchema().then(resolvedSchema => {
 				return getDiagnostics(resolvedSchema);
 			});
 		}
 		return this.jsonSchemaService.getSchemaForResource(textDocument.uri, jsonDocument).then(schema => {
 			return getDiagnostics(schema);
 		});
+	}
+
+	public getLanguageStatus(textDocument: TextDocument, jsonDocument: JSONDocument): JSONLanguageStatus {
+		return { schemas: this.jsonSchemaService.getSchemaURIsForResource(textDocument.uri, jsonDocument) };
 	}
 }
 

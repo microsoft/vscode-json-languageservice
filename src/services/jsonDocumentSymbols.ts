@@ -3,16 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as Parser from '../parser/jsonParser';
-import * as Strings from '../utils/strings';
-import { colorFromHex } from '../utils/colors';
+import * as Parser from '../parser/jsonParser.js';
+import * as Strings from '../utils/strings.js';
+import { colorFromHex } from '../utils/colors.js';
+import * as l10n from '@vscode/l10n';
 
 import {
-	TextDocument, Thenable, ColorInformation, ColorPresentation, Color, ASTNode, PropertyASTNode, DocumentSymbolsContext, Range, TextEdit,
+	TextDocument, ColorInformation, ColorPresentation, Color, ASTNode, PropertyASTNode, DocumentSymbolsContext, Range, TextEdit,
 	SymbolInformation, SymbolKind, DocumentSymbol, Location
-} from "../jsonLanguageTypes";
+} from "../jsonLanguageTypes.js";
 
-import { IJSONSchemaService } from "./jsonSchemaService";
+import { IJSONSchemaService } from "./jsonSchemaService.js";
 
 export class JSONDocumentSymbols {
 
@@ -38,7 +39,7 @@ export class JSONDocumentSymbols {
 						for (const property of item.properties) {
 							if (property.keyNode.value === 'key' && property.valueNode) {
 								const location = Location.create(document.uri, getRange(document, item));
-								result.push({ name: Parser.getNodeValue(property.valueNode), kind: SymbolKind.Function, location: location });
+								result.push({ name: getName(property.valueNode), kind: SymbolKind.Function, location: location });
 								limit--;
 								if (limit <= 0) {
 									if (context && context.onResultLimitExceeded) {
@@ -119,7 +120,7 @@ export class JSONDocumentSymbols {
 							if (property.keyNode.value === 'key' && property.valueNode) {
 								const range = getRange(document, item);
 								const selectionRange = getRange(document, property.keyNode);
-								result.push({ name: Parser.getNodeValue(property.valueNode), kind: SymbolKind.Function, range, selectionRange });
+								result.push({ name: getName(property.valueNode), kind: SymbolKind.Function, range, selectionRange });
 								limit--;
 								if (limit <= 0) {
 									if (context && context.onResultLimitExceeded) {
@@ -191,7 +192,6 @@ export class JSONDocumentSymbols {
 		return result;
 	}
 
-
 	private getSymbolKind(nodeType: string): SymbolKind {
 		switch (nodeType) {
 			case 'object':
@@ -236,12 +236,12 @@ export class JSONDocumentSymbols {
 		return undefined;
 	}
 
-	public findDocumentColors(document: TextDocument, doc: Parser.JSONDocument, context?: DocumentSymbolsContext): Thenable<ColorInformation[]> {
+	public findDocumentColors(document: TextDocument, doc: Parser.JSONDocument, context?: DocumentSymbolsContext): PromiseLike<ColorInformation[]> {
 		return this.schemaService.getSchemaForResource(document.uri, doc).then(schema => {
 			const result: ColorInformation[] = [];
 			if (schema) {
 				let limit = context && typeof context.resultLimit === 'number' ? context.resultLimit : Number.MAX_VALUE;
-				const matchingSchemas = doc.getMatchingSchemas(schema.schema);
+				const matchingSchemas = doc.getMatchingSchemas(schema.schema, undefined, undefined, schema.activeVocabularies);
 				const visitedNode: { [nodeId: string]: boolean } = {};
 				for (const s of matchingSchemas) {
 					if (!s.inverted && s.schema && (s.schema.format === 'color' || s.schema.format === 'color-hex') && s.node && s.node.type === 'string') {
@@ -292,4 +292,8 @@ export class JSONDocumentSymbols {
 
 function getRange(document: TextDocument, node: ASTNode) {
 	return Range.create(document.positionAt(node.offset), document.positionAt(node.offset + node.length));
+}
+
+function getName(node: ASTNode) {
+	return Parser.getNodeValue(node) || l10n.t('<empty>');
 }
