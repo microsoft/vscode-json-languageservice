@@ -21,9 +21,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
-    "@typescript-eslint/eslint-plugin": "^8.63.0",
-    "@typescript-eslint/parser": "^8.63.0",
-    "eslint": "10.6.0",
     "json-schema-test-suite": "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git#92acb61eb772a932c077d5ffa634ded719d2d738",
     "rimraf": "^6.1.3",
     "typescript": "6.0.x"
@@ -46,7 +43,7 @@
     "test": "node --test ./lib/esm/test/*.test.js",
     "posttest": "npm run lint",
     "coverage": "npx nyc -r lcov npm run test",
-    "lint": "eslint src/**/*.ts",
+    "lint": "node --test ./build/lint.test.ts",
     "install-types-next": "npm install vscode-languageserver-types@next -f -S && npm install vscode-languageserver-textdocument@next -f -S",
     "sample": "npm run compile && node ./lib/esm/example/sample.js"
   }
