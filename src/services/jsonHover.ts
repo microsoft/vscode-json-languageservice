@@ -112,7 +112,7 @@ export class JSONHover {
 				if (result.length > 0) {
 					result += "\n\n";
 				}
-				result += `Default: \`${toMarkdownCodeBlock(defaultValue)}\``;
+				result += `Schema default: \`${toMarkdownCodeBlock(defaultValue)}\``;
 			}
 			return createHover([result]);
 		});

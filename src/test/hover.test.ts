@@ -184,14 +184,14 @@ suite('JSON Hover', () => {
 		for (const [key, value] of Object.entries(defaults)) {
 			const character = content.indexOf(`"${key}"`) + 1;
 			const result = await testComputeInfo(content, schema, { line: 0, character });
-			assert.deepEqual(result.contents, [`${key} description\n\nDefault: \`${JSON.stringify(value)}\``]);
+			assert.deepEqual(result.contents, [`${key} description\n\nSchema default: \`${JSON.stringify(value)}\``]);
 		}
 
 		const result = await testComputeInfo('{ "value": 1 }', {
 			type: 'object',
 			properties: { value: { default: 0 } }
 		}, { line: 0, character: 3 });
-		assert.deepEqual(result.contents, ['Default: `0`']);
+		assert.deepEqual(result.contents, ['Schema default: `0`']);
 	});
 
 	test('Multiline descriptions', async function () {
