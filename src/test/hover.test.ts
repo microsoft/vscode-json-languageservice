@@ -164,6 +164,36 @@ suite('JSON Hover', () => {
 		});
 	});
 
+	test('Default values', async function () {
+		const defaults = {
+			string: 'default',
+			zero: 0,
+			false: false,
+			null: null,
+			object: { key: 'value' }
+		};
+		const content = '{ "string": "custom", "zero": 1, "false": true, "null": "custom", "object": {} }';
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, {
+				description: `${key} description`,
+				default: value
+			}]))
+		};
+
+		for (const [key, value] of Object.entries(defaults)) {
+			const character = content.indexOf(`"${key}"`) + 1;
+			const result = await testComputeInfo(content, schema, { line: 0, character });
+			assert.deepEqual(result.contents, [`${key} description\n\nSchema default: \`${JSON.stringify(value)}\``]);
+		}
+
+		const result = await testComputeInfo('{ "value": 1 }', {
+			type: 'object',
+			properties: { value: { default: 0 } }
+		}, { line: 0, character: 3 });
+		assert.deepEqual(result.contents, ['Schema default: `0`']);
+	});
+
 	test('Multiline descriptions', async function () {
 		const schema: JSONSchema = {
 			type: 'object',
