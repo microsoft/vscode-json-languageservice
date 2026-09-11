@@ -1042,6 +1042,31 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 			prefetchExternalRefs(node, parentSchema, parentHandle, new Set<JSONSchema>());
 
+			// In pre-2019-09 drafts $ref replaces its siblings, but `definitions`
+			// and `$defs` are reserved keys that survive the merge in mergeRef. The
+			// re-traversal after an external $ref merge runs with the *referenced*
+			// document's base URI, so resolve these surviving subtrees up-front with
+			// this document's base; the later re-traversal then finds their $refs
+			// already resolved and becomes a no-op for them.
+			const survivingRefKeys = ['definitions', '$defs'] as const;
+			const hasSurvivingRefSubtrees = (schema: JSONSchema): boolean =>
+				survivingRefKeys.some(key => {
+					const map = schema[key];
+					return map !== undefined && typeof map === 'object' && Object.keys(map).length > 0;
+				});
+			const traverseSurvivingRefSubtrees = (schema: JSONSchema, base: JSONSchema, baseHandle: SchemaHandle, seen: Set<JSONSchema>): PromiseLike<void> => {
+				let result: PromiseLike<void> = this.promise.resolve(undefined);
+				for (const key of survivingRefKeys) {
+					const map = schema[key];
+					if (map && typeof map === 'object') {
+						for (const child of Object.values(map)) {
+							result = result.then(() => traverseWithBaseTracking(child, base, baseHandle, false, seen));
+						}
+					}
+				}
+				return result;
+			};
+
 			// Traversal that tracks the current base schema for internal refs.
 			// When we encounter a schema with its own $id, that becomes the new base
 			// for resolving fragment refs (#...) in its descendants
@@ -1091,7 +1116,14 @@ export class JSONSchemaService implements IJSONSchemaService {
 						// Per JSON Schema spec, $ref is resolved against the current base URI.
 						const refBaseHandle = isPreDraft201909 && newBase === schema ? currentBaseHandle : newBaseHandle;
 						const continuationHandle = newBase === schema ? currentBaseHandle : newBaseHandle;
-						return resolveExternalLink(schema, segments[0], segments[1], refBaseHandle, preservesOwnBase ? newBase : undefined, preservesOwnBase ? continuationHandle : undefined).then(() => undefined);
+						const followExternalRef = (): PromiseLike<void> => resolveExternalLink(schema, segments[0], segments[1], refBaseHandle, preservesOwnBase ? newBase : undefined, preservesOwnBase ? continuationHandle : undefined).then(() => undefined);
+						if (isPreDraft201909 && hasSurvivingRefSubtrees(schema)) {
+							// Pre-2019-09: `definitions`/`$defs` survive the $ref merge but
+							// would be re-traversed with the referenced document's base
+							// URI. Resolve them first against this document's base.
+							return traverseSurvivingRefSubtrees(schema, newBase, newBaseHandle, seen).then(followExternalRef);
+						}
+						return followExternalRef();
 					} else {
 						// This is an internal reference (like "#/definitions/foo")
 						// Internal refs are resolved within the current document
