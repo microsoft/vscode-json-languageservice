@@ -54,7 +54,17 @@ suite('JSON Schema', () => {
 		'http://schema.management.azure.com/schemas/2014-04-01-preview/Microsoft.Sql.json': 'Microsoft.Sql.json',
 		'http://schema.management.azure.com/schemas/2014-06-01/Microsoft.Web.json': 'Microsoft.Web.json',
 		'http://schema.management.azure.com/schemas/2014-04-01/SuccessBricks.ClearDB.json': 'SuccessBricks.ClearDB.json',
-		'http://schema.management.azure.com/schemas/2015-08-01/Microsoft.Compute.json': 'Microsoft.Compute.json'
+		'http://schema.management.azure.com/schemas/2015-08-01/Microsoft.Compute.json': 'Microsoft.Compute.json',
+		'https://www.schemastore.org/openapi-3.X.json': 'openapi-3.X.json',
+		'https://spec.openapis.org/oas/3.0/schema/2024-10-18': 'openapi/oas-3.0-schema-2024-10-18.json',
+		'https://spec.openapis.org/oas/3.1/schema-base/2025-11-23': 'openapi/oas-3.1-schema-base-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.1/schema/2025-11-23': 'openapi/oas-3.1-schema-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.1/dialect/2024-11-10': 'openapi/oas-3.1-dialect-2024-11-10.json',
+		'https://spec.openapis.org/oas/3.1/meta/2024-11-10': 'openapi/oas-3.1-meta-2024-11-10.json',
+		'https://spec.openapis.org/oas/3.2/schema-base/2025-11-23': 'openapi/oas-3.2-schema-base-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.2/schema/2025-11-23': 'openapi/oas-3.2-schema-2025-11-23.json',
+		'https://spec.openapis.org/oas/3.2/dialect/2025-09-17': 'openapi/oas-3.2-dialect-2025-09-17.json',
+		'https://spec.openapis.org/oas/3.2/meta/2025-09-17': 'openapi/oas-3.2-meta-2025-09-17.json'
 	};
 
 	function newMockRequestService(schemas: { [uri: string]: JSONSchema } = {}, accesses: string[] = []): SchemaRequestService {
@@ -209,6 +219,134 @@ suite('JSON Schema', () => {
 		});
 
 
+	});
+
+	for (const version of ['3.0.0', '3.1.0', '3.2.0']) {
+		test(`OpenAPI ${version} schema resolves and validates`, async function () {
+			const schemaStoreUri = 'https://www.schemastore.org/openapi-3.X.json';
+			const ls = getLanguageService({ schemaRequestService: newMockRequestService(), workspaceContext });
+			ls.configure({ schemas: [{ uri: schemaStoreUri, fileMatch: ['*.json'] }] });
+			const content = JSON.stringify({
+				openapi: version,
+				info: {
+					title: 'Test API',
+					version: '1.0.0'
+				},
+				paths: {}
+			});
+			const { textDoc, jsonDoc } = toDocument(content, undefined, `file:///petstore${version}.openapi.json`);
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.deepStrictEqual(diagnostics, []);
+		});
+	}
+
+	test('Relative schema-base $id is applied once when resolving $ref siblings', async function () {
+		const schemaBaseUri = 'https://example.com/root/schema-base.json';
+		const referencedSchemaUri = 'https://example.com/root/sub/schema.json';
+		const childSchemaUri = 'https://example.com/root/sub/child.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$id: 'sub/',
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				$ref: 'schema.json',
+				properties: {
+					child: {
+						$ref: 'child.json'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
+				type: 'object'
+			},
+			[childSchemaUri]: {
+				type: 'string'
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"child":1}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'string');
+	});
+
+	test('Referenced schema relative $refs keep the referenced resource base', async function () {
+		const schemaBaseUri = 'https://example.com/a/schema-base.json';
+		const referencedSchemaUri = 'https://example.com/b/schema.json';
+		const childSchemaUri = 'https://example.com/b/child.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$id: schemaBaseUri,
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				$ref: referencedSchemaUri,
+				properties: {
+					local: {
+						type: 'boolean'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
+				type: 'object',
+				properties: {
+					child: {
+						$ref: 'child.json'
+					}
+				}
+			},
+			[childSchemaUri]: {
+				type: 'string'
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"child":1}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'string');
+	});
+
+	test('Nested external $ref siblings keep the inherited owner resource base', async function () {
+		const schemaBaseUri = 'https://example.com/a/schema.json';
+		const referencedSchemaUri = 'https://example.com/b/schema.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$id: schemaBaseUri,
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				type: 'object',
+				properties: {
+					container: {
+						$ref: referencedSchemaUri,
+						properties: {
+							local: {
+								$ref: '#/$defs/local'
+							}
+						}
+					}
+				},
+				$defs: {
+					local: {
+						type: 'string'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
+				type: 'object'
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"container":{"local":1}}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'string');
 	});
 
 	test('Resolving $refs 3', async function () {
@@ -904,6 +1042,33 @@ suite('JSON Schema', () => {
 			type: 'string',
 			const: 'world'
 		});
+	});
+
+	test('Resolving a pure external $ref redirect cycle reports an error', async function () {
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				'https://myschemastore/main/schema.json': {
+					type: 'object',
+					properties: {
+						p1: {
+							$ref: 'redirect-a.json#/$defs/value'
+						}
+					}
+				},
+				'https://myschemastore/main/redirect-a.json': {
+					$ref: 'redirect-b.json'
+				},
+				'https://myschemastore/main/redirect-b.json': {
+					$ref: 'redirect-a.json'
+				}
+			}
+		});
+
+		const resolvedSchema = await service.getResolvedSchema('https://myschemastore/main/schema.json');
+
+		assert.strictEqual(resolvedSchema?.errors.length, 1);
+		assertInMessage(resolvedSchema?.errors[0].message, '/$defs/value');
 	});
 
 
@@ -3222,6 +3387,75 @@ suite('JSON Schema', () => {
 			assert.strictEqual(validation.length, 0, 'Optional 2019-09 format vocabulary should be annotation-only');
 		});
 
+		test('2019-09 format vocabulary with a non-boolean value is treated as optional', async function () {
+			// Deliberately malformed: $vocabulary values are required to be booleans.
+			// Not typed as JSONSchema so the invalid value can be expressed.
+			const metaschema = {
+				$id: 'http://test/metaschema-2019-format-malformed',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/validation': true,
+					'https://json-schema.org/draft/2019-09/vocab/format': 'yes'
+				},
+				type: 'object'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-2019-format-malformed',
+				type: 'string',
+				format: 'email'
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-2019-format-malformed') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			const { textDoc, jsonDoc } = toDocument('"not-an-email"');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'A non-boolean $vocabulary value should not enable format assertion');
+		});
+
+		test('a non-boolean $vocabulary value still activates the vocabulary', async function () {
+			// The boolean records required vs optional; it is presence in $vocabulary that
+			// activates a vocabulary. A malformed value normalizes to false (optional) and
+			// must not drop the vocabulary, so its keywords stay enabled.
+			const metaschema = {
+				$id: 'http://test/metaschema-2019-validation-malformed',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/applicator': true,
+					'https://json-schema.org/draft/2019-09/vocab/validation': 'yes'
+				},
+				type: 'object'
+			};
+
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-2019-validation-malformed',
+				type: 'object',
+				properties: {
+					age: { minimum: 0 }
+				}
+			};
+
+			const schemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === 'http://test/metaschema-2019-validation-malformed') {
+					return JSON.stringify(metaschema);
+				}
+				return '{}';
+			};
+
+			const ls = getLanguageService({ schemaRequestService });
+
+			const { textDoc, jsonDoc } = toDocument('{ "age": -1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'validation keywords stay enabled when the vocabulary value is malformed');
+		});
+
 		test('no format vocabulary should not produce format errors', async function () {
 			const metaschema: JSONSchema = {
 				$id: 'http://test/metaschema-no-format',
@@ -4028,6 +4262,40 @@ suite('JSON Schema', () => {
 			assert.ok(validation.some(v => messageContains(v.message, 'string')), 'Expected type mismatch from the embedded schema');
 		});
 
+		test('schema whose root $id matches its own retrieval URI keeps resolve errors on repeated validation', async function () {
+			// Reproduces a self-registration bug: registerEmbeddedSchemas treats the root
+			// schema's own $id (equal to the URI it was fetched from) as an embedded schema
+			// to (re-)register, calling setSchemaContent on the handle currently being
+			// resolved. That clears the handle's cached resolved/unresolved schema using the
+			// same (still being mutated) object reference, so a *second* validation of a
+			// document using this schema would recompute from the already ref-merged object
+			// and silently lose the resolveErrors recorded on the first pass.
+			const wrapperUri = 'https://example.com/wrapper.json';
+			const externalUri = 'https://example.com/unreachable.json';
+			const wrapperSchema: JSONSchema = {
+				$id: wrapperUri,
+				type: 'object',
+				allOf: [
+					{ $ref: externalUri }
+				]
+			};
+			const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+				if (uri === wrapperUri) {
+					return JSON.stringify(wrapperSchema);
+				}
+				throw new Error(`Unreachable schema: ${uri}`);
+			};
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+
+			const { textDoc: textDoc1, jsonDoc: jsonDoc1 } = toDocument(JSON.stringify({ $schema: wrapperUri }));
+			const firstValidation = await ls.doValidation(textDoc1, jsonDoc1, {});
+			assert.ok(firstValidation.some(v => messageContains(v.message, 'Unreachable schema')), 'Expected a resolve error on the first validation');
+
+			const { textDoc: textDoc2, jsonDoc: jsonDoc2 } = toDocument(JSON.stringify({ $schema: wrapperUri, extra: true }));
+			const secondValidation = await ls.doValidation(textDoc2, jsonDoc2, {});
+			assert.ok(secondValidation.some(v => messageContains(v.message, 'Unreachable schema')), 'Expected the resolve error to persist on a later validation of the same schema handle');
+		});
+
 		test('nested embedded schema with $ref between embedded schemas', async function () {
 			// An embedded schema referencing another embedded schema within the same document
 			const schema: JSONSchema = {
@@ -4351,5 +4619,42 @@ suite('JSON Schema', () => {
 			const embeddedErrors = validation.filter(v => messageContains(v.message, 'example.com/embedded'));
 			assert.strictEqual(embeddedErrors.length, 0, `Should have no errors for embedded schema after reconfigure, but got: ${embeddedErrors.map(v => v.message).join('; ')}`);
 		});
+	});
+
+	test('untrusted schema error is reported', async function () {
+		const overlaySchemaUri = 'https://www.schemastore.org/openapi-overlay-1.X.json';
+		const openApiSpecUri1 = 'https://spec.openapis.org/overlay/1.0/schema/2026-04-01';
+		const openApiSpecUri2 = 'https://spec.openapis.org/overlay/1.1/schema/2026-04-01';
+
+		const fixturePath = path.join(__dirname, '../../../src/test/fixtures/openapi-overlay-1.X.json');
+		const overlaySchemaContent = (await fs.readFile(fixturePath)).toString();
+
+		const schemaRequestService: SchemaRequestService = async (uri: string) => {
+			if (uri === overlaySchemaUri) {
+				return overlaySchemaContent;
+			}
+			if (uri === openApiSpecUri1 || uri === openApiSpecUri2) {
+				throw new Error('Untrusted schema: access denied');
+			}
+			throw new Error(`Resource not found: ${uri}`);
+		};
+
+		const ls = getLanguageService({ workspaceContext, schemaRequestService });
+
+		const { textDoc, jsonDoc } = toDocument(
+			JSON.stringify({ $schema: overlaySchemaUri, overlay: '1.0.0' }),
+			undefined,
+			'file:///test.json'
+		);
+
+		const validation = await ls.doValidation(textDoc, jsonDoc);
+
+		// Should report the untrusted error, not missing overlay fields
+		const untrustedErrors = validation.filter(v => messageContains(v.message, 'Untrusted'));
+		assert.ok(untrustedErrors.length > 0, `Expected untrusted schema error but got: ${validation.map(v => v.message).join('; ')}`);
+
+		// Should not report "overlay is required"
+		const overlayRequiredErrors = validation.filter(v => messageContains(v.message, 'overlay is required'));
+		assert.strictEqual(overlayRequiredErrors.length, 0, 'Should not report missing properties when schema cannot be loaded due to untrusted error');
 	});
 });

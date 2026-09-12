@@ -1,6 +1,6 @@
 {
   "name": "vscode-json-languageservice",
-  "version": "6.0.0-next.3",
+  "version": "6.0.0-next.4",
   "description": "Language service for JSON",
   "type": "module",
   "types": "./lib/esm/jsonLanguageService.d.ts",
@@ -21,22 +21,19 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
-    "@typescript-eslint/eslint-plugin": "^8.63.0",
-    "@typescript-eslint/parser": "^8.63.0",
-    "eslint": "10.6.0",
-    "json-schema-test-suite": "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git#92acb61eb772a932c077d5ffa634ded719d2d738",
+    "json-schema-test-suite": "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git#f6fd52a",
     "rimraf": "^6.1.3",
     "typescript": "6.0.x"
   },
   "dependencies": {
     "@vscode/l10n": "^0.0.18",
     "jsonc-parser": "4.0.0-next.1",
-    "vscode-languageserver-textdocument": "^1.0.12",
-    "vscode-languageserver-types": "^3.18.0",
-    "vscode-uri": "^3.1.0"
+    "vscode-languageserver-textdocument": "^1.0.14",
+    "vscode-languageserver-types": "^3.18.3",
+    "vscode-uri": "^3.2.0"
   },
   "scripts": {
-    "prepack": "npm run clean && npm run compile && npm run test && npm run remove-sourcemap-refs",
+    "build-package": "npm run clean && npm run compile && npm run test && npm run remove-sourcemap-refs",
     "compile": "tsc -p ./src",
     "clean": "rimraf lib",
     "bundle-schemas": "node ./build/bundle-schemas.js",
@@ -46,7 +43,7 @@
     "test": "node --test ./lib/esm/test/*.test.js",
     "posttest": "npm run lint",
     "coverage": "npx nyc -r lcov npm run test",
-    "lint": "eslint src/**/*.ts",
+    "lint": "node --test ./build/lint.test.ts",
     "install-types-next": "npm install vscode-languageserver-types@next -f -S && npm install vscode-languageserver-textdocument@next -f -S",
     "sample": "npm run compile && node ./lib/esm/example/sample.js"
   }

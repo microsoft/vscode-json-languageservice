@@ -844,7 +844,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				value: Number(parts[1] + (parts[2] || '')),
 				multiplier: (parts[2]?.length || 0) - (parseInt(parts[3]) || 0)
 			};
-		};
+		}
 		if (isNumber(schema.multipleOf) && enabled('multipleOf')) {
 			let remainder: number = -1;
 			if (Number.isInteger(schema.multipleOf)) {

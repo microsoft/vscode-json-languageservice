@@ -299,4 +299,47 @@ suite('JSON Document Symbols', () => {
 		assertColorPresentations(colorFrom256RGB(77, 33, 111, 0.5), '#4d216f80');
 	});
 
+	test('Colors respects vocabulary gating on properties', async function () {
+		// The 2019-09+ $vocabulary mechanism lets a meta-schema disable whole
+		// keyword groups. Here the meta-schema declares only the core
+		// vocabulary, so `properties` (an applicator keyword) is disabled and
+		// findDocumentColors must not descend into "a"'s schema to pick up its
+		// format: 'color'.
+		const metaschemaUri = 'http://myschemastore/custom-vocab-meta';
+		const noApplicatorMetaschema = JSON.stringify({
+			$vocabulary: {
+				'https://json-schema.org/draft/2019-09/vocab/core': true
+			}
+		});
+		const localRequestService = function (uri: string): Promise<string> {
+			if (uri === metaschemaUri) {
+				return Promise.resolve(noApplicatorMetaschema);
+			}
+			return Promise.reject<string>('Resource not found');
+		};
+
+		const uri = 'test://test.json';
+		const schemaUri = 'http://myschemastore/vocab-gate-test';
+		const schema: JsonSchema.JSONSchema = {
+			$schema: metaschemaUri,
+			type: 'object',
+			properties: {
+				'a': {
+					type: 'string',
+					format: 'color'
+				}
+			}
+		};
+
+		const ls = getLanguageService({ schemaRequestService: localRequestService, clientCapabilities: ClientCapabilities.LATEST });
+		ls.configure({ schemas: [{ fileMatch: ['*.json'], uri: schemaUri, schema }] });
+
+		const content = '{ "a": "#FF00FF" }';
+		const document = TextDocument.create(uri, 'json', 0, content);
+		const jsonDoc = ls.parseJSONDocument(document);
+		const colorInfos = await ls.findDocumentColors(document, jsonDoc);
+
+		assert.deepEqual(colorInfos, []);
+	});
+
 });
