@@ -516,14 +516,16 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			return context.schemaDraft <= SchemaDraft.v7;
 		}
 
-		// Keywords introduced in 2019-09 (not available in draft-07 and earlier)
-		if (keywords201909.has(keyword)) {
-			return context.schemaDraft >= SchemaDraft.v2019_09;
+		// Keywords introduced in 2019-09 (not available in draft-07 and earlier).
+		// Being draft-appropriate is necessary but not sufficient: fall through
+		// so the vocabulary gate below can still switch the keyword off.
+		if (keywords201909.has(keyword) && context.schemaDraft < SchemaDraft.v2019_09) {
+			return false;
 		}
 
 		// 'prefixItems' was introduced in 2020-12
-		if (keyword === 'prefixItems') {
-			return context.schemaDraft >= SchemaDraft.v2020_12;
+		if (keyword === 'prefixItems' && context.schemaDraft < SchemaDraft.v2020_12) {
+			return false;
 		}
 
 		// Vocabulary-based filtering only applies for 2019-09+ (vocabulary is not a concept in older drafts)

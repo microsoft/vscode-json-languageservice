@@ -3127,6 +3127,59 @@ suite('JSON Schema', () => {
 			assert.strictEqual(validation.length, 0, 'Validation keywords should be ignored when validation vocabulary is not active');
 		});
 
+		test('a 2019-09-only keyword is gated by $vocabulary too', async function () {
+			// minContains belongs to the validation vocabulary. The draft check for
+			// keywords introduced in 2019-09 used to answer on its own, so the
+			// vocabulary gate never saw them.
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-no-validation-2',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/applicator': true
+					// validation vocabulary deliberately absent
+				}
+			};
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-no-validation-2',
+				type: 'array',
+				contains: { type: 'number' },
+				minContains: 2
+			};
+			const schemaRequestService = async (uri: string): Promise<string> =>
+				uri === 'http://test/metaschema-no-validation-2' ? JSON.stringify(metaschema) : '{}';
+
+			const ls = getLanguageService({ schemaRequestService });
+			const { textDoc, jsonDoc } = toDocument('[1]');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'minContains must be ignored when the validation vocabulary is absent');
+		});
+
+		test('unevaluatedProperties still applies under the 2019-09 applicator vocabulary', async function () {
+			// 2020-12 moved unevaluated* into its own vocabulary; under 2019-09 they
+			// belong to applicator. This is the regression guard for the test above.
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-applicator-2019',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/applicator': true,
+					'https://json-schema.org/draft/2019-09/vocab/validation': true
+				}
+			};
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-applicator-2019',
+				type: 'object',
+				properties: { a: { type: 'string' } },
+				unevaluatedProperties: false
+			};
+			const schemaRequestService = async (uri: string): Promise<string> =>
+				uri === 'http://test/metaschema-applicator-2019' ? JSON.stringify(metaschema) : '{}';
+
+			const ls = getLanguageService({ schemaRequestService });
+			const { textDoc, jsonDoc } = toDocument('{ "a": "x", "b": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'unevaluatedProperties must still be asserted under 2019-09 applicator');
+		});
+
 		test('meta-schema with validation vocabulary should process validation keywords', async function () {
 			// Custom meta-schema with validation vocabulary
 			const metaschema: JSONSchema = {
