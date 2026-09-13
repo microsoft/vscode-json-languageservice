@@ -141,7 +141,6 @@ class SchemaHandle implements ISchemaHandle {
 
 	public readonly uri: string;
 	public readonly dependencies: SchemaDependencies;
-	public anchors: Map<string, JSONSchema> | undefined;
 	private resolvedSchema: PromiseLike<ResolvedSchema> | undefined;
 	private unresolvedSchema: PromiseLike<UnresolvedSchema> | undefined;
 	private readonly service: JSONSchemaService;
@@ -150,7 +149,6 @@ class SchemaHandle implements ISchemaHandle {
 		this.service = service;
 		this.uri = uri;
 		this.dependencies = new Set();
-		this.anchors = undefined;
 		if (unresolvedSchemaContent) {
 			this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(unresolvedSchemaContent));
 		}
@@ -177,14 +175,12 @@ class SchemaHandle implements ISchemaHandle {
 		this.resolvedSchema = undefined;
 		this.unresolvedSchema = undefined;
 		this.dependencies.clear();
-		this.anchors = undefined;
 		return hasChanges;
 	}
 
 	public setSchemaContent(schemaContent: JSONSchema): void {
 		this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(schemaContent));
 		this.resolvedSchema = undefined;
-		this.anchors = undefined;
 	}
 }
 
@@ -504,7 +500,20 @@ export class JSONSchemaService implements IJSONSchemaService {
 	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, handle: SchemaHandle): PromiseLike<ResolvedSchema> {
 
 		const resolveErrors: SchemaDiagnostic[] = schemaToResolve.errors.slice(0);
-		const schema = schemaToResolve.schema;
+		const schema = copySchema(schemaToResolve.schema);
+		const anchors = new Map<JSONSchema, Map<string, JSONSchema>>();
+		const unresolvedSchemas = new Map<SchemaHandle, PromiseLike<UnresolvedSchema>>([
+			[handle, this.promise.resolve(new UnresolvedSchema(schema, schemaToResolve.errors))]
+		]);
+		// Share downloads, but keep the graph mutated by reference resolution local to this pass.
+		const getUnresolvedSchema = (schemaHandle: SchemaHandle): PromiseLike<UnresolvedSchema> => {
+			let unresolved = unresolvedSchemas.get(schemaHandle);
+			if (!unresolved) {
+				unresolved = schemaHandle.getUnresolvedSchema().then(content => new UnresolvedSchema(copySchema(content.schema), content.errors));
+				unresolvedSchemas.set(schemaHandle, unresolved);
+			}
+			return unresolved;
+		};
 
 		// External documents whose embedded $id resources have already been registered
 		// as resolvable handles, so we only do it once per referenced document.
@@ -608,11 +617,13 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return { section: current, baseHandle: currentBaseHandle };
 		};
 
-		const findSchemaById = (schema: JSONSchema, handle: SchemaHandle, id: string) => {
-			if (!handle.anchors) {
-				handle.anchors = collectAnchors(schema);
+		const findSchemaById = (schema: JSONSchema, id: string) => {
+			let schemaAnchors = anchors.get(schema);
+			if (!schemaAnchors) {
+				schemaAnchors = collectAnchors(schema);
+				anchors.set(schema, schemaAnchors);
 			}
-			return handle.anchors.get(id);
+			return schemaAnchors.get(id);
 		};
 
 		const getSchemaId = (schema: JSONSchema): string | undefined => schema.$id || schema.id || (schema as MergedJSONSchema).$originalId;
@@ -799,7 +810,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				({ section, baseHandle: sectionBaseHandle } = findSectionAndBase(sourceRoot, refSegment, sourceHandle));
 			} else {
 				// A $ref to a sub-schema with an $id (i.e #hello)
-				section = findSchemaById(sourceRoot, sourceHandle, refSegment);
+				section = findSchemaById(sourceRoot, refSegment);
 			}
 			// A boolean is a valid JSON Schema: `true` accepts everything ({}) and
 			// `false` rejects everything ({ not: {} }). Normalize so it merges like any
@@ -899,7 +910,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const resolveExternalLink = (node: JSONSchema, uri: string, refSegment: string | undefined, parentHandle: SchemaHandle, continuationBase?: JSONSchema, continuationHandle?: SchemaHandle, followedRedirects = new Set<string>()): PromiseLike<any> => {
 			const referencedHandle = getExternalSchemaHandle(uri, parentHandle);
 			uri = referencedHandle.uri;
-			return referencedHandle.getUnresolvedSchema().then(unresolvedSchema => {
+			return getUnresolvedSchema(referencedHandle).then(unresolvedSchema => {
 				parentHandle.dependencies.add(uri);
 				const rootRef = unresolvedSchema.schema.$ref;
 				const alreadyFollowed = followedRedirects.has(uri);
@@ -1269,17 +1280,18 @@ export class JSONSchemaService implements IJSONSchemaService {
 					}
 					const existingHandle = this.schemasById[resolvedUri];
 					if (!existingHandle) {
-						this.addSchemaHandle(resolvedUri, node);
+						this.addSchemaHandle(resolvedUri, copySchema(node));
 					} else if (existingHandle !== handle) {
 						// Update existing handle with embedded schema content.
 						// This ensures embedded schemas take precedence over external schemas.
 						// Skip when the existing handle is the handle currently being resolved
 						// (i.e. the root schema's own $id matches its retrieval URI): overwriting
-						// it here would reset its cache mid-resolution using the same object
-						// reference that this resolution pass is still mutating (merging $refs
-						// into), silently discarding any resolveErrors accumulated so far on the
-						// next time this handle is resolved.
-						existingHandle.setSchemaContent(node);
+						// it here would reset its cache mid-resolution and discard load errors.
+						existingHandle.setSchemaContent(copySchema(node));
+					}
+					// Embedded resources must refer to the same local nodes as their containing document.
+					if (this.schemasById[resolvedUri] !== handle) {
+						unresolvedSchemas.set(this.schemasById[resolvedUri], this.promise.resolve(new UnresolvedSchema(node)));
 					}
 					newBaseUri = resolvedUri;
 				}
@@ -1299,7 +1311,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		// Collect anchors eagerly before $ref resolution mutates the schema.
 		// resolveRefs merges referenced nodes (including $anchor) into $ref targets,
 		// so a lazy collectAnchors call could see duplicates from merged copies.
-		handle.anchors = collectAnchors(schema);
+		anchors.set(schema, collectAnchors(schema));
 
 		// Collect $dynamicAnchor maps eagerly too, for the same reason: resource
 		// boundaries must be read before $ref resolution flattens them.
@@ -1451,4 +1463,28 @@ function toDisplayString(url: string) {
 		// ignore
 	}
 	return url;
+}
+
+// Preserve shared nodes and cycles within one copy, without sharing mutable JSON data across resolutions.
+function copySchema(schema: JSONSchema): JSONSchema {
+	const copies = new Map<object, any>();
+	const copy = (value: any): any => {
+		if (!value || typeof value !== 'object') {
+			return value;
+		}
+		const prototype = Object.getPrototypeOf(value);
+		if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
+			return value;
+		}
+		if (copies.has(value)) {
+			return copies.get(value);
+		}
+		const result: any = Array.isArray(value) ? value.slice() : { ...value };
+		copies.set(value, result);
+		for (const key of Object.keys(result)) {
+			result[key] = copy(result[key]);
+		}
+		return result;
+	};
+	return copy(schema);
 }
