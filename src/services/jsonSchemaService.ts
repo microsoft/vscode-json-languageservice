@@ -8,7 +8,7 @@ import { JSONSchema, JSONSchemaRef, MergedJSONSchema, DynamicRefInfo, AnchorMaps
 import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings.js';
 import { asSchema, getSchemaDraftFromId, JSONDocument, normalizeId } from '../parser/jsonParser.js';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies } from '../jsonLanguageTypes.js';
+import { SchemaRequestService, WorkspaceContextService, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies } from '../jsonLanguageTypes.js';
 
 import * as l10n from '@vscode/l10n';
 import { createRegex } from '../utils/glob.js';
@@ -152,7 +152,7 @@ class SchemaHandle implements ISchemaHandle {
 		this.dependencies = new Set();
 		this.anchors = undefined;
 		if (unresolvedSchemaContent) {
-			this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(unresolvedSchemaContent));
+			this.unresolvedSchema = Promise.resolve(new UnresolvedSchema(unresolvedSchemaContent));
 		}
 	}
 
@@ -182,7 +182,7 @@ class SchemaHandle implements ISchemaHandle {
 	}
 
 	public setSchemaContent(schemaContent: JSONSchema): void {
-		this.unresolvedSchema = this.service.promise.resolve(new UnresolvedSchema(schemaContent));
+		this.unresolvedSchema = Promise.resolve(new UnresolvedSchema(schemaContent));
 		this.resolvedSchema = undefined;
 		this.anchors = undefined;
 	}
@@ -276,7 +276,6 @@ export class JSONSchemaService implements IJSONSchemaService {
 	private contextService: WorkspaceContextService | undefined;
 	private callOnDispose: Function[];
 	private requestService: SchemaRequestService | undefined;
-	private promiseConstructor: PromiseConstructor;
 
 	private static traverseSchemaProperties(node: JSONSchema, callback: (schema: JSONSchema) => void): void {
 		// `$defs`/`definitions` are visited first so that a reusable resource they
@@ -325,10 +324,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	private cachedSchemaForResource: { resource: string; resolvedSchema: PromiseLike<ResolvedSchema | undefined> } | undefined;
 
-	constructor(requestService?: SchemaRequestService, contextService?: WorkspaceContextService, promiseConstructor?: PromiseConstructor) {
+	constructor(requestService?: SchemaRequestService, contextService?: WorkspaceContextService) {
 		this.contextService = contextService;
 		this.requestService = requestService;
-		this.promiseConstructor = promiseConstructor || Promise;
 		this.callOnDispose = [];
 
 		this.contributionSchemas = {};
@@ -343,10 +341,6 @@ export class JSONSchemaService implements IJSONSchemaService {
 			const scheme = URI.parse(id).scheme;
 			return scheme !== 'schemaservice' && (!filter || filter(scheme));
 		});
-	}
-
-	public get promise() {
-		return this.promiseConstructor;
 	}
 
 	public dispose(): void {
@@ -449,13 +443,13 @@ export class JSONSchemaService implements IJSONSchemaService {
 		if (schemaHandle) {
 			return schemaHandle.getResolvedSchema();
 		}
-		return this.promise.resolve(undefined);
+		return Promise.resolve(undefined);
 	}
 
 	public loadSchema(url: string): PromiseLike<UnresolvedSchema> {
 		if (!this.requestService) {
 			const errorMessage = l10n.t('Unable to load schema from \'{0}\'. No schema request service available', toDisplayString(url));
-			return this.promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, ErrorCode.SchemaResolveError, url)]));
+			return Promise.resolve(new UnresolvedSchema(<JSONSchema>{}, [toDiagnostic(errorMessage, ErrorCode.SchemaResolveError, url)]));
 		}
 		return this.requestService(url).then(
 			content => {
@@ -513,7 +507,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const schemaDraft = schema.$schema ? getSchemaDraftFromId(schema.$schema) : undefined;
 		if (schemaDraft === SchemaDraft.v3) {
-			return this.promise.resolve(new ResolvedSchema({}, [toDiagnostic(l10n.t("Draft-03 schemas are not supported."), ErrorCode.SchemaUnsupportedFeature)], [], schemaDraft, undefined));
+			return Promise.resolve(new ResolvedSchema({}, [toDiagnostic(l10n.t("Draft-03 schemas are not supported."), ErrorCode.SchemaUnsupportedFeature)], [], schemaDraft, undefined));
 		}
 
 		let activeVocabularies: Vocabularies | undefined = undefined;
@@ -1047,7 +1041,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			// for resolving fragment refs (#...) in its descendants
 			const traverseWithBaseTracking = (schema: JSONSchema, currentBase: JSONSchema, currentBaseHandle: SchemaHandle, isRoot: boolean, seen: Set<JSONSchema>): PromiseLike<void> => {
 				if (!schema || typeof schema !== 'object' || seen.has(schema)) {
-					return this.promise.resolve(undefined);
+					return Promise.resolve(undefined);
 				}
 				seen.add(schema);
 
@@ -1108,7 +1102,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				// Apply child schemas in keyword order so references never observe
 				// partially resolved state from an earlier schema.
 				const traverseChildren = (): PromiseLike<void> => {
-					let result: PromiseLike<void> = this.promise.resolve(undefined);
+					let result: PromiseLike<void> = Promise.resolve(undefined);
 					JSONSchemaService.traverseSchemaProperties(schema, childSchema => {
 						result = result.then(() => traverseWithBaseTracking(childSchema, newBase, newBaseHandle, false, seen));
 					});
@@ -1308,7 +1302,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		// Resolve meta-schema to extract vocabularies if present
 		const resolveMetaschemaVocabularies = (): PromiseLike<void> => {
 			if (!schema.$schema || typeof schema.$schema !== 'string') {
-				return this.promise.resolve(undefined);
+				return Promise.resolve(undefined);
 			}
 
 			let metaschemaUri = schema.$schema;
@@ -1395,7 +1389,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return this.cachedSchemaForResource.resolvedSchema;
 		}
 		const schemas = this.getAssociatedSchemas(resource);
-		const resolvedSchema = schemas.length > 0 ? this.createCombinedSchema(resource, schemas).getResolvedSchema() : this.promise.resolve(undefined);
+		const resolvedSchema = schemas.length > 0 ? this.createCombinedSchema(resource, schemas).getResolvedSchema() : Promise.resolve(undefined);
 		this.cachedSchemaForResource = { resource, resolvedSchema };
 		return resolvedSchema;
 	}

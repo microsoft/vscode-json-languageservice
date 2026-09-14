@@ -59,15 +59,13 @@ export interface LanguageService {
 
 
 export function getLanguageService(params: LanguageServiceParams): LanguageService {
-	const promise = params.promiseConstructor || Promise;
-
-	const jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext, promise);
+	const jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext);
 	jsonSchemaService.setSchemaContributions(schemaContributions);
 
-	const jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise, params.clientCapabilities);
-	const jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
+	const jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, params.clientCapabilities);
+	const jsonHover = new JSONHover(jsonSchemaService, params.contributions);
 	const jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
-	const jsonValidation = new JSONValidation(jsonSchemaService, promise);
+	const jsonValidation = new JSONValidation(jsonSchemaService);
 
 	return {
 		configure: (settings: LanguageSettings) => {

@@ -6,18 +6,16 @@
 import * as Parser from '../parser/jsonParser.js';
 import * as SchemaService from './jsonSchemaService.js';
 import { JSONWorkerContribution } from '../jsonContributions.js';
-import { TextDocument, PromiseConstructor, Position, Range, Hover, MarkedString } from '../jsonLanguageTypes.js';
+import { TextDocument, Position, Range, Hover, MarkedString } from '../jsonLanguageTypes.js';
 
 export class JSONHover {
 
 	private schemaService: SchemaService.IJSONSchemaService;
 	private contributions: JSONWorkerContribution[];
-	private promise: PromiseConstructor;
 
-	constructor(schemaService: SchemaService.IJSONSchemaService, contributions: JSONWorkerContribution[] = [], promiseConstructor: PromiseConstructor) {
+	constructor(schemaService: SchemaService.IJSONSchemaService, contributions: JSONWorkerContribution[] = []) {
 		this.schemaService = schemaService;
 		this.contributions = contributions;
-		this.promise = promiseConstructor || Promise;
 	}
 
 	public doHover(document: TextDocument, position: Position, doc: Parser.JSONDocument): PromiseLike<Hover | null> {
@@ -25,7 +23,7 @@ export class JSONHover {
 		const offset = document.offsetAt(position);
 		let node = doc.getNodeFromOffset(offset);
 		if (!node || (node.type === 'object' || node.type === 'array') && offset > node.offset + 1 && offset < node.offset + node.length - 1) {
-			return this.promise.resolve(null);
+			return Promise.resolve(null);
 		}
 		const hoverRangeNode = node;
 
@@ -35,7 +33,7 @@ export class JSONHover {
 			if (parent && parent.type === 'property' && parent.keyNode === node) {
 				node = parent.valueNode;
 				if (!node) {
-					return this.promise.resolve(null);
+					return Promise.resolve(null);
 				}
 			}
 		}

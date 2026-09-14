@@ -1,3 +1,7 @@
+6.0.0-next.5 / 2026-09-14
+================
+- Breaking: remove `LanguageServiceParams.promiseConstructor`; the language service now uses the native `Promise`.
+
 6.0.0-next.2 / 2026-07-11
 ================
 - Support $dynamicRef / $dynamicAnchor (JSON Schema 2020-12)

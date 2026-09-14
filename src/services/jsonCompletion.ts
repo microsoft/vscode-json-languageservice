@@ -12,7 +12,6 @@ import { stringifyObject } from '../utils/json.js';
 import { endsWith, extendedRegExp } from '../utils/strings.js';
 import { isDefined } from '../utils/objects.js';
 import {
-	PromiseConstructor,
 	ASTNode, ObjectASTNode, ArrayASTNode, PropertyASTNode, ClientCapabilities,
 	TextDocument,
 	CompletionItem, CompletionItemKind, CompletionList, Position, Range, TextEdit, InsertTextFormat, MarkupContent, MarkupKind
@@ -32,7 +31,6 @@ export class JSONCompletion {
 	constructor(
 		private schemaService: SchemaService.IJSONSchemaService,
 		private contributions: JSONWorkerContribution[] = [],
-		private promiseConstructor: PromiseConstructor = Promise,
 		private clientCapabilities: ClientCapabilities = {}) {
 	}
 
@@ -46,7 +44,7 @@ export class JSONCompletion {
 				}
 			}
 		}
-		return this.promiseConstructor.resolve(item);
+		return Promise.resolve(item);
 	}
 
 	public doComplete(document: TextDocument, position: Position, doc: Parser.JSONDocument): PromiseLike<CompletionList> {
@@ -208,7 +206,7 @@ export class JSONCompletion {
 				this.getContributedValueCompletions(doc, node, offset, document, collector, collectionPromises);
 			}
 
-			return this.promiseConstructor.all(collectionPromises).then(() => {
+			return Promise.all(collectionPromises).then(() => {
 				if (collector.getNumberOfProposals() === 0) {
 					let offsetForSeparator = offset;
 					if (node && (node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'null')) {

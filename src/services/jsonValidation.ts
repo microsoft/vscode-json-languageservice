@@ -6,7 +6,7 @@
 import { JSONSchemaService, ResolvedSchema } from './jsonSchemaService.js';
 import { JSONDocument } from '../parser/jsonParser.js';
 
-import { TextDocument, ErrorCode, PromiseConstructor, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range, JSONLanguageStatus } from '../jsonLanguageTypes.js';
+import { TextDocument, ErrorCode, LanguageSettings, DocumentLanguageSettings, SeverityLevel, Diagnostic, DiagnosticSeverity, Range, JSONLanguageStatus } from '../jsonLanguageTypes.js';
 import * as l10n from '@vscode/l10n';
 import { JSONSchemaRef, JSONSchema } from '../jsonSchema.js';
 import { isBoolean } from '../utils/objects.js';
@@ -15,14 +15,12 @@ import { DiagnosticRelatedInformation } from 'vscode-languageserver-types';
 export class JSONValidation {
 
 	private jsonSchemaService: JSONSchemaService;
-	private promise: PromiseConstructor;
 
 	private validationEnabled: boolean | undefined;
 	private commentSeverity: DiagnosticSeverity | undefined;
 
-	public constructor(jsonSchemaService: JSONSchemaService, promiseConstructor: PromiseConstructor) {
+	public constructor(jsonSchemaService: JSONSchemaService) {
 		this.jsonSchemaService = jsonSchemaService;
-		this.promise = promiseConstructor;
 		this.validationEnabled = true;
 	}
 
@@ -35,7 +33,7 @@ export class JSONValidation {
 
 	public doValidation(textDocument: TextDocument, jsonDocument: JSONDocument, documentSettings?: DocumentLanguageSettings, schema?: JSONSchema): PromiseLike<Diagnostic[]> {
 		if (!this.validationEnabled) {
-			return this.promise.resolve([]);
+			return Promise.resolve([]);
 		}
 		const diagnostics: Diagnostic[] = [];
 		const added: { [signature: string]: boolean } = {};
