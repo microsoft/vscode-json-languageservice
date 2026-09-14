@@ -67,6 +67,39 @@ const vocabularyKeywords: { [uri: string]: string[] } = {
 	]
 };
 
+function buildVocabulariesByKeyword(): Map<string, Set<string>> {
+	const byKeyword = new Map<string, Set<string>>();
+	for (const [vocabUri, keywords] of Object.entries(vocabularyKeywords)) {
+		for (const keyword of keywords) {
+			let definingVocabularies = byKeyword.get(keyword);
+			if (!definingVocabularies) {
+				definingVocabularies = new Set<string>();
+				byKeyword.set(keyword, definingVocabularies);
+			}
+			definingVocabularies.add(vocabUri);
+		}
+	}
+	return byKeyword;
+}
+
+/*
+ * Reverse index of `vocabularyKeywords`: for each keyword, the vocabulary URIs
+ * that define it. Several keywords are defined by more than one vocabulary -
+ * `format` belongs to the 2019-09 format vocabulary and to both the 2020-12
+ * format-annotation and format-assertion vocabularies - so each entry holds a
+ * set of URIs rather than a single one.
+ *
+ * Built once, so that checking a keyword is a lookup rather than a scan over
+ * every vocabulary and its keyword list.
+ */
+const vocabulariesByKeyword = buildVocabulariesByKeyword();
+
+/*
+ * Keywords of the core vocabularies, which are always enabled regardless of
+ * which vocabularies are active.
+ */
+const coreKeywords = new Set([...vocabularyKeywords[CORE_201909], ...vocabularyKeywords[CORE_202012]]);
+
 /*
  * Checks if a keyword is enabled based on the active vocabularies.
  * If no vocabulary constraints are present, all keywords are enabled.
@@ -85,21 +118,22 @@ export function isKeywordEnabled(
 		return true;
 	}
 
-	// Check if this keyword belongs to any active vocabulary
-	for (const [vocabUri, keywords] of Object.entries(vocabularyKeywords)) {
-		if (keywords.includes(keyword) && activeVocabularies.has(vocabUri)) {
-			return true;
-		}
-	}
-
-	// Core keywords are always enabled per JSON Schema spec.
-	// Check both 2019-09 and 2020-12 core vocabularies.
-	if (vocabularyKeywords[CORE_201909].includes(keyword) ||
-		vocabularyKeywords[CORE_202012].includes(keyword)) {
+	// Core keywords are always enabled per JSON Schema spec
+	if (coreKeywords.has(keyword)) {
 		return true;
 	}
 
-	// Keyword not found in any vocabulary - disable it
+	// Otherwise the keyword is enabled if any vocabulary defining it is active
+	const definingVocabularies = vocabulariesByKeyword.get(keyword);
+	if (definingVocabularies) {
+		for (const vocabUri of definingVocabularies) {
+			if (activeVocabularies.has(vocabUri)) {
+				return true;
+			}
+		}
+	}
+
+	// Keyword not defined by any active vocabulary - disable it
 	return false;
 }
 
