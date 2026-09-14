@@ -1403,6 +1403,123 @@ suite('JSON Schema', () => {
 		assert.strictEqual(section?.description, 'Meaning of Life');
 	});
 
+	test('Fallback schema provider', async function () {
+		const resource = 'file:///workspace/test.json';
+		const schemaUri = 'https://myschemastore/fallback';
+		const accesses: string[] = [];
+		const fallbackRequests: string[] = [];
+		const schemaRequestService = newMockRequestService({
+			[schemaUri]: {
+				type: 'object',
+				properties: {
+					value: {
+						type: 'string'
+					}
+				}
+			}
+		}, accesses);
+		const ls = getLanguageService({
+			schemaRequestService,
+			fallbackSchemaProvider: uri => {
+				fallbackRequests.push(uri);
+				return [schemaUri];
+			}
+		});
+		const { textDoc, jsonDoc } = toDocument('{"value": 1}', undefined, resource);
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.deepStrictEqual(fallbackRequests, [resource]);
+		assert.deepStrictEqual(accesses, [schemaUri]);
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'Incorrect type');
+		assert.deepStrictEqual(ls.getLanguageStatus(textDoc, jsonDoc).schemas, [schemaUri]);
+	});
+
+	test('Schema association takes precedence over fallback schema provider', async function () {
+		const associatedSchemaUri = 'https://myschemastore/associated';
+		let fallbackRequested = false;
+		const ls = getLanguageService({
+			schemaRequestService: newMockRequestService(),
+			fallbackSchemaProvider: () => {
+				fallbackRequested = true;
+				return ['https://myschemastore/fallback'];
+			}
+		});
+		ls.configure({
+			schemas: [{
+				uri: associatedSchemaUri,
+				fileMatch: ['*.json'],
+				schema: {
+					type: 'object',
+					properties: {
+						value: {
+							type: 'string'
+						}
+					}
+				}
+			}]
+		});
+		const { textDoc, jsonDoc } = toDocument('{"value": 1}');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(fallbackRequested, false);
+		assert.strictEqual(diagnostics.length, 1);
+		assert.deepStrictEqual(ls.getLanguageStatus(textDoc, jsonDoc).schemas, [associatedSchemaUri]);
+	});
+
+	test('Fallback schema provider can return undefined', async function () {
+		const resource = 'file:///workspace/test.json';
+		const accesses: string[] = [];
+		const ls = getLanguageService({
+			schemaRequestService: newMockRequestService({}, accesses),
+			fallbackSchemaProvider: () => undefined
+		});
+		const { textDoc, jsonDoc } = toDocument('{}', undefined, resource);
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.deepStrictEqual(diagnostics, []);
+		assert.deepStrictEqual(accesses, []);
+		assert.deepStrictEqual(ls.getLanguageStatus(textDoc, jsonDoc).schemas, []);
+	});
+
+	test('Fallback schema provider can return multiple schemas', async function () {
+		const resource = 'file:///workspace/test.json';
+		const firstSchemaUri = 'https://myschemastore/fallback/first';
+		const secondSchemaUri = 'https://myschemastore/fallback/second';
+		const accesses: string[] = [];
+		const ls = getLanguageService({
+			schemaRequestService: newMockRequestService({
+				[firstSchemaUri]: {
+					type: 'object',
+					properties: {
+						first: {
+							type: 'string'
+						}
+					}
+				},
+				[secondSchemaUri]: {
+					type: 'object',
+					properties: {
+						second: {
+							type: 'number'
+						}
+					}
+				}
+			}, accesses),
+			fallbackSchemaProvider: () => [firstSchemaUri, secondSchemaUri]
+		});
+		const { textDoc, jsonDoc } = toDocument('{"first": 1, "second": "value"}', undefined, resource);
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.deepStrictEqual(accesses, [firstSchemaUri, secondSchemaUri]);
+		assert.strictEqual(diagnostics.length, 2);
+		assert.deepStrictEqual(ls.getLanguageStatus(textDoc, jsonDoc).schemas, [firstSchemaUri, secondSchemaUri]);
+	});
+
 
 	test('Resolving in-line $refs', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);

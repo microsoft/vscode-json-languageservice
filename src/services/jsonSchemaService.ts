@@ -8,7 +8,7 @@ import { JSONSchema, JSONSchemaRef, MergedJSONSchema, DynamicRefInfo, AnchorMaps
 import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings.js';
 import { asSchema, getSchemaDraftFromId, JSONDocument, normalizeId } from '../parser/jsonParser.js';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies } from '../jsonLanguageTypes.js';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies, FallbackSchemaProvider } from '../jsonLanguageTypes.js';
 
 import * as l10n from '@vscode/l10n';
 import { createRegex } from '../utils/glob.js';
@@ -277,6 +277,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 	private callOnDispose: Function[];
 	private requestService: SchemaRequestService | undefined;
 	private promiseConstructor: PromiseConstructor;
+	private fallbackSchemaProvider: FallbackSchemaProvider | undefined;
 
 	private static traverseSchemaProperties(node: JSONSchema, callback: (schema: JSONSchema) => void): void {
 		// `$defs`/`definitions` are visited first so that a reusable resource they
@@ -325,10 +326,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	private cachedSchemaForResource: { resource: string; resolvedSchema: PromiseLike<ResolvedSchema | undefined> } | undefined;
 
-	constructor(requestService?: SchemaRequestService, contextService?: WorkspaceContextService, promiseConstructor?: PromiseConstructor) {
+	constructor(requestService?: SchemaRequestService, contextService?: WorkspaceContextService, promiseConstructor?: PromiseConstructor, fallbackSchemaProvider?: FallbackSchemaProvider) {
 		this.contextService = contextService;
 		this.requestService = requestService;
 		this.promiseConstructor = promiseConstructor || Promise;
+		this.fallbackSchemaProvider = fallbackSchemaProvider;
 		this.callOnDispose = [];
 
 		this.contributionSchemas = {};
@@ -1374,12 +1376,23 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return schemas;
 	}
 
+	private getSchemaURIsForResourceImpl(resource: string): string[] {
+		const schemas = this.getAssociatedSchemas(resource);
+		if (schemas.length === 0) {
+			const fallbackSchemas = this.fallbackSchemaProvider?.(resource);
+			if (fallbackSchemas) {
+				schemas.push(...fallbackSchemas.map(normalizeId));
+			}
+		}
+		return schemas;
+	}
+
 	public getSchemaURIsForResource(resource: string, document?: JSONDocument): string[] {
 		let schemeId = document && this.getSchemaFromProperty(resource, document);
 		if (schemeId) {
 			return [schemeId];
 		}
-		return this.getAssociatedSchemas(resource);
+		return this.getSchemaURIsForResourceImpl(resource);
 	}
 
 	public getSchemaForResource(resource: string, document?: JSONDocument): PromiseLike<ResolvedSchema | undefined> {
@@ -1394,7 +1407,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
 			return this.cachedSchemaForResource.resolvedSchema;
 		}
-		const schemas = this.getAssociatedSchemas(resource);
+		const schemas = this.getSchemaURIsForResourceImpl(resource);
 		const resolvedSchema = schemas.length > 0 ? this.createCombinedSchema(resource, schemas).getResolvedSchema() : this.promise.resolve(undefined);
 		this.cachedSchemaForResource = { resource, resolvedSchema };
 		return resolvedSchema;
