@@ -154,6 +154,112 @@ suite('JSON Schema', () => {
 		assert.ok(secondRequestedBeforeFirstResolved, 'Expected sibling external schemas to be requested concurrently');
 	});
 
+	suite('Concurrent schema resolution', () => {
+		for (const referenceKind of ['document', 'standalone', 'anchor', 'embedded']) {
+			for (const failNestedRequest of [false, true]) {
+				test(`${referenceKind} references wait for nested ${failNestedRequest ? 'failure' : 'completion'}`, async function () {
+					const sharedUri = 'https://example.com/shared.json';
+					const nestedUri = 'https://example.com/nested.json';
+					const embeddedUri = 'https://example.com/embedded.json';
+					const payload: JSONSchema = { type: 'object', properties: { value: { $ref: nestedUri } } };
+					let sharedSchema = payload;
+					let reference = sharedUri;
+					if (referenceKind === 'anchor' || referenceKind === 'embedded') {
+						sharedSchema = { $defs: { payload } };
+						if (referenceKind === 'anchor') {
+							payload.$anchor = 'payload';
+							reference += '#payload';
+						} else {
+							payload.$id = embeddedUri;
+							reference += '#/$defs/payload';
+						}
+					}
+					let finishNested!: (value: string) => void;
+					let failNested!: (reason: Error) => void;
+					let signalNested!: () => void;
+					const nestedRequested = new Promise<void>(resolve => signalNested = resolve);
+					const requests: string[] = [];
+					const service = new SchemaService.JSONSchemaService(uri => {
+						requests.push(uri);
+						if (uri === sharedUri) {
+							return Promise.resolve(JSON.stringify(sharedSchema));
+						}
+						assert.strictEqual(uri, nestedUri);
+						signalNested();
+						return new Promise<string>((resolve, reject) => {
+							finishNested = resolve;
+							failNested = reject;
+						});
+					}, workspaceContext);
+					const firstHandle = service.registerExternalSchema(referenceKind === 'standalone'
+						? { uri: sharedUri }
+						: { uri: 'https://example.com/first.json', schema: { $ref: reference } });
+					const secondHandle = service.registerExternalSchema({ uri: 'https://example.com/second.json', schema: { $ref: referenceKind === 'embedded' ? embeddedUri : reference } });
+					const first = firstHandle.getResolvedSchema();
+					await nestedRequested;
+					let secondResolved = false;
+					const second = secondHandle.getResolvedSchema().then(result => {
+						secondResolved = true;
+						return result;
+					});
+					// Drain promise callbacks while the nested request is explicitly held open.
+					await new Promise<void>(resolve => setImmediate(resolve));
+					const resolvedEarly = secondResolved;
+					if (failNestedRequest) {
+						failNested(new Error('nested schema unavailable'));
+					} else {
+						finishNested(JSON.stringify({ type: 'string' }));
+					}
+					const results = await Promise.all([first, second]);
+					assert.strictEqual(resolvedEarly, false, 'Every root must wait for its nested reference');
+					assert.deepStrictEqual(requests, [sharedUri, nestedUri], 'Downloads should remain cached across roots');
+					for (const result of results) {
+						if (failNestedRequest) {
+							assert.strictEqual(result.errors.length, 1);
+							assertInMessage(result.errors[0].message, 'nested schema unavailable');
+						} else {
+							assert.deepStrictEqual(result.errors, []);
+							assert.strictEqual((result.schema.properties?.value as JSONSchema).type, 'string');
+						}
+					}
+				});
+			}
+		}
+
+		test('invalidation refreshes nested references without changing settled results', async function () {
+			const sharedUri = 'https://example.com/shared.json';
+			const nestedUri = 'https://example.com/nested.json';
+			const rootUri = 'https://example.com/root.json';
+			const requests: string[] = [];
+			let nestedType = 'string';
+			const service = new SchemaService.JSONSchemaService(uri => {
+				if (uri === rootUri) {
+					return Promise.resolve(JSON.stringify({ $ref: sharedUri }));
+				}
+				requests.push(uri);
+				assert.ok(uri === sharedUri || uri === nestedUri);
+				return Promise.resolve(JSON.stringify(uri === sharedUri
+					? { type: 'object', properties: { value: { $ref: nestedUri }, next: { $ref: sharedUri } } }
+					: { type: nestedType }));
+			}, workspaceContext);
+			const root = service.registerExternalSchema({ uri: rootUri });
+			const first = await root.getResolvedSchema();
+			assert.deepStrictEqual(first.errors, []);
+			assert.strictEqual((first.schema.properties?.value as JSONSchema).type, 'string');
+			assert.strictEqual(((first.schema.properties?.next as JSONSchema).properties?.value as JSONSchema).type, 'string');
+			nestedType = 'number';
+			assert.ok(service.onResourceChange(nestedUri));
+			const second = await root.getResolvedSchema();
+			assert.ok(second);
+			assert.deepStrictEqual(second.errors, []);
+			assert.strictEqual((second.schema.properties?.value as JSONSchema).type, 'number');
+			assert.strictEqual(((second.schema.properties?.next as JSONSchema).properties?.value as JSONSchema).type, 'number');
+			assert.strictEqual((first.schema.properties?.value as JSONSchema).type, 'string');
+			assert.strictEqual(((first.schema.properties?.next as JSONSchema).properties?.value as JSONSchema).type, 'string');
+			assert.deepStrictEqual(requests, [sharedUri, nestedUri, sharedUri, nestedUri]);
+		});
+	});
+
 	test('Resolving $refs', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({
