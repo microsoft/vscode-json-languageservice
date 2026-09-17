@@ -31,6 +31,18 @@ const formats = {
 	'ipv6': { errorMessage: l10n.t('String is not an IPv6 address.'), pattern: /^((([0-9a-f]{1,4}:){7}([0-9a-f]{1,4}|:))|(([0-9a-f]{1,4}:){6}(:[0-9a-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){5}(((:[0-9a-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){4}(((:[0-9a-f]{1,4}){1,3})|((:[0-9a-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){3}(((:[0-9a-f]{1,4}){1,4})|((:[0-9a-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){2}(((:[0-9a-f]{1,4}){1,5})|((:[0-9a-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){1}(((:[0-9a-f]{1,4}){1,6})|((:[0-9a-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9a-f]{1,4}){1,7})|((:[0-9a-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))$/i },
 };
 
+// The date and date-time patterns check syntax; RFC 3339 section 5.7 also limits the day by month and year.
+function isValidDate(year: number, month: number, day: number): boolean {
+	let daysInMonth = 31;
+	if (month === 2) {
+		const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+		daysInMonth = isLeapYear ? 29 : 28;
+	} else if (month === 4 || month === 6 || month === 9 || month === 11) {
+		daysInMonth = 30;
+	}
+	return day <= daysInMonth;
+}
+
 export interface IProblem {
 	location: IRange;
 	severity?: DiagnosticSeverity;
@@ -974,7 +986,9 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				case 'ipv4':
 				case 'ipv6':
 					const format = formats[schema.format];
-					if (!node.value || !format.pattern.exec(node.value)) {
+					const match = format.pattern.exec(node.value);
+					const hasDate = schema.format === 'date' || schema.format === 'date-time';
+					if (!match || (hasDate && !isValidDate(Number(match[1]), Number(match[2]), Number(match[3])))) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
 							message: schema.patternErrorMessage || schema.errorMessage || format.errorMessage
