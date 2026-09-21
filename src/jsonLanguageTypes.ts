@@ -223,6 +223,14 @@ export interface SchemaRequestService {
 	(uri: string): PromiseLike<string>;
 }
 
+/**
+ * The fallback schema provider is used when no schema is associated with a resource.
+ * It returns the URIs of schemas to use for the resource.
+ */
+export interface FallbackSchemaProvider {
+	(uri: string): string[] | undefined;
+}
+
 export interface PromiseConstructor {
 	/**
 	 * Creates a new Promise.
@@ -268,6 +276,11 @@ export interface LanguageServiceParams {
 	 * in case of an error, a displayable error string
 	 */
 	schemaRequestService?: SchemaRequestService;
+	/**
+	 * The fallback schema provider is used when no schema is associated with a resource.
+	 * The returned schema URIs are loaded using the schema request service.
+	 */
+	fallbackSchemaProvider?: FallbackSchemaProvider;
 	/**
 	 * The workspace context is used to resolve relative paths for relative schema references.
 	 */
