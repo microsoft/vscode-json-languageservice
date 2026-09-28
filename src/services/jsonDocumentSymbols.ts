@@ -241,7 +241,7 @@ export class JSONDocumentSymbols {
 			const result: ColorInformation[] = [];
 			if (schema) {
 				let limit = context && typeof context.resultLimit === 'number' ? context.resultLimit : Number.MAX_VALUE;
-				const matchingSchemas = doc.getMatchingSchemas(schema.schema);
+				const matchingSchemas = doc.getMatchingSchemas(schema.schema, undefined, undefined, schema.activeVocabularies);
 				const visitedNode: { [nodeId: string]: boolean } = {};
 				for (const s of matchingSchemas) {
 					if (!s.inverted && s.schema && (s.schema.format === 'color' || s.schema.format === 'color-hex') && s.node && s.node.type === 'string') {

@@ -9,5 +9,4 @@ src/
 test/
 .gitignore
 .travis.yml
-eslint.config.mjs
 gulpfile.js

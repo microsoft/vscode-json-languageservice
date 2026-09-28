@@ -61,7 +61,7 @@ export interface LanguageService {
 export function getLanguageService(params: LanguageServiceParams): LanguageService {
 	const promise = params.promiseConstructor || Promise;
 
-	const jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext, promise);
+	const jsonSchemaService = new JSONSchemaService(params.schemaRequestService, params.workspaceContext, promise, params.fallbackSchemaProvider);
 	jsonSchemaService.setSchemaContributions(schemaContributions);
 
 	const jsonCompletion = new JSONCompletion(jsonSchemaService, params.contributions, promise, params.clientCapabilities);

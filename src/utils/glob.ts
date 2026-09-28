@@ -139,4 +139,4 @@ export function createRegex(glob: string, opts: { extended?: boolean, globstar?:
     }
 
     return new RegExp(reStr, flags);
-};
+}

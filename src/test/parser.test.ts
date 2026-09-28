@@ -2633,6 +2633,37 @@ suite('JSON Parser', () => {
 
 	});
 
+	test('deprecated alternative in anyOf is selected when it matches (#304)', function () {
+		// The value matches the second (deprecated) branch. The deprecation warning must not make
+		// that branch look like a non-match, otherwise the non-matching `const` branch is reported
+		// instead of the expected "Value is deprecated".
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'key': {
+					anyOf: [
+						{ type: 'string', const: 'unused literal' },
+						{ type: 'string', pattern: '^text value$', deprecated: true }
+					]
+				}
+			}
+		};
+		{
+			const { textDoc, jsonDoc } = toDocument('{ "key": "text value" }');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema)!;
+			assert.strictEqual(semanticErrors.length, 1);
+			assert.strictEqual(semanticErrors[0].code, ErrorCode.Deprecated);
+		}
+
+		// A value that matches neither branch still reports the non-match, unaffected by the fix.
+		{
+			const { textDoc, jsonDoc } = toDocument('{ "key": "other value" }');
+			const semanticErrors = validate2(jsonDoc, textDoc, schema)!;
+			assert.strictEqual(semanticErrors.length, 1);
+			assert.notStrictEqual(semanticErrors[0].code, ErrorCode.Deprecated);
+		}
+	});
+
 	test('Strings with spaces', function () {
 
 		const { textDoc, jsonDoc } = toDocument('{"key1":"first string", "key2":["second string"]}');
