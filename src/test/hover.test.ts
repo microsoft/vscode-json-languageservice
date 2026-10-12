@@ -164,6 +164,53 @@ suite('JSON Hover', () => {
 		});
 	});
 
+	test('Default values', async function () {
+		const cases = [
+			{ defaultValue: 'default', currentValue: 'custom', serializedDefault: '"default"' },
+			{ defaultValue: 0, currentValue: 1, serializedDefault: '0' },
+			{ defaultValue: false, currentValue: true, serializedDefault: 'false' },
+			{ defaultValue: null, currentValue: 'custom', serializedDefault: 'null' },
+			{ defaultValue: { key: 'value' }, currentValue: {}, serializedDefault: '{"key":"value"}' }
+		];
+
+		for (const { defaultValue, currentValue, serializedDefault } of cases) {
+			const content = `{ "value": ${JSON.stringify(currentValue)} }`;
+			const schema: JSONSchema = {
+				type: 'object',
+				properties: {
+					value: {
+						description: 'A value',
+						default: defaultValue
+					}
+				}
+			};
+			const expected = [`A value\n\nDefault: \`${serializedDefault}\``];
+
+			const keyHover = await testComputeInfo(content, schema, { line: 0, character: content.indexOf('value') + 1 });
+			assert.deepEqual(keyHover.contents, expected);
+
+			const valueHover = await testComputeInfo(content, schema, { line: 0, character: content.indexOf(':') + 2 });
+			assert.deepEqual(valueHover.contents, expected);
+		}
+	});
+
+	test('Default value preserves other hover details', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				value: {
+					title: 'Value',
+					markdownDescription: '*Description*',
+					enum: ['active'],
+					markdownEnumDescriptions: ['The `active` value'],
+					default: 'fallback'
+				}
+			}
+		};
+		const result = await testComputeInfo('{ "value": "active" }', schema, { line: 0, character: 13 });
+		assert.deepEqual(result.contents, ['Value\n\n*Description*\n\n`active`: The `active` value\n\nDefault: `"fallback"`']);
+	});
+
 	test('Multiline descriptions', async function () {
 		const schema: JSONSchema = {
 			type: 'object',
