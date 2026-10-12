@@ -5,6 +5,7 @@
 
 import * as Parser from '../parser/jsonParser.js';
 import * as SchemaService from './jsonSchemaService.js';
+import * as l10n from '@vscode/l10n';
 import { JSONWorkerContribution } from '../jsonContributions.js';
 import { TextDocument, PromiseConstructor, Position, Range, Hover, MarkedString } from '../jsonLanguageTypes.js';
 
@@ -67,11 +68,15 @@ export class JSONHover {
 			let title: string | undefined = undefined;
 			let markdownDescription: string | undefined = undefined;
 			let markdownEnumValueDescription: string | undefined = undefined, enumValue: string | undefined = undefined;
+			let defaultValue: string | undefined = undefined;
 
 			const matchingSchemas = doc.getMatchingSchemas(schema.schema, node.offset, undefined, schema.activeVocabularies).filter((s) => s.node === node && !s.inverted).map((s) => s.schema);
 			for (const schema of matchingSchemas) {
 				title = title || schema.title;
 				markdownDescription = markdownDescription || schema.markdownDescription || toMarkdown(schema.description);
+				if (defaultValue === undefined && schema.default !== undefined) {
+					defaultValue = JSON.stringify(schema.default);
+				}
 				if (schema.enum) {
 					const idx = schema.enum.indexOf(Parser.getNodeValue(node));
 					if (schema.markdownEnumDescriptions) {
@@ -103,6 +108,12 @@ export class JSONHover {
 					result += "\n\n";
 				}
 				result += `\`${toMarkdownCodeBlock(enumValue!)}\`: ${markdownEnumValueDescription}`;
+			}
+			if (defaultValue !== undefined) {
+				if (result.length > 0) {
+					result += "\n\n";
+				}
+				result += l10n.t('Default: {0}', `\`${toMarkdownCodeBlock(defaultValue)}\``);
 			}
 			return createHover([result]);
 		});
