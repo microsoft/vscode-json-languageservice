@@ -192,6 +192,14 @@ suite('JSON Document Symbols', () => {
 		assertHierarchicalOutline(content, expected2);
 	});
 
+	test('Outline - keybindings with non-string key', function () {
+		const ls = getLanguageService({ schemaRequestService, clientCapabilities: ClientCapabilities.LATEST });
+		const document = TextDocument.create('vscode://defaultsettings/keybindings.json', 'json', 0, '[{ "key": "ctrl+a" }, { "key": [] }]');
+		const jsonDoc = ls.parseJSONDocument(document);
+		assert.deepEqual(ls.findDocumentSymbols(document, jsonDoc).map(s => s.name), ['ctrl+a', '<empty>']);
+		assert.deepEqual(ls.findDocumentSymbols2(document, jsonDoc).map(s => s.name), ['ctrl+a', '<empty>']);
+	});
+
 	test('Hierarchical Outline - Object', function () {
 		const content = '{ "key1": { "key2": true }, "key3" : { "k1":  { } }';
 
