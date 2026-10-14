@@ -691,6 +691,19 @@ suite('JSON Parser', () => {
 		semanticErrors = validate('{"one":"//foo/bar"}', schemaWithURIReference);
 		assert.strictEqual(semanticErrors!.length, 0, 'uri-reference');
 
+		semanticErrors = validate('{"one":"../foo/bar.json#/a%20b"}', schemaWithURIReference);
+		assert.strictEqual(semanticErrors!.length, 0, 'uri-reference');
+
+		semanticErrors = validate('{"one":"\\\\\\\\server\\\\share\\\\file.txt"}', schemaWithURIReference);
+		assert.strictEqual(semanticErrors!.length, 1, 'uri-reference with backslashes');
+		assert.strictEqual(semanticErrors![0].message, 'String is not a URI: URI must not contain backslashes or whitespace.');
+
+		semanticErrors = validate('{"one":"foo bar"}', schemaWithURIReference);
+		assert.strictEqual(semanticErrors!.length, 1, 'uri-reference with whitespace');
+
+		semanticErrors = validate('{"one":"http:\\\\foo"}', schemaWithURI);
+		assert.strictEqual(semanticErrors!.length, 1, 'uri with backslash');
+
 		const schemaWithHostname = {
 			type: 'object',
 			properties: {
