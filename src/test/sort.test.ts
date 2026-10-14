@@ -15,6 +15,68 @@ suite('Sort JSON', () => {
         assert.equal(sorted, expected);
     }
 
+    test('sorting nested containers with trailing commas', () => {
+        const content = '{"launch":{"configurations":[{"args":["exec"],}],}}';
+        const expected = [
+            '{',
+            '  "launch": {',
+            '    "configurations": [',
+            '      {',
+            '        "args": [',
+            '          "exec"',
+            '        ]',
+            '      }',
+            '    ]',
+            '  }',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+        testSort(expected, expected, formattingOptions);
+    });
+
+    for (const [name, value, sortedValue] of [
+        ['empty object', '{}', {}],
+        ['empty array', '[]', []],
+        ['object', '{"b":2,"a":1}', { a: 1, b: 2 }],
+        ['array', '[2,1]', [2, 1]],
+        ['nested array', '[[{"b":2,"a":1}]]', [[{ a: 1, b: 2 }]]]
+    ] as const) {
+        test(`sorting a trailing comma after an ${name} with following siblings`, () => {
+            const content = `{"z":[{"z":0,"a":${value},},{"b":2}],"a":1}`;
+            const expected = JSON.stringify({ a: 1, z: [{ a: sortedValue, z: 0 }, { b: 2 }] }, null, 2);
+
+            testSort(content, expected, formattingOptions);
+            testSort(expected, expected, formattingOptions);
+        });
+    }
+
+    test('sorting nested trailing commas with comments', () => {
+        const content = [
+            '{',
+            '  "z": [{',
+            '    "z": 0,',
+            '    "a": [], // keep with a',
+            '  }], /* keep with z */',
+            '  "a": 1',
+            '}'
+        ].join('\n');
+        const expected = [
+            '{',
+            '  "a": 1,',
+            '  "z": [',
+            '    {',
+            '      "a": [], // keep with a',
+            '      "z": 0',
+            '    }',
+            '  ] /* keep with z */',
+            '}'
+        ].join('\n');
+
+        testSort(content, expected, formattingOptions);
+        testSort(expected, expected, formattingOptions);
+    });
+
     test('sorting a simple JSONC object with numeric values', () => {
         const content = [
             '{"b" : 1, "a" : 2}'
