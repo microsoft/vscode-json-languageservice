@@ -311,6 +311,49 @@ suite('JSON Schema', () => {
 		assertInMessage(diagnostics[0].message, 'string');
 	});
 
+	test('Pre-2019-09 $ref siblings in definitions resolve against the referencing document base', async function () {
+		// https://github.com/microsoft/vscode-json-languageservice/issues/354
+		// `definitions` survives the pre-2019-09 $ref merge as a reserved key; the
+		// $refs inside it must resolve against the referencing document's base URI,
+		// not the referenced document's.
+		const schemaBaseUri = 'https://example.com/schemas/entry.json';
+		const referencedSchemaUri = 'https://example.com/schemas/nested/middle.json';
+		const siblingSchemaUri = 'https://example.com/schemas/sibling.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				$ref: 'nested/middle.json',
+				definitions: {
+					local: {
+						$ref: 'sibling.json'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
+				type: 'object',
+				properties: {
+					name: {
+						type: 'string'
+					}
+				}
+			},
+			[siblingSchemaUri]: {
+				type: 'integer'
+			}
+		};
+		const accesses: string[] = [];
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas, accesses), workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"name": 1}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.ok(accesses.indexOf(siblingSchemaUri) !== -1, `expected ${siblingSchemaUri} to be requested, got: ${accesses.join(', ')}`);
+		assert.ok(!accesses.some(uri => uri.endsWith('/nested/sibling.json')), `sibling.json must not resolve against nested/, got: ${accesses.join(', ')}`);
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'string');
+	});
+
 	test('Nested external $ref siblings keep the inherited owner resource base', async function () {
 		const schemaBaseUri = 'https://example.com/a/schema.json';
 		const referencedSchemaUri = 'https://example.com/b/schema.json';
