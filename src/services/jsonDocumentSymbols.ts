@@ -295,5 +295,5 @@ function getRange(document: TextDocument, node: ASTNode) {
 }
 
 function getName(node: ASTNode) {
-	return Parser.getNodeValue(node) || l10n.t('<empty>');
+	return node.type === 'string' && node.value || l10n.t('<empty>');
 }
