@@ -74,6 +74,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 			jsonSchemaService.clearExternalSchemas();
 			settings.schemas?.forEach(jsonSchemaService.registerExternalSchema.bind(jsonSchemaService));
 			jsonValidation.configure(settings);
+			jsonHover.configure(settings);
 		},
 		resetSchema: (uri: string) => jsonSchemaService.onResourceChange(uri),
 		doValidation: jsonValidation.doValidation.bind(jsonValidation),
