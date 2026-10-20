@@ -953,6 +953,34 @@ suite('JSON Parser', () => {
 		assert.strictEqual(semanticErrors![0].message, 'String is not a valid UUID.');
 	});
 
+	for (const format of ['date', 'date-time']) {
+		test(`${format} calendar dates`, function () {
+			const schema = { type: 'string', format };
+			const validDates = [
+				'2023-01-31', '2023-02-28', '2023-03-31', '2023-04-30',
+				'2023-05-31', '2023-06-30', '2023-07-31', '2023-08-31',
+				'2023-09-30', '2023-10-31', '2023-11-30', '2023-12-31',
+				'2024-02-29', '2000-02-29', '0000-02-29', '0096-02-29', '0400-02-29'
+			];
+			const invalidDates = [
+				'2023-02-29', '2023-02-30', '2024-02-30', '2024-02-31',
+				'2023-04-31', '2023-06-31', '2023-09-31', '2023-11-31',
+				'1900-02-29', '2100-02-29', '0100-02-29', '0001-02-29'
+			];
+			for (const date of validDates) {
+				const value = format === 'date' ? date : `${date}T23:30:00-02:00`;
+				assert.strictEqual(validate(JSON.stringify(value), schema)!.length, 0, value);
+			}
+			for (const date of invalidDates) {
+				const value = format === 'date' ? date : `${date}T00:30:00+02:00`;
+				const diagnostics = validate(JSON.stringify(value), schema)!;
+				assert.strictEqual(diagnostics.length, 1, value);
+				assert.strictEqual(diagnostics[0].message, `String is not a RFC3339 ${format}.`);
+				assert.deepStrictEqual(diagnostics[0].range, toRange(JSON.stringify(value), 0, value.length + 2));
+			}
+		});
+	}
+
 	test('Numbers', function () {
 
 		const str = '{"one": 13.45e+1}';
