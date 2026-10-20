@@ -212,6 +212,7 @@ export interface ISchemaCollector {
 	merge(other: ISchemaCollector): void;
 	include(node: ASTNode): boolean;
 	newSub(): ISchemaCollector;
+	hasExclusion(): boolean;
 }
 
 export interface IEvaluationContext {
@@ -242,6 +243,9 @@ class SchemaCollector implements ISchemaCollector {
 	newSub(): ISchemaCollector {
 		return new SchemaCollector(-1, this.exclude);
 	}
+	hasExclusion(): boolean {
+		return this.exclude !== undefined;
+	}
 }
 
 class NoOpSchemaCollector implements ISchemaCollector {
@@ -251,6 +255,7 @@ class NoOpSchemaCollector implements ISchemaCollector {
 	merge(_other: ISchemaCollector) { }
 	include(_node: ASTNode) { return true; }
 	newSub(): ISchemaCollector { return this; }
+	hasExclusion(): boolean { return false; }
 
 	static instance = new NoOpSchemaCollector();
 }
@@ -615,6 +620,9 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 
 			const alternativesToTest = _tryDiscriminatorOptimization(alternatives) ?? alternatives;
 
+			// clean-by-omission: no problems, but nothing substantive matched either (used below)
+			const isInconclusiveCleanMatch = (vr: ValidationResult) => !vr.hasProblems() && vr.propertiesValueMatches === 0;
+
 			// remember the best match that is used for error messages
 			let bestMatch: { schema: JSONSchema; validationResult: ValidationResult; matchingSchemas: ISchemaCollector; } | undefined = undefined;
 			for (const subSchemaRef of alternativesToTest) {
@@ -634,6 +642,16 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 						bestMatch.validationResult.propertiesMatches += subValidationResult.propertiesMatches;
 						bestMatch.validationResult.propertiesValueMatches += subValidationResult.propertiesValueMatches;
 						bestMatch.validationResult.mergeProcessedProperties(subValidationResult);
+					} else if (matchingSchemas.hasExclusion() &&
+						subValidationResult.hasProblems() !== bestMatch.validationResult.hasProblems() &&
+						isInconclusiveCleanMatch(subValidationResult.hasProblems() ? bestMatch.validationResult : subValidationResult)) {
+						// clean-by-omission during value completion (see completion.test.ts): don't let it fully win, keep both alternatives
+						const subIsClean = !subValidationResult.hasProblems();
+						const winner: { schema: JSONSchema; validationResult: ValidationResult; matchingSchemas: ISchemaCollector; } = subIsClean ? { schema: subSchema, validationResult: subValidationResult, matchingSchemas: subMatchingSchemas } : bestMatch;
+						const loser: { schema: JSONSchema; validationResult: ValidationResult; matchingSchemas: ISchemaCollector; } = subIsClean ? bestMatch : { schema: subSchema, validationResult: subValidationResult, matchingSchemas: subMatchingSchemas };
+						winner.matchingSchemas.merge(loser.matchingSchemas);
+						winner.validationResult.mergeEnumValues(loser.validationResult);
+						bestMatch = winner;
 					} else {
 						const compareResult = subValidationResult.compare(bestMatch.validationResult);
 						if (compareResult > 0) {
