@@ -16,6 +16,7 @@ and the Monaco editor.
 - _doComplete_ provides completion proposals for a given location.
 - _doResolve_ resolves a completion proposals.
 - _doHover_ provides a hover text for a given location.
+- _doCodeActions_ provides quick fixes for diagnostics at a given range.
 - _findDocumentSymbols_ provides all symbols in the given document.
 - _findDocumentColors_ provides all color symbols in the given document.
 - _getColorPresentations_ returns available color formats for a color symbol.
