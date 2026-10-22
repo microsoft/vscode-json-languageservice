@@ -951,6 +951,9 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 						const match = /^(([^:/?#]+?):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/.exec(node.value);
 						if (!match) {
 							errorMessage = l10n.t('URI is expected.');
+						} else if (/[\\\s]/.test(node.value)) {
+							// backslashes and whitespace are not allowed in a URI (RFC 3986), they must be percent-encoded
+							errorMessage = l10n.t('URI must not contain backslashes or whitespace.');
 						} else if (!match[2] && schema.format === 'uri') {
 							errorMessage = l10n.t('URI with a scheme is expected.');
 						}
