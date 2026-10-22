@@ -221,8 +221,9 @@ function findJsoncPropertyTree(formattedDocument: TextDocument) {
                 endLineNumber = scanner.getTokenStartLine();
                 currentContainerStack.pop();
 
-                // If we are not inside of an empty object
-                if (lastNonTriviaNonCommentToken !== SyntaxKind.OpenBraceToken) {
+                // A trailing comma after a container already moved back to the object itself.
+                if (lastNonTriviaNonCommentToken !== SyntaxKind.OpenBraceToken
+                    && !(lastNonTriviaNonCommentToken === SyntaxKind.CommaToken && currentProperty === currentTree)) {
                     // If current property end line number has not yet been defined, define it
                     if (currentProperty!.endLineNumber === undefined) {
                         currentProperty!.endLineNumber = endLineNumber - 1;
