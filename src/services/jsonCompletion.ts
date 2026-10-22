@@ -241,6 +241,8 @@ export class JSONCompletion {
 							};
 							if (propertySchema.completionDetail !== undefined) {
 								proposal.detail = propertySchema.completionDetail;
+							} else if (propertySchema.title) {
+								proposal.detail = propertySchema.title;
 							}
 							if (propertySchema.suggestSortText !== undefined) {
 								proposal.sortText = propertySchema.suggestSortText;
