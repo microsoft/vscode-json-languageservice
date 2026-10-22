@@ -54,6 +54,55 @@ suite('JSON Find Links', () => {
 		await testFindLinksFor(doc('#/m~0n'), {target: 90, offset: 102, length: 6});
 	});
 
+	for (const [key, fragment] of [
+		['foo:bar', '#/$defs/foo%3Abar'],
+		['foo bar', '#/$defs/foo%20bar'],
+		['café', '#/$defs/caf%C3%A9'],
+		['a/b', '#/$defs/a%7E1b'],
+		['m~n', '#/$defs/m%7E0n'],
+		['%20', '#/$defs/%2520'],
+		['foo', '#%2F$defs%2Ffoo']
+	]) {
+		test(`FindDefinition percent-encoded pointer ${fragment}`, async function () {
+			const value = JSON.stringify({ $defs: { [key]: { type: 'string' } }, $ref: fragment });
+			await testFindLinksFor(value, {
+				target: value.indexOf('{"type"'),
+				offset: value.indexOf(fragment),
+				length: fragment.length
+			});
+		});
+	}
+
+	test('FindDefinition percent-encoded anchor', async function () {
+		const value = '{"$defs":{"x":{"$anchor":"myAnchor"}},"$ref":"#my%41nchor"}';
+		await testFindLinksFor(value, { target: value.indexOf('{"$anchor"'), offset: value.indexOf('#my'), length: 11 });
+	});
+
+	test('FindDefinition encoded fragment in embedded schema', async function () {
+		const uri = 'https://example.com/schema%20name';
+		for (const fragment of ['#/$defs/foo%20bar', '#my%41nchor']) {
+			const ref = uri + fragment;
+			const value = JSON.stringify({
+				$defs: { embedded: { $id: uri, $defs: { 'foo bar': { $anchor: 'myAnchor' } } } },
+				$ref: ref
+			});
+			await testFindLinksFor(value, {
+				target: value.indexOf('{"$anchor"'),
+				offset: value.indexOf(ref),
+				length: ref.length
+			});
+		}
+	});
+
+	test('FindDefinition malformed percent escapes', async function () {
+		for (const key of ['%', '%GG', '%C3']) {
+			const ref = `#/${key}`;
+			const value = JSON.stringify({ [key]: 1, $ref: ref });
+			await testFindLinksFor(value, { target: value.indexOf(':1') + 1, offset: value.indexOf(ref), length: ref.length });
+			await testFindLinksFor(JSON.stringify({ $ref: ref }), null);
+		}
+	});
+
 	test('FindDefinition anchor reference ($anchor)', async function () {
 		// $anchor in $defs
 		const schema1 = '{"$defs": {"foo": {"$anchor": "myAnchor", "type": "string"}}, "properties": {"x": {"$ref": "#myAnchor"}}}';
