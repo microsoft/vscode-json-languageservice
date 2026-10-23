@@ -184,6 +184,60 @@ suite('JSON Schema', () => {
 
 	});
 
+	for (const [draft, definitionsKey] of [
+		['http://json-schema.org/draft-07/schema#', 'definitions'],
+		['https://json-schema.org/draft/2019-09/schema', '$defs'],
+		['https://json-schema.org/draft/2020-12/schema', '$defs']
+	] as const) {
+		test(`Root $ref preserves original ${definitionsKey} pointers in ${draft}`, async function () {
+			const schemaUri = 'https://example.com/schema.json';
+			const schema: JSONSchema = {
+				$schema: draft,
+				$ref: `#/${definitionsKey}/entry`,
+				[definitionsKey]: {
+					entry: {
+						type: 'object',
+						properties: {
+							shared: { $ref: `#/${definitionsKey}/shared` },
+							nested: { $ref: `#/${definitionsKey}/entry/${definitionsKey}/shared` }
+						},
+						[definitionsKey]: { shared: { type: 'number' } }
+					},
+					shared: { type: 'string' }
+				}
+			};
+			const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+			service.setSchemaContributions({ schemas: { [schemaUri]: schema } });
+
+			const resolved = await service.getResolvedSchema(schemaUri);
+			assert.deepStrictEqual(resolved?.errors, []);
+			assert.deepStrictEqual(resolved?.schema.properties?.shared, { type: 'string' });
+			assert.deepStrictEqual(resolved?.schema.properties?.nested, { type: 'number' });
+			assert.strictEqual(await service.getResolvedSchema(schemaUri), resolved);
+		});
+
+		test(`Root $ref does not relocate nested ${definitionsKey} in ${draft}`, async function () {
+			const schemaUri = 'https://example.com/schema.json';
+			const schema: JSONSchema = {
+				$schema: draft,
+				$ref: `#/${definitionsKey}/entry`,
+				[definitionsKey]: {
+					entry: {
+						type: 'object',
+						properties: { value: { $ref: `#/${definitionsKey}/nestedOnly` } },
+						[definitionsKey]: { nestedOnly: { type: 'null' } }
+					}
+				}
+			};
+			const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+			service.setSchemaContributions({ schemas: { [schemaUri]: schema } });
+
+			const resolved = await service.getResolvedSchema(schemaUri);
+			assert.strictEqual(resolved?.errors.length, 1);
+			assertInMessage(resolved!.errors[0].message, `/${definitionsKey}/nestedOnly`);
+		});
+	}
+
 	test('Resolving $refs 2', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({
