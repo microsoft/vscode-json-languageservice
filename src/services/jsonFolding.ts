@@ -59,10 +59,10 @@ export function getFoldingRanges(document: TextDocument, context?: FoldingRanges
 
 			case SyntaxKind.LineCommentTrivia: {
 				const text = document.getText().substr(scanner.getTokenOffset(), scanner.getTokenLength());
-				const m = text.match(/^\/\/\s*#(region\b)|(endregion\b)/);
+				const m = text.match(/^\/\/\s*#(region\b|endregion\b)/);
 				if (m) {
 					const line = document.positionAt(scanner.getTokenOffset()).line;
-					if (m[1]) { // start pattern match
+					if (m[1] === 'region') { // start pattern match
 						const range = { startLine: line, endLine: line, kind: FoldingRangeKind.Region };
 						stack.push(range);
 					} else {
