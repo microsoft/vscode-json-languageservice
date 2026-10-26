@@ -218,10 +218,11 @@ export interface IEvaluationContext {
 	readonly schemaDraft: SchemaDraft;
 	readonly explicitSchemaDraft?: SchemaDraft;
 	readonly activeVocabularies?: Vocabularies;
+	readonly schemaDraftOverride?: SchemaDraft;
 }
 
 class EvaluationContext implements IEvaluationContext {
-	constructor(public readonly schemaDraft: SchemaDraft, public readonly activeVocabularies?: Vocabularies, public readonly explicitSchemaDraft?: SchemaDraft) {
+	constructor(public readonly schemaDraft: SchemaDraft, public readonly activeVocabularies?: Vocabularies, public readonly explicitSchemaDraft?: SchemaDraft, public readonly schemaDraftOverride?: SchemaDraft) {
 	}
 }
 
@@ -388,7 +389,7 @@ export class JSONDocument {
 		if (this.root && schema) {
 			const validationResult = new ValidationResult();
 			const { explicitDraft, effectiveDraft } = resolveDrafts(schema, schemaDraft);
-			const context = new EvaluationContext(effectiveDraft, activeVocabularies, explicitDraft);
+			const context = new EvaluationContext(effectiveDraft, activeVocabularies, explicitDraft, schemaDraft);
 			const schemaStack: JSONSchema[] = [];
 			const schemaRoots: JSONSchema[] = [schema];
 			validate(this.root, schema, validationResult, NoOpSchemaCollector.instance, context, schemaStack, schemaRoots);
@@ -445,6 +446,14 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		return validate(n.valueNode, schema, validationResult, matchingSchemas, context, schemaStack, schemaRoots);
 	}
 	const node = n;
+
+	// Combined schemas and resolved references can enter a resource with another dialect.
+	if (schemaStack.length > 0 && context.schemaDraftOverride === undefined && schema.$schema) {
+		const declaredDraft = getSchemaDraftFromId(schema.$schema);
+		if (declaredDraft !== undefined) {
+			context = new EvaluationContext(declaredDraft, undefined, declaredDraft);
+		}
+	}
 
 	if (schema.$recursiveRef) {
 		const hasRecursiveAnchor = (s: JSONSchema) => s.$recursiveAnchor === true;
