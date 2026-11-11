@@ -93,12 +93,6 @@ export class JSONCompletion {
 				const existing = proposed.get(label);
 				if (!existing) {
 					label = label.replace(/[\n]/g, '↵');
-					if (label.length > 60) {
-						const shortendedLabel = label.substr(0, 57).trim() + '...';
-						if (!proposed.has(shortendedLabel)) {
-							label = shortendedLabel;
-						}
-					}
 					suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
 					if (supportsCommitCharacters) {
 						suggestion.commitCharacters = suggestion.kind === CompletionItemKind.Property ? propertyCommitCharacters : valueCommitCharacters;
