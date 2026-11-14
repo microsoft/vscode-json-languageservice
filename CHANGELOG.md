@@ -1,3 +1,7 @@
+Unreleased
+================
+- Add `FormattingOptions.compact`: objects and arrays are only spread over multiple lines when a comma separates two of their entries, so containers with a single entry stay on one line (e.g. `{ "include": "#value" }`). `FormattingOptions.maxLineLength` optionally limits the length of such lines. See [#142](https://github.com/microsoft/vscode-json-languageservice/issues/142).
+
 6.0.0-next.5 / 2026-09-14
 ================
 - Add `LanguageServiceParams.fallbackSchemaProvider` to provide schema URIs when a resource has no explicit or associated schema. Returned schemas are loaded through `schemaRequestService`.
