@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { format as formatJSON, Range as JSONCRange, EditResult, Edit, parseTree, createScanner, SyntaxKind, Node as JSONCNode } from 'jsonc-parser';
 import { TextDocument, Range, TextEdit, FormattingOptions } from '../jsonLanguageTypes.js';
 
