@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { getLanguageService, ClientCapabilities, Range, TextDocument } from '../jsonLanguageService.js';
+import { getLanguageService, ClientCapabilities, Range, TextDocument, FormattingOptions } from '../jsonLanguageService.js';
 import * as assert from 'assert';
 import { suite, test } from 'node:test';
 
@@ -481,5 +481,193 @@ suite('JSON Formatter', () => {
 		].join('\n');
 
 		format(content, expected);
+	});
+});
+suite('JSON Formatter - compact', () => {
+
+	const ls = getLanguageService({ clientCapabilities: ClientCapabilities.LATEST });
+
+	function format(unformatted: string, expected: string, options: Partial<FormattingOptions> = {}) {
+		let range: Range | undefined = undefined;
+		const uri = 'test://test.json';
+
+		const rangeStart = unformatted.indexOf('|');
+		const rangeEnd = unformatted.lastIndexOf('|');
+		if (rangeStart !== -1 && rangeEnd !== -1) {
+			unformatted = unformatted.substring(0, rangeStart) + unformatted.substring(rangeStart + 1, rangeEnd) + unformatted.substring(rangeEnd + 1);
+			const unformattedDoc = TextDocument.create(uri, 'json', 0, unformatted);
+			range = Range.create(unformattedDoc.positionAt(rangeStart), unformattedDoc.positionAt(rangeEnd));
+		}
+
+		const document = TextDocument.create(uri, 'json', 0, unformatted);
+		const formattingOptions: FormattingOptions = { tabSize: 2, insertSpaces: true, compact: true, ...options };
+		const edits = ls.format(document, range, formattingOptions);
+		const formatted = applyEdits(document, edits);
+		assert.equal(formatted, expected);
+
+		if (!range) {
+			// formatting the result again must not change anything
+			const formattedDocument = TextDocument.create(uri, 'json', 0, formatted);
+			assert.deepEqual(ls.format(formattedDocument, undefined, formattingOptions), []);
+		}
+	}
+
+	test('containers with a single entry stay on one line', () => {
+		const content = '{"name":"JSON","patterns":[{"include":"#value"}],"repository":{"array":{"begin":"[","beginCaptures":{"0":{"name":"punctuation.definition.array.begin.json"}},"patterns":[{"include":"#value"},{"match":",","name":"punctuation.separator.array.json"}]}}}';
+
+		const expected = [
+			'{',
+			'  "name": "JSON",',
+			'  "patterns": [ { "include": "#value" } ],',
+			'  "repository": {',
+			'    "array": {',
+			'      "begin": "[",',
+			'      "beginCaptures": { "0": { "name": "punctuation.definition.array.begin.json" } },',
+			'      "patterns": [',
+			'        { "include": "#value" },',
+			'        {',
+			'          "match": ",",',
+			'          "name": "punctuation.separator.array.json"',
+			'        }',
+			'      ]',
+			'    }',
+			'  }',
+			'}'
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('single entry root and nested chains', () => {
+		format('{"a":{"b":{"c":[1]}}}', '{ "a": { "b": { "c": [ 1 ] } } }');
+		format('[ "x" ]', '[ "x" ]');
+		format('{"a":{},"b":[ ],"c":[[]]}', [
+			'{',
+			'  "a": {},',
+			'  "b": [],',
+			'  "c": [ [] ]',
+			'}'
+		].join('\n'));
+	});
+
+	test('single entry container with a multi entry child is expanded', () => {
+		const expected = [
+			'{',
+			'  "a": {',
+			'    "b": 1,',
+			'    "c": [ true ]',
+			'  }',
+			'}'
+		].join('\n');
+		format('{"a":{"b":1,"c":[true]}}', expected);
+	});
+
+	test('maxLineLength', () => {
+		const content = '{"a":{"bb":{"cc":"0123456789"}},"d":1}';
+		// '  "a": { "bb": { "cc": "0123456789" } },' has 40 characters
+		format(content, [
+			'{',
+			'  "a": { "bb": { "cc": "0123456789" } },',
+			'  "d": 1',
+			'}'
+		].join('\n'), { maxLineLength: 40 });
+		format(content, [
+			'{',
+			'  "a": {',
+			'    "bb": { "cc": "0123456789" }',
+			'  },',
+			'  "d": 1',
+			'}'
+		].join('\n'), { maxLineLength: 39 });
+		format(content, [
+			'{',
+			'  "a": {',
+			'    "bb": {',
+			'      "cc": "0123456789"',
+			'    }',
+			'  },',
+			'  "d": 1',
+			'}'
+		].join('\n'), { maxLineLength: 10 });
+	});
+
+	test('maxLineLength counts tabs as tabSize', () => {
+		const content = '{"a":{"b":1},"c":2}';
+		// '\t"a": { "b": 1 },' is 20 characters wide with a tab size of 4
+		format(content, '{\n\t"a": { "b": 1 },\n\t"c": 2\n}', { insertSpaces: false, tabSize: 4, maxLineLength: 20 });
+		format(content, '{\n\t"a": {\n\t\t"b": 1\n\t},\n\t"c": 2\n}', { insertSpaces: false, tabSize: 4, maxLineLength: 19 });
+	});
+
+	test('containers with comments or trailing commas stay expanded', () => {
+		format('{"a":{"b":1 /* c */},"d":[1,]}', [
+			'{',
+			'  "a": {',
+			'    "b": 1 /* c */',
+			'  },',
+			'  "d": [',
+			'    1,',
+			'  ]',
+			'}'
+		].join('\n'));
+		format('{"a":{\n// c\n"b":1}}', [
+			'{',
+			'  "a": {',
+			'    // c',
+			'    "b": 1',
+			'  }',
+			'}'
+		].join('\n'));
+	});
+
+	test('invalid content', () => {
+		format('{"a":{"b":}', [
+			'{',
+			'  "a": {',
+			'    "b":',
+			'  }'
+		].join('\n'));
+	});
+
+	test('range', () => {
+		const content = [
+			'{',
+			'  "a": {',
+			'    "x": 1',
+			'  },',
+			'|  "b": {"y" :2},|',
+			'  "c": {',
+			'    "z": 3',
+			'  }',
+			'}'
+		].join('\n');
+
+		const expected = [
+			'{',
+			'  "a": {',
+			'    "x": 1',
+			'  },',
+			'  "b": { "y": 2 },',
+			'  "c": {',
+			'    "z": 3',
+			'  }',
+			'}'
+		].join('\n');
+
+		format(content, expected);
+	});
+
+	test('compact is ignored with keepLines', () => {
+		for (const content of ['{"a":{"b":1}}', '{\n"a":{\n"b":1}}', '{\n"a":[\n1]\n}']) {
+			const document = TextDocument.create('test://test.json', 'json', 0, content);
+			const options = { tabSize: 2, insertSpaces: true, keepLines: true };
+			assert.deepEqual(ls.format(document, undefined, { ...options, compact: true }), ls.format(document, undefined, options));
+		}
+	});
+
+	test('produces minimal edits', () => {
+		const document = TextDocument.create('test://test.json', 'json', 0, '{\n  "a": {\n    "b": 1\n  },\n  "c": 2\n}');
+		const edits = ls.format(document, undefined, { tabSize: 2, insertSpaces: true, compact: true });
+		assert.deepEqual(edits.map(e => e.newText), [' ', ' ']);
+		assert.equal(applyEdits(document, edits), '{\n  "a": { "b": 1 },\n  "c": 2\n}');
 	});
 });
