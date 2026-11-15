@@ -294,6 +294,27 @@ suite('JSON Document Symbols', () => {
 		return assertColors(content, schema, expectedOffsets, expectedColors);
 	});
 
+	for (const format of ['color', 'color-hex']) {
+		for (const value of ['#ggg', '#fffz', '#12gg56', '#123456gg', '#12:', '#12@', '#12/', '#12é', '#ff\n', '#fff\n', '#1234567\n']) {
+			test(`Colors ignores invalid ${format} value ${JSON.stringify(value)}`, async function () {
+				await assertColors(JSON.stringify(value), { type: 'string', format }, [], []);
+			});
+		}
+
+		test(`Colors preserves valid ${format} values next to invalid values`, async function () {
+			const values = ['#ggg', '#aBc', '#fffz', '#AbC8', '#12gg56', '#12aBcD', '#123456gg', '#12AbCd80'];
+			const content = JSON.stringify(values);
+			const expectedValues = ['#aBc', '#AbC8', '#12aBcD', '#12AbCd80'];
+			const expectedOffsets = expectedValues.map(value => content.indexOf(JSON.stringify(value)));
+			await assertColors(content, { type: 'array', items: { type: 'string', format } }, expectedOffsets, [
+				colorFrom256RGB(170, 187, 204),
+				colorFrom256RGB(170, 187, 204, 136 / 255),
+				colorFrom256RGB(18, 171, 205),
+				colorFrom256RGB(18, 171, 205, 128 / 255)
+			]);
+		});
+	}
+
 	test('color presentations', function () {
 		assertColorPresentations(colorFrom256RGB(255, 0, 0), '#ff0000');
 		assertColorPresentations(colorFrom256RGB(77, 33, 111, 0.5), '#4d216f80');
