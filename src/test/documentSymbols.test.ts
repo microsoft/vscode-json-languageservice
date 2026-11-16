@@ -192,6 +192,18 @@ suite('JSON Document Symbols', () => {
 		assertHierarchicalOutline(content, expected2);
 	});
 
+	test('Hierarchical Outline - number detail keeps source text', function () {
+		const content = '{ "id": 1457573422205218818, "f": 1.50, "e": 1e3 }';
+
+		const expected: ExpectedDocumentSymbol[] = [
+			{ label: 'id', kind: SymbolKind.Number, detail: '1457573422205218818', children: [] },
+			{ label: 'f', kind: SymbolKind.Number, detail: '1.50', children: [] },
+			{ label: 'e', kind: SymbolKind.Number, detail: '1e3', children: [] }
+		];
+
+		assertHierarchicalOutline(content, expected);
+	});
+
 	test('Hierarchical Outline - Object', function () {
 		const content = '{ "key1": { "key2": true }, "key3" : { "k1":  { } }';
 
