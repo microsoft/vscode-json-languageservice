@@ -841,6 +841,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				// Starting in 2019-09, sibling keywords are processed alongside $ref.
 				// Only strip siblings when schema explicitly declares a pre-2019-09 draft via $schema.
 				const isPreDraft201909 = schemaDraft !== undefined && schemaDraft < SchemaDraft.v2019_09;
+				const sectionDeclaresDraft = typeof section.$schema === 'string' && getSchemaDraftFromId(section.$schema) !== undefined;
 				if (isPreDraft201909) {
 					// Clear all sibling keywords from target - $ref takes precedence
 					for (const key in target) {
@@ -849,7 +850,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 						}
 					}
 					merge(target, section);
-				} else if (isolateExternalResource || needsScopeIsolation(section, target)) {
+				} else if (isolateExternalResource || (sectionDeclaresDraft && hasRefSiblingKeywords(target)) || needsScopeIsolation(section, target)) {
 					// In JSON Schema 2019-09 or greater, $ref creates a new scope when sibling
 					// keywords would otherwise change the meaning of same-object-dependent keywords
 					// from the referenced schema.
