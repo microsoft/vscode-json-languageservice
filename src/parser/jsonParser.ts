@@ -942,16 +942,25 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		// Only validate format if format-assertion vocabulary is active (not annotation-only)
 		if (schema.format && enabled('format') && isFormatAssertionEnabled(context.activeVocabularies, context.explicitSchemaDraft)) {
 			switch (schema.format) {
-				case 'regex':
+				case 'regex': {
+					let isValidRegex = true;
 					try {
-						new RegExp(node.value);
+						new RegExp(node.value, 'u');
 					} catch {
+						try {
+							new RegExp(node.value);
+						} catch {
+							isValidRegex = false;
+						}
+					}
+					if (!isValidRegex) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
 							message: schema.patternErrorMessage || schema.errorMessage || l10n.t('String is not a regular expression.')
 						});
 					}
 					break;
+				}
 				case 'uri':
 				case 'uri-reference': {
 					let errorMessage;

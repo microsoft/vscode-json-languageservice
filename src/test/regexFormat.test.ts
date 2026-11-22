@@ -26,7 +26,7 @@ suite('Regex format validation', () => {
 	});
 
 	test('accepts valid ECMAScript expressions including the empty expression', async () => {
-		for (const value of ['', '^a+$', '\\d{2,4}', '(?:a|b)', '(?=a)a', '[\\u0000-\\uffff]', 'a/b', '(a+)+$']) {
+		for (const value of ['', '^a+$', '\\d{2,4}', '(?:a|b)', '(?=a)a', '[\\u0000-\\uffff]', '[\\u{1F600}-\\u{1F64F}]', '\\a', 'a/b', '(a+)+$']) {
 			assert.deepStrictEqual(await validate(value), [], value);
 		}
 	});
