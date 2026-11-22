@@ -398,6 +398,19 @@ export interface ColorInformationContext {
 export interface FormattingOptions extends LSPFormattingOptions {
 	insertFinalNewline?: boolean;
 	keepLines?: boolean;
+	/**
+	 * If set, objects and arrays are only spread over multiple lines when a comma separates two of their entries.
+	 * Objects and arrays with at most one entry (whose entry is a value or again such a container) are kept on a single line,
+	 * e.g. `{ "beginCaptures": { "0": { "name": "punctuation" } } }`.
+	 * Containers that contain comments or syntax errors are left expanded. Ignored when `keepLines` is set.
+	 */
+	compact?: boolean;
+	/**
+	 * Only used together with `compact`: an object or array is only kept on a single line if the resulting line,
+	 * including indentation (tabs count as `tabSize` characters) and trailing punctuation, is not longer than this.
+	 * If not set, the line length is not limited.
+	 */
+	maxLineLength?: number;
 }
 
 export interface SortOptions extends LSPFormattingOptions {
