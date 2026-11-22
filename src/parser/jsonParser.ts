@@ -1625,7 +1625,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			} catch (e) {
 				return _error(l10n.t('Invalid number format.'), ErrorCode.Undefined, node);
 			}
-			node.isInteger = tokenValue.indexOf('.') === -1 && Number.isInteger(node.value);
+			node.isInteger = tokenValue.indexOf('.') === -1 && (Number.isInteger(node.value) || !Number.isFinite(node.value));
 		}
 		return _finalize(node, true);
 	}

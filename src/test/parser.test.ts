@@ -313,6 +313,7 @@ suite('JSON Parser', () => {
 			assertIntegerValidation('42', draft, 0);
 			assertIntegerValidation('-1', draft, 0);
 			assertIntegerValidation('1e2', draft, 0);
+			assertIntegerValidation('1e400', draft, 0);
 			assertIntegerValidation('1.5', draft, 1);
 			assertIntegerValidation('1e-1', draft, 1);
 			assertIntegerValidation('25E-1', draft, 1);
