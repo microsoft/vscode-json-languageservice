@@ -16,7 +16,10 @@ const vocabularyKeywords: { [uri: string]: string[] } = {
 	'https://json-schema.org/draft/2019-09/vocab/applicator': [
 		'prefixItems', 'items', 'contains', 'additionalProperties',
 		'properties', 'patternProperties', 'dependentSchemas',
-		'propertyNames', 'if', 'then', 'else', 'allOf', 'anyOf', 'oneOf', 'not'
+		'propertyNames', 'if', 'then', 'else', 'allOf', 'anyOf', 'oneOf', 'not',
+		// 2020-12 moved these two into their own `unevaluated` vocabulary; in
+		// 2019-09 they belong to applicator.
+		'unevaluatedItems', 'unevaluatedProperties'
 	],
 	'https://json-schema.org/draft/2019-09/vocab/validation': [
 		'type', 'enum', 'const', 'multipleOf', 'maximum', 'exclusiveMaximum',
