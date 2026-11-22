@@ -69,6 +69,134 @@ suite('Combined schema drafts', () => {
 		assert.strictEqual((await service.doValidation(document, json, { schemaDraft: SchemaDraft.v7 })).length, 1);
 	});
 
+	test('a referenced draft does not change sibling keywords', async () => {
+		const legacySchema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft-07/schema',
+			type: 'array'
+		};
+		const modernSchema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'string'
+		};
+		const service = getLanguageService({
+			schemaRequestService: async uri => {
+				if (uri === 'https://example.com/legacy.json') {
+					return JSON.stringify(legacySchema);
+				}
+				if (uri === 'https://example.com/modern.json') {
+					return JSON.stringify(modernSchema);
+				}
+				return '{}';
+			}
+		});
+		const cases: { text: string; schema: JSONSchema; errors: number }[] = [
+			{
+				text: '{"value":[42]}',
+				schema: { properties: { value: { $ref: 'https://example.com/legacy.json', prefixItems: [{ type: 'string' }] } } },
+				errors: 1
+			},
+			{
+				text: '{"value":"not an email"}',
+				schema: { properties: { value: { $ref: 'https://example.com/modern.json', format: 'email' } } },
+				errors: 1
+			}
+		];
+		for (const { text, schema, errors } of cases) {
+			const document = TextDocument.create('file:///test.json', 'json', 0, text);
+			const json = service.parseJSONDocument(document);
+			const diagnostics = await service.doValidation(document, json, {}, schema);
+			assert.strictEqual(diagnostics.length, errors, text);
+		}
+	});
+
+	test('nested references preserve sibling validation and schema matches', async () => {
+		const legacySchema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft-07/schema',
+			type: 'array'
+		};
+		const outerSchema: JSONSchema = {
+			type: 'object',
+			properties: {
+				value: { $ref: 'https://example.com/legacy.json', prefixItems: [{ type: 'string' }] }
+			}
+		};
+		const service = getLanguageService({
+			schemaRequestService: async uri => {
+				if (uri === 'https://example.com/outer.json') {
+					return JSON.stringify(outerSchema);
+				}
+				if (uri === 'https://example.com/legacy.json') {
+					return JSON.stringify(legacySchema);
+				}
+				return '{}';
+			}
+		});
+		const document = TextDocument.create('file:///test.json', 'json', 0, '{"value":[42]}');
+		const json = service.parseJSONDocument(document);
+		const schema: JSONSchema = { $ref: 'https://example.com/outer.json' };
+		const diagnostics = await service.doValidation(document, json, {}, schema);
+		assert.strictEqual(diagnostics.length, 1);
+		const arrayOffset = document.getText().indexOf('[42]');
+		const matching = await service.getMatchingSchemas(document, json, schema);
+		assert.ok(matching.some(match => match.node.offset === arrayOffset && match.schema.prefixItems !== undefined));
+	});
+
+	test('internal references isolate declared drafts from sibling keywords', async () => {
+		const service = getLanguageService({});
+		const document = TextDocument.create('file:///test.json', 'json', 0, '{"value":[42]}');
+		const json = service.parseJSONDocument(document);
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$defs: {
+				legacy: {
+					$schema: 'https://json-schema.org/draft-07/schema',
+					type: 'array'
+				}
+			},
+			properties: {
+				value: { $ref: '#/$defs/legacy', prefixItems: [{ type: 'string' }] }
+			}
+		};
+		const diagnostics = await service.doValidation(document, json, {}, schema);
+		assert.strictEqual(diagnostics.length, 1);
+		const arrayOffset = document.getText().indexOf('[42]');
+		const matching = await service.getMatchingSchemas(document, json, schema);
+		assert.ok(matching.some(match => match.node.offset === arrayOffset && match.schema.prefixItems !== undefined));
+	});
+
+	test('unevaluatedProperties sees annotations from an isolated reference', async () => {
+		const service = getLanguageService({
+			schemaRequestService: async uri => uri === 'https://example.com/object.json'
+				? JSON.stringify({
+					$schema: 'https://json-schema.org/draft/2020-12/schema',
+					properties: { foo: true }
+				})
+				: '{}'
+		});
+		const document = TextDocument.create('file:///test.json', 'json', 0, '{"value":{"foo":1,"bar":2}}');
+		const json = service.parseJSONDocument(document);
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			properties: {
+				value: { $ref: 'https://example.com/object.json', unevaluatedProperties: false }
+			}
+		};
+		const diagnostics = await service.doValidation(document, json, {}, schema);
+		assert.strictEqual(diagnostics.length, 1);
+		assert.ok(typeof diagnostics[0].message === 'string' && diagnostics[0].message.includes('bar'));
+	});
+
+	test('a non-string nested $schema does not interrupt validation or matching', async () => {
+		const service = getLanguageService({});
+		const document = TextDocument.create('file:///test.json', 'json', 0, '{"value":1}');
+		const json = service.parseJSONDocument(document);
+		const schema: JSONSchema = JSON.parse('{"type":"object","properties":{"value":{"$schema":1,"type":"string"}}}');
+		const diagnostics = await service.doValidation(document, json, {}, schema);
+		assert.strictEqual(diagnostics.length, 1);
+		const matching = await service.getMatchingSchemas(document, json, schema);
+		assert.ok(matching.length > 0);
+	});
+
 	test('a declared dialect resets inherited vocabulary restrictions only within its branch', () => {
 		const service = getLanguageService({});
 		const document = TextDocument.create('file:///test.json', 'json', 0, '{"declared":1,"inherited":1}');

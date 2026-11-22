@@ -448,7 +448,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 	const node = n;
 
 	// Combined schemas and resolved references can enter a resource with another dialect.
-	if (schemaStack.length > 0 && context.schemaDraftOverride === undefined && schema.$schema) {
+	if (schemaStack.length > 0 && context.schemaDraftOverride === undefined && typeof schema.$schema === 'string') {
 		const declaredDraft = getSchemaDraftFromId(schema.$schema);
 		if (declaredDraft !== undefined) {
 			context = new EvaluationContext(declaredDraft, undefined, declaredDraft);
