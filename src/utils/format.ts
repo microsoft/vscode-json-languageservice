@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { format as formatJSON, Range as JSONCRange, EditResult, Edit, parseTree, createScanner, SyntaxKind, Node as JSONCNode } from 'jsonc-parser';
+import { format as formatJSON, Range as JSONCRange, EditResult, Edit, parseTree, createScanner, ScanError, SyntaxKind, Node as JSONCNode } from 'jsonc-parser';
 import { TextDocument, Range, TextEdit, FormattingOptions } from '../jsonLanguageTypes.js';
 
 export function format(documentToFormat: TextDocument, formattingOptions?: FormattingOptions, formattingRange?: Range | undefined): TextEdit[] {
@@ -46,7 +46,7 @@ function compactEdits(text: string, edits: EditResult, range: JSONCRange | undef
 	if (compacted === formatted) {
 		return edits;
 	}
-	return computeWhitespaceEdits(text, compacted) ?? [computeReplaceEdit(text, compacted)];
+	return computeWhitespaceEdits(text, compacted) ?? edits;
 }
 
 /**
@@ -86,6 +86,17 @@ function compactText(formatted: string, start: number, end: number, tabSize: num
 	if (!root) {
 		return formatted;
 	}
+	const scanner = createScanner(formatted, false);
+	const scanErrors: { offset: number; end: number }[] = [];
+	while (true) {
+		const token = scanner.scan();
+		if (scanner.getTokenError() !== ScanError.None) {
+			scanErrors.push({ offset: scanner.getTokenOffset(), end: scanner.getTokenOffset() + scanner.getTokenLength() });
+		}
+		if (token === SyntaxKind.EOF) {
+			break;
+		}
+	}
 	const parts: string[] = [];
 	let lastLine = ''; // the content of the result after the last line break, to compute the column
 	let pos = 0;
@@ -98,7 +109,7 @@ function compactText(formatted: string, start: number, end: number, tabSize: num
 
 	const visit = (node: JSONCNode) => {
 		const nodeEnd = node.offset + node.length;
-		if ((node.type === 'object' || node.type === 'array') && node.offset >= start && nodeEnd <= end) {
+		if ((node.type === 'object' || node.type === 'array') && node.offset >= start && nodeEnd <= end && !hasScanError(scanErrors, node.offset, nodeEnd)) {
 			const inline = renderInline(node, formatted);
 			if (inline !== undefined) {
 				const original = formatted.substring(node.offset, nodeEnd);
@@ -123,6 +134,20 @@ function compactText(formatted: string, start: number, end: number, tabSize: num
 	visit(root);
 	parts.push(formatted.substring(pos));
 	return parts.join('');
+}
+
+function hasScanError(errors: { offset: number; end: number }[], start: number, end: number): boolean {
+	let low = 0;
+	let high = errors.length;
+	while (low < high) {
+		const middle = (low + high) >>> 1;
+		if (errors[middle].end <= start) {
+			low = middle + 1;
+		} else {
+			high = middle;
+		}
+	}
+	return low < errors.length && errors[low].offset < end;
 }
 
 /**
@@ -230,17 +255,4 @@ function scanNonWhitespace(scanner: ReturnType<typeof createScanner>): SyntaxKin
 		token = scanner.scan();
 	}
 	return token;
-}
-
-function computeReplaceEdit(original: string, modified: string): Edit {
-	let prefix = 0;
-	const minLength = Math.min(original.length, modified.length);
-	while (prefix < minLength && original.charCodeAt(prefix) === modified.charCodeAt(prefix)) {
-		prefix++;
-	}
-	let suffix = 0;
-	while (suffix < minLength - prefix && original.charCodeAt(original.length - 1 - suffix) === modified.charCodeAt(modified.length - 1 - suffix)) {
-		suffix++;
-	}
-	return { offset: prefix, length: original.length - prefix - suffix, content: modified.substring(prefix, modified.length - suffix) };
 }

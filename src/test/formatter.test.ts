@@ -628,6 +628,11 @@ suite('JSON Formatter - compact', () => {
 		].join('\n'));
 	});
 
+	test('unterminated strings stay expanded', () => {
+		format('{\n  "a": "value\n}', '{\n  "a": "value\n}');
+		format('[\n  "value\n]', '[\n  "value\n]');
+	});
+
 	test('range', () => {
 		const content = [
 			'{',
