@@ -6,6 +6,7 @@
 import { DocumentLink } from 'vscode-languageserver-types';
 import { TextDocument, ASTNode, PropertyASTNode, Range } from '../jsonLanguageTypes.js';
 import { JSONDocument } from '../parser/jsonParser.js';
+import { decodeUriFragment } from '../utils/strings.js';
 
 export function findLinks(document: TextDocument, doc: JSONDocument): PromiseLike<DocumentLink[]> {
 	const links: DocumentLink[] = [];
@@ -33,11 +34,7 @@ function createRange(document: TextDocument, node: ASTNode): Range {
 function findTargetNode(doc: JSONDocument, path: string): ASTNode | null {
 	const hashIndex = path.indexOf('#');
 	if (hashIndex >= 0) {
-		try {
-			path = path.substring(0, hashIndex + 1) + decodeURIComponent(path.substring(hashIndex + 1));
-		} catch {
-			// Preserve support for existing references with literal, malformed percent escapes.
-		}
+		path = path.substring(0, hashIndex + 1) + decodeUriFragment(path.substring(hashIndex + 1));
 	}
 
 	const tokens = parseJSONPointer(path);
