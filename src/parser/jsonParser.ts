@@ -565,7 +565,11 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 	function _validateNode() {
 
 		function matchesType(type: string) {
-			return node.type === type || (type === 'integer' && node.type === 'number' && node.isInteger);
+			if (type === 'integer' && node.type === 'number') {
+				// Since draft-06, any number with a zero fractional part (e.g. 1.0) is an integer.
+				return node.isInteger || (context.schemaDraft >= SchemaDraft.v6 && Number.isInteger(node.value));
+			}
+			return node.type === type;
 		}
 
 		if (Array.isArray(schema.type) && enabled('type')) {
@@ -1621,7 +1625,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			} catch (e) {
 				return _error(l10n.t('Invalid number format.'), ErrorCode.Undefined, node);
 			}
-			node.isInteger = tokenValue.indexOf('.') === -1;
+			node.isInteger = tokenValue.indexOf('.') === -1 && (Number.isInteger(node.value) || !Number.isFinite(node.value));
 		}
 		return _finalize(node, true);
 	}

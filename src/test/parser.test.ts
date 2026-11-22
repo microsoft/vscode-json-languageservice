@@ -302,6 +302,31 @@ suite('JSON Parser', () => {
 		assertObject(jsonDoc.root!, ['key', 'key2', 'key3']);
 	});
 
+	test('Validate integer type', function () {
+		const schema: JSONSchema = { type: 'integer' };
+		const assertIntegerValidation = (text: string, draft: SchemaDraft, expectedProblems: number) => {
+			const { textDoc, jsonDoc } = toDocument(text);
+			assert.strictEqual(validate2(jsonDoc, textDoc, schema, draft)!.length, expectedProblems, `${text} (draft ${draft})`);
+		};
+
+		for (const draft of [SchemaDraft.v4, SchemaDraft.v6, SchemaDraft.v7, SchemaDraft.v2019_09, SchemaDraft.v2020_12]) {
+			assertIntegerValidation('42', draft, 0);
+			assertIntegerValidation('-1', draft, 0);
+			assertIntegerValidation('1e2', draft, 0);
+			assertIntegerValidation('1e400', draft, 0);
+			assertIntegerValidation('1.5', draft, 1);
+			assertIntegerValidation('1e-1', draft, 1);
+			assertIntegerValidation('25E-1', draft, 1);
+		}
+
+		// A number with a zero fractional part is an integer since draft-06
+		assertIntegerValidation('1.0', SchemaDraft.v4, 1);
+		assertIntegerValidation('1.0', SchemaDraft.v6, 0);
+		assertIntegerValidation('1.0', SchemaDraft.v7, 0);
+		assertIntegerValidation('1.0', SchemaDraft.v2020_12, 0);
+		assertIntegerValidation('1.5e1', SchemaDraft.v2020_12, 0);
+	});
+
 	test('Validate types', function () {
 
 		const str = '{"number": 3.4, "integer": 42, "string": "some string", "boolean":true, "null":null, "object":{}, "array":[1, 2]}';
