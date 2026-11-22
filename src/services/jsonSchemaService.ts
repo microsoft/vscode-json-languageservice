@@ -582,7 +582,6 @@ export class JSONSchemaService implements IJSONSchemaService {
 		// $ref values merged from the found section can be resolved against the
 		// correct base, not the document root.
 		const findSectionAndBase = (schema: JSONSchema, path: string, baseHandle: SchemaHandle): { section: any; baseHandle: SchemaHandle } => {
-			path = decodeURIComponent(path);
 			let current: any = schema;
 			let currentBaseHandle = baseHandle;
 			if (path[0] === '/') {
@@ -793,15 +792,16 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const mergeRef = (target: JSONSchema, sourceRoot: JSONSchema, sourceHandle: SchemaHandle, refSegment: string | undefined, isolateExternalResource = false): void => {
 			let section;
 			let sectionBaseHandle = sourceHandle;
-			if (refSegment === undefined || refSegment.length === 0) {
+			const fragment = refSegment === undefined ? undefined : Strings.decodeUriFragment(refSegment);
+			if (fragment === undefined || fragment.length === 0) {
 				section = sourceRoot;
-			} else if (refSegment.charAt(0) === '/') {
+			} else if (fragment.charAt(0) === '/') {
 				// A $ref to a JSON Pointer (i.e #/definitions/foo)
 				// Track $id base changes along the path so inner $refs resolve correctly.
-				({ section, baseHandle: sectionBaseHandle } = findSectionAndBase(sourceRoot, refSegment, sourceHandle));
+				({ section, baseHandle: sectionBaseHandle } = findSectionAndBase(sourceRoot, fragment, sourceHandle));
 			} else {
 				// A $ref to a sub-schema with an $id (i.e #hello)
-				section = findSchemaById(sourceRoot, sourceHandle, refSegment);
+				section = findSchemaById(sourceRoot, sourceHandle, fragment);
 			}
 			// A boolean is a valid JSON Schema: `true` accepts everything ({}) and
 			// `false` rejects everything ({ not: {} }). Normalize so it merges like any
@@ -963,7 +963,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 			// A JSON-pointer fragment ("#/…") or a missing fragment can never name a
 			// $dynamicAnchor, so such a $dynamicRef always behaves like a plain $ref.
-			const fragment = segments[1];
+			const fragment = segments[1] === undefined ? undefined : Strings.decodeUriFragment(segments[1]);
 			const dynamicName = (isString(fragment) && fragment.length > 0 && fragment.charAt(0) !== '/') ? fragment : undefined;
 			if (dynamicName !== undefined) {
 				info.name = dynamicName;
