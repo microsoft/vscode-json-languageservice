@@ -1264,6 +1264,9 @@ export class JSONSchemaService implements IJSONSchemaService {
 				return normalizeId(id);
 			};
 
+			// Avoid caching partially merged nodes when a cyclic reference returns to a registered resource.
+			embeddedRegisteredFor.add(baseUri);
+
 			const visit = (node: JSONSchema, currentBaseUri: string, isDocumentRoot: boolean): void => {
 				if (!node || typeof node !== 'object' || seen.has(node)) {
 					return;
@@ -1275,6 +1278,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				let newBaseUri = currentBaseUri;
 				if (isString(id) && id.charAt(0) !== '#') {
 					const resolvedUri = resolveId(id, currentBaseUri);
+					embeddedRegisteredFor.add(resolvedUri);
 					if (!isDocumentRoot) {
 						embeddedSchemaUris.add(resolvedUri);
 					}

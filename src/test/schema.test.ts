@@ -258,6 +258,51 @@ suite('JSON Schema', () => {
 			assert.strictEqual(((first.schema.properties?.next as JSONSchema).properties?.value as JSONSchema).type, 'string');
 			assert.deepStrictEqual(requests, [sharedUri, nestedUri, sharedUri, nestedUri]);
 		});
+
+		for (const referenceKind of ['retrieval URI', 'root $id', 'embedded $id']) {
+			test(`cyclic references through ${referenceKind} do not cache partially resolved embedded schemas`, async function () {
+				const rootUri = 'https://example.com/root.json';
+				const rootId = 'https://example.com/root-id.json';
+				const embeddedUri = 'https://example.com/embedded.json';
+				const nestedUri = 'https://example.com/nested.json';
+				const requests: string[] = [];
+				const service = new SchemaService.JSONSchemaService(uri => {
+					requests.push(uri);
+					if (uri === rootUri) {
+						return Promise.resolve(JSON.stringify({
+							...(referenceKind === 'root $id' ? { $id: rootId } : {}),
+							$defs: {
+								embedded: {
+									$id: embeddedUri,
+									type: 'object',
+									properties: { x: { $ref: nestedUri }, y: { type: 'string' } }
+								},
+								sibling: { type: 'string' }
+							},
+							$ref: '#/$defs/embedded'
+						}));
+					}
+					if (uri === nestedUri) {
+						const reference = referenceKind === 'embedded $id'
+							? `${embeddedUri}#/properties/y`
+							: `${referenceKind === 'root $id' ? rootId : rootUri}#/$defs/sibling`;
+						return Promise.resolve(JSON.stringify({ $ref: reference }));
+					}
+					throw new Error(`Unexpected schema URI: ${uri}`);
+				}, workspaceContext);
+				const root = service.registerExternalSchema({ uri: rootUri });
+
+				const resolvedRoot = await root.getResolvedSchema();
+				assert.deepStrictEqual(resolvedRoot.errors, []);
+				assert.strictEqual((resolvedRoot.schema.properties?.x as JSONSchema).type, 'string');
+
+				const embedded = service.registerExternalSchema({ uri: embeddedUri });
+				const resolvedEmbedded = await embedded.getResolvedSchema();
+				assert.deepStrictEqual(resolvedEmbedded.errors, []);
+				assert.strictEqual((resolvedEmbedded.schema.properties?.x as JSONSchema).type, 'string');
+				assert.deepStrictEqual(requests, [rootUri, nestedUri]);
+			});
+		}
 	});
 
 	test('Resolving $refs', async function () {
