@@ -59,6 +59,31 @@ export function decodeUriFragment(fragment: string): string {
 	}
 }
 
+const unreservedUriCharRegex = /^[A-Za-z0-9\-._~]$/;
+
+/**
+ * Normalizes the percent-encoding of a URI component (RFC 3986, section 6.2.2): escaped unreserved characters are
+ * decoded and hex digits uppercased. Characters a URI can't contain, such as spaces or non-ASCII characters, are encoded.
+ * Other escapes stay encoded, as decoding them can change the resource the URI addresses.
+ */
+export function normalizeUriEncoding(component: string): string {
+	return component.replace(/%([0-9A-Fa-f]{2})|[^\x21-\x7E]/gu, (match: string, hex: string | undefined) => {
+		if (hex !== undefined) {
+			const char = String.fromCharCode(parseInt(hex, 16));
+			return unreservedUriCharRegex.test(char) ? char : match.toUpperCase();
+		}
+		try {
+			return encodeURIComponent(match);
+		} catch (error) {
+			if (error instanceof URIError) {
+				// A lone surrogate has no UTF-8 encoding, keep it.
+				return match;
+			}
+			throw error;
+		}
+	});
+}
+
 export function extendedRegExp(pattern: string): RegExp | undefined {
 	let flags = '';
 	if (startsWith(pattern, '(?i)')) {

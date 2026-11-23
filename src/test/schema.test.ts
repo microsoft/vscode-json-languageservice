@@ -779,6 +779,53 @@ suite('JSON Schema', () => {
 		assert.strictEqual((resolved.schema.properties?.pointer as JSONSchema).type, 'number');
 	});
 
+	test('Schema URLs keep their percent-encoding when requested', async function () {
+		const schemaUris = [
+			// non-ASCII characters in the query (#178)
+			'https://example.com/w/index.php?title=%EB%A6%AC%EB%B2%84%ED%8B%B0/%EC%8A%A4%ED%82%A4%EB%A7%88.json&action=raw',
+			// encoded delimiters, decoding them would address a different resource
+			'https://example.com/a%2Fb.json?q=a%26b%3Dc%2Bd'
+		];
+		for (const schemaUri of schemaUris) {
+			const accesses: string[] = [];
+			const ls = getLanguageService({
+				schemaRequestService: newMockRequestService({ [schemaUri]: { properties: { value: { type: 'string' } } } }, accesses),
+				workspaceContext
+			});
+			const { textDoc, jsonDoc } = toDocument(JSON.stringify({ $schema: schemaUri, value: 1 }));
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.deepStrictEqual(accesses, [schemaUri]);
+			assert.strictEqual(diagnostics.length, 1, schemaUri);
+			assertInMessage(diagnostics[0].message, 'Incorrect type');
+		}
+	});
+
+	test('Normalizing schema ids keeps the percent-encoding of http URLs', function () {
+		const cases: [string, string][] = [
+			// encoded delimiters and non-ASCII characters stay encoded
+			['https://example.com/a%2Fb.json?q=a%26b%2Bc', 'https://example.com/a%2Fb.json?q=a%26b%2Bc'],
+			['https://example.com/%EC%8A%A4.json', 'https://example.com/%EC%8A%A4.json'],
+			// characters that can't be requested are encoded, so both spellings get the same id
+			['https://example.com/스 키.json', 'https://example.com/%EC%8A%A4%20%ED%82%A4.json'],
+			// unreserved characters are decoded and hex digits uppercased (RFC 3986, section 6.2.2)
+			['https://example.com/%7e%41%2f.json', 'https://example.com/~A%2F.json'],
+			// malformed escapes and lone surrogates are preserved
+			['https://example.com/a%zz.json', 'https://example.com/a%zz.json'],
+			['https://example.com/\uD800.json', 'https://example.com/\uD800.json'],
+			// unchanged: host casing, empty query and fragment, empty path, json-schema.org prefix
+			['https://Example.COM/A.json?#', 'https://example.com/A.json'],
+			['https://example.com', 'https://example.com/'],
+			['http://json-schema.org/draft-07/schema#', 'https://json-schema.org/draft-07/schema'],
+			// file URIs are still decoded, to normalize the drive letter
+			['file:///C:/Users/a%20b/s.json', 'file:///c:/Users/a b/s.json']
+		];
+		for (const [id, expected] of cases) {
+			assert.strictEqual(Parser.normalizeId(id), expected, id);
+		}
+	});
+
 	test('$anchor is recognized in draft-2019-09 schemas', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 
