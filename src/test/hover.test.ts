@@ -164,6 +164,32 @@ suite('JSON Hover', () => {
 		});
 	});
 
+	for (const [value, fence] of [
+		['before```after', '````'],
+		['```', '````'],
+		['```before', '````'],
+		['after```', '````'],
+		['before````after', '`````'],
+		['`````', '``````'],
+		['` mixed ``` runs ``', '````'],
+		[' ``` ', '````'],
+		['before`after', '```'],
+		['before``after', '```'],
+	]) {
+		test(`Enum code span with backtick value: ${JSON.stringify(value)}`, async function () {
+			const schema: JSONSchema = {
+				properties: {
+					prop: { enum: [value], enumDescriptions: ['A value'] }
+				}
+			};
+			const content = JSON.stringify({ prop: value });
+			for (const character of [2, 9]) {
+				const result = await testComputeInfo(content, schema, { line: 0, character });
+				assert.deepStrictEqual(result.contents, [`${fence} ${value} ${fence}: A value`]);
+			}
+		});
+	}
+
 	test('Multiline descriptions', async function () {
 		const schema: JSONSchema = {
 			type: 'object',
