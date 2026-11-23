@@ -74,6 +74,48 @@ suite('JSON Hover', () => {
 		});
 	});
 
+	for (const [plain, escaped] of [
+		['$(check)', '&#36;\\(check\\)'],
+		['$(sync~spin)', '&#36;\\(sync~spin\\)'],
+		['$(ab:c)', '&#36;\\(ab:c\\)'],
+		['$100', '&#36;100'],
+		['$schema', '&#36;schema'],
+		[String.raw`\$(value)`, String.raw`\\&#36;\(value\)`],
+	]) {
+		for (const field of ['title', 'description', 'enumDescriptions'] as const) {
+			test(`Literal dollar text in ${field}: ${plain}`, async function () {
+				const property: JSONSchema = field === 'enumDescriptions'
+					? { enum: ['value'], enumDescriptions: [plain] }
+					: { [field]: plain };
+				const schema: JSONSchema = { properties: { prop: property } };
+				for (const character of [3, 12]) {
+					const hover = await testComputeInfo('{ "prop": "value" }', schema, { line: 0, character });
+					assert.deepStrictEqual(hover.contents, [field === 'enumDescriptions' ? `\`value\`: ${escaped}` : escaped]);
+				}
+			});
+		}
+	}
+
+	test('Preserve authored Markdown dollar expressions', async function () {
+		const schema: JSONSchema = {
+			properties: {
+				prop: { markdownDescription: '**$(check)** $100', description: 'Plain fallback' }
+			}
+		};
+		const hover = await testComputeInfo('{ "prop": "value" }', schema, { line: 0, character: 3 });
+		assert.deepStrictEqual(hover.contents, ['**$(check)** $100']);
+	});
+
+	test('Preserve authored Markdown enum descriptions', async function () {
+		const schema: JSONSchema = {
+			properties: {
+				prop: { enum: ['value'], markdownEnumDescriptions: ['**$(check)** $100'] }
+			}
+		};
+		const hover = await testComputeInfo('{ "prop": "value" }', schema, { line: 0, character: 12 });
+		assert.deepStrictEqual(hover.contents, ['`value`: **$(check)** $100']);
+	});
+
 	test('Nested schema', async function () {
 
 		const content = '{"a": 42, "b": "hello"}';
