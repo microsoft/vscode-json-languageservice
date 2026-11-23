@@ -6,7 +6,7 @@
 import * as Json from 'jsonc-parser';
 import { JSONSchema, JSONSchemaRef, MergedJSONSchema } from '../jsonSchema.js';
 import { isNumber, equals, isBoolean, isString, isDefined, isObject } from '../utils/objects.js';
-import { extendedRegExp, stringLength } from '../utils/strings.js';
+import { extendedRegExp, normalizeUriEncoding, stringLength } from '../utils/strings.js';
 import { TextDocument, ASTNode, ObjectASTNode, ArrayASTNode, BooleanASTNode, NumberASTNode, StringASTNode, NullASTNode, PropertyASTNode, JSONPath, ErrorCode, Diagnostic, DiagnosticSeverity, Range, SchemaDraft, Vocabularies  } from '../jsonLanguageTypes.js';
 import { URI } from 'vscode-uri';
 import { isKeywordEnabled, isFormatAssertionEnabled } from '../services/vocabularies.js';
@@ -189,6 +189,7 @@ export enum EnumMatch {
 
 const httpPrefix = `http://json-schema.org/`;
 const httpsPrefix = `https://json-schema.org/`;
+const httpPathAndQueryRegex = /^https?:\/\/[^/?#]*([^?#]*)(?:\?([^#]*))?/i;
 
 export function normalizeId(id: string): string {
 	// use the https prefix for the old json-schema.org meta schemas
@@ -198,7 +199,17 @@ export function normalizeId(id: string): string {
 	}
 	// remove trailing '#', normalize drive capitalization
 	try {
-		return URI.parse(id).toString(true);
+		const uri = URI.parse(id);
+		const httpPathAndQuery = httpPathAndQueryRegex.exec(id);
+		if (httpPathAndQuery) {
+			// URI.parse decodes the path and query, but the decoded URL can address a different resource (an encoded '/'
+			// or '&') or not be requestable at all (non-ASCII characters). Use the original encoding instead.
+			// See https://github.com/microsoft/vscode-json-languageservice/issues/178
+			const path = normalizeUriEncoding(httpPathAndQuery[1]) || '/';
+			const query = normalizeUriEncoding(httpPathAndQuery[2] ?? '');
+			return uri.with({ path, query }).toString(true);
+		}
+		return uri.toString(true);
 	} catch (e) {
 		return id;
 	}
