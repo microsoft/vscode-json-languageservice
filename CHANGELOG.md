@@ -1,3 +1,7 @@
+6.0.0-next.5 / 2026-09-14
+================
+- Add `LanguageServiceParams.fallbackSchemaProvider` to provide schema URIs when a resource has no explicit or associated schema. Returned schemas are loaded through `schemaRequestService`.
+
 6.0.0-next.2 / 2026-07-11
 ================
 - Support $dynamicRef / $dynamicAnchor (JSON Schema 2020-12)

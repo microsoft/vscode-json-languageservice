@@ -103,6 +103,18 @@ suite('JSON Folding', () => {
 		assertRanges(input, [r(0, 3, 'region')]);
 	});
 
+	test('Fold regions with comments mentioning endregion', () => {
+		let input = [
+			/*0*/'// #region config',
+			/*1*/'{',
+			/*2*/'  // The endregion marker belongs after this object.',
+			/*3*/'  "enabled": true',
+			/*4*/'}',
+			/*5*/'// #endregion',
+		];
+		assertRanges(input, [r(0, 5, 'region'), r(1, 3, 'object')]);
+	});
+
 	test('Test limit', () => {
 		let input = [
 			/* 0*/'[',

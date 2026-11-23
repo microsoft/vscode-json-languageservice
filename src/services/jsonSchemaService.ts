@@ -8,7 +8,7 @@ import { JSONSchema, JSONSchemaRef, MergedJSONSchema, DynamicRefInfo, AnchorMaps
 import { URI } from 'vscode-uri';
 import * as Strings from '../utils/strings.js';
 import { asSchema, getSchemaDraftFromId, JSONDocument, normalizeId } from '../parser/jsonParser.js';
-import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies } from '../jsonLanguageTypes.js';
+import { SchemaRequestService, WorkspaceContextService, PromiseConstructor, MatchingSchema, TextDocument, SchemaConfiguration, SchemaDraft, ErrorCode, Vocabularies, FallbackSchemaProvider } from '../jsonLanguageTypes.js';
 
 import * as l10n from '@vscode/l10n';
 import { createRegex } from '../utils/glob.js';
@@ -273,6 +273,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 	private callOnDispose: Function[];
 	private requestService: SchemaRequestService | undefined;
 	private promiseConstructor: PromiseConstructor;
+	private fallbackSchemaProvider: FallbackSchemaProvider | undefined;
 
 	private static traverseSchemaProperties(node: JSONSchema, callback: (schema: JSONSchema) => void): void {
 		// `$defs`/`definitions` are visited first so that a reusable resource they
@@ -321,10 +322,11 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 	private cachedSchemaForResource: { resource: string; resolvedSchema: PromiseLike<ResolvedSchema | undefined> } | undefined;
 
-	constructor(requestService?: SchemaRequestService, contextService?: WorkspaceContextService, promiseConstructor?: PromiseConstructor) {
+	constructor(requestService?: SchemaRequestService, contextService?: WorkspaceContextService, promiseConstructor?: PromiseConstructor, fallbackSchemaProvider?: FallbackSchemaProvider) {
 		this.contextService = contextService;
 		this.requestService = requestService;
 		this.promiseConstructor = promiseConstructor || Promise;
+		this.fallbackSchemaProvider = fallbackSchemaProvider;
 		this.callOnDispose = [];
 
 		this.contributionSchemas = {};
@@ -589,7 +591,6 @@ export class JSONSchemaService implements IJSONSchemaService {
 		// $ref values merged from the found section can be resolved against the
 		// correct base, not the document root.
 		const findSectionAndBase = (schema: JSONSchema, path: string, baseHandle: SchemaHandle): { section: any; baseHandle: SchemaHandle } => {
-			path = decodeURIComponent(path);
 			let current: any = schema;
 			let currentBaseHandle = baseHandle;
 			if (path[0] === '/') {
@@ -802,15 +803,16 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const mergeRef = (target: JSONSchema, sourceRoot: JSONSchema, sourceHandle: SchemaHandle, refSegment: string | undefined, isolateExternalResource = false): void => {
 			let section;
 			let sectionBaseHandle = sourceHandle;
-			if (refSegment === undefined || refSegment.length === 0) {
+			const fragment = refSegment === undefined ? undefined : Strings.decodeUriFragment(refSegment);
+			if (fragment === undefined || fragment.length === 0) {
 				section = sourceRoot;
-			} else if (refSegment.charAt(0) === '/') {
+			} else if (fragment.charAt(0) === '/') {
 				// A $ref to a JSON Pointer (i.e #/definitions/foo)
 				// Track $id base changes along the path so inner $refs resolve correctly.
-				({ section, baseHandle: sectionBaseHandle } = findSectionAndBase(sourceRoot, refSegment, sourceHandle));
+				({ section, baseHandle: sectionBaseHandle } = findSectionAndBase(sourceRoot, fragment, sourceHandle));
 			} else {
 				// A $ref to a sub-schema with an $id (i.e #hello)
-				section = findSchemaById(sourceRoot, refSegment);
+				section = findSchemaById(sourceRoot, fragment);
 			}
 			// A boolean is a valid JSON Schema: `true` accepts everything ({}) and
 			// `false` rejects everything ({ not: {} }). Normalize so it merges like any
@@ -850,6 +852,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 				// Starting in 2019-09, sibling keywords are processed alongside $ref.
 				// Only strip siblings when schema explicitly declares a pre-2019-09 draft via $schema.
 				const isPreDraft201909 = schemaDraft !== undefined && schemaDraft < SchemaDraft.v2019_09;
+				const sectionDeclaresDraft = typeof section.$schema === 'string' && getSchemaDraftFromId(section.$schema) !== undefined;
 				if (isPreDraft201909) {
 					// Clear all sibling keywords from target - $ref takes precedence
 					for (const key in target) {
@@ -858,7 +861,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 						}
 					}
 					merge(target, section);
-				} else if (isolateExternalResource || needsScopeIsolation(section, target)) {
+				} else if (isolateExternalResource || (sectionDeclaresDraft && hasRefSiblingKeywords(target)) || needsScopeIsolation(section, target)) {
 					// In JSON Schema 2019-09 or greater, $ref creates a new scope when sibling
 					// keywords would otherwise change the meaning of same-object-dependent keywords
 					// from the referenced schema.
@@ -971,7 +974,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 			// A JSON-pointer fragment ("#/…") or a missing fragment can never name a
 			// $dynamicAnchor, so such a $dynamicRef always behaves like a plain $ref.
-			const fragment = segments[1];
+			const fragment = segments[1] === undefined ? undefined : Strings.decodeUriFragment(segments[1]);
 			const dynamicName = (isString(fragment) && fragment.length > 0 && fragment.charAt(0) !== '/') ? fragment : undefined;
 			if (dynamicName !== undefined) {
 				info.name = dynamicName;
@@ -1390,12 +1393,23 @@ export class JSONSchemaService implements IJSONSchemaService {
 		return schemas;
 	}
 
+	private getSchemaURIsForResourceImpl(resource: string): string[] {
+		const schemas = this.getAssociatedSchemas(resource);
+		if (schemas.length === 0) {
+			const fallbackSchemas = this.fallbackSchemaProvider?.(resource);
+			if (fallbackSchemas) {
+				schemas.push(...fallbackSchemas.map(normalizeId));
+			}
+		}
+		return schemas;
+	}
+
 	public getSchemaURIsForResource(resource: string, document?: JSONDocument): string[] {
 		let schemeId = document && this.getSchemaFromProperty(resource, document);
 		if (schemeId) {
 			return [schemeId];
 		}
-		return this.getAssociatedSchemas(resource);
+		return this.getSchemaURIsForResourceImpl(resource);
 	}
 
 	public getSchemaForResource(resource: string, document?: JSONDocument): PromiseLike<ResolvedSchema | undefined> {
@@ -1410,7 +1424,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 		if (this.cachedSchemaForResource && this.cachedSchemaForResource.resource === resource) {
 			return this.cachedSchemaForResource.resolvedSchema;
 		}
-		const schemas = this.getAssociatedSchemas(resource);
+		const schemas = this.getSchemaURIsForResourceImpl(resource);
 		const resolvedSchema = schemas.length > 0 ? this.createCombinedSchema(resource, schemas).getResolvedSchema() : this.promise.resolve(undefined);
 		this.cachedSchemaForResource = { resource, resolvedSchema };
 		return resolvedSchema;

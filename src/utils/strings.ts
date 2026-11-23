@@ -47,6 +47,18 @@ export function repeat(value: string, count: number) {
 	return s;
 }
 
+export function decodeUriFragment(fragment: string): string {
+	try {
+		return decodeURIComponent(fragment);
+	} catch (error) {
+		if (error instanceof URIError) {
+			// Preserve literal malformed escapes for compatibility.
+			return fragment;
+		}
+		throw error;
+	}
+}
+
 export function extendedRegExp(pattern: string): RegExp | undefined {
 	let flags = '';
 	if (startsWith(pattern, '(?i)')) {

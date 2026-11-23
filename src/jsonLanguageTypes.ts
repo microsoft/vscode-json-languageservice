@@ -223,6 +223,14 @@ export interface SchemaRequestService {
 	(uri: string): PromiseLike<string>;
 }
 
+/**
+ * The fallback schema provider is used when no schema is associated with a resource.
+ * It returns the URIs of schemas to use for the resource.
+ */
+export interface FallbackSchemaProvider {
+	(uri: string): string[] | undefined;
+}
+
 export interface PromiseConstructor {
 	/**
 	 * Creates a new Promise.
@@ -268,6 +276,11 @@ export interface LanguageServiceParams {
 	 * in case of an error, a displayable error string
 	 */
 	schemaRequestService?: SchemaRequestService;
+	/**
+	 * The fallback schema provider is used when no schema is associated with a resource.
+	 * The returned schema URIs are loaded using the schema request service.
+	 */
+	fallbackSchemaProvider?: FallbackSchemaProvider;
 	/**
 	 * The workspace context is used to resolve relative paths for relative schema references.
 	 */
@@ -385,6 +398,19 @@ export interface ColorInformationContext {
 export interface FormattingOptions extends LSPFormattingOptions {
 	insertFinalNewline?: boolean;
 	keepLines?: boolean;
+	/**
+	 * If set, objects and arrays are only spread over multiple lines when a comma separates two of their entries.
+	 * Objects and arrays with at most one entry (whose entry is a value or again such a container) are kept on a single line,
+	 * e.g. `{ "beginCaptures": { "0": { "name": "punctuation" } } }`.
+	 * Containers that contain comments or syntax errors are left expanded. Ignored when `keepLines` is set.
+	 */
+	compact?: boolean;
+	/**
+	 * Only used together with `compact`: an object or array is only kept on a single line if the resulting line,
+	 * including indentation (tabs count as `tabSize` characters) and trailing punctuation, is not longer than this.
+	 * If not set, the line length is not limited.
+	 */
+	maxLineLength?: number;
 }
 
 export interface SortOptions extends LSPFormattingOptions {

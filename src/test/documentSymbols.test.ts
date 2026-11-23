@@ -192,6 +192,14 @@ suite('JSON Document Symbols', () => {
 		assertHierarchicalOutline(content, expected2);
 	});
 
+	test('Outline - keybindings with non-string key', function () {
+		const ls = getLanguageService({ schemaRequestService, clientCapabilities: ClientCapabilities.LATEST });
+		const document = TextDocument.create('vscode://defaultsettings/keybindings.json', 'json', 0, '[{ "key": "ctrl+a" }, { "key": [] }]');
+		const jsonDoc = ls.parseJSONDocument(document);
+		assert.deepEqual(ls.findDocumentSymbols(document, jsonDoc).map(s => s.name), ['ctrl+a', '<empty>']);
+		assert.deepEqual(ls.findDocumentSymbols2(document, jsonDoc).map(s => s.name), ['ctrl+a', '<empty>']);
+	});
+
 	test('Hierarchical Outline - Object', function () {
 		const content = '{ "key1": { "key2": true }, "key3" : { "k1":  { } }';
 
@@ -293,6 +301,27 @@ suite('JSON Document Symbols', () => {
 		const expectedColors = [colorFrom256RGB(255, 0, 255), colorFrom256RGB(255, 0, 0)];
 		return assertColors(content, schema, expectedOffsets, expectedColors);
 	});
+
+	for (const format of ['color', 'color-hex']) {
+		for (const value of ['#ggg', '#fffz', '#12gg56', '#123456gg', '#12:', '#12@', '#12/', '#12é', '#ff\n', '#fff\n', '#1234567\n']) {
+			test(`Colors ignores invalid ${format} value ${JSON.stringify(value)}`, async function () {
+				await assertColors(JSON.stringify(value), { type: 'string', format }, [], []);
+			});
+		}
+
+		test(`Colors preserves valid ${format} values next to invalid values`, async function () {
+			const values = ['#ggg', '#aBc', '#fffz', '#AbC8', '#12gg56', '#12aBcD', '#123456gg', '#12AbCd80'];
+			const content = JSON.stringify(values);
+			const expectedValues = ['#aBc', '#AbC8', '#12aBcD', '#12AbCd80'];
+			const expectedOffsets = expectedValues.map(value => content.indexOf(JSON.stringify(value)));
+			await assertColors(content, { type: 'array', items: { type: 'string', format } }, expectedOffsets, [
+				colorFrom256RGB(170, 187, 204),
+				colorFrom256RGB(170, 187, 204, 136 / 255),
+				colorFrom256RGB(18, 171, 205),
+				colorFrom256RGB(18, 171, 205, 128 / 255)
+			]);
+		});
+	}
 
 	test('color presentations', function () {
 		assertColorPresentations(colorFrom256RGB(255, 0, 0), '#ff0000');
