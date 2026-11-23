@@ -569,6 +569,65 @@ suite('JSON Schema', () => {
 		});
 	});
 
+	test('Resolving percent-encoded reference fragments', async function () {
+		const rootUri = 'https://example.com/encoded-refs';
+		const embeddedUri = 'https://example.com/embedded';
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				[rootUri]: {
+					$schema: 'https://json-schema.org/draft/2019-09/schema',
+					$defs: {
+						anchored: { $anchor: 'myAnchor', type: 'string' },
+						'%20': { type: 'number' },
+						embedded: { $id: embeddedUri, $defs: { anchored: { $anchor: 'myAnchor', type: 'boolean' } } }
+					},
+					properties: {
+						local: { $ref: '#my%41nchor' },
+						external: { $ref: `${embeddedUri}#my%41nchor` },
+						pointer: { $ref: '#%2F$defs%2F%2520' }
+					}
+				}
+			}
+		});
+
+		const resolved = await service.getResolvedSchema(rootUri);
+		assert.ok(resolved);
+		assert.deepStrictEqual(resolved.errors, []);
+		assert.strictEqual((resolved.schema.properties?.local as JSONSchema).type, 'string');
+		assert.strictEqual((resolved.schema.properties?.external as JSONSchema).type, 'boolean');
+		assert.strictEqual((resolved.schema.properties?.pointer as JSONSchema).type, 'number');
+	});
+
+	test('Preserve malformed percent escapes in legacy anchor references', async function () {
+		const uri = 'https://example.com/legacy-anchor';
+		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
+		service.setSchemaContributions({
+			schemas: {
+				[uri]: {
+					$schema: 'http://json-schema.org/draft-07/schema#',
+					definitions: {
+						anchor: { $id: '#bad%GG', type: 'string' },
+						escaped: { $id: '#%41', type: 'boolean' },
+						'%GG': { type: 'number' }
+					},
+					properties: {
+						value: { $ref: '#bad%GG' },
+						singleDecode: { $ref: '#%2541' },
+						pointer: { $ref: '#/definitions/%GG' }
+					}
+				}
+			}
+		});
+
+		const resolved = await service.getResolvedSchema(uri);
+		assert.ok(resolved);
+		assert.deepStrictEqual(resolved.errors, []);
+		assert.strictEqual((resolved.schema.properties?.value as JSONSchema).type, 'string');
+		assert.strictEqual((resolved.schema.properties?.singleDecode as JSONSchema).type, 'boolean');
+		assert.strictEqual((resolved.schema.properties?.pointer as JSONSchema).type, 'number');
+	});
+
 	test('$anchor is recognized in draft-2019-09 schemas', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 
@@ -2972,6 +3031,29 @@ suite('JSON Schema', () => {
 		}
 	});
 
+	test('percent-encoded $dynamicRef names participate in dynamic scope', async function () {
+		const base: JSONSchema = {
+			$id: 'https://example.com/encoded-dynamic-base',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			properties: { value: { $dynamicRef: '#ele%6Dents' } },
+			$defs: { elements: { $dynamicAnchor: 'elements' } }
+		};
+		const strict: JSONSchema = {
+			$id: 'https://example.com/encoded-dynamic-strict',
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			$ref: 'https://example.com/encoded-dynamic-base',
+			$defs: { elements: { $dynamicAnchor: 'elements', type: 'string' } }
+		};
+		const service = getLanguageService({
+			schemaRequestService: newMockRequestService({ 'https://example.com/encoded-dynamic-base': base }),
+			workspaceContext
+		});
+		const { textDoc, jsonDoc } = toDocument('{"value":42}');
+		const diagnostics = await service.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, strict);
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'Incorrect type');
+	});
+
 	test('$dynamicRef override resolves across external documents', async function () {
 		// Like the override test above, but the extending resource that carries the
 		// stricter $dynamicAnchor lives in a *separate* document from the one being
@@ -3139,6 +3221,20 @@ suite('JSON Schema', () => {
 		}
 	});
 
+	test('percent-encoded $dynamicRef pointer fragments resolve statically', async function () {
+		const schema: JSONSchema = {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'array',
+			items: { $dynamicRef: '#%2F$defs%2Fnode' },
+			$defs: { node: { type: 'string' } }
+		};
+		const service = getLanguageService({});
+		const { textDoc, jsonDoc } = toDocument('[1]');
+		const diagnostics = await service.doValidation(textDoc, jsonDoc, { schemaValidation: 'warning' }, schema);
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'Incorrect type');
+	});
+
 	test('$dynamicRef resolves through an external schema', async function () {
 		// The reference has a URI part, exercising external resolution of the
 		// initial target across documents.
@@ -3242,6 +3338,59 @@ suite('JSON Schema', () => {
 			const { textDoc, jsonDoc } = toDocument('5');
 			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
 			assert.strictEqual(validation.length, 0, 'Validation keywords should be ignored when validation vocabulary is not active');
+		});
+
+		test('a 2019-09-only keyword is gated by $vocabulary too', async function () {
+			// minContains belongs to the validation vocabulary. The draft check for
+			// keywords introduced in 2019-09 used to answer on its own, so the
+			// vocabulary gate never saw them.
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-no-validation-2',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/applicator': true
+					// validation vocabulary deliberately absent
+				}
+			};
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-no-validation-2',
+				type: 'array',
+				contains: { type: 'number' },
+				minContains: 2
+			};
+			const schemaRequestService = async (uri: string): Promise<string> =>
+				uri === 'http://test/metaschema-no-validation-2' ? JSON.stringify(metaschema) : '{}';
+
+			const ls = getLanguageService({ schemaRequestService });
+			const { textDoc, jsonDoc } = toDocument('[1]');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 0, 'minContains must be ignored when the validation vocabulary is absent');
+		});
+
+		test('unevaluatedProperties still applies under the 2019-09 applicator vocabulary', async function () {
+			// 2020-12 moved unevaluated* into its own vocabulary; under 2019-09 they
+			// belong to applicator. This is the regression guard for the test above.
+			const metaschema: JSONSchema = {
+				$id: 'http://test/metaschema-applicator-2019',
+				$vocabulary: {
+					'https://json-schema.org/draft/2019-09/vocab/core': true,
+					'https://json-schema.org/draft/2019-09/vocab/applicator': true,
+					'https://json-schema.org/draft/2019-09/vocab/validation': true
+				}
+			};
+			const schema: JSONSchema = {
+				$schema: 'http://test/metaschema-applicator-2019',
+				type: 'object',
+				properties: { a: { type: 'string' } },
+				unevaluatedProperties: false
+			};
+			const schemaRequestService = async (uri: string): Promise<string> =>
+				uri === 'http://test/metaschema-applicator-2019' ? JSON.stringify(metaschema) : '{}';
+
+			const ls = getLanguageService({ schemaRequestService });
+			const { textDoc, jsonDoc } = toDocument('{ "a": "x", "b": 1 }');
+			const validation = await ls.doValidation(textDoc, jsonDoc, {}, schema);
+			assert.strictEqual(validation.length, 1, 'unevaluatedProperties must still be asserted under 2019-09 applicator');
 		});
 
 		test('meta-schema with validation vocabulary should process validation keywords', async function () {

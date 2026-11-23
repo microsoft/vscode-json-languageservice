@@ -302,6 +302,31 @@ suite('JSON Parser', () => {
 		assertObject(jsonDoc.root!, ['key', 'key2', 'key3']);
 	});
 
+	test('Validate integer type', function () {
+		const schema: JSONSchema = { type: 'integer' };
+		const assertIntegerValidation = (text: string, draft: SchemaDraft, expectedProblems: number) => {
+			const { textDoc, jsonDoc } = toDocument(text);
+			assert.strictEqual(validate2(jsonDoc, textDoc, schema, draft)!.length, expectedProblems, `${text} (draft ${draft})`);
+		};
+
+		for (const draft of [SchemaDraft.v4, SchemaDraft.v6, SchemaDraft.v7, SchemaDraft.v2019_09, SchemaDraft.v2020_12]) {
+			assertIntegerValidation('42', draft, 0);
+			assertIntegerValidation('-1', draft, 0);
+			assertIntegerValidation('1e2', draft, 0);
+			assertIntegerValidation('1e400', draft, 0);
+			assertIntegerValidation('1.5', draft, 1);
+			assertIntegerValidation('1e-1', draft, 1);
+			assertIntegerValidation('25E-1', draft, 1);
+		}
+
+		// A number with a zero fractional part is an integer since draft-06
+		assertIntegerValidation('1.0', SchemaDraft.v4, 1);
+		assertIntegerValidation('1.0', SchemaDraft.v6, 0);
+		assertIntegerValidation('1.0', SchemaDraft.v7, 0);
+		assertIntegerValidation('1.0', SchemaDraft.v2020_12, 0);
+		assertIntegerValidation('1.5e1', SchemaDraft.v2020_12, 0);
+	});
+
 	test('Validate types', function () {
 
 		const str = '{"number": 3.4, "integer": 42, "string": "some string", "boolean":true, "null":null, "object":{}, "array":[1, 2]}';
@@ -691,6 +716,19 @@ suite('JSON Parser', () => {
 		semanticErrors = validate('{"one":"//foo/bar"}', schemaWithURIReference);
 		assert.strictEqual(semanticErrors!.length, 0, 'uri-reference');
 
+		semanticErrors = validate('{"one":"../foo/bar.json#/a%20b"}', schemaWithURIReference);
+		assert.strictEqual(semanticErrors!.length, 0, 'uri-reference');
+
+		semanticErrors = validate('{"one":"\\\\\\\\server\\\\share\\\\file.txt"}', schemaWithURIReference);
+		assert.strictEqual(semanticErrors!.length, 1, 'uri-reference with backslashes');
+		assert.strictEqual(semanticErrors![0].message, 'String is not a URI: URI must not contain backslashes or whitespace.');
+
+		semanticErrors = validate('{"one":"foo bar"}', schemaWithURIReference);
+		assert.strictEqual(semanticErrors!.length, 1, 'uri-reference with whitespace');
+
+		semanticErrors = validate('{"one":"http:\\\\foo"}', schemaWithURI);
+		assert.strictEqual(semanticErrors!.length, 1, 'uri with backslash');
+
 		const schemaWithHostname = {
 			type: 'object',
 			properties: {
@@ -952,6 +990,34 @@ suite('JSON Parser', () => {
 		assert.strictEqual(semanticErrors!.length, 1, "uuid - random string");
 		assert.strictEqual(semanticErrors![0].message, 'String is not a valid UUID.');
 	});
+
+	for (const format of ['date', 'date-time']) {
+		test(`${format} calendar dates`, function () {
+			const schema = { type: 'string', format };
+			const validDates = [
+				'2023-01-31', '2023-02-28', '2023-03-31', '2023-04-30',
+				'2023-05-31', '2023-06-30', '2023-07-31', '2023-08-31',
+				'2023-09-30', '2023-10-31', '2023-11-30', '2023-12-31',
+				'2024-02-29', '2000-02-29', '0000-02-29', '0096-02-29', '0400-02-29'
+			];
+			const invalidDates = [
+				'2023-02-29', '2023-02-30', '2024-02-30', '2024-02-31',
+				'2023-04-31', '2023-06-31', '2023-09-31', '2023-11-31',
+				'1900-02-29', '2100-02-29', '0100-02-29', '0001-02-29'
+			];
+			for (const date of validDates) {
+				const value = format === 'date' ? date : `${date}T23:30:00-02:00`;
+				assert.strictEqual(validate(JSON.stringify(value), schema)!.length, 0, value);
+			}
+			for (const date of invalidDates) {
+				const value = format === 'date' ? date : `${date}T00:30:00+02:00`;
+				const diagnostics = validate(JSON.stringify(value), schema)!;
+				assert.strictEqual(diagnostics.length, 1, value);
+				assert.strictEqual(diagnostics[0].message, `String is not a RFC3339 ${format}.`);
+				assert.deepStrictEqual(diagnostics[0].range, toRange(JSON.stringify(value), 0, value.length + 2));
+			}
+		});
+	}
 
 	test('Numbers', function () {
 

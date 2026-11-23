@@ -31,6 +31,18 @@ const formats = {
 	'ipv6': { errorMessage: l10n.t('String is not an IPv6 address.'), pattern: /^((([0-9a-f]{1,4}:){7}([0-9a-f]{1,4}|:))|(([0-9a-f]{1,4}:){6}(:[0-9a-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){5}(((:[0-9a-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){4}(((:[0-9a-f]{1,4}){1,3})|((:[0-9a-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){3}(((:[0-9a-f]{1,4}){1,4})|((:[0-9a-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){2}(((:[0-9a-f]{1,4}){1,5})|((:[0-9a-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){1}(((:[0-9a-f]{1,4}){1,6})|((:[0-9a-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9a-f]{1,4}){1,7})|((:[0-9a-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))$/i },
 };
 
+// The date and date-time patterns check syntax; RFC 3339 section 5.7 also limits the day by month and year.
+function isValidDate(year: number, month: number, day: number): boolean {
+	let daysInMonth = 31;
+	if (month === 2) {
+		const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+		daysInMonth = isLeapYear ? 29 : 28;
+	} else if (month === 4 || month === 6 || month === 9 || month === 11) {
+		daysInMonth = 30;
+	}
+	return day <= daysInMonth;
+}
+
 export interface IProblem {
 	location: IRange;
 	severity?: DiagnosticSeverity;
@@ -218,10 +230,11 @@ export interface IEvaluationContext {
 	readonly schemaDraft: SchemaDraft;
 	readonly explicitSchemaDraft?: SchemaDraft;
 	readonly activeVocabularies?: Vocabularies;
+	readonly schemaDraftOverride?: SchemaDraft;
 }
 
 class EvaluationContext implements IEvaluationContext {
-	constructor(public readonly schemaDraft: SchemaDraft, public readonly activeVocabularies?: Vocabularies, public readonly explicitSchemaDraft?: SchemaDraft) {
+	constructor(public readonly schemaDraft: SchemaDraft, public readonly activeVocabularies?: Vocabularies, public readonly explicitSchemaDraft?: SchemaDraft, public readonly schemaDraftOverride?: SchemaDraft) {
 	}
 }
 
@@ -388,7 +401,7 @@ export class JSONDocument {
 		if (this.root && schema) {
 			const validationResult = new ValidationResult();
 			const { explicitDraft, effectiveDraft } = resolveDrafts(schema, schemaDraft);
-			const context = new EvaluationContext(effectiveDraft, activeVocabularies, explicitDraft);
+			const context = new EvaluationContext(effectiveDraft, activeVocabularies, explicitDraft, schemaDraft);
 			const schemaStack: JSONSchema[] = [];
 			const schemaRoots: JSONSchema[] = [schema];
 			validate(this.root, schema, validationResult, NoOpSchemaCollector.instance, context, schemaStack, schemaRoots);
@@ -445,6 +458,14 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 		return validate(n.valueNode, schema, validationResult, matchingSchemas, context, schemaStack, schemaRoots);
 	}
 	const node = n;
+
+	// Combined schemas and resolved references can enter a resource with another dialect.
+	if (schemaStack.length > 0 && context.schemaDraftOverride === undefined && typeof schema.$schema === 'string') {
+		const declaredDraft = getSchemaDraftFromId(schema.$schema);
+		if (declaredDraft !== undefined) {
+			context = new EvaluationContext(declaredDraft, undefined, declaredDraft);
+		}
+	}
 
 	if (schema.$recursiveRef) {
 		const hasRecursiveAnchor = (s: JSONSchema) => s.$recursiveAnchor === true;
@@ -516,14 +537,16 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 			return context.schemaDraft <= SchemaDraft.v7;
 		}
 
-		// Keywords introduced in 2019-09 (not available in draft-07 and earlier)
-		if (keywords201909.has(keyword)) {
-			return context.schemaDraft >= SchemaDraft.v2019_09;
+		// Keywords introduced in 2019-09 (not available in draft-07 and earlier).
+		// Being draft-appropriate is necessary but not sufficient: fall through
+		// so the vocabulary gate below can still switch the keyword off.
+		if (keywords201909.has(keyword) && context.schemaDraft < SchemaDraft.v2019_09) {
+			return false;
 		}
 
 		// 'prefixItems' was introduced in 2020-12
-		if (keyword === 'prefixItems') {
-			return context.schemaDraft >= SchemaDraft.v2020_12;
+		if (keyword === 'prefixItems' && context.schemaDraft < SchemaDraft.v2020_12) {
+			return false;
 		}
 
 		// Vocabulary-based filtering only applies for 2019-09+ (vocabulary is not a concept in older drafts)
@@ -565,7 +588,11 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 	function _validateNode() {
 
 		function matchesType(type: string) {
-			return node.type === type || (type === 'integer' && node.type === 'number' && node.isInteger);
+			if (type === 'integer' && node.type === 'number') {
+				// Since draft-06, any number with a zero fractional part (e.g. 1.0) is an integer.
+				return node.isInteger || (context.schemaDraft >= SchemaDraft.v6 && Number.isInteger(node.value));
+			}
+			return node.type === type;
 		}
 
 		if (Array.isArray(schema.type) && enabled('type')) {
@@ -951,6 +978,9 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 						const match = /^(([^:/?#]+?):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/.exec(node.value);
 						if (!match) {
 							errorMessage = l10n.t('URI is expected.');
+						} else if (/[\\\s]/.test(node.value)) {
+							// backslashes and whitespace are not allowed in a URI (RFC 3986), they must be percent-encoded
+							errorMessage = l10n.t('URI must not contain backslashes or whitespace.');
 						} else if (!match[2] && schema.format === 'uri') {
 							errorMessage = l10n.t('URI with a scheme is expected.');
 						}
@@ -974,7 +1004,9 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				case 'ipv4':
 				case 'ipv6':
 					const format = formats[schema.format];
-					if (!node.value || !format.pattern.exec(node.value)) {
+					const match = format.pattern.exec(node.value);
+					const hasDate = schema.format === 'date' || schema.format === 'date-time';
+					if (!match || (hasDate && !isValidDate(Number(match[1]), Number(match[2]), Number(match[3])))) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
 							message: schema.patternErrorMessage || schema.errorMessage || format.errorMessage
@@ -1621,7 +1653,7 @@ export function parse(textDocument: TextDocument, config?: JSONDocumentConfig): 
 			} catch (e) {
 				return _error(l10n.t('Invalid number format.'), ErrorCode.Undefined, node);
 			}
-			node.isInteger = tokenValue.indexOf('.') === -1;
+			node.isInteger = tokenValue.indexOf('.') === -1 && (Number.isInteger(node.value) || !Number.isFinite(node.value));
 		}
 		return _finalize(node, true);
 	}

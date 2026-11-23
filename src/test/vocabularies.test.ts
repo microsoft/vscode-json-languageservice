@@ -152,6 +152,18 @@ suite('Vocabularies', () => {
 			assert.strictEqual(isKeywordEnabled('format', vocabs), true);
 		});
 
+		test('enables shared keywords for each optional vocabulary that defines them', function () {
+			for (const uri of [
+				'https://json-schema.org/draft/2019-09/vocab/format',
+				'https://json-schema.org/draft/2020-12/vocab/format-annotation',
+				'https://json-schema.org/draft/2020-12/vocab/format-assertion'
+			]) {
+				const vocabs = new Map<string, boolean>([[uri, false]]);
+				assert.strictEqual(isKeywordEnabled('format', vocabs), true, uri);
+				assert.strictEqual(isKeywordEnabled('type', vocabs), false, uri);
+			}
+		});
+
 		test('returns false for unknown keywords when vocabularies are restricted', function () {
 			const vocabs = new Map<string, boolean>([
 				['https://json-schema.org/draft/2019-09/vocab/core', true]
