@@ -169,7 +169,7 @@ export class JSONDocumentSymbols {
 							const range = getRange(document, property);
 							const selectionRange = getRange(document, property.keyNode);
 							const children: DocumentSymbol[] = [];
-							const symbol: DocumentSymbol = { name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), range, selectionRange, children, detail: this.getDetail(valueNode) };
+							const symbol: DocumentSymbol = { name: this.getKeyLabel(property), kind: this.getSymbolKind(valueNode.type), range, selectionRange, children, detail: this.getDetail(document, valueNode) };
 							result.push(symbol);
 							toVisit.push({ result: children, node: valueNode });
 						} else {
@@ -220,11 +220,15 @@ export class JSONDocumentSymbols {
 		return `"${name}"`;
 	}
 
-	private getDetail(node: ASTNode | undefined) {
+	private getDetail(document: TextDocument, node: ASTNode | undefined) {
 		if (!node) {
 			return undefined;
 		}
-		if (node.type === 'boolean' || node.type === 'number' || node.type === 'null' || node.type === 'string') {
+		if (node.type === 'number') {
+			// use the source text: large numbers can't be represented exactly as JavaScript numbers
+			return document.getText(getRange(document, node));
+		}
+		if (node.type === 'boolean' || node.type === 'null' || node.type === 'string') {
 			return String(node.value);
 		} else {
 			if (node.type === 'array') {

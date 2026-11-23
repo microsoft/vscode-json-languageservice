@@ -192,6 +192,35 @@ suite('JSON Document Symbols', () => {
 		assertHierarchicalOutline(content, expected2);
 	});
 
+	test('Hierarchical Outline - number detail keeps source text', function () {
+		const content = '{ "id": 1457573422205218818, "f": 1.50, "e": 1e3 }';
+
+		const expected: ExpectedDocumentSymbol[] = [
+			{ label: 'id', kind: SymbolKind.Number, detail: '1457573422205218818', children: [] },
+			{ label: 'f', kind: SymbolKind.Number, detail: '1.50', children: [] },
+			{ label: 'e', kind: SymbolKind.Number, detail: '1e3', children: [] }
+		];
+
+		assertHierarchicalOutline(content, expected);
+	});
+
+	test('Hierarchical Outline - nested signed and extreme number details keep source text', function () {
+		const content = '{\r\n  "values": [\r\n    { "zero": -0, "tiny": 1e-9999, "huge": 1E+400, "integer": -9007199254740993 }\r\n  ]\r\n}';
+
+		const expected: ExpectedDocumentSymbol[] = [{
+			label: 'values', kind: SymbolKind.Array, detail: undefined, children: [{
+				label: '0', kind: SymbolKind.Module, detail: undefined, children: [
+					{ label: 'zero', kind: SymbolKind.Number, detail: '-0', children: [] },
+					{ label: 'tiny', kind: SymbolKind.Number, detail: '1e-9999', children: [] },
+					{ label: 'huge', kind: SymbolKind.Number, detail: '1E+400', children: [] },
+					{ label: 'integer', kind: SymbolKind.Number, detail: '-9007199254740993', children: [] }
+				]
+			}]
+		}];
+
+		assertHierarchicalOutline(content, expected);
+	});
+
 	test('Outline - keybindings with non-string key', function () {
 		const ls = getLanguageService({ schemaRequestService, clientCapabilities: ClientCapabilities.LATEST });
 		const document = TextDocument.create('vscode://defaultsettings/keybindings.json', 'json', 0, '[{ "key": "ctrl+a" }, { "key": [] }]');
