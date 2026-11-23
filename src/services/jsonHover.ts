@@ -102,7 +102,7 @@ export class JSONHover {
 				if (result.length > 0) {
 					result += "\n\n";
 				}
-				result += `\`${toMarkdownCodeBlock(enumValue!)}\`: ${markdownEnumValueDescription}`;
+				result += `${toMarkdownCodeSpan(enumValue!)}: ${markdownEnumValueDescription}`;
 			}
 			return createHover([result]);
 		});
@@ -125,10 +125,12 @@ function toMarkdown(plain: string | undefined): string | undefined {
 	return undefined;
 }
 
-function toMarkdownCodeBlock(content: string) {
-	// see https://daringfireball.net/projects/markdown/syntax#precode
-	if (content.indexOf('`') !== -1) {
-		return '`` ' + content + ' ``';
+function toMarkdownCodeSpan(content: string) {
+	const backtickRuns = content.match(/`+/g);
+	if (backtickRuns) {
+		const fenceLength = backtickRuns.reduce((length, run) => Math.max(length, run.length + 1), 3);
+		const fence = '`'.repeat(fenceLength);
+		return `${fence} ${content} ${fence}`;
 	}
-	return content;
+	return `\`${content}\``;
 }
