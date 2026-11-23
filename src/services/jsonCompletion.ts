@@ -89,15 +89,14 @@ export class JSONCompletion {
 		const proposed = new Map<string, CompletionItem>();
 		const collector: CompletionsCollector = {
 			add: (suggestion: JSONCompletionItem) => {
-				let label = suggestion.label;
+				const label = suggestion.label;
 				const existing = proposed.get(label);
 				if (!existing) {
-					label = label.replace(/[\n]/g, '↵');
 					suggestion.textEdit = TextEdit.replace(overwriteRange, suggestion.insertText);
 					if (supportsCommitCharacters) {
 						suggestion.commitCharacters = suggestion.kind === CompletionItemKind.Property ? propertyCommitCharacters : valueCommitCharacters;
 					}
-					suggestion.label = label;
+					suggestion.label = label.replace(/[\n]/g, '↵');
 					proposed.set(label, suggestion);
 					result.items.push(suggestion);
 				} else {

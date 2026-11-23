@@ -1652,4 +1652,25 @@ suite('JSON Completion', () => {
 			]
 		});
 	});
+
+	test('Label with a newline proposed twice', async function () {
+		const schema: JSONSchema = {
+			allOf: [
+				{ properties: { 'a\nb': { type: 'string' } } },
+				{ properties: { 'a\nb': { type: 'string' } } }
+			]
+		};
+
+		await testCompletionsFor('{ | }', schema, {
+			count: 1,
+			items: [
+				{ label: 'a↵b', resultText: '{ "a\\\\nb": "$1" }' }
+			]
+		});
+		await testCompletionsFor('{ "a\\nb": "", | }', schema, {
+			items: [
+				{ label: 'a↵b', notAvailable: true }
+			]
+		});
+	});
 });
