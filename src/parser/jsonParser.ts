@@ -991,7 +991,7 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 				case 'uri':
 				case 'uri-reference': {
 					let errorMessage;
-					if (!node.value) {
+					if (!node.value && schema.format === 'uri') {
 						errorMessage = l10n.t('URI expected.');
 					} else {
 						const match = /^(([^:/?#]+?):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/.exec(node.value);

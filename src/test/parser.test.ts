@@ -710,8 +710,7 @@ suite('JSON Parser', () => {
 		};
 
 		semanticErrors = validate('{"one":""}', schemaWithURIReference);
-		assert.strictEqual(semanticErrors!.length, 1, 'uri-reference');
-		assert.strictEqual(semanticErrors![0].message, 'String is not a URI: URI expected.');
+		assert.strictEqual(semanticErrors!.length, 0, 'empty same-document uri-reference');
 
 		semanticErrors = validate('{"one":"//foo/bar"}', schemaWithURIReference);
 		assert.strictEqual(semanticErrors!.length, 0, 'uri-reference');
