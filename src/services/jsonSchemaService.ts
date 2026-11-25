@@ -522,6 +522,19 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const embeddedRegisteredFor = new Set<string>();
 		const embeddedSchemaUris = new Set<string>();
 
+		// Merging shares subschemas by reference, so a walk that starts in one document can reach
+		// subschemas of another document before their own walk has resolved them. A subschema
+		// keeps the base it was first reached with, which is the base of the document it is in.
+		const lexicalBases = new WeakMap<JSONSchema, { base: JSONSchema; handle: SchemaHandle }>();
+		const getLexicalBase = (schema: JSONSchema, base: JSONSchema, handle: SchemaHandle) => {
+			let lexicalBase = lexicalBases.get(schema);
+			if (!lexicalBase) {
+				lexicalBase = { base, handle };
+				lexicalBases.set(schema, lexicalBase);
+			}
+			return lexicalBase;
+		};
+
 		const schemaDraft = schema.$schema ? getSchemaDraftFromId(schema.$schema) : undefined;
 		if (schemaDraft === SchemaDraft.v3) {
 			return this.promise.resolve(new ResolvedSchema({}, [toDiagnostic(l10n.t("Draft-03 schemas are not supported."), ErrorCode.SchemaUnsupportedFeature)], [], schemaDraft, undefined));
@@ -586,12 +599,13 @@ export class JSONSchemaService implements IJSONSchemaService {
 			return current;
 		};
 
-		// Like findSectionByJSONPointer, but also tracks the effective base URI
+		// Like findSectionByJSONPointer, but also tracks the effective base schema and URI
 		// through any $id encountered along the path. This is needed so that
 		// $ref values merged from the found section can be resolved against the
 		// correct base, not the document root.
-		const findSectionAndBase = (schema: JSONSchema, path: string, baseHandle: SchemaHandle): { section: any; baseHandle: SchemaHandle } => {
+		const findSectionAndBase = (schema: JSONSchema, path: string, baseHandle: SchemaHandle): { section: any; base: JSONSchema; baseHandle: SchemaHandle } => {
 			let current: any = schema;
+			let currentBase = schema;
 			let currentBaseHandle = baseHandle;
 			if (path[0] === '/') {
 				path = path.substring(1);
@@ -611,11 +625,12 @@ export class JSONSchemaService implements IJSONSchemaService {
 						resolvedUri = contextService.resolveRelativePath(id, currentBaseHandle.uri);
 					}
 					resolvedUri = normalizeId(resolvedUri);
+					currentBase = current;
 					currentBaseHandle = this.getOrAddSchemaHandle(resolvedUri);
 				}
 				return false;
 			});
-			return { section: current, baseHandle: currentBaseHandle };
+			return { section: current, base: currentBase, baseHandle: currentBaseHandle };
 		};
 
 		const findSchemaById = (schema: JSONSchema, id: string) => {
@@ -802,6 +817,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 		const mergeRef = (target: JSONSchema, sourceRoot: JSONSchema, sourceHandle: SchemaHandle, refSegment: string | undefined, isolateExternalResource = false): void => {
 			let section;
+			let sectionBase = sourceRoot;
 			let sectionBaseHandle = sourceHandle;
 			const fragment = refSegment === undefined ? undefined : Strings.decodeUriFragment(refSegment);
 			if (fragment === undefined || fragment.length === 0) {
@@ -809,7 +825,7 @@ export class JSONSchemaService implements IJSONSchemaService {
 			} else if (fragment.charAt(0) === '/') {
 				// A $ref to a JSON Pointer (i.e #/definitions/foo)
 				// Track $id base changes along the path so inner $refs resolve correctly.
-				({ section, baseHandle: sectionBaseHandle } = findSectionAndBase(sourceRoot, fragment, sourceHandle));
+				({ section, base: sectionBase, baseHandle: sectionBaseHandle } = findSectionAndBase(sourceRoot, fragment, sourceHandle));
 			} else {
 				// A $ref to a sub-schema with an $id (i.e #hello)
 				section = findSchemaById(sourceRoot, fragment);
@@ -821,6 +837,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 				section = section ? {} : { not: {} };
 			}
 			if (section) {
+				// The section's subschemas keep the base of the resource they are in, wherever they are merged.
+				if (section !== sourceRoot) {
+					JSONSchemaService.traverseSchemaProperties(section, child => getLexicalBase(child, sectionBase, sectionBaseHandle));
+				}
 				// If the found section contains a $ref that needs to be resolved
 				// relative to a different base (e.g. it's inside a schema with $id),
 				// pre-resolve it now so the merged target carries the correct base.
@@ -1050,7 +1070,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 
 				JSONSchemaService.traverseSchemaProperties(schema, childSchema => {
-					prefetchExternalRefs(childSchema, newBase, newBaseHandle, seen);
+					const { base, handle } = getLexicalBase(childSchema, newBase, newBaseHandle);
+					prefetchExternalRefs(childSchema, base, handle, seen);
 				});
 			};
 
@@ -1124,7 +1145,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 				const traverseChildren = (): PromiseLike<void> => {
 					let result: PromiseLike<void> = this.promise.resolve(undefined);
 					JSONSchemaService.traverseSchemaProperties(schema, childSchema => {
-						result = result.then(() => traverseWithBaseTracking(childSchema, newBase, newBaseHandle, false, seen));
+						result = result.then(() => {
+							const { base, handle } = getLexicalBase(childSchema, newBase, newBaseHandle);
+							return traverseWithBaseTracking(childSchema, base, handle, false, seen);
+						});
 					});
 					return result;
 				};
