@@ -6,6 +6,7 @@
 import { JSONCompletion } from './services/jsonCompletion.js';
 import { JSONHover } from './services/jsonHover.js';
 import { JSONValidation } from './services/jsonValidation.js';
+import { JSONCodeActions } from './services/jsonCodeActions.js';
 
 import { JSONDocumentSymbols } from './services/jsonDocumentSymbols.js';
 import { parse as parseJSON, newJSONDocument } from './parser/jsonParser.js';
@@ -22,7 +23,7 @@ import {
 	LanguageServiceParams, LanguageSettings, DocumentLanguageSettings,
 	FoldingRange, JSONSchema, SelectionRange, FoldingRangesContext, DocumentSymbolsContext, ColorInformationContext as DocumentColorsContext,
 	TextDocument,
-	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic,
+	Position, CompletionItem, CompletionList, Hover, Range, SymbolInformation, Diagnostic, CodeAction, CodeActionContext,
 	TextEdit, FormattingOptions, DocumentSymbol, DefinitionLink, MatchingSchema, JSONLanguageStatus, SortOptions
 } from './jsonLanguageTypes.js';
 import { findLinks } from './services/jsonLinks.js';
@@ -49,6 +50,7 @@ export interface LanguageService {
 	findDocumentColors(document: TextDocument, doc: JSONDocument, context?: DocumentColorsContext): PromiseLike<ColorInformation[]>;
 	getColorPresentations(document: TextDocument, doc: JSONDocument, color: Color, range: Range): ColorPresentation[];
 	doHover(document: TextDocument, position: Position, doc: JSONDocument): PromiseLike<Hover | null>;
+	doCodeActions(document: TextDocument, range: Range, context: CodeActionContext): CodeAction[];
 	getFoldingRanges(document: TextDocument, context?: FoldingRangesContext): FoldingRange[];
 	getSelectionRanges(document: TextDocument, positions: Position[], doc: JSONDocument): SelectionRange[];
 	findDefinition(document: TextDocument, position: Position, doc: JSONDocument): PromiseLike<DefinitionLink[]>;
@@ -68,6 +70,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 	const jsonHover = new JSONHover(jsonSchemaService, params.contributions, promise);
 	const jsonDocumentSymbols = new JSONDocumentSymbols(jsonSchemaService);
 	const jsonValidation = new JSONValidation(jsonSchemaService, promise);
+	const jsonCodeActions = new JSONCodeActions();
 
 	return {
 		configure: (settings: LanguageSettings) => {
@@ -88,6 +91,7 @@ export function getLanguageService(params: LanguageServiceParams): LanguageServi
 		findDocumentColors: jsonDocumentSymbols.findDocumentColors.bind(jsonDocumentSymbols),
 		getColorPresentations: jsonDocumentSymbols.getColorPresentations.bind(jsonDocumentSymbols),
 		doHover: jsonHover.doHover.bind(jsonHover),
+		doCodeActions: jsonCodeActions.doCodeActions.bind(jsonCodeActions),
 		getFoldingRanges,
 		getSelectionRanges,
 		findDefinition: () => Promise.resolve([]),
