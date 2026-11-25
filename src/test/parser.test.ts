@@ -1019,6 +1019,31 @@ suite('JSON Parser', () => {
 		});
 	}
 
+	for (const format of ['time', 'date-time']) {
+		test(`${format} leap seconds`, function () {
+			const schema = { type: 'string', format };
+			const validTimes = [
+				'23:59:60Z', '23:59:60z', '23:59:60.5Z', '23:59:60+00:00', '01:29:60+01:30',
+				'23:29:60+23:30', '15:59:60-08:00', '00:29:60-23:30', '12:30:59Z', '23:59:59+01:00'
+			];
+			const invalidTimes = [
+				'12:30:60Z', '12:30:60.5z', '22:59:60Z', '23:58:60Z', '22:59:60+00:00', '23:58:60+00:00',
+				'23:59:60+01:00', '23:59:60+00:30', '23:59:60-01:00', '23:59:60-00:30'
+			];
+			for (const time of validTimes) {
+				const value = format === 'time' ? time : `1998-12-31T${time}`;
+				assert.strictEqual(validate(JSON.stringify(value), schema)!.length, 0, value);
+			}
+			for (const time of invalidTimes) {
+				const value = format === 'time' ? time : `1998-12-31T${time}`;
+				const diagnostics = validate(JSON.stringify(value), schema)!;
+				assert.strictEqual(diagnostics.length, 1, value);
+				assert.strictEqual(diagnostics[0].message, `String is not a RFC3339 ${format}.`);
+				assert.deepStrictEqual(diagnostics[0].range, toRange(JSON.stringify(value), 0, value.length + 2));
+			}
+		});
+	}
+
 	test('Numbers', function () {
 
 		const str = '{"one": 13.45e+1}';

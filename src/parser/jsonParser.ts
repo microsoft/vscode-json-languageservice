@@ -43,6 +43,12 @@ function isValidDate(year: number, month: number, day: number): boolean {
 	return day <= daysInMonth;
 }
 
+// RFC 3339 section 5.7 allows second 60 only at 23:59 UTC, shifted by the time-offset.
+function isValidTime([hour, minute, second, , , sign, offsetHour = '0', offsetMinute = '0']: string[]): boolean {
+	const offset = (sign === '-' ? -1 : 1) * (Number(offsetHour) * 60 + Number(offsetMinute));
+	return second !== '60' || (Number(hour) * 60 + Number(minute) - offset + 1440) % 1440 === 23 * 60 + 59;
+}
+
 export interface IProblem {
 	location: IRange;
 	severity?: DiagnosticSeverity;
@@ -1025,7 +1031,8 @@ function validate(n: ASTNode | undefined, schema: JSONSchema, validationResult: 
 					const format = formats[schema.format];
 					const match = format.pattern.exec(node.value);
 					const hasDate = schema.format === 'date' || schema.format === 'date-time';
-					if (!match || (hasDate && !isValidDate(Number(match[1]), Number(match[2]), Number(match[3])))) {
+					const hasTime = schema.format === 'time' || schema.format === 'date-time';
+					if (!match || (hasDate && !isValidDate(Number(match[1]), Number(match[2]), Number(match[3]))) || (hasTime && !isValidTime(match.slice(hasDate ? 4 : 1)))) {
 						validationResult.problems.push({
 							location: { offset: node.offset, length: node.length },
 							message: schema.patternErrorMessage || schema.errorMessage || format.errorMessage
