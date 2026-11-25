@@ -830,6 +830,8 @@ export class JSONSchemaService implements IJSONSchemaService {
 				// A $ref to a sub-schema with an $id (i.e #hello)
 				section = findSchemaById(sourceRoot, fragment);
 			}
+			// Compare before `section` is normalized or cloned below.
+			const isResourceRoot = section === sectionBase;
 			// A boolean is a valid JSON Schema: `true` accepts everything ({}) and
 			// `false` rejects everything ({ not: {} }). Normalize so it merges like any
 			// other schema (and isn't mistaken for an unresolved section below).
@@ -898,7 +900,12 @@ export class JSONSchemaService implements IJSONSchemaService {
 						}
 						delete refSchema.$id;
 						delete refSchema.id;
-						setHidden(refSchema, '$originalId', normalizeId(resourceUri));
+						if (isResourceRoot) {
+							setHidden(refSchema, '$originalId', normalizeId(resourceUri));
+						} else {
+							// A copy of a fragment is not a resource root: its refs resolve against the resource it is in.
+							lexicalBases.set(refSchema, { base: sectionBase, handle: sectionBaseHandle });
+						}
 					}
 
 					// Move all existing properties from target to siblingSchema, except
