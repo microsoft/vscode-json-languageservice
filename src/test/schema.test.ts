@@ -500,6 +500,364 @@ suite('JSON Schema', () => {
 		assertInMessage(diagnostics[0].message, 'string');
 	});
 
+	const cyclicRefCases: { name: string; schemas: { [uri: string]: JSONSchema } }[] = [
+		{
+			name: '2020-12',
+			schemas: {
+				'https://example.com/schemas/entry.json': {
+					$schema: 'https://json-schema.org/draft/2020-12/schema',
+					properties: { spell: { $ref: 'spells/spell.json#/$defs/spell' } }
+				},
+				'https://example.com/schemas/spells/spell.json': {
+					$defs: { spell: { properties: { entries: { $ref: '../entry.json' }, source: { $ref: '../source.json' } } } }
+				}
+			}
+		},
+		{
+			name: 'draft-07',
+			schemas: {
+				'https://example.com/schemas/entry.json': {
+					$schema: 'http://json-schema.org/draft-07/schema#',
+					properties: { spell: { $ref: 'spells/spell.json#/definitions/spell' } }
+				},
+				'https://example.com/schemas/spells/spell.json': {
+					definitions: { spell: { properties: { entries: { $ref: '../entry.json' }, source: { $ref: '../source.json' } } } }
+				}
+			}
+		},
+		{
+			name: 'relative $ids',
+			schemas: {
+				'https://example.com/schemas/entry.json': {
+					$schema: 'https://json-schema.org/draft/2020-12/schema',
+					$id: 'entry.json',
+					properties: { spell: { $ref: 'spells/spell.json#/$defs/spell' } }
+				},
+				'https://example.com/schemas/spells/spell.json': {
+					$id: 'spell.json',
+					$defs: { spell: { properties: { entries: { $ref: '../entry.json' }, source: { $ref: '../source.json' } } } }
+				}
+			}
+		},
+		{
+			name: '$ref siblings',
+			schemas: {
+				'https://example.com/schemas/entry.json': {
+					$schema: 'https://json-schema.org/draft/2020-12/schema',
+					properties: { spell: { description: 'Spell', $ref: 'spells/spell.json#/$defs/spell' } }
+				},
+				'https://example.com/schemas/spells/spell.json': {
+					$defs: { spell: { properties: { entries: { description: 'Entry', $ref: '../entry.json' }, source: { $ref: '../source.json' } } } }
+				}
+			}
+		},
+		{
+			name: 'alias to a definition',
+			schemas: {
+				'https://example.com/schemas/entry.json': {
+					$schema: 'https://json-schema.org/draft/2020-12/schema',
+					properties: { spell: { $ref: 'spells/spell.json#/$defs/alias' } }
+				},
+				'https://example.com/schemas/spells/spell.json': {
+					$defs: { alias: { $ref: '#/$defs/spell' }, spell: { properties: { entries: { $ref: '../entry.json' }, source: { $ref: '../source.json' } } } }
+				}
+			}
+		},
+		{
+			name: 'alias to a definition, draft-07',
+			schemas: {
+				'https://example.com/schemas/entry.json': {
+					$schema: 'http://json-schema.org/draft-07/schema#',
+					properties: { spell: { $ref: 'spells/spell.json#/definitions/alias' } }
+				},
+				'https://example.com/schemas/spells/spell.json': {
+					definitions: { alias: { $ref: '#/definitions/spell' }, spell: { properties: { entries: { $ref: '../entry.json' }, source: { $ref: '../source.json' } } } }
+				}
+			}
+		},
+		{
+			name: 'alias to the document root',
+			schemas: {
+				'https://example.com/schemas/entry.json': {
+					$schema: 'https://json-schema.org/draft/2020-12/schema',
+					properties: { spell: { $ref: 'spells/spell.json#/$defs/alias' } }
+				},
+				'https://example.com/schemas/spells/spell.json': {
+					$defs: { alias: { $ref: '#' } },
+					properties: { entries: { $ref: '../entry.json' }, source: { $ref: '../source.json' } }
+				}
+			}
+		},
+		{
+			name: 'alias to a definition, cycle one level down',
+			schemas: {
+				'https://example.com/schemas/entry.json': {
+					$schema: 'https://json-schema.org/draft/2020-12/schema',
+					properties: { spell: { $ref: 'spells/spell.json#/$defs/alias' } }
+				},
+				'https://example.com/schemas/spells/spell.json': {
+					$defs: { alias: { $ref: '#/$defs/spell' }, spell: { allOf: [{ properties: { entries: { $ref: '../entry.json' }, source: { $ref: '../source.json' } } }] } }
+				}
+			}
+		}
+	];
+	for (const { name, schemas } of cyclicRefCases) {
+		test(`Relative $refs reached again through a cyclic $ref keep their document base (${name})`, async function () {
+			const schemaRequestService = newMockRequestService({ ...schemas, 'https://example.com/schemas/source.json': { type: 'string' } });
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			ls.configure({ schemas: [{ uri: 'https://example.com/schemas/entry.json', fileMatch: ['*.json'] }] });
+			const { textDoc, jsonDoc } = toDocument('{"spell":{"source":1}}', undefined, 'file:///test.json');
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.deepStrictEqual(diagnostics.map(d => d.message), ['Incorrect type. Expected "string".']);
+		});
+	}
+
+	test('Relative $refs in two documents that reference each other keep their document base', async function () {
+		const schemas: { [uri: string]: JSONSchema } = {
+			'https://example.com/schemas/main.json': {
+				$schema: 'https://json-schema.org/draft/2020-12/schema',
+				properties: { top: { $ref: 'x/a.json' } }
+			},
+			'https://example.com/schemas/x/a.json': { properties: { b: { $ref: '../y/b.json' }, s: { $ref: 'str.json' } } },
+			'https://example.com/schemas/y/b.json': { properties: { a: { $ref: '../x/a.json' }, n: { $ref: 'num.json' } } },
+			'https://example.com/schemas/x/str.json': { type: 'string' },
+			'https://example.com/schemas/y/num.json': { type: 'number' }
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: 'https://example.com/schemas/main.json', fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"top":{"s":1,"b":{"n":"x","a":{"s":2,"b":{"n":"y"}}}}}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.deepStrictEqual(diagnostics.map(d => d.message).sort(), [
+			'Incorrect type. Expected "number".',
+			'Incorrect type. Expected "number".',
+			'Incorrect type. Expected "string".',
+			'Incorrect type. Expected "string".'
+		]);
+	});
+
+	for (const [id, leaf] of [
+		['https://example.com/other/other.json', 'https://example.com/other/leaf.json'],
+		['sub/other.json', 'https://example.com/schemas/docs/sub/leaf.json']
+	]) {
+		test(`External $ref to a document resolves against the document's own $id (${id})`, async function () {
+			const schemas: { [uri: string]: JSONSchema } = {
+				'https://example.com/schemas/main.json': {
+					$schema: 'https://json-schema.org/draft/2020-12/schema',
+					properties: { p: { $ref: 'docs/other.json' } }
+				},
+				'https://example.com/schemas/docs/other.json': { $id: id, properties: { n: { $ref: 'leaf.json' } } },
+				[leaf]: { type: 'string' }
+			};
+			const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+			ls.configure({ schemas: [{ uri: 'https://example.com/schemas/main.json', fileMatch: ['*.json'] }] });
+			const { textDoc, jsonDoc } = toDocument('{"p":{"n":1}}', undefined, 'file:///test.json');
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.deepStrictEqual(diagnostics.map(d => d.message), ['Incorrect type. Expected "string".']);
+		});
+	}
+
+	const nestedIdFragmentCases: { name: string; x: JSONSchema; expected: string[] }[] = [
+		{
+			name: 'after a $ref to the whole file',
+			x: { properties: { r: { $ref: 'https://example.com/schemas/lib/lib.json' }, s: { $ref: 'p.json' } } },
+			expected: ['Incorrect type. Expected "string".']
+		},
+		{
+			name: 'with a fragment-only $ref',
+			x: { properties: { s: { $ref: 'p.json' }, q: { $ref: '#/$defs/q' } } },
+			expected: ['Incorrect type. Expected "string".', 'Incorrect type. Expected "string".']
+		}
+	];
+	for (const { name, x, expected } of nestedIdFragmentCases) {
+		test(`External $ref to a fragment of a nested $id resource resolves against that resource (${name})`, async function () {
+			const schemas: { [uri: string]: JSONSchema } = {
+				'https://example.com/schemas/main.json': {
+					$schema: 'https://json-schema.org/draft/2020-12/schema',
+					properties: { x: { $ref: 'lib/lib.json#/$defs/inner/$defs/x' } }
+				},
+				'https://example.com/schemas/lib/lib.json': { $defs: { inner: { $id: 'deep/inner.json', $defs: { x, q: { type: 'string' } } } } },
+				'https://example.com/schemas/lib/deep/p.json': { type: 'string' },
+				'https://example.com/schemas/lib/p.json': { type: 'number' }
+			};
+			const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+			ls.configure({ schemas: [{ uri: 'https://example.com/schemas/main.json', fileMatch: ['*.json'] }] });
+			const { textDoc, jsonDoc } = toDocument('{"x":{"s":true,"q":true}}', undefined, 'file:///test.json');
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.deepStrictEqual(diagnostics.map(d => d.message), expected);
+		});
+	}
+
+	const nestedIdResourceCases: { name: string; main: JSONSchema; content: string; expected: string[] }[] = [
+		{
+			name: '$ref to a nested $id resource inside another one',
+			main: { $schema: 'https://json-schema.org/draft/2020-12/schema', properties: { p: { $ref: 'b/f.json#/$defs/N/$defs/MM' } } },
+			content: '{"p":{"v":0}}',
+			expected: ['Value must be "BNM-leaf".']
+		},
+		{
+			name: 'nested $id resource and its fragment, no $schema',
+			main: { properties: { n: { description: 'N', $ref: 'b/f.json#/$defs/N' }, m: { description: 'M', $ref: 'b/f.json#/$defs/N/$defs/M' } } },
+			content: '{"n":{"k":0},"m":{"k":0}}',
+			expected: ['Value must be "N-K".', 'Value must be "N-K".']
+		}
+	];
+	for (const { name, main, content, expected } of nestedIdResourceCases) {
+		test(`External $ref into nested $id resources resolves against the innermost resource (${name})`, async function () {
+			const schemas: { [uri: string]: JSONSchema } = {
+				'https://example.com/schemas/main.json': main,
+				'https://example.com/schemas/b/f.json': {
+					$defs: {
+						K: { const: 'F-K' },
+						N: {
+							$id: 'n/inner.json',
+							properties: { k: { $ref: '#/$defs/K' } },
+							$defs: {
+								K: { const: 'N-K' },
+								M: { properties: { k: { $ref: '#/$defs/K' } } },
+								MM: { $id: 'm/deep.json', properties: { v: { $ref: 'leaf.json' } } }
+							}
+						}
+					}
+				},
+				'https://example.com/schemas/b/n/m/leaf.json': { const: 'BNM-leaf' }
+			};
+			const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+			ls.configure({ schemas: [{ uri: 'https://example.com/schemas/main.json', fileMatch: ['*.json'] }] });
+			const { textDoc, jsonDoc } = toDocument(content, undefined, 'file:///test.json');
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.deepStrictEqual(diagnostics.map(d => d.message), expected);
+		});
+	}
+
+	test('Without $schema, a subschema beside an external $ref resolves against its own document', async function () {
+		const schemas: { [uri: string]: JSONSchema } = {
+			'https://example.com/schemas/main.json': {
+				properties: { p: { $ref: 'b/base.json', properties: { x: { $ref: '#/definitions/foo' } } } },
+				definitions: { foo: { type: 'string' } }
+			},
+			'https://example.com/schemas/b/base.json': { type: 'object', definitions: { foo: { type: 'number' } } }
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: 'https://example.com/schemas/main.json', fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"p":{"x":true}}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		// `#/definitions/foo` is written in main.json, so it resolves there, not in b/base.json (as for the same $ref at the root).
+		assert.deepStrictEqual(diagnostics.map(d => d.message), ['Incorrect type. Expected "string".']);
+	});
+
+	const siblingRefCases: { name: string; cover: JSONSchema; media: JSONSchema; draft?: string; expected?: string[] }[] = [
+		{
+			name: 'JSON pointer fragment',
+			cover: { description: 'Cover', $ref: 'media.json#/$defs/href' },
+			media: { $defs: { href: { properties: { path: { $ref: '#/$defs/path' } } }, path: { type: 'string' } } }
+		},
+		{
+			name: 'fragment that is a fragment-only $ref',
+			cover: { description: 'Cover', $ref: 'media.json#/$defs/href' },
+			media: { $defs: { href: { $ref: '#/$defs/object' }, object: { properties: { path: { $ref: '#/$defs/path' } } }, path: { type: 'string' } } }
+		},
+		{
+			name: 'fragment that is a $ref to another document',
+			cover: { description: 'Cover', $ref: 'media.json#/$defs/href' },
+			media: { $defs: { href: { $ref: 'shapes.json#/$defs/object' } } }
+		},
+		{
+			name: '$anchor fragment',
+			cover: { description: 'Cover', $ref: 'media.json#href' },
+			media: { $defs: { href: { $anchor: 'href', properties: { path: { $ref: '#/$defs/path' } } }, path: { type: 'string' } } }
+		},
+		{
+			name: 'unevaluatedProperties sibling',
+			cover: { unevaluatedProperties: false, $ref: 'media.json#/$defs/href' },
+			media: { $defs: { href: { properties: { path: { $ref: '#/$defs/path' } } }, path: { type: 'string' } } },
+			expected: ['Incorrect type. Expected "string".', 'Property extra is not allowed.']
+		},
+		{
+			name: 'fragment of a nested $id resource',
+			cover: { description: 'Cover', $ref: 'media.json#/$defs/lib/$defs/href' },
+			media: { $defs: { lib: { $id: 'lib/media.json', $defs: { href: { properties: { path: { $ref: '#/$defs/path' } } }, path: { type: 'string' } } } } }
+		},
+		{
+			name: 'fragment-only $ref in a nested $id resource',
+			cover: { description: 'Cover', $ref: 'media.json#/$defs/lib/$defs/href' },
+			media: { $defs: { lib: { $id: 'lib/media.json', $defs: { href: { $ref: '#/$defs/object' }, object: { properties: { path: { $ref: 'path.json' } } } } } } }
+		},
+		{
+			name: 'nested $id resource',
+			cover: { description: 'Cover', $ref: 'media.json#/$defs/lib' },
+			media: { $defs: { lib: { $id: 'lib/media.json', properties: { path: { $ref: '#/$defs/path' } }, $defs: { path: { type: 'string' } } } } }
+		},
+		{
+			name: 'whole document',
+			cover: { description: 'Cover', $ref: 'media.json' },
+			media: { properties: { path: { $ref: '#/$defs/path' } }, $defs: { path: { type: 'string' } } }
+		},
+		{
+			name: 'draft-07 ignores the sibling',
+			draft: 'http://json-schema.org/draft-07/schema#',
+			cover: { description: 'Cover', $ref: 'media.json#/definitions/href' },
+			media: { definitions: { href: { properties: { path: { $ref: '#/definitions/path' } } }, path: { type: 'string' } } }
+		}
+	];
+	for (const { name, cover, media, draft = 'https://json-schema.org/draft/2020-12/schema', expected = ['Incorrect type. Expected "string".'] } of siblingRefCases) {
+		test(`External $ref with sibling keywords resolves refs in the target against its document (${name})`, async function () {
+			const schemas: { [uri: string]: JSONSchema } = {
+				'https://example.com/schemas/main.json': { $schema: draft, properties: { cover } },
+				'https://example.com/schemas/media.json': media,
+				'https://example.com/schemas/shapes.json': { $defs: { object: { properties: { path: { $ref: '#/$defs/path' } } }, path: { type: 'string' } } },
+				'https://example.com/schemas/lib/path.json': { type: 'string' }
+			};
+			const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+			ls.configure({ schemas: [{ uri: 'https://example.com/schemas/main.json', fileMatch: ['*.json'] }] });
+			const { textDoc, jsonDoc } = toDocument('{"cover":{"path":1,"extra":true}}', undefined, 'file:///test.json');
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.deepStrictEqual(diagnostics.map(d => d.message), expected);
+		});
+	}
+
+	const tree: JSONSchema = {
+		$ref: 'node.json',
+		properties: { value: { type: 'string' }, children: { type: 'array', items: { $recursiveRef: '#' } } }
+	};
+	const recursiveRefCases: [string, string, JSONSchema][] = [
+		['whole document', 'tree.json', tree],
+		['nested $id resource', 'trees.json#/$defs/tree', { $defs: { tree: { $id: 'embedded-tree.json', ...tree } } }]
+	];
+	for (const [name, ref, trees] of recursiveRefCases) {
+		test(`External $ref with sibling keywords keeps the referenced resource as the $recursiveRef target (${name})`, async function () {
+			const schemas: { [uri: string]: JSONSchema } = {
+				'https://example.com/schemas/main.json': {
+					$schema: 'https://json-schema.org/draft/2019-09/schema',
+					properties: { tree: { description: 'Tree', $ref: ref } }
+				},
+				'https://example.com/schemas/tree.json': tree,
+				'https://example.com/schemas/trees.json': trees,
+				'https://example.com/schemas/node.json': { type: 'object' }
+			};
+			const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+			ls.configure({ schemas: [{ uri: 'https://example.com/schemas/main.json', fileMatch: ['*.json'] }] });
+			const { textDoc, jsonDoc } = toDocument('{"tree":{"children":[{"value":1}]}}', undefined, 'file:///test.json');
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.deepStrictEqual(diagnostics.map(d => d.message), ['Incorrect type. Expected "string".']);
+		});
+	}
+
 	test('Resolving $refs 3', async function () {
 		const service = new SchemaService.JSONSchemaService(newMockRequestService(), workspaceContext);
 		service.setSchemaContributions({
