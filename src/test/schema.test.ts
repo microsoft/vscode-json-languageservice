@@ -354,6 +354,126 @@ suite('JSON Schema', () => {
 		assertInMessage(diagnostics[0].message, 'string');
 	});
 
+	test('Pre-2019-09 recursive $ref in definitions resolves against the completed merged schema', async function () {
+		// A `definitions` entry with `$ref: "#"` must see the merged root,
+		// including the external target's constraints. Resolving it before the
+		// merge snapshots the root without those constraints, so validating
+		// `{"child": 42}` reports no type error.
+		const schemaBaseUri = 'https://example.com/schemas/entry.json';
+		const referencedSchemaUri = 'https://example.com/schemas/nested/middle.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				$ref: 'nested/middle.json',
+				definitions: {
+					node: {
+						$ref: '#'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
+				type: 'object',
+				properties: {
+					child: {
+						$ref: '../entry.json#/definitions/node'
+					}
+				}
+			}
+		};
+		const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"child": 42}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'object');
+	});
+
+	test('Pre-2019-09 sibling definitions replaced by the referenced document are not loaded', async function () {
+		// When the referenced document has its own `definitions`, the merge
+		// replaces the referencing document's, so a `$ref` in the discarded
+		// subtree must never be requested: it is not part of the resulting
+		// schema, and loading it would report a spurious "Unable to load schema".
+		const schemaBaseUri = 'https://example.com/schemas/entry.json';
+		const referencedSchemaUri = 'https://example.com/schemas/nested/middle.json';
+		const missingSchemaUri = 'https://example.com/schemas/missing.json';
+		const schemas: { [uri: string]: JSONSchema } = {
+			[schemaBaseUri]: {
+				$schema: 'http://json-schema.org/draft-07/schema#',
+				$ref: 'nested/middle.json',
+				definitions: {
+					local: {
+						$ref: 'missing.json'
+					}
+				}
+			},
+			[referencedSchemaUri]: {
+				type: 'object',
+				properties: {
+					name: {
+						type: 'string'
+					}
+				},
+				definitions: {
+					other: {
+						type: 'string'
+					}
+				}
+			}
+		};
+		const requested: string[] = [];
+		const schemaRequestService: SchemaRequestService = async (uri: string): Promise<string> => {
+			if (uri.length && uri[uri.length - 1] === '#') {
+				uri = uri.substr(0, uri.length - 1);
+			}
+			requested.push(uri);
+			const schema = schemas[uri];
+			if (schema) {
+				return Promise.resolve(JSON.stringify(schema));
+			}
+			throw new Error('Resource not found');
+		};
+		const ls = getLanguageService({ schemaRequestService, workspaceContext });
+		ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+		const { textDoc, jsonDoc } = toDocument('{"name": 1}', undefined, 'file:///test.json');
+
+		const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+		assert.ok(requested.indexOf(missingSchemaUri) === -1, `expected ${missingSchemaUri} to never be requested, got: ${requested.join(', ')}`);
+		assert.strictEqual(diagnostics.length, 1);
+		assertInMessage(diagnostics[0].message, 'string');
+	});
+
+	test('Pre-2019-09 $ref siblings with null definitions maps do not crash validation', async function () {
+		// `definitions: null` and `$defs: null` are malformed but must not
+		// throw: `typeof null === 'object'`, so enumerating the map with
+		// `Object.keys` rejects validation.
+		const referencedSchemaUri = 'https://example.com/schemas/nested/middle.json';
+		for (const key of ['definitions', '$defs']) {
+			const schemaBaseUri = 'https://example.com/schemas/entry.json';
+			const schemas: { [uri: string]: JSONSchema } = {
+				[schemaBaseUri]: JSON.parse(`{"$schema":"http://json-schema.org/draft-07/schema#","$ref":"nested/middle.json","${key}":null}`),
+				[referencedSchemaUri]: {
+					type: 'object',
+					properties: {
+						name: {
+							type: 'string'
+						}
+					}
+				}
+			};
+			const ls = getLanguageService({ schemaRequestService: newMockRequestService(schemas), workspaceContext });
+			ls.configure({ schemas: [{ uri: schemaBaseUri, fileMatch: ['*.json'] }] });
+			const { textDoc, jsonDoc } = toDocument('{"name": 1}', undefined, 'file:///test.json');
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.strictEqual(diagnostics.length, 1, `expected one diagnostic for ${key}: null`);
+			assertInMessage(diagnostics[0].message, 'string');
+		}
+	});
+
 	test('Nested external $ref siblings keep the inherited owner resource base', async function () {
 		const schemaBaseUri = 'https://example.com/a/schema.json';
 		const referencedSchemaUri = 'https://example.com/b/schema.json';
