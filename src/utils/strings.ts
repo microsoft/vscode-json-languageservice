@@ -86,9 +86,11 @@ export function stringLength(str: string) {
 		// obtain the i-th 16-bit
 		const code = str.charCodeAt(i);
 		if (0xD800 <= code && code <= 0xDBFF) {
-			// if the i-th 16bit is an upper surrogate
-			// skip the next 16 bits (lower surrogate)
-			i++;
+			const next = str.charCodeAt(i + 1);
+			if (0xDC00 <= next && next <= 0xDFFF) {
+				// Skip the low surrogate only when it forms a pair.
+				i++;
+			}
 		}
 	}
 	return count;
