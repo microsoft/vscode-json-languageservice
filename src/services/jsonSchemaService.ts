@@ -522,6 +522,14 @@ export class JSONSchemaService implements IJSONSchemaService {
 		const embeddedRegisteredFor = new Set<string>();
 		const embeddedSchemaUris = new Set<string>();
 
+		// `definitions`/`$defs` entries of a pre-2019-09 `$ref` node whose
+		// resolution is deferred until after the external `$ref` merge (see
+		// deferSurvivingRefSubtrees). While deferred, the post-merge
+		// re-traversal skips them; the deferred pass resolves them afterwards
+		// with the referencing document's base, against the completed merged
+		// schema, and only if the merge kept them.
+		const deferredSurvivingNodes = new WeakSet<JSONSchema>();
+
 		const schemaDraft = schema.$schema ? getSchemaDraftFromId(schema.$schema) : undefined;
 		if (schemaDraft === SchemaDraft.v3) {
 			return this.promise.resolve(new ResolvedSchema({}, [toDiagnostic(l10n.t("Draft-03 schemas are not supported."), ErrorCode.SchemaUnsupportedFeature)], [], schemaDraft, undefined));
@@ -1019,6 +1027,14 @@ export class JSONSchemaService implements IJSONSchemaService {
 				}
 				seen.add(schema);
 
+				// A `definitions`/`$defs` entry whose resolution is deferred until
+				// after the pre-2019-09 `$ref` merge completes (see
+				// deferSurvivingRefSubtrees). Prefetching it here would request
+				// its `$ref`s against the referenced document's base.
+				if (deferredSurvivingNodes.has(schema)) {
+					return;
+				}
+
 				const id = getSchemaId(schema);
 				let newBase = currentBase;
 				let newBaseHandle = currentBaseHandle;
@@ -1056,11 +1072,71 @@ export class JSONSchemaService implements IJSONSchemaService {
 
 			prefetchExternalRefs(node, parentSchema, parentHandle, new Set<JSONSchema>());
 
+			// In pre-2019-09 drafts $ref replaces its siblings, but `definitions`
+			// and `$defs` are reserved keys that survive the merge in mergeRef. The
+			// re-traversal after an external $ref merge runs with the *referenced*
+			// document's base URI, so the surviving subtrees must keep resolving
+			// against this document's base. Do not resolve them up-front, though:
+			// resolving before the merge snapshots the root without the merged
+			// target's constraints (breaking recursive `$ref: "#"` entries), and
+			// loads entries the merge then discards when the referenced document
+			// has its own `definitions`/`$defs`. Instead, defer them (see
+			// deferSurvivingRefSubtrees): the re-traversal skips them, and once
+			// the merge completed they are resolved with this document's base,
+			// but only the maps the merge kept.
+			const survivingRefKeys = ['definitions', '$defs'] as const;
+			const hasSurvivingRefSubtrees = (schema: JSONSchema): boolean =>
+				survivingRefKeys.some(key => {
+					const map = schema[key];
+					return map !== undefined && map !== null && typeof map === 'object' && Object.keys(map).length > 0;
+				});
+			const deferSurvivingRefSubtrees = (schema: JSONSchema): { key: typeof survivingRefKeys[number]; map: { [name: string]: JSONSchema } }[] => {
+				const deferred: { key: typeof survivingRefKeys[number]; map: { [name: string]: JSONSchema } }[] = [];
+				for (const key of survivingRefKeys) {
+					const map = schema[key];
+					if (map && typeof map === 'object' && Object.keys(map).length > 0) {
+						deferred.push({ key, map });
+						for (const child of Object.values(map)) {
+							if (child && typeof child === 'object') {
+								deferredSurvivingNodes.add(child);
+							}
+						}
+					}
+				}
+				return deferred;
+			};
+			const resolveDeferredSurvivingRefSubtrees = (schema: JSONSchema, deferred: { key: typeof survivingRefKeys[number]; map: { [name: string]: JSONSchema } }[], base: JSONSchema, baseHandle: SchemaHandle, seen: Set<JSONSchema>): PromiseLike<void> => {
+				let result: PromiseLike<void> = this.promise.resolve(undefined);
+				for (const { key, map } of deferred) {
+					// Only resolve maps the merge kept: the referenced document's
+					// own `definitions`/`$defs` replaces the referencing
+					// document's, so a replaced map's entries are not part of the
+					// resulting schema and must never be loaded.
+					const survived = schema[key] === map;
+					for (const child of Object.values(map)) {
+						if (child && typeof child === 'object') {
+							deferredSurvivingNodes.delete(child);
+							if (survived) {
+								result = result.then(() => traverseWithBaseTracking(child, base, baseHandle, false, seen));
+							}
+						}
+					}
+				}
+				return result;
+			};
+
 			// Traversal that tracks the current base schema for internal refs.
 			// When we encounter a schema with its own $id, that becomes the new base
 			// for resolving fragment refs (#...) in its descendants
 			const traverseWithBaseTracking = (schema: JSONSchema, currentBase: JSONSchema, currentBaseHandle: SchemaHandle, isRoot: boolean, seen: Set<JSONSchema>): PromiseLike<void> => {
 				if (!schema || typeof schema !== 'object' || seen.has(schema)) {
+					return this.promise.resolve(undefined);
+				}
+				// A `definitions`/`$defs` entry whose resolution is deferred until
+				// after the pre-2019-09 `$ref` merge completes (see
+				// deferSurvivingRefSubtrees). The post-merge re-traversal skips
+				// it; the deferred pass resolves it afterwards.
+				if (deferredSurvivingNodes.has(schema)) {
 					return this.promise.resolve(undefined);
 				}
 				seen.add(schema);
@@ -1105,7 +1181,20 @@ export class JSONSchemaService implements IJSONSchemaService {
 						// Per JSON Schema spec, $ref is resolved against the current base URI.
 						const refBaseHandle = isPreDraft201909 && newBase === schema ? currentBaseHandle : newBaseHandle;
 						const continuationHandle = newBase === schema ? currentBaseHandle : newBaseHandle;
-						return resolveExternalLink(schema, segments[0], segments[1], refBaseHandle, preservesOwnBase ? newBase : undefined, preservesOwnBase ? continuationHandle : undefined).then(() => undefined);
+						const followExternalRef = (): PromiseLike<void> => resolveExternalLink(schema, segments[0], segments[1], refBaseHandle, preservesOwnBase ? newBase : undefined, preservesOwnBase ? continuationHandle : undefined).then(() => undefined);
+						if (isPreDraft201909 && hasSurvivingRefSubtrees(schema)) {
+							// Pre-2019-09: `definitions`/`$defs` survive the $ref merge but
+							// the re-traversal after the merge runs with the referenced
+							// document's base URI. Defer the surviving entries until the
+							// merge completed, then resolve them with this document's
+							// base; entries the merge discarded are never resolved.
+							const deferred = deferSurvivingRefSubtrees(schema);
+							return followExternalRef().then(
+								() => resolveDeferredSurvivingRefSubtrees(schema, deferred, newBase, newBaseHandle, seen),
+								err => resolveDeferredSurvivingRefSubtrees(schema, deferred, newBase, newBaseHandle, seen).then(() => { throw err; })
+							);
+						}
+						return followExternalRef();
 					} else {
 						// This is an internal reference (like "#/definitions/foo")
 						// Internal refs are resolved within the current document
