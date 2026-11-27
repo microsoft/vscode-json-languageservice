@@ -502,7 +502,10 @@ export class JSONSchemaService implements IJSONSchemaService {
 	public resolveSchemaContent(schemaToResolve: UnresolvedSchema, handle: SchemaHandle): PromiseLike<ResolvedSchema> {
 
 		const resolveErrors: SchemaDiagnostic[] = schemaToResolve.errors.slice(0);
-		const schema = copySchema(schemaToResolve.schema);
+		// A schema document can be a boolean schema (`true` or `false`). Convert it to
+		// its object form so that a `false` schema rejects every instance instead of
+		// being treated as "no schema".
+		const schema = copySchema(asSchema(schemaToResolve.schema as JSONSchemaRef));
 		const anchors = new Map<JSONSchema, Map<string, JSONSchema>>();
 		const unresolvedSchemas = new Map<SchemaHandle, PromiseLike<UnresolvedSchema>>([
 			[handle, this.promise.resolve(new UnresolvedSchema(schema, schemaToResolve.errors))]

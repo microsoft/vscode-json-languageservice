@@ -96,6 +96,19 @@ suite('JSON Schema', () => {
 		}
 	};
 
+	test('Boolean schema documents', async function () {
+		for (const [content, expectErrors] of [['false', true], ['true', false]] as const) {
+			const schemaRequestService: SchemaRequestService = async () => content;
+			const ls = getLanguageService({ schemaRequestService, workspaceContext });
+			ls.configure({ validate: true, schemas: [{ uri: 'foo://bar/schema.json', fileMatch: ['*.json'] }] });
+			const { textDoc, jsonDoc } = toDocument('{ "a": 1 }');
+
+			const diagnostics = await ls.doValidation(textDoc, jsonDoc);
+
+			assert.strictEqual(diagnostics.length > 0, expectErrors, `schema ${content}: ${JSON.stringify(diagnostics)}`);
+		}
+	});
+
 	test('Referenced properties are allowed alongside additionalProperties', async function () {
 		const fixturePath = path.join(__dirname, '../../../src/test/fixtures/settings-example.json');
 		const documentUri = url.pathToFileURL(fixturePath).toString();
