@@ -96,6 +96,33 @@ suite('JSON Schema', () => {
 		}
 	};
 
+	test('multipleOf validates extreme magnitudes and decimal precision through doValidation', async function () {
+		for (const draft of ['http://json-schema.org/draft-04/schema#', 'http://json-schema.org/draft-07/schema#', 'https://json-schema.org/draft/2020-12/schema']) {
+			for (const { value, multipleOf, valid } of [
+				{ value: 0, multipleOf: 1e-310, valid: true },
+				{ value: 1e308, multipleOf: 0.1, valid: true },
+				{ value: 1e30, multipleOf: 10, valid: true },
+				{ value: Number.MAX_VALUE, multipleOf: Number.MIN_VALUE, valid: true },
+				{ value: 1.2345678901234567, multipleOf: 2e-16, valid: false },
+				{ value: 1e308, multipleOf: 0.3, valid: false },
+			]) {
+				const ls = getLanguageService({});
+				const text = `{ "value": ${value} }`;
+				const { textDoc, jsonDoc } = toDocument(text);
+				const diagnostics = await ls.doValidation(textDoc, jsonDoc, {}, {
+					$schema: draft,
+					type: 'object',
+					properties: { value: { type: 'number', multipleOf } },
+				});
+				assert.strictEqual(diagnostics.length, valid ? 0 : 1, `${value} / ${multipleOf}, draft ${draft}`);
+				if (!valid) {
+					assertInMessage(diagnostics[0].message, 'Value is not divisible by');
+					assert.deepStrictEqual(diagnostics[0].range, Range.create(textDoc.positionAt(text.indexOf(String(value))), textDoc.positionAt(text.indexOf(String(value)) + String(value).length)));
+				}
+			}
+		}
+	});
+
 	test('Referenced properties are allowed alongside additionalProperties', async function () {
 		const fixturePath = path.join(__dirname, '../../../src/test/fixtures/settings-example.json');
 		const documentUri = url.pathToFileURL(fixturePath).toString();

@@ -2387,6 +2387,33 @@ suite('JSON Parser', () => {
 		}
 	});
 
+	for (const { multipleOf, values, expectedErrors } of [
+		{ multipleOf: 0.1, values: [0, 0.3, 1e30, 1e308, -1e308], expectedErrors: 0 },
+		{ multipleOf: 0.1, values: [0.31], expectedErrors: 1 },
+		{ multipleOf: 1e-310, values: [0, 1e-310, 2e-310, 1, 1e308], expectedErrors: 0 },
+		{ multipleOf: 1e-310, values: [5e-311], expectedErrors: 1 },
+		{ multipleOf: Number.MIN_VALUE, values: [0, Number.MIN_VALUE, 1, Number.MAX_VALUE], expectedErrors: 0 },
+		{ multipleOf: 10, values: [1e30, 1e308, -1e308], expectedErrors: 0 },
+		{ multipleOf: 10, values: [1, 1.5, 1e-310], expectedErrors: 1 },
+		{ multipleOf: 2e-16, values: [0, 2e-16, 1.234567890123456], expectedErrors: 0 },
+		{ multipleOf: 2e-16, values: [1.2345678901234567], expectedErrors: 1 },
+		{ multipleOf: 1e308, values: [0, 1e308, -1e308], expectedErrors: 0 },
+		{ multipleOf: 1e308, values: [1, Number.MIN_VALUE, 1e307], expectedErrors: 1 },
+		{ multipleOf: 0.3, values: [0.9, 1.2, 3e307], expectedErrors: 0 },
+		{ multipleOf: 0.3, values: [0.31, 1e308], expectedErrors: 1 },
+		{ multipleOf: 0, values: [1, 1e308], expectedErrors: 1 },
+	]) {
+		for (const value of values) {
+			test(`multipleOf ${multipleOf} with value ${value}`, function () {
+				const errors = validate(String(value), { type: 'number', multipleOf });
+				assert.strictEqual(errors!.length, expectedErrors);
+				if (expectedErrors) {
+					assertInMessage(errors![0].message, 'Value is not divisible by');
+				}
+			});
+		}
+	}
+
 	test('dependencies with array / dependentRequired', function () {
 		let schema: JSONSchema = {
 			type: 'object',
