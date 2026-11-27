@@ -255,6 +255,36 @@ suite('JSON Completion', () => {
 
 	});
 
+	test('Complete property with schema title as detail', async function () {
+		const schema: JSONSchema = {
+			type: 'object',
+			properties: {
+				'port': {
+					type: 'integer',
+					title: 'Port',
+					description: 'TCP port to bind.'
+				},
+				'host': {
+					type: 'string',
+					title: 'Host',
+					completionDetail: 'Custom detail'
+				},
+				'name': {
+					type: 'string',
+					description: 'No title here'
+				}
+			}
+		};
+		await testCompletionsFor('{|}', schema, {
+			count: 3,
+			items: [
+				{ label: 'port', detail: 'Port', documentation: 'TCP port to bind.' },
+				{ label: 'host', detail: 'Custom detail' },
+				{ label: 'name', documentation: 'No title here' }
+			]
+		});
+	});
+
 	test('Complete properties through $dynamicRef (2020-12)', async function () {
 		const schema: JSONSchema = {
 			$schema: 'https://json-schema.org/draft/2020-12/schema',
